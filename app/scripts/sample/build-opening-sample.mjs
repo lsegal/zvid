@@ -50,7 +50,7 @@ const MUSIC_CREDIT =
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
 const ICON_CREDIT =
-  '"bolt" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License.';
+  '"video-camera" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License.';
 
 const SOURCES = [
   { key: "orbit", name: "Orbit", file: "orbit.mp4" },
@@ -62,18 +62,18 @@ const MUSIC = {
   name: "Just Nasty",
   file: "just-nasty-30s.m4a",
 };
-const ICON = { key: "bolt", file: "bolt.svg" };
+const ICON = { key: "video-camera", file: "video-camera.svg" };
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
 // effect or arrangement touches them. The hidden icon layer is never drawn
-// itself: it is the Mask Target that cuts the 12 s shot to a bolt. The
+// itself: it is the Mask Target that cuts the 1.5 s shot to a camera. The
 // Audio layer holds only the music.
 const LAYERS = [
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
   { id: "transitions", name: "Transitions" },
-  { id: "icon-mask", name: "Mask · bolt icon", hidden: true },
+  { id: "icon-mask", name: "Mask · camera icon", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -260,6 +260,8 @@ addEffect(
     ),
   },
 );
+// The orbit opens out of the camera icon on the hidden layer.
+addEffect(captureShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
 // and crop, and the sources rotate between the panels. Odd cuts crop tight.
@@ -376,11 +378,9 @@ THREE_UPS.forEach((start, cutIndex) => {
   });
 });
 
-// Full-frame ribbon under the Pixelate window, seen only through the bolt
-// icon on the hidden layer.
-const boltShot = clipTrack(cut("ribbon", 1, 12, 3, 3));
-zoomAndPan(boltShot, { zoom: 1.05, x: 0.42 }, { zoom: 1.25, x: 0.58 });
-addEffect(boltShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
+// Full-frame ribbon under the Pixelate window.
+const ribbonShot = clipTrack(cut("ribbon", 1, 12, 3, 3));
+zoomAndPan(ribbonShot, { zoom: 1.05, x: 0.42 }, { zoom: 1.25, x: 0.58 });
 
 // ---- layer clips: Order, FX regions, titles, background ------------------
 
@@ -457,7 +457,7 @@ const transition = layerClip(
 addEffect(
   clipTrack(transition),
   "Transition",
-  { Type: "Push", Direction: "Left", Softness: 0.2 },
+  { Type: "Push", Direction: "Left", Softness: 0 },
   {
     animation: {
       enabled: true,
@@ -468,7 +468,7 @@ addEffect(
 );
 
 // Transitions across the cuts at bar 6 (15 s) and bar 7 (18 s): a Clock
-// Wipe sweeps the bolt shot round into the next three-up, and that three-up
+// Wipe sweeps the ribbon shot round into the next three-up, and that three-up
 // dissolves into the Vertical one after it.
 for (const [start, type] of [
   [15, "Clock Wipe"],
@@ -484,7 +484,7 @@ for (const [start, type] of [
   addEffect(
     clipTrack(id),
     "Transition",
-    { Type: type, Softness: 0.2 },
+    { Type: type, Softness: 0 },
     {
       animation: {
         enabled: true,
@@ -495,11 +495,13 @@ for (const [start, type] of [
   );
 }
 
-// The bolt icon the 12 s shot is masked by: a Custom Shape on the hidden
-// layer, kept square on the 16:9 canvas, that spins a quarter turn and
-// grows into place over the shot.
-const ICON_SIZE = 0.8;
-const icon = layerClip("fills", "fill-bolt-icon", "icon-mask", 12, 3);
+// The camera icon the 1.5 s shot is masked by: a Custom Shape on the hidden
+// layer, kept square on the 16:9 canvas, that grows from a small icon until
+// the camera's body covers the frame. The body sits left of the icon's
+// center, so the icon drifts right as it grows to keep the body centered.
+const ICON_SIZE = 6;
+const ICON_BODY_OFFSET = (12 - 8.625) / 24;
+const icon = layerClip("fills", "fill-camera-icon", "icon-mask", 1.5, 1.5);
 addEffect(clipTrack(icon), "Color", {
   Mode: "Solid",
   Color: LIGHT,
@@ -509,13 +511,13 @@ addEffect(clipTrack(icon), "Shape", {
   Shape: `Custom:${samplePath(ICON.file)}`,
 });
 addEffect(clipTrack(icon), "Move", {
-  Motion: "Ease Out",
+  Motion: "Ease In",
   ...transformValues("Start", {
-    scaleX: (0.2 * HEIGHT) / WIDTH,
-    scaleY: 0.2,
-    rotation: -90,
+    scaleX: (0.3 * HEIGHT) / WIDTH,
+    scaleY: 0.3,
   }),
   ...transformValues("End", {
+    x: (ICON_BODY_OFFSET * ICON_SIZE * HEIGHT) / WIDTH,
     scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
     scaleY: ICON_SIZE,
   }),

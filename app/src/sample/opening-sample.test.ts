@@ -284,12 +284,14 @@ describe("zvid opening sample", () => {
           clip.frameEnd / FPS,
           effect.effectName,
           stringParameter(effect, "Type"),
+          numberParameter(effect, "Softness"),
         ];
       }),
+      // Every transition is hard-edged.
       [
-        [11.5, 12.5, "Transition", "Push"],
-        [14.5, 15.5, "Transition", "Clock Wipe"],
-        [17.5, 18.5, "Transition", "Dissolve"],
+        [11.5, 12.5, "Transition", "Push", 0],
+        [14.5, 15.5, "Transition", "Clock Wipe", 0],
+        [17.5, 18.5, "Transition", "Dissolve", 0],
       ],
     );
     // Above the Order, so the arranged three-up is one comp.
@@ -297,7 +299,7 @@ describe("zvid opening sample", () => {
     assert.ok(layerIds.indexOf("transitions") < layerIds.indexOf("order"));
   });
 
-  it("shows the 12 s shot only through a bolt icon on a hidden layer", () => {
+  it("opens the 1.5 s orbit shot out of a camera icon on a hidden layer", () => {
     const iconLayer = session.mainTracks?.find(
       (layer) => layer.id === "icon-mask",
     );
@@ -314,25 +316,25 @@ describe("zvid opening sample", () => {
     );
     assert.deepEqual(
       icons.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
-      [[12, 15]],
+      [[1.5, 3]],
     );
     const iconEffects = effectsOn(`clip:${icons[0].id}`);
     assert.deepEqual(
       iconEffects.map((effect) => effect.effectName),
       ["Color", "Shape", "Move"],
     );
-    const bolt = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "bolt.svg",
+    const camera = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "video-camera.svg",
     );
-    assert.equal(bolt?.mediaType, "image/svg+xml");
+    assert.equal(camera?.mediaType, "image/svg+xml");
     assert.equal(
       stringParameter(iconEffects[1], "Shape"),
-      `Custom:${bolt?.path}`,
+      `Custom:${camera?.path}`,
     );
-    // The icon spins and grows in, square on the 16:9 canvas.
+    // The icon grows from small, square on the 16:9 canvas, until the
+    // camera's body (x 1.5–15.75, y 4.5–19.5 of its 24-unit box, centered
+    // by the Move's X) covers the whole frame.
     const move = iconEffects[2];
-    assert.equal(numberParameter(move, "StartRotation"), -90);
-    assert.equal(numberParameter(move, "EndRotation"), 0);
     for (const end of ["Start", "End"]) {
       assert.equal(
         Math.round(
@@ -342,22 +344,44 @@ describe("zvid opening sample", () => {
         1,
       );
     }
-    assert.ok(
-      (numberParameter(move, "StartScaleY") ?? 0) <
-        (numberParameter(move, "EndScaleY") ?? 0),
-    );
+    assert.ok((numberParameter(move, "StartScaleY") ?? 1) < 0.5);
+    const box = (numberParameter(move, "EndScaleY") ?? 0) * 1080;
+    const centerX = 960 + (numberParameter(move, "EndPositionX") ?? 0) * 1920;
+    const unit = box / 24;
+    const bodyLeft = centerX - box / 2 + 1.5 * unit;
+    const bodyRight = centerX - box / 2 + 15.75 * unit;
+    const bodyTop = 540 - box / 2 + 4.5 * unit;
+    const bodyBottom = 540 - box / 2 + 19.5 * unit;
+    // Inset by the body's 3-unit corner radius, so the corners are covered
+    // too.
+    assert.ok(bodyLeft + 3 * unit < 0 && bodyRight - 3 * unit > 1920);
+    assert.ok(bodyTop + 3 * unit < 0 && bodyBottom - 3 * unit > 1080);
 
-    // The full-frame ribbon shot under it, with no three-up, is masked by
-    // it.
-    const [shot] = clipsAt(videoSelections(), 13);
-    assert.equal(shot.mainTrackId, "ribbon");
-    assert.deepEqual([shot.frameStart / FPS, shot.frameEnd / FPS], [12, 15]);
+    // The full-frame orbit shot under "capture", with no three-up, is
+    // masked by it; the title above it is not.
+    const [shot] = clipsAt(videoSelections(), 2);
+    assert.equal(shot.mainTrackId, "orbit");
+    assert.deepEqual([shot.frameStart / FPS, shot.frameEnd / FPS], [1.5, 3]);
     const mask = effectsOn(`clip:selection-${shot.id}`).find(
       (effect) => effect.effectName === "Mask",
     );
     assert.ok(mask);
     assert.equal(stringParameter(mask, "Target"), "icon-mask");
     assert.equal(stringParameter(mask, "Mode"), "Additive");
+    const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
+    assert.ok(layerIds.indexOf("title-words") < layerIds.indexOf("icon-mask"));
+
+    // Nothing else is masked by the icon.
+    assert.deepEqual(
+      (session.effects ?? [])
+        .filter(
+          (effect) =>
+            effect.effectName === "Mask" &&
+            stringParameter(effect, "Target") === "icon-mask",
+        )
+        .map((effect) => effect.trackId),
+      [`clip:selection-${shot.id}`],
+    );
   });
 
   it("limits Pixelate, Negative Split and Analog Glitch to moving, turning boxes", () => {
@@ -606,10 +630,10 @@ describe("zvid opening sample", () => {
   });
 
   it("credits its icon in the manifest and CREDITS.md", () => {
-    const bolt = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "bolt.svg",
+    const camera = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "video-camera.svg",
     );
-    assert.match(bolt?.credit ?? "", /Heroicons by Tailwind Labs.*MIT/);
+    assert.match(camera?.credit ?? "", /Heroicons by Tailwind Labs.*MIT/);
     const credits = readFileSync(
       new URL(
         `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
@@ -617,7 +641,7 @@ describe("zvid opening sample", () => {
       ),
       "utf8",
     );
-    assert.match(credits, /^`bolt\.svg` is the "bolt" icon/m);
+    assert.match(credits, /^`video-camera\.svg` is the "video-camera" icon/m);
     assert.match(credits, /MIT License/);
   });
 

@@ -48,14 +48,14 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "\"Just Nasty\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). 2:00–2:30 excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
     },
     {
-      "id": "zvid-sample:opening-v2:bolt",
-      "path": "zvid-sample://opening-v2/bolt.svg",
-      "url": "/samples/opening-v2/bolt.svg",
-      "name": "bolt.svg",
+      "id": "zvid-sample:opening-v2:video-camera",
+      "path": "zvid-sample://opening-v2/video-camera.svg",
+      "url": "/samples/opening-v2/video-camera.svg",
+      "name": "video-camera.svg",
       "mediaType": "image/svg+xml",
-      "bytes": 367,
-      "sha256": "a24685e1bb9a4a777099f27a0bfab9d04f42471a5274282229515e91966ff1a3",
-      "credit": "\"bolt\" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License."
+      "bytes": 323,
+      "sha256": "d6930660e87b403dd6a853fa372027eedab9de69115f719347dd79131a174cd0",
+      "credit": "\"video-camera\" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License."
     }
   ]
 };
