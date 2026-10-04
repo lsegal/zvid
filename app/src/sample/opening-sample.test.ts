@@ -192,6 +192,33 @@ describe("zvid opening sample", () => {
     assert.notEqual(sourceAt("orbit", 3), sourceAt("orbit", 4.5));
   });
 
+  it("trims four three-up panels to enter or leave while an Order runs", () => {
+    // The layer's panel of the three-up cut at `cutSeconds`.
+    const at = (layer: string, cutSeconds: number) =>
+      videoSelections().find(
+        (selection) =>
+          selection.mainTrackId === layer &&
+          selection.frameStart >= cutSeconds * FPS &&
+          selection.frameStart < (cutSeconds + 1.5) * FPS,
+      );
+    const frameRange = (layer: string, cutSeconds: number) => {
+      const selection = at(layer, cutSeconds);
+      return [selection?.frameStart, selection?.frameEnd];
+    };
+    assert.deepEqual(frameRange("ribbon", 3), [101, 135]);
+    assert.deepEqual(frameRange("corridor", 3), [113, 135]);
+    assert.deepEqual(frameRange("ribbon", 4.5), [135, 169]);
+    assert.deepEqual(frameRange("ribbon", 6), [191, 225]);
+    // Trims, not slips: the source stays aligned with the timeline.
+    assert.equal(at("ribbon", 3)?.sourceOffsetSeconds, 3.4);
+    assert.equal(at("corridor", 3)?.sourceOffsetSeconds, 9.4);
+    assert.equal(at("ribbon", 4.5)?.sourceOffsetSeconds, -2.9);
+    assert.equal(at("ribbon", 6)?.sourceOffsetSeconds, 4);
+    // The other panels of those three-ups keep their full 1.5 s.
+    assert.deepEqual(frameRange("orbit", 3), [90, 135]);
+    assert.deepEqual(frameRange("corridor", 4.5), [135, 180]);
+  });
+
   it("pushes clips into Horizontal and Vertical Orders with per-clip spacing and margin", () => {
     const orders = (session.fxClips ?? [])
       .filter((clip) => clip.mainTrackId === "order")
