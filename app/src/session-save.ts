@@ -30,12 +30,15 @@ export function projectExportFilename(
   source: WorkspaceSessionSource,
   sessionName: string | null,
 ) {
-  const name = source.kind === "none" ? sessionName : source.name || sessionName;
+  const name =
+    source.kind === "none" ? sessionName : source.name || sessionName;
   const trimmed = basename(name?.trim() ?? "").replace(
     /\.(zvd|lvp|json|als)$/i,
     "",
   );
-  return trimmed ? `${trimmed}${PROJECT_FILE_EXTENSION}` : DEFAULT_PROJECT_FILENAME;
+  return trimmed
+    ? `${trimmed}${PROJECT_FILE_EXTENSION}`
+    : DEFAULT_PROJECT_FILENAME;
 }
 
 export type SaveableLane = {

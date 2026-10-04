@@ -38,7 +38,7 @@ describe("projectExportFilename", () => {
     const source: WorkspaceSessionSource = {
       kind: "path",
       name: "set.zvd",
-      path: "C:\Sessions\set.zvd",
+      path: "C:\\Sessions\\set.zvd",
     };
     const payload = serializeWorkspaceSession({
       history: { past: [], present: { clips: [] }, future: [] },

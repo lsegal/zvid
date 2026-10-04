@@ -19,7 +19,7 @@ import type {
   SessionMediaCheck,
   TimelineSelection,
 } from "../app/types.ts";
-import { basename, logClient, pluralize } from "../app/util.ts";
+import { logClient, pluralize } from "../app/util.ts";
 import { isArrangementEmptyStateDismissedOnOpen } from "../arrangement-empty-state.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { addDefaultGain } from "../default-gain.ts";
@@ -475,8 +475,7 @@ export function useSessionIO({
       playheadQ: playheadQRef.current,
       selectedClipId,
     });
-    const blob = new Blob([`${JSON.stringify(session, null, 2)}
-`], {
+    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
       type: "application/json",
     });
 

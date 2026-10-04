@@ -24,7 +24,9 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-test("File ▸ Export Project… downloads the session as a .zvd", async ({ page }) => {
+test("File ▸ Export Project… downloads the session as a .zvd", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -33,7 +35,9 @@ test("File ▸ Export Project… downloads the session as a .zvd", async ({ page
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Export Project…", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toMatch(/\.zvd$/);
@@ -81,7 +85,9 @@ test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen"
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Export Project…", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
   const saved = await readFile(await download.path(), "utf8");
   const session = JSON.parse(saved);

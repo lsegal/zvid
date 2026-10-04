@@ -29,7 +29,7 @@
   "[chromium-source-modules] › order-transform-crop.spec.ts › Order and Transform › keeps the spacing between slots to the border": 1.2,
   "[chromium-source-modules] › sample.spec.ts › File → Open Sample opens the editable sample with all its media": 14.7,
   "[chromium-source-modules] › sample.spec.ts › a failed download can be retried from the Media Sync dialog": 13.2,
-  "[chromium-source-modules] › sample.spec.ts › a saved copy of the sample reopens with its media still linked": 18.1,
+  "[chromium-source-modules] › sample.spec.ts › an exported copy of the sample reopens with its media still linked": 18.1,
   "[chromium-source-modules] › sample.spec.ts › an empty start opens the sample on its own": 9.2,
   "[chromium-source-modules] › sample.spec.ts › closing the session stops the sample's downloads": 4.5,
   "[chromium-source-modules] › sample.spec.ts › reopening the sample after a failed download tries it again": 9.5,
