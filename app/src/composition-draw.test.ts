@@ -85,8 +85,10 @@ function createRecordingGl() {
   const draws: DrawCall[] = [];
   // The framebuffer and color of every clear.
   const clears: Array<{ framebuffer: Handle | null; color: number[] }> = [];
-  // Arguments of every texImage2D call.
+  // Arguments of every texImage2D and texSubImage2D call, and of the
+  // texSubImage2D calls alone.
   const uploads: unknown[][] = [];
+  const subUploads: unknown[][] = [];
   const attribute = (index: number) => {
     let entry = state.attributes.get(index);
     if (!entry) {
@@ -163,6 +165,10 @@ function createRecordingGl() {
     texImage2D: (...args: never[]) => {
       uploads.push(args);
     },
+    texSubImage2D: (...args: never[]) => {
+      uploads.push(args);
+      subUploads.push(args);
+    },
     uniform2f: (location: { name: string }, x: number, y: number) => {
       state.uniforms[location.name] = [x, y];
     },
@@ -207,6 +213,7 @@ function createRecordingGl() {
     draws,
     clears,
     uploads,
+    subUploads,
     // Simulates another caller leaving unrelated vertex state behind.
     scramble() {
       state.program = handle("program");
@@ -879,7 +886,7 @@ describe("drawComposition text layers", () => {
   type TextCall = { text: string; x: number; y: number; font: string };
 
   // An OffscreenCanvas stand-in whose 2D context measures every character
-  // as half an em and records the text it draws.
+  // as half an em and records the text it draws since it was last cleared.
   class FakeTextCanvas {
     fills: TextCall[] = [];
     strokes: TextCall[] = [];
@@ -895,8 +902,8 @@ describe("drawComposition text layers", () => {
           /([\d.]+)px/.exec(String(this.context.font))?.[1] ?? "10",
         );
       const record =
-        (calls: TextCall[]) => (text: string, x: number, y: number) =>
-          calls.push({ text, x, y, font: String(this.context.font) });
+        (calls: "fills" | "strokes") => (text: string, x: number, y: number) =>
+          this[calls].push({ text, x, y, font: String(this.context.font) });
       this.context = {
         font: "10px sans-serif",
         letterSpacing: "0px",
@@ -905,11 +912,14 @@ describe("drawComposition text layers", () => {
           fontBoundingBoxAscent: size() * 0.8,
           fontBoundingBoxDescent: size() * 0.2,
         }),
-        fillText: record(this.fills),
-        strokeText: record(this.strokes),
+        fillText: record("fills"),
+        strokeText: record("strokes"),
         createLinearGradient: () => ({ addColorStop: () => undefined }),
         createRadialGradient: () => ({ addColorStop: () => undefined }),
-        clearRect: () => undefined,
+        clearRect: () => {
+          this.fills = [];
+          this.strokes = [];
+        },
         fillRect: () => undefined,
         strokeRect: () => undefined,
       };
@@ -1005,6 +1015,33 @@ describe("drawComposition text layers", () => {
     assert.equal(recording.uploads.length, 4);
     const canvas = recording.uploads[2].at(-1) as FakeTextCanvas;
     assert.deepEqual([canvas.width, canvas.height], [WIDTH / 2, HEIGHT]);
+  });
+
+  it("redraws text through one canvas, into storage of the same size", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [textLayer(HELLO)]);
+    drawFrame(resources, [textLayer({ ...HELLO, text: "Bye" })]);
+    drawFrame(resources, [textLayer({ ...HELLO, text: "Hi" })]);
+    assert.equal(recording.uploads.length, 3);
+    const canvases = new Set(recording.uploads.map((upload) => upload.at(-1)));
+    assert.equal(canvases.size, 1);
+    // Its storage is allocated once and written into after.
+    assert.equal(recording.subUploads.length, 2);
+    assert.equal((recording.uploads[2].at(-1) as FakeTextCanvas).fills[0].text, "Hi");
+
+    // A smaller box resizes the canvas and reallocates the storage.
+    drawFrame(resources, [textLayer({ ...HELLO, text: "Hi" }), textLayer(HELLO, 1)], {
+      arrangement: "horizontal",
+      gridSize: 2,
+      spacing: 0,
+    });
+    const last = recording.uploads.at(-1) as unknown[];
+    assert.equal(recording.subUploads.includes(last), false);
+    assert.deepEqual(
+      [(last.at(-1) as FakeTextCanvas).width, (last.at(-1) as FakeTextCanvas).height],
+      [WIDTH / 2, HEIGHT],
+    );
   });
 
   function transformedText(text: TextStyle, transform: LayerTransform) {

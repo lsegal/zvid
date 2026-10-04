@@ -108,6 +108,10 @@ export type WebGlResources = SourceTextures & {
   program: WebGLProgram;
   positionBuffer: WebGLBuffer;
   effectChain: EffectChainRenderer;
+  // Each frame's FX clip chains and the layers it draws, reused across
+  // frames rather than allocated for each.
+  fxSteps: Map<CompositeLayer, PreparedEffectStep[]>;
+  drawnLayers: CompositeLayer[];
   // Copies an FX clip's adjusted composite back into its box.
   fxMask: {
     program: WebGLProgram;
@@ -184,6 +188,8 @@ export function createWebGlResources(
     program,
     positionBuffer,
     effectChain: new EffectChainRenderer(gl, positionBuffer),
+    fxSteps: new Map<CompositeLayer, PreparedEffectStep[]>(),
+    drawnLayers: [] as CompositeLayer[],
     fxMask: {
       program: fxMaskProgram,
       texture: gl.getUniformLocation(fxMaskProgram, "uTexture"),
@@ -286,9 +292,18 @@ function quadAxes(
   };
 }
 
-function colorUniforms(visual: CompositeVisual) {
+// A layer's uniforms: `axes` with its color adjustments at `opacity`, built
+// as one object since it runs for every layer every frame.
+function layerUniforms(
+  axes: QuadAxes,
+  visual: CompositeVisual,
+  opacity: number,
+): CompositeUniforms {
   return {
-    opacity: visual.opacity,
+    axisX: axes.axisX,
+    axisY: axes.axisY,
+    offset: axes.offset,
+    opacity,
     brightness: visual.brightness,
     contrast: visual.contrast,
     saturation: visual.saturation,
@@ -513,15 +528,15 @@ function drawLayer(
     motion,
   });
   const { frame, halfExtents, translate, scissor } = placement;
-  let uniforms: CompositeUniforms = {
-    ...quadAxes(
+  let uniforms = layerUniforms(
+    quadAxes(
       [halfExtents.x, halfExtents.y],
       [translate.x, translate.y],
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
-    ...colorUniforms(entry.visual),
-    opacity: entry.visual.opacity * sourceOpacity,
-  };
+    entry.visual,
+    entry.visual.opacity * sourceOpacity,
+  );
 
   // A Transform moves the slot's content, so the layer is framed into its
   // slot first and that frame is drawn transformed: by the clip's own
@@ -560,8 +575,8 @@ function drawLayer(
     // The framed result already holds the layer's placement, so it fills
     // its slot exactly, or the box its Transforms move the slot to. A text
     // box already holds the Transforms' scale, so it is drawn without it.
-    uniforms = {
-      ...(transformed
+    uniforms = layerUniforms(
+      transformed
         ? matrixQuadAxes(
             frame,
             textBox?.matrix ??
@@ -576,9 +591,10 @@ function drawLayer(
             [frame.halfWidth, frame.halfHeight],
             [frame.centerX, frame.centerY],
             0,
-          )),
-      ...colorUniforms(entry.visual),
-    };
+          ),
+      entry.visual,
+      entry.visual.opacity,
+    );
   }
 
   bindCompositeState(resources, target.framebuffer, width, height);
@@ -612,7 +628,8 @@ export function drawComposition(
   // Each FX clip's chain, when it has one; an FX clip without effects
   // changes nothing, so it is skipped unless its Order arranges the layers
   // beneath it.
-  const fxSteps = new Map<CompositeLayer, PreparedEffectStep[]>();
+  const { fxSteps, drawnLayers } = resources;
+  fxSteps.clear();
   for (const entry of activeClips) {
     if (entry.fx && entry.isInBounds) {
       const steps = effectChain.prepare(entry.effectChain);
@@ -747,22 +764,23 @@ export function drawComposition(
   // FX clips and the layers the Order excludes take no slot, and a Grid has
   // one cell per arranged layer, so arranged layers past the last cell are
   // not drawn.
-  drawSteps(
-    planLayerDraws(
-      activeClips.filter((entry) =>
-        entry.fx
-          ? fxSteps.has(entry) ||
-            (entry.isInBounds && entry.order !== undefined)
-          : entry.isInBounds &&
-            (entry.fill ||
-              entry.text ||
-              mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
-      ),
-      order,
-    ),
-    sceneTarget,
-    0,
-  );
+  drawnLayers.length = 0;
+  for (const entry of activeClips) {
+    if (
+      entry.fx
+        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
+        : entry.isInBounds &&
+          (entry.fill ||
+            entry.text ||
+            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
+    ) {
+      drawnLayers.push(entry);
+    }
+  }
+  drawSteps(planLayerDraws(drawnLayers, order), sceneTarget, 0);
+  // Not kept past the frame, so removed clips can be collected.
+  fxSteps.clear();
+  drawnLayers.length = 0;
 
   gl.disable(gl.SCISSOR_TEST);
   if (scene && !groupSteps.length) {
