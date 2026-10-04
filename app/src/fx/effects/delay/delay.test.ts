@@ -8,12 +8,15 @@ import {
 import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import { type DecodedAudio, renderAudioMix } from "../../../audio-mix/mix.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   type AudioTempo,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
 } from "../../../audio-mix/processor.ts";
 import type { AudioMix } from "../../../audio-mix/resolve.ts";
+import { noteValueSeconds } from "../../../audio-mix/tempo.ts";
 import { addableEffectsFor, groupAddableEffects } from "../../../fx-chain.ts";
 import { definition as gainDefinition } from "../gain/definition.ts";
 import { processor as gainProcessor, gainStageAt } from "../gain/processor.ts";
@@ -21,9 +24,11 @@ import { EFFECT_DEFINITION_MODULES } from "../index.generated.ts";
 import { definition } from "./definition.ts";
 import {
   DELAY_EFFECT_NAME,
+  DelayDsp,
   delayTailSeconds,
   FEEDBACK_KEY,
   HIGH_CUT_KEY,
+  LONGEST_SYNCED_SECONDS,
   MIX_KEY,
   NOTE_KEY,
   NOTE_OPTIONS,
@@ -372,6 +377,126 @@ describe("Delay", () => {
     const bound = maxStep(tone) * (1 + moved / rampFrames) + 1e-6;
     assert.ok(maxStep(wet, TIME_FRAMES + 1) <= bound);
     assert.ok(bound < 0.1);
+  });
+});
+
+// Steady parameters, as the chain hands a settled stage to its processor.
+function steadyParams(numbers: Numbers, switches: Switches) {
+  const arrays = new Map<string, Float32Array>();
+  const block: AudioParameterBlock = {
+    number(key) {
+      let values = arrays.get(key);
+      if (!values) {
+        values = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        arrays.set(key, values);
+      }
+      return values;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  return block;
+}
+
+// Runs `input` straight through `effect` block by block, from timeline
+// second 0.
+function runProcessor(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  params: AudioParameterBlock,
+  tempo: AudioTempo = TEMPO,
+) {
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      { ...tempo, sampleRate: SAMPLE_RATE, timeSeconds: at / SAMPLE_RATE },
+    );
+  }
+  return output;
+}
+
+describe("Delay reset", () => {
+  const synced = steadyParams(
+    {
+      [TIME_KEY]: 100,
+      [FEEDBACK_KEY]: 0.6,
+      [HIGH_CUT_KEY]: 3000,
+      [MIX_KEY]: 0.5,
+    },
+    { [SYNC_KEY]: "On", [NOTE_KEY]: "1/8D", [PING_PONG_KEY]: "On" },
+  );
+
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const test = [sine(1, 220), impulse(1, 100)];
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runProcessor(used, [noise(1, 3), noise(1, 4)], synced);
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    assert.deepEqual(
+      runProcessor(used, test, synced),
+      runProcessor(fresh, test, synced),
+    );
+  });
+
+  it("keeps a line grown for a slow tempo, still sounding fresh", () => {
+    const bar = steadyParams(
+      { [FEEDBACK_KEY]: 0.5, [HIGH_CUT_KEY]: 20000, [MIX_KEY]: 1 },
+      { [SYNC_KEY]: "On", [NOTE_KEY]: "1 bar" },
+    );
+    const used = processor.createProcessor(SAMPLE_RATE, 1);
+    // A bar at 30 BPM is 8 s, past the line made up front.
+    runProcessor(used, [noise(1)], bar, {
+      bpm: 30,
+      signature: DEFAULT_TIME_SIGNATURE,
+    });
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 1);
+    const test = [impulse(4.5, 10)];
+    const slow = { bpm: 60, signature: DEFAULT_TIME_SIGNATURE };
+    assert.deepEqual(
+      runProcessor(used, test, bar, slow),
+      runProcessor(fresh, test, bar, slow),
+    );
+  });
+
+  it("holds the longest synced note without growing its line", () => {
+    // The session's signatures (app/constants.ts) at its slowest tempo.
+    for (const [numerator, denominator] of [
+      [4, 4],
+      [3, 4],
+      [5, 4],
+      [6, 8],
+      [7, 8],
+    ]) {
+      const signature = { numerator, denominator };
+      const seconds = noteValueSeconds("1 bar", { bpm: 60, signature }) ?? 0;
+      assert.ok(
+        seconds <= LONGEST_SYNCED_SECONDS,
+        `${numerator}/${denominator}`,
+      );
+    }
+    const dsp = new DelayDsp(SAMPLE_RATE, 1);
+    const lines = Reflect.get(dsp, "lines");
+    const frames = BLOCK_FRAMES;
+    const values = new Float32Array(frames).fill(0.5);
+    dsp.process([new Float32Array(frames)], [new Float32Array(frames)], {
+      frames,
+      sampleRate: SAMPLE_RATE,
+      syncedSeconds: LONGEST_SYNCED_SECONDS,
+      pingPong: false,
+      timeMs: values,
+      feedback: values,
+      highCut: new Float32Array(frames).fill(8000),
+      mix: values,
+    });
+    assert.equal(Reflect.get(dsp, "lines"), lines);
   });
 });
 

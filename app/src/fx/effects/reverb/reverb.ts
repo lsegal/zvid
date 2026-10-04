@@ -103,6 +103,7 @@ export function reverbTailSeconds(
   return decay + (preDelayMs + LONGEST_REFLECTION_MS * sizeScale(size)) / 1000;
 }
 
+// One block's settings, which each processor fills in again every block.
 export type ReverbBlock = {
   frames: number;
   sampleRate: number;
@@ -145,6 +146,11 @@ class DelayLine {
     this.buffer[this.write] = value;
     this.write = (this.write + 1) & this.mask;
   }
+
+  clear() {
+    this.buffer.fill(0);
+    this.write = 0;
+  }
 }
 
 class Allpass {
@@ -162,16 +168,23 @@ class Allpass {
     this.line.push(inner);
     return delayed - DIFFUSION * inner;
   }
+
+  clear() {
+    this.line.clear();
+  }
 }
 
-// The delays one Pre-delay and Size setting makes.
+// The delays one Pre-delay and Size setting makes. The reverb keeps a few
+// and sets them again for each new setting, so a change allocates nothing.
 class Shape {
-  readonly preDelayMs: number;
-  readonly size: number;
+  preDelayMs = Number.NaN;
+  size = Number.NaN;
   // The pre-delay in frames, read after that frame's push.
-  readonly preDelay: number;
+  preDelay = 0;
   // Each early reflection's delay per side, in frames, pre-delay included.
-  readonly reflections: Float64Array[];
+  readonly reflections = REFLECTION_MS.map(
+    (side) => new Float64Array(side.length),
+  );
   // Each FDN line's length in whole frames: interpolating inside the loop
   // would low-pass every pass and shorten the decay.
   readonly lengths = new Float64Array(LINES);
@@ -179,18 +192,21 @@ class Shape {
   readonly gains = new Float64Array(LINES);
   private decay = Number.NaN;
 
-  constructor(preDelayMs: number, size: number, sampleRate: number) {
+  set(preDelayMs: number, size: number, sampleRate: number) {
     this.preDelayMs = preDelayMs;
     this.size = size;
+    this.decay = Number.NaN;
     const scale = sizeScale(size);
     // The newest sample sits one frame back after the push.
     this.preDelay = 1 + (preDelayMs / 1000) * sampleRate;
-    this.reflections = REFLECTION_MS.map((side) =>
-      Float64Array.from(
-        side,
-        (ms) => this.preDelay + (ms / 1000) * scale * sampleRate,
-      ),
-    );
+    for (let side = 0; side < REFLECTION_MS.length; side++) {
+      const delays = this.reflections[side];
+      for (let tap = 0; tap < delays.length; tap++) {
+        delays[tap] =
+          this.preDelay +
+          (REFLECTION_MS[side][tap] / 1000) * scale * sampleRate;
+      }
+    }
     for (let line = 0; line < LINES; line++) {
       this.lengths[line] = Math.max(
         1,
@@ -230,7 +246,8 @@ export class ReverbDsp {
   private lastDamping = Number.NaN;
   private dampingCoefficient = 0;
   // The delays in use and, while fading to it, the next; a change that
-  // arrives mid-fade waits in `pending`.
+  // arrives mid-fade waits in `pending`. All three come from `shapes`.
+  private readonly shapes = [new Shape(), new Shape(), new Shape()];
   private shape: Shape | null = null;
   private next: Shape | null = null;
   private pending: Shape | null = null;
@@ -261,12 +278,45 @@ export class ReverbDsp {
     if (latest?.preDelayMs === preDelayMs && latest.size === size) {
       return;
     }
-    const shape = new Shape(preDelayMs, size, this.sampleRate);
+    // A waiting change is replaced; otherwise one of the three is free.
+    let shape = this.pending;
+    for (let at = 0; !shape; at++) {
+      const candidate = this.shapes[at];
+      if (candidate !== this.shape && candidate !== this.next) {
+        shape = candidate;
+      }
+    }
+    shape.set(preDelayMs, size, this.sampleRate);
     if (this.shape) {
       this.pending = shape;
     } else {
       this.shape = shape;
     }
+  }
+
+  // Back to silence, as constructed.
+  reset() {
+    for (let side = 0; side < 2; side++) {
+      this.preDelays[side].clear();
+      const diffusers = this.diffusers[side];
+      for (let at = 0; at < diffusers.length; at++) {
+        diffusers[at].clear();
+      }
+    }
+    for (let line = 0; line < LINES; line++) {
+      this.lines[line].clear();
+    }
+    this.damped.fill(0);
+    this.lastDamping = Number.NaN;
+    this.dampingCoefficient = 0;
+    this.shape = null;
+    this.next = null;
+    this.pending = null;
+    this.fade = 0;
+    this.wet[0] = 0;
+    this.wet[1] = 0;
+    this.diffused[0] = 0;
+    this.diffused[1] = 0;
   }
 
   process(
@@ -315,8 +365,9 @@ export class ReverbDsp {
           delayed += (line.read(to.preDelay) - delayed) * fade;
         }
         wet[side] = reflections * REFLECTION_LEVEL;
-        for (const diffuser of this.diffusers[side]) {
-          delayed = diffuser.process(delayed);
+        const diffusers = this.diffusers[side];
+        for (let at = 0; at < diffusers.length; at++) {
+          delayed = diffusers[at].process(delayed);
         }
         diffused[side] = delayed;
       }

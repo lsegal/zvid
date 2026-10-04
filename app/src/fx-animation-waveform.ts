@@ -44,23 +44,43 @@ export function lfoWaveform(shape: LfoShape, cycles: number, seed = "") {
   }
 }
 
+// A synced Rate parsed once: its count of bars, or its length in quarter
+// notes when it is a note value. The audio chain asks every block.
+const syncRateParts = new Map<
+  string,
+  { bars: number | undefined; quarters: number }
+>();
+
+function parseSyncRate(syncRate: LfoSyncRate) {
+  let parts = syncRateParts.get(syncRate);
+  if (!parts) {
+    const bars = /^(\d+) Bars?$/.exec(syncRate);
+    const [, divisor, modifier] = /^1\/(\d+)([DT]?)$/.exec(syncRate) ?? [];
+    const quarters = 4 / Number(divisor);
+    parts = {
+      bars: bars ? Number(bars[1]) : undefined,
+      quarters:
+        modifier === "D"
+          ? quarters * 1.5
+          : modifier === "T"
+            ? (quarters * 2) / 3
+            : quarters,
+    };
+    syncRateParts.set(syncRate, parts);
+  }
+  return parts;
+}
+
 // One cycle of a synced Rate in quarter notes. Bars follow the signature, so
 // a 6/8 bar is three quarters long.
 export function lfoSyncQuarters(
   syncRate: LfoSyncRate,
   signature: MeterSignature = COMMON_TIME,
 ) {
-  const bars = /^(\d+) Bars?$/.exec(syncRate);
-  if (bars) {
-    return Number(bars[1]) * signature.numerator * (4 / signature.denominator);
-  }
-  const [, divisor, modifier] = /^1\/(\d+)([DT]?)$/.exec(syncRate) ?? [];
-  const quarters = 4 / Number(divisor);
-  return modifier === "D"
-    ? quarters * 1.5
-    : modifier === "T"
-      ? (quarters * 2) / 3
-      : quarters;
+  const { bars, quarters } = parseSyncRate(syncRate);
+  return bars !== undefined
+    ? bars * signature.numerator * (4 / signature.denominator)
+    : quarters;
 }
 
 export type LfoTime = {

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { AudioChain, BLOCK_FRAMES } from "../../../audio-mix/chain.ts";
+import type {
+  AudioEffectProcessor,
+  AudioParameterBlock,
+} from "../../../audio-mix/processor.ts";
 import {
   type AudioStage,
   createProcessorRegistry,
@@ -296,5 +300,84 @@ describe("Bitcrush stage parameter changes", () => {
       assert.equal(settled[i], settled[i + 63], `frame ${i}`);
       assert.notEqual(settled[i - 1], settled[i], `frame ${i}`);
     }
+  });
+});
+
+// Runs `dsp` directly, two channels in host-sized blocks, with `numbers`
+// ramping in from `from` over the first two blocks, then holding.
+function renderDirect(
+  dsp: AudioEffectProcessor,
+  input: Float32Array,
+  numbers: Record<string, number>,
+  switches: Record<string, string>,
+  from: Record<string, number> = numbers,
+) {
+  const output = new Float32Array(input.length * 2);
+  for (let start = 0; start < input.length; start += BLOCK_FRAMES) {
+    const frames = Math.min(BLOCK_FRAMES, input.length - start);
+    const block = start / BLOCK_FRAMES;
+    const left = input.slice(start, start + frames);
+    const right = left.map((sample) => -0.5 * sample);
+    const out = [new Float32Array(frames), new Float32Array(frames)];
+    const ramping = (key: string) =>
+      block < 2 && from[key] !== undefined && from[key] !== numbers[key];
+    const valueAt = (key: string, frame: number) =>
+      ramping(key)
+        ? from[key] +
+          ((numbers[key] - from[key]) * (block * BLOCK_FRAMES + frame + 1)) /
+            (2 * BLOCK_FRAMES)
+        : (numbers[key] ?? 0);
+    const params: AudioParameterBlock = {
+      number: (key) =>
+        Float32Array.from({ length: frames }, (_, frame) =>
+          valueAt(key, frame),
+        ),
+      value: (key) => valueAt(key, frames - 1),
+      changing: ramping,
+      switch: (key) => switches[key] ?? "",
+    };
+    dsp.process([left, right], out, frames, params, {
+      ...TEMPO,
+      sampleRate: RATE,
+      timeSeconds: start / RATE,
+    });
+    output.set(out[0], start * 2);
+    output.set(out[1], start * 2 + frames);
+  }
+  return output;
+}
+
+describe("Bitcrush reset", () => {
+  it("processes exactly as a fresh processor would", () => {
+    // A fixed LCG, so the signal is the same every run.
+    let seed = 777;
+    const loud = new Float32Array(RATE / 4).map(() => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return (seed / 2 ** 32 - 0.5) * 1.8;
+    });
+    const probe = new Float32Array(RATE / 4).map(
+      (_, i) =>
+        (i < RATE / 8 ? 0.6 : 0.01) * Math.sin((2 * Math.PI * 5000 * i) / RATE),
+    );
+    const numbers = { Bits: 6, Downsample: 3, Mix: 1 };
+    const switches: Record<string, string> = {};
+    const used = processor.createProcessor(RATE, 2);
+    // Shorter than a hold, so it ends in the stretch the probe starts in:
+    // only a reset makes the probe take a fresh sample there.
+    renderDirect(
+      used,
+      loud.subarray(0, 2),
+      { Bits: 3.5, Downsample: 7, Mix: 0.4 },
+      {},
+      numbers,
+    );
+    used.reset();
+    const fresh = processor.createProcessor(RATE, 2);
+    const after = renderDirect(used, probe, numbers, switches);
+    const expected = renderDirect(fresh, probe, numbers, switches);
+    const mismatch = after.findIndex(
+      (sample, i) => !Object.is(sample, expected[i]),
+    );
+    assert.equal(mismatch, -1, `first differs at ${mismatch}`);
   });
 });

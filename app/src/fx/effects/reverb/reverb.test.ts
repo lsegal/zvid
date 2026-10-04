@@ -8,6 +8,8 @@ import {
 import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import { renderAudioMix } from "../../../audio-mix/mix.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -172,6 +174,49 @@ function maxStep(values: ArrayLike<number>, from = 1) {
   return max;
 }
 
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      {
+        ...TEMPO,
+        sampleRate: SAMPLE_RATE,
+        timeSeconds: fromSeconds + at / SAMPLE_RATE,
+      },
+    );
+  }
+  return output;
+}
+
 describe("Reverb", () => {
   it("passes the input through unchanged at Mix 0 %", () => {
     const input = [noise(1, 1), noise(1, 2)];
@@ -318,6 +363,38 @@ describe("Reverb", () => {
         `${JSON.stringify(change)} jumps ${maxStep(changed[0])}, not ${steady}`,
       );
     }
+  });
+});
+
+describe("Reverb reset", () => {
+  const settings = {
+    [DECAY_KEY]: 3,
+    [PRE_DELAY_KEY]: 30,
+    [SIZE_KEY]: 0.7,
+    [DAMPING_KEY]: 5000,
+    [MIX_KEY]: 0.5,
+  };
+
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runSettled(used, [noise(0.5, 2), noise(0.5, 3)], settings);
+    // A Size change, then a Pre-delay change while it still fades, so
+    // every one of the reverb's delay settings is in use.
+    runSettled(used, [noise(0.01, 4), noise(0.01, 5)], {
+      ...settings,
+      [SIZE_KEY]: 0.2,
+    });
+    runSettled(used, [noise(0.3, 6), noise(0.3, 7)], {
+      ...settings,
+      [PRE_DELAY_KEY]: 120,
+    });
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    const test = [impulse(1), sine(1)];
+    assert.deepEqual(
+      runSettled(used, test, settings),
+      runSettled(fresh, test, settings),
+    );
   });
 });
 

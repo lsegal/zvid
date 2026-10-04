@@ -35,6 +35,9 @@ const onePole: AudioEffectDsp = {
           }
         }
       },
+      reset() {
+        state.fill(0);
+      },
     };
   },
   tailSeconds: () => 0.05,
@@ -66,6 +69,10 @@ const delay: AudioEffectDsp = {
           at = length ? (at + 1) % length : 0;
         }
       },
+      reset() {
+        lines = [];
+        at = 0;
+      },
     };
   },
   latencyFrames: (settings) => settings.numbers.Frames ?? 0,
@@ -91,6 +98,12 @@ const echo: AudioEffectDsp = {
           at = (at + 1) % lines[0].length;
         }
       },
+      reset() {
+        for (const line of lines) {
+          line.fill(0);
+        }
+        at = 0;
+      },
     };
   },
   // Half as loud every 50 ms: well under a millionth after a second.
@@ -107,6 +120,7 @@ const clipper: AudioEffectDsp = {
         }
       }
     },
+    reset() {},
   }),
 };
 
@@ -118,6 +132,7 @@ const reverse: AudioEffectDsp = {
         output[channel].set(input[channel].subarray(0, frames));
       }
     },
+    reset() {},
   }),
   source: {
     readSeconds: (seconds, { startSeconds, endSeconds }) =>
@@ -142,6 +157,7 @@ const clock: AudioEffectDsp = {
         }
       }
     },
+    reset() {},
   }),
 };
 

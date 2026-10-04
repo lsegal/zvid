@@ -25,6 +25,25 @@ export type EffectUniformLocations = Record<
   WebGLUniformLocation | null
 >;
 
+// A picture a pass draws before its main shader, at a fraction of the
+// picture's size, such as a blurred copy to build a glow from. The stages
+// after it and the main shader read it through a sampler uniform named
+// `name`.
+export type EffectStage = {
+  name: string;
+  // Fragment shader body, as for EffectPass. It may sample `uTex` and the
+  // earlier stages' samplers, all at `vUv`.
+  fragmentSource: string;
+  uniforms: string[];
+  // `ctx.resolution` is the stage's own size.
+  setUniforms(
+    gl: WebGLRenderingContext,
+    loc: EffectUniformLocations,
+    params: EffectParameter[],
+    ctx: EffectContext,
+  ): void;
+};
+
 export type EffectPass = {
   effectName: string;
   // Fragment shader body. It samples `uTex` at `vUv`; the shared precision
@@ -37,10 +56,70 @@ export type EffectPass = {
     params: EffectParameter[],
     ctx: EffectContext,
   ): void;
+  // True when `params` leave the picture as it is, so the chain can skip
+  // the pass. Passes without it always run.
+  isIdentity?(params: EffectParameter[]): boolean;
+  // Drawn in order before the main shader, each `stageScale` of the
+  // picture's size on each side (see `stageSize`). A scale of 0 skips them,
+  // and the main shader must then not read them.
+  stages?: EffectStage[];
+  stageScale?(params: EffectParameter[], ctx: EffectContext): number;
 };
 
+// A stage's side, for a picture side `size` pixels long.
+export function stageSize(size: number, scale: number) {
+  return Math.max(1, Math.round(size * scale));
+}
+
+// Effect names and parameter keys come from a small set and are normalized
+// for every effect at every frame, so each is normalized once.
+const MAX_NORMALIZED_KEYS = 4096;
+const normalizedKeys = new Map<string, string>();
+
 export function normalizeEffectKey(key: string) {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let normalized = normalizedKeys.get(key);
+  if (normalized === undefined) {
+    normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalizedKeys.size >= MAX_NORMALIZED_KEYS) {
+      normalizedKeys.clear();
+    }
+    normalizedKeys.set(key, normalized);
+  }
+  return normalized;
+}
+
+// Lookup keys are the passes' own constant names, so each is normalized once.
+const normalizedLookupKeys = new Map<string, string>();
+
+function normalizeLookupKey(key: string) {
+  let normalized = normalizedLookupKeys.get(key);
+  if (normalized === undefined) {
+    normalized = normalizeEffectKey(key);
+    normalizedLookupKeys.set(key, normalized);
+  }
+  return normalized;
+}
+
+// Each parameter list indexed by normalized key, built once per list. A
+// parameter change produces a new list, so a list's index never goes stale.
+const parameterIndexes = new WeakMap<
+  EffectParameter[],
+  Map<string, EffectParameter>
+>();
+
+export function findEffectParameter(params: EffectParameter[], key: string) {
+  let index = parameterIndexes.get(params);
+  if (!index) {
+    index = new Map();
+    for (const parameter of params) {
+      const normalized = normalizeEffectKey(parameter.key);
+      if (!index.has(normalized)) {
+        index.set(normalized, parameter);
+      }
+    }
+    parameterIndexes.set(params, index);
+  }
+  return index.get(normalizeLookupKey(key));
 }
 
 export function readEffectNumber(
@@ -48,10 +127,7 @@ export function readEffectNumber(
   key: string,
   fallback: number,
 ) {
-  const target = normalizeEffectKey(key);
-  const parameter = params.find(
-    (candidate) => normalizeEffectKey(candidate.key) === target,
-  );
+  const parameter = findEffectParameter(params, key);
   if (!parameter) {
     return fallback;
   }

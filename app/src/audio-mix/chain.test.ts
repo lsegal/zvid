@@ -208,6 +208,7 @@ describe("AudioChain", () => {
             processed += 1;
             output[0].set(input[0].subarray(0, frames));
           },
+          reset() {},
         };
       },
       tailSeconds: () => BLOCK_FRAMES / SAMPLE_RATE,
@@ -227,6 +228,66 @@ describe("AudioChain", () => {
     run(chain, input);
     assert.equal(created, 1);
     assert.equal(processed, 2);
+  });
+
+  it("resets its processors after a seek or a bypass rather than making new ones", () => {
+    let created = 0;
+    let resets = 0;
+    const counting: AudioEffectDsp = {
+      effectName: "Counting",
+      createProcessor: () => {
+        created += 1;
+        return {
+          process(input, output, frames) {
+            output[0].set(input[0].subarray(0, frames));
+          },
+          reset() {
+            resets += 1;
+          },
+        };
+      },
+      tailSeconds: () => BLOCK_FRAMES / SAMPLE_RATE,
+    };
+    const stage = testStage("Counting", {}, { switches: { Mode: "a" } });
+    const chain = chainOf([stage], {}, createProcessorRegistry([counting]));
+    const sound = constant(4 * BLOCK_FRAMES);
+    run(chain, sound);
+    assert.deepEqual([created, resets], [1, 0]);
+
+    chain.reset();
+    run(chain, sound);
+    assert.deepEqual([created, resets], [1, 1]);
+
+    // Silent long enough to idle, then sounding again.
+    run(chain, new Float32Array(10 * BLOCK_FRAMES));
+    run(chain, sound);
+    assert.equal(created, 1);
+
+    // Bypassed until it stops, then enabled again.
+    chain.configure(settings([{ ...stage, enabled: false }]), TEMPO);
+    run(chain, sound);
+    chain.configure(settings([stage]), TEMPO);
+    run(chain, sound);
+    assert.deepEqual([created, resets], [1, 2]);
+
+    // The first switch change needs a second processor to crossfade to;
+    // later ones reuse the one faded out.
+    chain.configure(settings([{ ...stage, switches: { Mode: "b" } }]), TEMPO);
+    run(chain, sound);
+    chain.configure(settings([stage]), TEMPO);
+    run(chain, sound);
+    assert.deepEqual([created, resets], [2, 3]);
+  });
+
+  it("sounds after a reset exactly as a fresh chain does", () => {
+    const stages = [testStage(ECHO), testStage(ONE_POLE, { Cutoff: 500 })];
+    const input = Float32Array.from({ length: 4 * BLOCK_FRAMES }, (_, index) =>
+      Math.sin(index / 7),
+    );
+    const used = chainOf(stages);
+    run(used, input);
+    used.reset();
+    assert.deepEqual(run(used, input), run(chainOf(stages), input));
   });
 });
 

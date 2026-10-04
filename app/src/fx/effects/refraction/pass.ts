@@ -46,7 +46,10 @@ export function wavePhases(time: number, speed: number) {
 // the same on top-down layer textures and bottom-up framebuffers (`uDown`)
 // and at any aspect. The offset is scaled by `uAmount`, so Amount 0 samples
 // `vUv` exactly; `uChannel` scales it per channel for Dispersion and is 1
-// for every channel at Dispersion 0. Water moves only through its wave
+// for every channel at Dispersion 0, where one bent sample serves all three.
+// Water and Frosted Glass work out their slopes from the surface's formula
+// rather than sampling it around each pixel, which is several times
+// cheaper. Water moves only through its wave
 // phases, a function of the playhead time, so scrubbing to a time always
 // gives the same frame. Alpha keeps the layer's own, so transparent areas
 // stay clear.
@@ -62,38 +65,41 @@ export const pass: EffectPass = {
 
     float hash(vec2 i) { return fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453); }
 
-    float noise(vec2 x) {
+    // The gradient of smoothed value noise at x, from its four corner
+    // hashes, rather than from eight noise lookups around it.
+    vec2 noiseSlope(vec2 x) {
       vec2 i = floor(x);
       vec2 f = fract(x);
       vec2 u = f * f * (3.0 - 2.0 * f);
-      return mix(
-        mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-        u.y);
+      vec2 du = 6.0 * f * (1.0 - f);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      float k = a - b - c + d;
+      return du * vec2(b - a + k * u.y, c - a + k * u.x);
     }
 
-    float water(vec2 q) {
-      float w = sin(dot(q, vec2(0.8, 0.6)) * 1.7 + uWaveA.x
-        + 1.2 * sin(dot(q, vec2(-0.5, 0.87)) * 1.1 + uWaveA.y));
-      w += 0.6 * sin(dot(q, vec2(0.26, -0.97)) * 2.3 + uWaveB.x);
-      w += 0.4 * sin(dot(q, vec2(-0.9, -0.44)) * 3.1 - uWaveB.y);
-      return w;
+    // The gradient of the sum of Water's four waves at q, worked out
+    // rather than sampled.
+    vec2 waterSlope(vec2 q) {
+      float inner = dot(q, vec2(-0.5, 0.87)) * 1.1 + uWaveA.y;
+      float a = dot(q, vec2(0.8, 0.6)) * 1.7 + uWaveA.x + 1.2 * sin(inner);
+      return cos(a) * (vec2(1.36, 1.02) + 1.32 * cos(inner) * vec2(-0.5, 0.87))
+        + 1.38 * cos(dot(q, vec2(0.26, -0.97)) * 2.3 + uWaveB.x) * vec2(0.26, -0.97)
+        + 1.24 * cos(dot(q, vec2(-0.9, -0.44)) * 3.1 - uWaveB.y) * vec2(-0.9, -0.44);
     }
 
-    float frost(vec2 q) {
-      return noise(q) + 0.5 * noise(q * 2.03 + 17.0);
-    }
-
-    // The surface's slope at q, in feature units, roughly -1..1.
+    // The surface's slope at q, in feature units, roughly -1..1. Water is
+    // a sum of waves; Frosted Glass two octaves of value noise, eight
+    // features per unit.
     vec2 surface(vec2 q) {
       if (uType < 0.5) {
-        vec2 e = vec2(0.05, 0.0);
-        return 0.15 * vec2(water(q + e) - water(q - e), water(q + e.yx) - water(q - e.yx)) / (2.0 * e.x);
+        return 0.15 * waterSlope(q);
       }
       if (uType < 1.5) {
         vec2 f = q * 8.0;
-        vec2 e = vec2(0.1, 0.0);
-        return 0.5 * vec2(frost(f + e) - frost(f - e), frost(f + e.yx) - frost(f - e.yx)) / (2.0 * e.x);
+        return 0.5 * (noiseSlope(f) + 1.015 * noiseSlope(f * 2.03 + 17.0));
       }
       if (uType < 2.5) {
         return -2.0 * (fract(dot(q, uReed)) - 0.5) * uReed;
@@ -108,9 +114,12 @@ export const pass: EffectPass = {
       o.y *= uDown;
       vec4 base = texture2D(uTex, vUv);
       vec4 g = texture2D(uTex, clamp(vUv + o * uChannel.y, 0.0, 1.0));
-      float r = texture2D(uTex, clamp(vUv + o * uChannel.x, 0.0, 1.0)).r;
-      float b = texture2D(uTex, clamp(vUv + o * uChannel.z, 0.0, 1.0)).b;
-      gl_FragColor = vec4(mix(base.rgb, vec3(r, g.g, b), g.a), base.a);
+      vec3 bent = g.rgb;
+      if (uChannel.x != uChannel.z) {
+        bent.r = texture2D(uTex, clamp(vUv + o * uChannel.x, 0.0, 1.0)).r;
+        bent.b = texture2D(uTex, clamp(vUv + o * uChannel.z, 0.0, 1.0)).b;
+      }
+      gl_FragColor = vec4(mix(base.rgb, bent, g.a), base.a);
     }
   `,
   uniforms: [
@@ -156,5 +165,9 @@ export const pass: EffectPass = {
     const [a, b, c, d] = wavePhases(ctx.time, speed);
     gl.uniform2f(loc.uWaveA, a, b);
     gl.uniform2f(loc.uWaveB, c, d);
+  },
+  // Amount 0 sees straight through the surface.
+  isIdentity(params) {
+    return clampUnit(readEffectNumber(params, "_Amount", 0.3)) <= 0;
   },
 };

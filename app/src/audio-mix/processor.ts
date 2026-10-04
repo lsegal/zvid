@@ -48,7 +48,8 @@ export type AudioParameterBlock = {
 export type AudioEffectProcessor = {
   // Processes one block: `input` and `output` hold one array per channel,
   // each `frames` long. Output never aliases input. A processor holds its
-  // own state between blocks; the host makes a fresh one to reset it.
+  // own state between blocks. It runs in the audio thread, so it allocates
+  // nothing once it has been created.
   process(
     input: readonly Float32Array[],
     output: Float32Array[],
@@ -56,7 +57,27 @@ export type AudioEffectProcessor = {
     params: AudioParameterBlock,
     time: AudioBlockTime,
   ): void;
+  // Returns it to the state it was created in, without allocating: after a
+  // reset it processes exactly as a fresh processor would. The host resets
+  // a processor after a seek or a silence rather than making a new one.
+  reset(): void;
 };
+
+// Copies the first `frames` frames of `from` into `to` without making a
+// subarray view.
+export function copyFrames(
+  from: Float32Array,
+  to: Float32Array,
+  frames: number,
+) {
+  if (frames === from.length && frames <= to.length) {
+    to.set(from);
+    return;
+  }
+  for (let index = 0; index < frames; index++) {
+    to[index] = from[index];
+  }
+}
 
 // Changes what a clip reads from its media rather than processing its sound
 // (Reverse). Offline renders read the mapped span; the preview switches the

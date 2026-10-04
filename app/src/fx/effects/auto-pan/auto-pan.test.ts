@@ -7,6 +7,8 @@ import {
 } from "../../../audio-mix/chain.ts";
 import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -156,6 +158,49 @@ function positionOf(leftGain: number, rightGain: number) {
 }
 
 const frameAt = (seconds: number) => Math.round(seconds * SAMPLE_RATE);
+
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      {
+        ...TEMPO,
+        sampleRate: SAMPLE_RATE,
+        timeSeconds: fromSeconds + at / SAMPLE_RATE,
+      },
+    );
+  }
+  return output;
+}
 
 describe("Auto Pan", () => {
   it("passes the input through unchanged at Depth 0 %", () => {
@@ -354,6 +399,36 @@ describe("Auto Pan", () => {
   });
 });
 
+describe("Auto Pan reset", () => {
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const free = { [SYNC_KEY]: "Off", [SHAPE_KEY]: "Square" };
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runSettled(
+      used,
+      [noise(0.5, 2), noise(0.5, 3)],
+      { [RATE_KEY]: 3, [DEPTH_KEY]: 0.8 },
+      free,
+    );
+    // A live Rate change leaves the LFO's phase off the timeline's (by a
+    // fraction of a cycle, which a whole one would not).
+    runSettled(
+      used,
+      [noise(0.2, 4), noise(0.2, 5)],
+      { [RATE_KEY]: 7, [DEPTH_KEY]: 0.8 },
+      free,
+      0.55,
+    );
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    const test = centeredTone(1);
+    const numbers = { [RATE_KEY]: 7, [DEPTH_KEY]: 0.8 };
+    assert.deepEqual(
+      runSettled(used, test, numbers, free),
+      runSettled(fresh, test, numbers, free),
+    );
+  });
+});
+
 describe("autoPanLfo", () => {
   it("starts each shape at the center, heading right", () => {
     for (const shape of SHAPE_OPTIONS) {
@@ -376,6 +451,12 @@ describe("autoPanGains", () => {
     assert.ok(Math.abs(left - 1) < 1e-12 && Math.abs(right - 1) < 1e-12);
     assert.ok(Math.abs(autoPanGains(1)[0]) < 1e-12);
     assert.ok(Math.abs(autoPanGains(-1)[1]) < 1e-12);
+  });
+
+  it("writes into the pair it is given, for the audio thread to reuse", () => {
+    const out: [number, number] = [0, 0];
+    assert.equal(autoPanGains(0.3, out), out);
+    assert.deepEqual(out, autoPanGains(0.3));
   });
 });
 

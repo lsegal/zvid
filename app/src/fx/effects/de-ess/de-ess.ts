@@ -86,6 +86,9 @@ export function createEnvelopeFollower(sampleRate: number) {
       envelope = level + (envelope - level) * coefficient;
       return envelope;
     },
+    reset() {
+      envelope = 0;
+    },
   };
 }
 
@@ -102,6 +105,14 @@ export class SvfCoefficients {
   constructor(sampleRate: number, q: number) {
     this.sampleRate = sampleRate;
     this.k = 1 / q;
+  }
+
+  // Back to its constructed state, so the next set() recomputes.
+  reset() {
+    this.a1 = 0;
+    this.a2 = 0;
+    this.a3 = 0;
+    this.hz = Number.NaN;
   }
 
   set(hz: number) {
@@ -125,6 +136,13 @@ export class Svf {
   band = 0;
   private ic1 = 0;
   private ic2 = 0;
+
+  reset() {
+    this.low = 0;
+    this.band = 0;
+    this.ic1 = 0;
+    this.ic2 = 0;
+  }
 
   process(sample: number, c: SvfCoefficients) {
     const v3 = sample - this.ic2;

@@ -160,6 +160,7 @@ export type SourceSpanDragState = {
   pointerId: number;
   spanId: string;
   pointerStartX: number;
+  pointerStartY: number;
 };
 
 export type TimelineDragState = {

@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import {
   bucketTargetSize,
   EffectChainRenderer,
@@ -11,6 +12,7 @@ import {
   wholeTexture,
 } from "./chain.ts";
 import { resolveEffectChain } from "./registry.ts";
+import type { EffectPass } from "./types.ts";
 
 type Handle = { kind: string; id: number };
 
@@ -26,6 +28,7 @@ function createCountingGl() {
   const textureSizes: Array<[number, number]> = [];
   const uniforms: Record<string, number[]> = {};
   const draws: Array<Record<string, number[]>> = [];
+  const viewports: Array<[number, number]> = [];
   const create = (kind: "texture" | "framebuffer") => () => {
     const handle = { kind, id: nextId++ };
     created[kind]++;
@@ -57,6 +60,9 @@ function createCountingGl() {
     uniform2f: (location: { name: string }, x: number, y: number) => {
       uniforms[location.name] = [x, y];
     },
+    viewport: (_x: number, _y: number, width: number, height: number) => {
+      viewports.push([width, height]);
+    },
     drawArrays: () => {
       draws.push({ ...uniforms });
     },
@@ -79,6 +85,7 @@ function createCountingGl() {
     shaderSources,
     textureSizes,
     draws,
+    viewports,
   };
 }
 
@@ -89,21 +96,28 @@ const CONTEXT = {
   bottomUp: false,
 };
 
-function colorizeChain(renderer: EffectChainRenderer) {
+function prepareEffects(
+  renderer: EffectChainRenderer,
+  effects: Array<[string, Record<string, number>]>,
+) {
   return renderer.prepare(
     resolveEffectChain(
-      [
-        {
-          trackId: "lane",
-          effectName: "Colorize",
-          parameters: [
-            { key: "_HueOffset", value: "0.25", numericValue: 0.25 },
-          ],
-        },
-      ],
+      effects.map(([effectName, values]) => ({
+        trackId: "lane",
+        effectName,
+        parameters: Object.entries(values).map(([key, value]) => ({
+          key,
+          value: String(value),
+          numericValue: value,
+        })),
+      })),
       "lane",
     ),
   );
+}
+
+function colorizeChain(renderer: EffectChainRenderer) {
+  return prepareEffects(renderer, [["Colorize", { _HueOffset: 0.25 }]]);
 }
 
 describe("bucketTargetSize", () => {
@@ -281,5 +295,227 @@ describe("EffectChainRenderer pooled targets", () => {
     );
     assert.deepEqual(recording.draws[0].uFxUvScale, [1, 1]);
     assert.deepEqual(recording.draws[0].uFxUvMax, [1, 1]);
+  });
+});
+
+describe("EffectChainRenderer neutral effects", () => {
+  it("prepares no step for an effect at its neutral settings", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = prepareEffects(renderer, [
+      ["Bloom", { _Intensity: 0 }],
+      ["Caustics", { _Intensity: 0, _Warp: 0 }],
+      ["Refraction", { _Amount: 0 }],
+      ["Distortion", { _Amount: 0 }],
+      ["Colorize", { _HueOffset: 0 }],
+      ["NegativeSplit", { _LowIntensity: 0, _HighIntensity: 0 }],
+      ["Pixelate", { _NumPixels: 0 }],
+      ["DigitalGlitch", { _Amount: 0 }],
+      ["AnalogGlitch", { _LowMod: 0, _HighMod: 0 }],
+      ["ZoomAndPan", { _Start_Zoom: 0, _End_Zoom: 0, _End_X: 0.2 }],
+    ]);
+    assert.deepEqual(steps, []);
+    // Nothing is compiled for them either.
+    assert.deepEqual(recording.shaderSources, []);
+  });
+
+  it("keeps the steps that change the picture, in order", () => {
+    const renderer = new EffectChainRenderer(
+      createCountingGl().gl,
+      {} as WebGLBuffer,
+    );
+    const steps = prepareEffects(renderer, [
+      ["Caustics", { _Intensity: 0, _Warp: 0.2 }],
+      ["Bloom", { _Intensity: 0 }],
+      ["Pixelate", { _NumPixels: 0.5 }],
+    ]);
+    assert.deepEqual(
+      steps.map((step) => step.compiled.pass.effectName),
+      ["Caustics", "Pixelate"],
+    );
+  });
+});
+
+describe("EffectChainRenderer precompile", () => {
+  // A main program per pass, and one per stage.
+  const PROGRAMS = EFFECT_PASSES.reduce(
+    (count, pass) => count + 1 + (pass.stages?.length ?? 0),
+    0,
+  );
+
+  it("compiles every pass up front and none on first use", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.precompile(EFFECT_PASSES);
+    // A vertex and a fragment shader per program.
+    assert.equal(recording.shaderSources.length, PROGRAMS * 2);
+    renderer.precompile(EFFECT_PASSES);
+    renderer.settlePrecompiled();
+    const steps = colorizeChain(renderer);
+    assert.equal(steps.length, 1);
+    assert.equal(recording.shaderSources.length, PROGRAMS * 2);
+  });
+
+  it("checks finished programs early when the driver can say", () => {
+    const recording = createCountingGl();
+    const checked: string[] = [];
+    const gl = new Proxy(recording.gl, {
+      get(target, property) {
+        if (property === "getExtension") {
+          return () => ({ COMPLETION_STATUS_KHR: "COMPLETION_STATUS_KHR" });
+        }
+        if (property === "getProgramParameter") {
+          return (_program: unknown, name: string) => {
+            checked.push(name);
+            return true;
+          };
+        }
+        return Reflect.get(target, property);
+      },
+    });
+    const renderer = new EffectChainRenderer(gl, {} as WebGLBuffer);
+    renderer.precompile(EFFECT_PASSES);
+    assert.deepEqual(checked, []);
+    renderer.settlePrecompiled();
+    assert.equal(
+      checked.filter((name) => name === "LINK_STATUS").length,
+      PROGRAMS,
+    );
+    checked.length = 0;
+    renderer.settlePrecompiled();
+    colorizeChain(renderer);
+    assert.deepEqual(checked, []);
+  });
+});
+
+describe("EffectChainRenderer Order targets", () => {
+  it("reuses a depth's target across sizes in the same bucket", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(1920, 1080);
+    // An Order whose Transform scale animates a pixel or two a frame.
+    const targets = new Set(
+      [1000, 1001, 1003, 1020].map(
+        (width) => renderer.getArrangementTarget(0, width, 500).framebuffer,
+      ),
+    );
+    assert.equal(targets.size, 1);
+    assert.deepEqual(recording.textureSizes, [[1024, 512]]);
+    const region = renderer.getArrangementTarget(0, 1000, 500).region;
+    assert.deepEqual(region.uvScale, [1000 / 1024, 500 / 512]);
+  });
+
+  it("gives a nested arrangement its own target", () => {
+    const renderer = new EffectChainRenderer(
+      createCountingGl().gl,
+      {} as WebGLBuffer,
+    );
+    const outer = renderer.getArrangementTarget(0, 640, 360);
+    const inner = renderer.getArrangementTarget(1, 320, 180);
+    assert.notEqual(outer.framebuffer, inner.framebuffer);
+  });
+
+  it("frees its Order targets when the surface changes size", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(1920, 1080);
+    renderer.getArrangementTarget(0, 640, 360);
+    renderer.syncSurface(1280, 720);
+    assert.equal(recording.liveCount("texture"), 0);
+    assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+});
+
+describe("EffectChainRenderer stages", () => {
+  // A pass that draws two stages at `scale` before its main shader: the
+  // second reads the first, and the main shader reads both.
+  function stagedPass(scale: number): EffectPass {
+    const stage = (name: string, source: string) => ({
+      name,
+      fragmentSource: source,
+      uniforms: ["uSize"],
+      setUniforms(
+        gl: WebGLRenderingContext,
+        loc: Record<string, WebGLUniformLocation | null>,
+        _params: unknown,
+        ctx: { resolution: [number, number] },
+      ) {
+        gl.uniform2f(loc.uSize, ...ctx.resolution);
+      },
+    });
+    return {
+      effectName: "Staged",
+      stages: [
+        stage("uFirst", "void main() { gl_FragColor = texture2D(uTex, vUv); }"),
+        stage(
+          "uSecond",
+          "void main() { gl_FragColor = texture2D(uFirst, vUv) + texture2D(uTex, vUv); }",
+        ),
+      ],
+      stageScale: () => scale,
+      fragmentSource:
+        "void main() { gl_FragColor = texture2D(uSecond, vUv) + texture2D( uFirst, vUv) + texture2D(uTex, vUv); }",
+      uniforms: [],
+      setUniforms() {},
+    };
+  }
+
+  it("reads the input as usual and the earlier stages through their own mapping", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.prepare([{ pass: stagedPass(0.5), parameters: [] }]);
+    const [first, second, main] = recording.shaderSources.filter((source) =>
+      source.includes("uFxUvScale"),
+    );
+    assert.doesNotMatch(first, /fxStageTexture2D/);
+    assert.match(first, /fxTexture2D\(uTex, vUv\)/);
+    assert.match(second, /fxStageTexture2D\(uFirst, vUv\)/);
+    assert.match(main, /fxStageTexture2D\(uSecond, vUv\)/);
+    assert.match(main, /fxStageTexture2D\(uFirst, vUv\)/);
+    assert.match(main, /fxTexture2D\(uTex, vUv\)/);
+  });
+
+  it("draws the stages at their scale before the pass, in pooled targets", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = renderer.prepare([
+      { pass: stagedPass(0.25), parameters: [] },
+    ]);
+    const layer = renderer.getLayerTarget(200, 100);
+    for (let frame = 0; frame < 3; frame++) {
+      renderer.run(layer.region, 200, 100, steps, CONTEXT);
+    }
+    // Two 50×25 stages, then the 200×100 pass, every frame.
+    assert.deepEqual(recording.viewports.slice(0, 3), [
+      [50, 25],
+      [50, 25],
+      [200, 100],
+    ]);
+    assert.deepEqual(
+      recording.draws.slice(0, 2).map((draw) => draw.uSize),
+      [
+        [50, 25],
+        [50, 25],
+      ],
+    );
+    // In the corner of a 64×64 stage target.
+    assert.deepEqual(recording.draws[2].uFxStageUvScale, [50 / 64, 25 / 64]);
+    assert.deepEqual(recording.draws[2].uFxStageUvMax, [49.5 / 64, 24.5 / 64]);
+    // The layer target, two ping-pong targets and two stage targets,
+    // allocated once.
+    assert.equal(recording.created.texture, 5);
+
+    renderer.dispose();
+    assert.equal(recording.liveCount("texture"), 0);
+    assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+
+  it("skips the stages at a scale of 0", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = renderer.prepare([{ pass: stagedPass(0), parameters: [] }]);
+    renderer.run(wholeTexture({} as WebGLTexture), 200, 100, steps, CONTEXT);
+    assert.deepEqual(recording.viewports, [[200, 100]]);
+    assert.equal(recording.created.texture, 2);
   });
 });

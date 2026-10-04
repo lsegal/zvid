@@ -42,16 +42,17 @@ import {
   type Matrix2D,
   matrixQuadAxes,
   type QuadAxes,
+  quadAxes,
   resolveVisualTextBox,
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
 import type { FillPaint } from "./fill-paint.ts";
+import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   EffectChainRenderer,
   type PreparedEffectStep,
-  type RenderTarget,
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
@@ -108,6 +109,9 @@ export type WebGlResources = SourceTextures & {
   program: WebGLProgram;
   positionBuffer: WebGLBuffer;
   effectChain: EffectChainRenderer;
+  // A frame's FX clip chains and the layers it draws, reused each frame.
+  fxSteps: Map<CompositeLayer, PreparedEffectStep[]>;
+  drawnLayers: CompositeLayer[];
   // Copies an FX clip's adjusted composite back into its box.
   fxMask: {
     program: WebGLProgram;
@@ -178,12 +182,16 @@ export function createWebGlResources(
     FX_MASK_VERTEX_SOURCE,
     FX_MASK_FRAGMENT_SOURCE,
   );
+  const effectChain = new EffectChainRenderer(gl, positionBuffer);
+  effectChain.precompile(EFFECT_PASSES);
 
   return {
     ...createSourceTextures(gl),
     program,
     positionBuffer,
-    effectChain: new EffectChainRenderer(gl, positionBuffer),
+    effectChain,
+    fxSteps: new Map<CompositeLayer, PreparedEffectStep[]>(),
+    drawnLayers: [] as CompositeLayer[],
     fxMask: {
       program: fxMaskProgram,
       texture: gl.getUniformLocation(fxMaskProgram, "uTexture"),
@@ -270,25 +278,18 @@ function drawQuad(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
-// Quad axes for a quad scaled by `scale`, turned clockwise by `radians` in
-// clip space and centered on `translate`.
-function quadAxes(
-  scale: [number, number],
-  translate: [number, number],
-  radians: number,
-): QuadAxes {
-  const s = Math.sin(radians);
-  const c = Math.cos(radians);
+// A layer's uniforms: `axes` with its color adjustments at `opacity`, built
+// as one object since it runs for every layer every frame.
+function layerUniforms(
+  axes: QuadAxes,
+  visual: CompositeVisual,
+  opacity: number,
+): CompositeUniforms {
   return {
-    axisX: [c * scale[0], -s * scale[0]],
-    axisY: [s * scale[1], c * scale[1]],
-    offset: translate,
-  };
-}
-
-function colorUniforms(visual: CompositeVisual) {
-  return {
-    opacity: visual.opacity,
+    axisX: axes.axisX,
+    axisY: axes.axisY,
+    offset: axes.offset,
+    opacity,
     brightness: visual.brightness,
     contrast: visual.contrast,
     saturation: visual.saturation,
@@ -337,7 +338,7 @@ function renderLayerFrame(
 // layer's and the clip's Transforms move it.
 function applyFxClip(
   resources: WebGlResources,
-  scene: RenderTarget,
+  scene: { framebuffer: WebGLFramebuffer; region: TextureRegion },
   surface: CompositeSurface,
   entry: CompositeLayer,
   steps: PreparedEffectStep[],
@@ -345,7 +346,7 @@ function applyFxClip(
 ) {
   const { gl, effectChain, fxMask } = resources;
   const { width, height } = surface;
-  const source = wholeTexture(scene.texture);
+  const source = scene.region;
   const adjusted = effectChain.run(source, width, height, steps, {
     time: frameContext.time,
     clipProgress: entry.clipProgress,
@@ -395,7 +396,7 @@ type StackTarget = {
   framebuffer: WebGLFramebuffer | null;
   width: number;
   height: number;
-  texture?: WebGLTexture;
+  region?: TextureRegion;
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
@@ -513,15 +514,15 @@ function drawLayer(
     motion,
   });
   const { frame, halfExtents, translate, scissor } = placement;
-  let uniforms: CompositeUniforms = {
-    ...quadAxes(
+  let uniforms = layerUniforms(
+    quadAxes(
       [halfExtents.x, halfExtents.y],
       [translate.x, translate.y],
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
-    ...colorUniforms(entry.visual),
-    opacity: entry.visual.opacity * sourceOpacity,
-  };
+    entry.visual,
+    entry.visual.opacity * sourceOpacity,
+  );
 
   // A Transform moves the slot's content, so the layer is framed into its
   // slot first and that frame is drawn transformed: by the clip's own
@@ -560,8 +561,8 @@ function drawLayer(
     // The framed result already holds the layer's placement, so it fills
     // its slot exactly, or the box its Transforms move the slot to. A text
     // box already holds the Transforms' scale, so it is drawn without it.
-    uniforms = {
-      ...(transformed
+    uniforms = layerUniforms(
+      transformed
         ? matrixQuadAxes(
             frame,
             textBox?.matrix ??
@@ -576,9 +577,10 @@ function drawLayer(
             [frame.halfWidth, frame.halfHeight],
             [frame.centerX, frame.centerY],
             0,
-          )),
-      ...colorUniforms(entry.visual),
-    };
+          ),
+      entry.visual,
+      entry.visual.opacity,
+    );
   }
 
   bindCompositeState(resources, target.framebuffer, width, height);
@@ -608,11 +610,13 @@ export function drawComposition(
   const { width, height } = surface;
   beginTextureDraw(resources, mediaRefs);
   effectChain.syncSurface(width, height);
+  effectChain.settlePrecompiled();
   const groupSteps = effectChain.prepare(groupChain);
   // Each FX clip's chain, when it has one; an FX clip without effects
   // changes nothing, so it is skipped unless its Order arranges the layers
   // beneath it.
-  const fxSteps = new Map<CompositeLayer, PreparedEffectStep[]>();
+  const { fxSteps, drawnLayers } = resources;
+  fxSteps.clear();
   for (const entry of activeClips) {
     if (entry.fx && entry.isInBounds) {
       const steps = effectChain.prepare(entry.effectChain);
@@ -627,10 +631,11 @@ export function drawComposition(
     groupSteps.length || fxSteps.size
       ? effectChain.getSceneTarget(width, height)
       : null;
-  const sceneTarget: StackTarget = scene ?? {
-    framebuffer: null,
+  const sceneTarget: StackTarget = {
+    framebuffer: scene?.framebuffer ?? null,
     width,
     height,
+    region: scene ? wholeTexture(scene.texture) : undefined,
   };
   bindCompositeState(resources, sceneTarget.framebuffer, width, height);
   // The Global Order's border fills its gaps and empty cells.
@@ -660,14 +665,10 @@ export function drawComposition(
         settled = drawn && settled;
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
-      } else if (target.texture && target.framebuffer) {
+      } else if (target.region && target.framebuffer) {
         applyFxClip(
           resources,
-          {
-            ...target,
-            texture: target.texture,
-            framebuffer: target.framebuffer,
-          },
+          { framebuffer: target.framebuffer, region: target.region },
           { width: target.width, height: target.height },
           step.entry,
           fxSteps.get(step.entry) ?? [],
@@ -704,11 +705,11 @@ export function drawComposition(
     bindCompositeState(resources, target.framebuffer, size.width, size.height);
     gl.clearColor(...borderClearColor(step.order));
     gl.clear(gl.COLOR_BUFFER_BIT);
-    drawSteps(step.steps, target, depth + 1);
+    drawSteps(step.steps, { ...size, ...target }, depth + 1);
     gl.disable(gl.SCISSOR_TEST);
 
     // The FX clip's other effects run on the arranged layers.
-    const arrangement = wholeTexture(target.texture);
+    const arrangement = target.region;
     const steps = fxSteps.get(entry) ?? [];
     const arranged = steps.length
       ? (effectChain.run(arrangement, size.width, size.height, steps, {
@@ -747,22 +748,20 @@ export function drawComposition(
   // FX clips and the layers the Order excludes take no slot, and a Grid has
   // one cell per arranged layer, so arranged layers past the last cell are
   // not drawn.
-  drawSteps(
-    planLayerDraws(
-      activeClips.filter((entry) =>
-        entry.fx
-          ? fxSteps.has(entry) ||
-            (entry.isInBounds && entry.order !== undefined)
-          : entry.isInBounds &&
-            (entry.fill ||
-              entry.text ||
-              mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
-      ),
-      order,
-    ),
-    sceneTarget,
-    0,
-  );
+  drawnLayers.length = 0;
+  for (const entry of activeClips) {
+    if (
+      entry.fx
+        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
+        : entry.isInBounds &&
+          (entry.fill ||
+            entry.text ||
+            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
+    ) {
+      drawnLayers.push(entry);
+    }
+  }
+  drawSteps(planLayerDraws(drawnLayers, order), sceneTarget, 0);
 
   gl.disable(gl.SCISSOR_TEST);
   if (scene && !groupSteps.length) {

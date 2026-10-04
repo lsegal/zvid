@@ -74,9 +74,11 @@ export function releaseCoefficient(ms: number, sampleRate: number) {
 //      across the lookahead instead of stepping; each of those minima
 //      covers the leaving frame, so their average does too;
 //   3. released exponentially when it rises again (the attack is instant).
+// It holds room for up to `capacity` frames of lookahead, so the audio
+// thread can restart it at another lookahead without allocating.
 export class LimiterGain {
-  readonly lookahead: number;
-  private readonly span: number;
+  lookahead = 0;
+  private span = 1;
   // The window's minima: a monotonic queue of frames and required gains.
   private readonly queueFrames: Float64Array;
   private readonly queueGains: Float64Array;
@@ -85,16 +87,28 @@ export class LimiterGain {
   // The last `span` minima, for the average.
   private readonly minima: Float64Array;
   private minimaAt = 0;
-  private minimaSum: number;
+  private minimaSum = 1;
   private gain = 1;
 
-  constructor(lookahead: number) {
+  constructor(lookahead: number, capacity = lookahead) {
+    const room = Math.max(lookahead, capacity) + 1;
+    this.queueFrames = new Float64Array(room);
+    this.queueGains = new Float64Array(room);
+    this.minima = new Float64Array(room);
+    this.reset(lookahead);
+  }
+
+  // Starts over, as new, at a lookahead of `lookahead` frames, at most its
+  // capacity.
+  reset(lookahead: number) {
     this.lookahead = lookahead;
     this.span = lookahead + 1;
-    this.queueFrames = new Float64Array(this.span);
-    this.queueGains = new Float64Array(this.span);
-    this.minima = new Float64Array(this.span).fill(1);
+    this.queueHead = 0;
+    this.queueSize = 0;
+    this.minima.fill(1, 0, this.span);
+    this.minimaAt = 0;
     this.minimaSum = this.span;
+    this.gain = 1;
   }
 
   // `frame` counts up by one per call; `release` is a releaseCoefficient.
@@ -126,7 +140,11 @@ export class LimiterGain {
     if (this.minimaAt === span) {
       // Resums once per lap, so rounding never accumulates.
       this.minimaAt = 0;
-      this.minimaSum = this.minima.reduce((total, value) => total + value, 0);
+      let total = 0;
+      for (let at = 0; at < span; at++) {
+        total += this.minima[at];
+      }
+      this.minimaSum = total;
     }
     const smoothed = this.minimaSum / span;
     this.gain =

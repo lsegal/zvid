@@ -77,10 +77,12 @@ describe("playback rendering", () => {
   it("renders the preview from the live playhead while playing", () => {
     assert.match(appTsx, /playheadSignal=\{playheadSignal\}/);
     assert.match(playerTsx, /const livePlayheadQ = playheadSignal\.get\(\);/);
+    // The same frame's active clips sync the media and draw it (#948).
     assert.match(
       playerTsx,
-      /renderer\.renderPreviewFrame\(livePlayheadQ, pixelRatio\)/,
+      /renderer\.renderPreviewFrame\(livePlayheadQ, pixelRatio, true, \{/,
     );
+    assert.doesNotMatch(playerTsx, /renderer\.syncPlayback\(/);
   });
 
   // WebKit repaints on the main thread whatever a moving playhead dirties,

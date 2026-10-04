@@ -42,14 +42,25 @@ export const processor: AudioEffectDsp = {
       1,
       Math.round(SWITCH_CROSSFADE_SECONDS * sampleRate),
     );
+    // The two gain computers a Lookahead change fades between, each with
+    // room for the longest lookahead, so a change allocates nothing.
+    const longest = lookaheadFrames(LOOKAHEAD_MAX_MS, sampleRate);
+    const computers = [
+      new LimiterGain(0, longest),
+      new LimiterGain(0, longest),
+    ];
     let frame = 0;
     let current: LimiterGain | null = null;
-    let fading: { gain: LimiterGain; at: number } | null = null;
+    // The computer faded out after a Lookahead change, and how far.
+    let fading: LimiterGain | null = null;
+    let fadeAt = 0;
 
     // A gain computer for `lookahead` frames, fed the frames before this
-    // one as if it had been running all along.
+    // one as if it had been running all along: whichever one is not
+    // fading out.
     const primed = (lookahead: number, release: number) => {
-      const gain = new LimiterGain(lookahead);
+      const gain = computers[0] === fading ? computers[1] : computers[0];
+      gain.reset(lookahead);
       for (let back = 2 * lookahead + 1; back > 0; back--) {
         const at = frame - back;
         gain.next(at, at < 0 ? 1 : required[at & mask], release);
@@ -89,7 +100,8 @@ export const processor: AudioEffectDsp = {
         if (!current) {
           current = primed(lookahead, release);
         } else if (!fading && current.lookahead !== lookahead) {
-          fading = { gain: current, at: 0 };
+          fading = current;
+          fadeAt = 0;
           current = primed(lookahead, release);
         }
 
@@ -111,17 +123,17 @@ export const processor: AudioEffectDsp = {
 
           const gain = current.next(frame, need, pole);
           if (fading) {
-            const old = fading.gain;
+            const old = fading;
             const oldGain = old.next(frame, need, pole);
-            const weight = 1 - fading.at / fadeFrames;
+            const weight = 1 - fadeAt / fadeFrames;
             for (let channel = 0; channel < output.length; channel++) {
               const sample = tap(channel, current.lookahead, gain);
               output[channel][index] =
                 sample +
                 (tap(channel, old.lookahead, oldGain) - sample) * weight;
             }
-            fading.at++;
-            if (fading.at >= fadeFrames) {
+            fadeAt++;
+            if (fadeAt >= fadeFrames) {
               fading = null;
             }
           } else {
@@ -131,6 +143,18 @@ export const processor: AudioEffectDsp = {
           }
           frame++;
         }
+      },
+      // Back to silence, as created. The gain computers are primed afresh
+      // on the next block.
+      reset() {
+        for (let channel = 0; channel < channels; channel++) {
+          driven[channel].fill(0);
+        }
+        required.fill(1);
+        frame = 0;
+        current = null;
+        fading = null;
+        fadeAt = 0;
       },
     };
   },

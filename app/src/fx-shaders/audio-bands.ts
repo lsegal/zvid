@@ -353,6 +353,21 @@ export class AudioBandTracker {
       this.hits.shift();
     }
   }
+
+  // The hits `bands` gives, one at a time, for the audio thread to read
+  // without making the bands: how many there are, oldest first, and each
+  // one's seconds before the last tick and strength.
+  get hitCount() {
+    return this.hits.length;
+  }
+
+  hitSecondsAgo(index: number) {
+    return (this.tickCount - this.hits[index].tick) * TICK_SECONDS;
+  }
+
+  hitStrength(index: number) {
+    return this.hits[index].strength;
+  }
 }
 
 // An analyser set up the way LiveAudioBands measures it, and OfflineAudioBands
@@ -371,8 +386,16 @@ export function createBandAnalyser(context: BaseAudioContext) {
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
 
 // The meter reads only the samples that arrived since its last frame, so
-// each analyser keeps enough for frames up to about 340 ms apart at 48 kHz.
-const METER_FFT_SIZE = 16384;
+// each analyser keeps enough for frames this far apart: well past a 30 fps
+// frame, as each frame copies the whole analyser.
+const METER_MAX_FRAME_GAP_SECONDS = 0.08;
+
+// The smallest analyser size, a power of two, holding a frame gap's worth
+// of samples at `sampleRate`: 4096 at 44.1 or 48 kHz.
+export function meterFftSize(sampleRate: number) {
+  const samples = sampleRate * METER_MAX_FRAME_GAP_SECONDS;
+  return Math.min(32768, Math.max(32, 2 ** Math.ceil(Math.log2(samples))));
+}
 
 // Splits `context`'s input into one analyser per channel, upmixing mono to
 // both sides first (a splitter alone would leave the right channel silent).
@@ -383,9 +406,10 @@ export function createMeterTap(context: BaseAudioContext) {
   input.channelInterpretation = "speakers";
   const splitter = context.createChannelSplitter(2);
   input.connect(splitter);
+  const fftSize = meterFftSize(context.sampleRate);
   const [left, right] = [0, 1].map((channel) => {
     const analyser = context.createAnalyser();
-    analyser.fftSize = METER_FFT_SIZE;
+    analyser.fftSize = fftSize;
     analyser.smoothingTimeConstant = 0;
     splitter.connect(analyser, channel);
     return analyser;
@@ -447,7 +471,21 @@ export class ByteSpectrum {
       this.real[index] = sample(index) * this.window[index];
       this.imaginary[index] = 0;
     }
+    return this.transform();
+  }
 
+  // The bins of the FFT_SIZE samples of the ring buffer `ring` from index
+  // `start` on, wrapping: what measure gives, without a call per sample.
+  measureRing(ring: Float32Array, start: number) {
+    const length = ring.length;
+    for (let index = 0; index < FFT_SIZE; index++) {
+      this.real[index] = ring[(start + index) % length] * this.window[index];
+      this.imaginary[index] = 0;
+    }
+    return this.transform();
+  }
+
+  private transform() {
     fft(this.real, this.imaginary);
     const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
     for (let index = 0; index < this.bins.length; index++) {
@@ -544,8 +582,12 @@ function fft(real: Float64Array, imaginary: Float64Array) {
     }
     swap ^= bit;
     if (index < swap) {
-      [real[index], real[swap]] = [real[swap], real[index]];
-      [imaginary[index], imaginary[swap]] = [imaginary[swap], imaginary[index]];
+      const swappedReal = real[index];
+      real[index] = real[swap];
+      real[swap] = swappedReal;
+      const swappedImaginary = imaginary[index];
+      imaginary[index] = imaginary[swap];
+      imaginary[swap] = swappedImaginary;
     }
   }
 

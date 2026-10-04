@@ -704,6 +704,115 @@ describe("PreviewAudioMixer", () => {
       assert.equal(master.messages.length, count);
     });
 
+    // An effect on the first clip only, and the second's own stack.
+    const partly = (dry = [gainStageAt(0.25)], wet = [testStage(ONE_POLE)]) =>
+      mix([
+        clip({ id: "wet", amplitude: 0.5, stages: [gainStageAt(0.5), ...wet] }),
+        clip({ id: "dry", mediaId: "b", amplitude: 0.25, stages: dry }),
+      ]);
+    const added = testStage(ONE_POLE, { Cutoff: 800 }, { id: "added" });
+
+    async function partlyChainedMixer() {
+      const mixer = new PreviewAudioMixer({
+        workletUrl: "chain-worklet.js",
+        registry: TEST_PROCESSORS,
+      });
+      mixer.update(partly(), media);
+      mixer.sync(playing(1));
+      await Promise.resolve();
+      mixer.sync(playing(1.1));
+      const dry = context().sources.find(
+        (source) => source.element === elementOf("b"),
+      );
+      assert.ok(dry);
+      return { mixer, input: dry.connections[0] };
+    }
+
+    it("skips the chain of a clip whose own stack is steady Gain alone", async () => {
+      const { mixer, input } = await partlyChainedMixer();
+      const [, , bus] = FakeWorkletNode.made;
+      // The master, the effected clip's chain and the bus: none for the
+      // other clip, whose gain applies its own Gain and feeds the bus.
+      assert.equal(FakeWorkletNode.made.length, 3);
+      assert.equal(input.gain?.value, 0.25);
+      assert.deepEqual(input.connections, [bus]);
+      mixer.dispose();
+    });
+
+    it("gives a clip a chain when its path is delayed to line up", async () => {
+      const mixer = new PreviewAudioMixer({
+        workletUrl: "chain-worklet.js",
+        registry: TEST_PROCESSORS,
+      });
+      mixer.update(
+        partly(undefined, [testStage(DELAY, { Frames: 64 })]),
+        media,
+      );
+      mixer.sync(playing(1));
+      await Promise.resolve();
+      mixer.sync(playing(1.1));
+      assert.equal(FakeWorkletNode.made.length, 4);
+      const dryChain = FakeWorkletNode.made[3];
+      assert.equal(dryChain.options.processorOptions.settings.delayFrames, 64);
+      mixer.dispose();
+    });
+
+    it("inserts a chain when an effect is added, crossfading the effect in", async () => {
+      const { mixer, input } = await partlyChainedMixer();
+      const [, , bus] = FakeWorkletNode.made;
+      const sources = context().sources.length;
+      mixer.update(partly([gainStageAt(0.25), added]), media);
+      const chain = FakeWorkletNode.made[3];
+      assert.ok(chain);
+      // The element plays on, now through the chain.
+      assert.equal(context().sources.length, sources);
+      assert.equal(input.gain?.value, 1);
+      assert.deepEqual(input.connections, [chain]);
+      assert.deepEqual(chain.connections, [bus]);
+      // It starts sounding as the gain did, with its Gain and the effect
+      // bypassed, then turns the effect on, which the chain crossfades.
+      const { stages } = chain.options.processorOptions.settings;
+      assert.deepEqual(stages, [
+        gainStageAt(0.25),
+        { ...added, enabled: false },
+      ]);
+      const configure = chain.messages.find(
+        (message) => message.type === "configure",
+      );
+      assert.deepEqual(
+        configure?.type === "configure" && configure.settings.stages,
+        [gainStageAt(0.25), added],
+      );
+      mixer.dispose();
+    });
+
+    it("drops a chain once the effect taken off its clip has drained", async () => {
+      const { mixer, input } = await partlyChainedMixer();
+      const [, , bus] = FakeWorkletNode.made;
+      mixer.update(partly([gainStageAt(0.25), added]), media);
+      const chain = FakeWorkletNode.made[3];
+      mixer.update(partly(), media);
+      // The chain plays out the effect's tail first.
+      const configures = chain.messages.filter(
+        (message) => message.type === "configure",
+      );
+      assert.deepEqual(
+        configures.at(-1)?.type === "configure" &&
+          configures.at(-1)?.settings.stages,
+        [gainStageAt(0.25)],
+      );
+      context().currentTime = 0.1;
+      mixer.sync(playing(1.2));
+      assert.deepEqual(input.connections, [chain]);
+
+      context().currentTime = 0.2;
+      mixer.sync(playing(1.3));
+      assert.deepEqual(input.connections, [bus]);
+      assert.equal(input.gain?.value, 0.25);
+      assert.deepEqual(chain.connections, []);
+      mixer.dispose();
+    });
+
     it("plays Gain alone through native gains without the worklet", () => {
       const mixer = new PreviewAudioMixer({ registry: TEST_PROCESSORS });
       mixer.update(filtered(), media);

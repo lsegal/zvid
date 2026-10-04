@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { AudioChain, BLOCK_FRAMES } from "../../../audio-mix/chain.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -139,6 +141,45 @@ const near = (actual: number, expected: number, tolerance: number) =>
     Math.abs(actual - expected) <= tolerance,
     `${actual} is not within ${tolerance} of ${expected}`,
   );
+
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      { ...TEMPO, sampleRate: RATE, timeSeconds: fromSeconds + at / RATE },
+    );
+  }
+  return output;
+}
 
 describe("Phaser stage at Mix 0", () => {
   it("passes sine, noise and an impulse through unchanged", () => {
@@ -333,6 +374,30 @@ describe("Phaser stage bypass", () => {
     };
     const both = render([phaser({ Depth: 0 }), half], input);
     near(levelDb(both) - levelDb(input), gainDb({ Depth: 0 }, 300) - 6, 0.1);
+  });
+});
+
+describe("Phaser stage reset", () => {
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const numbers = { ...DEFAULTS, Rate: 3, Feedback: 70 };
+    const switches = { Stages: "8" };
+    const used = processor.createProcessor(RATE, 2);
+    runSettled(used, [noise(), noise()], numbers, switches);
+    // A live Rate change leaves the LFO's phase off the timeline's.
+    runSettled(
+      used,
+      [noise(0.1), noise(0.1)],
+      { ...numbers, Rate: 6 },
+      switches,
+      0.5,
+    );
+    used.reset();
+    const fresh = processor.createProcessor(RATE, 2);
+    const test = [impulse(), impulse()];
+    assert.deepEqual(
+      runSettled(used, test, numbers, switches),
+      runSettled(fresh, test, numbers, switches),
+    );
   });
 });
 
