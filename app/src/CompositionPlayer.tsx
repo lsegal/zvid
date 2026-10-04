@@ -48,8 +48,8 @@ import {
   stackEffects,
 } from "./composition-effect-index.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
-import { findTransitionClips } from "./composition-transition.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
+import { findTransitionClips } from "./composition-transition.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,

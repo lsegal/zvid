@@ -42,6 +42,7 @@ import {
   indexEffects,
   isEffectIndex,
 } from "./composition-effect-index.ts";
+import type { TransitionComps } from "./composition-layout.ts";
 import {
   type CompositionOrder,
   findOrderEffect,
@@ -50,7 +51,6 @@ import {
   parseCompositionOrder,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
-import type { TransitionComps } from "./composition-layout.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   isMoveEffectName,
@@ -70,6 +70,7 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import {
   type AnimationClipContext,
   reactsToAudio,
@@ -82,7 +83,6 @@ import {
   type SessionEdges,
 } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
-import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   type EffectChainStep,
