@@ -7,8 +7,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { formatSessionMediaCheckStatus } from "../app/format.ts";
+import {
+  createNewSessionHistory,
+  isPristineProjectHistory,
+} from "../app/new-session.ts";
 import {
   type SourceSelection,
   toSourceSelectionView,
@@ -28,7 +31,6 @@ import {
   CORRUPT_WORKSPACE_NOTICE,
   findRestoredSelection,
   formatRestoredStatus,
-  isPristineProjectHistory,
   readSavedWorkspaceSession,
   workspaceLockEvents,
 } from "../app/workspace-boot.ts";
@@ -39,10 +41,9 @@ import type {
 } from "../app/workspace-types.ts";
 import { isArrangementEmptyStateDismissedOnOpen } from "../arrangement-empty-state.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
-import {
-  createProjectHistoryState,
-  type ProjectHistoryAction,
-  type ProjectHistoryState,
+import type {
+  ProjectHistoryAction,
+  ProjectHistoryState,
 } from "../project-history";
 import { createWorkspaceAutosave } from "../workspace-autosave.ts";
 import {
@@ -88,6 +89,8 @@ export type WorkspacePersistenceInputs = {
   setWorkspaceAccess: Dispatch<SetStateAction<WorkspaceAccess>>;
   setIsTakeOverPromptOpen: Dispatch<SetStateAction<boolean>>;
   refuseReadOnlyEdit: () => boolean;
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   collaborationMode: CollaborationMode;
   viewingSharedSessionRef: { current: boolean };
   sessionMediaCheckRef: { current: SessionMediaCheck | null };
@@ -133,6 +136,8 @@ export function useWorkspacePersistence({
   setWorkspaceAccess,
   setIsTakeOverPromptOpen,
   refuseReadOnlyEdit,
+  hasUnsavedChanges,
+  setHasUnsavedChanges,
   collaborationMode,
   viewingSharedSessionRef,
   sessionMediaCheckRef,
@@ -152,6 +157,7 @@ export function useWorkspacePersistence({
       ...toSourceSelectionView(sourceSelection),
       scrollLeft: timelineScrollRef.current?.scrollLeft ?? 0,
       scrollTop: timelineScrollRef.current?.scrollTop ?? 0,
+      hasUnsavedChanges,
     },
     source: sessionSource,
     // Failures are about the attempt, not the session, so they are not kept.
@@ -195,6 +201,7 @@ export function useWorkspacePersistence({
   useEffect(() => {
     void [
       canSaveWorkspace,
+      hasUnsavedChanges,
       playheadQ,
       selectedClipId,
       selectedLaneId,
@@ -218,6 +225,7 @@ export function useWorkspacePersistence({
     workspaceAutosave.markDirty();
   }, [
     canSaveWorkspace,
+    hasUnsavedChanges,
     importNotice,
     playheadQ,
     projectHistory,
@@ -295,8 +303,11 @@ export function useWorkspacePersistence({
         type: "restore",
         history: session
           ? toProjectHistoryState(session.history)
-          : createProjectHistoryState(INITIAL_PROJECT_STATE),
+          : createNewSessionHistory(),
       });
+      setHasUnsavedChanges(
+        session ? (session.view.hasUnsavedChanges ?? true) : false,
+      );
       const selection = findRestoredSelection(session);
       setSelectedClipId(selection.selectedClipId);
       setSelectedLaneId(selection.selectedLaneId);
@@ -325,6 +336,7 @@ export function useWorkspacePersistence({
       setArrangementEmptyStateDismissed,
       setDragPreviewClips,
       setDragState,
+      setHasUnsavedChanges,
       setImportNotice,
       setIsPlaying,
       setPendingSelection,
@@ -375,7 +387,9 @@ export function useWorkspacePersistence({
     );
   }
 
-  function handleCloseSession() {
+  // Replaces the session with a blank one: File → Close Session, and File →
+  // New Session once any unsaved changes are dealt with.
+  function resetSession(status: string) {
     if (refuseReadOnlyEdit()) {
       return;
     }
@@ -383,7 +397,15 @@ export function useWorkspacePersistence({
     workspaceAutosave.cancel();
     claimWorkspaceSession();
     applyWorkspaceSession(null);
-    setStatus("Closed the session.");
+    setStatus(status);
+  }
+
+  function handleCloseSession() {
+    resetSession("Closed the session.");
+  }
+
+  function startNewSession() {
+    resetSession("Started a new session.");
   }
 
   const reportSessionMediaCheck = useCallback(() => {
@@ -419,6 +441,7 @@ export function useWorkspacePersistence({
     handleTakeOverWorkspace,
     handleOpenWorkspaceReadOnly,
     handleCloseSession,
+    startNewSession,
     reportSessionMediaCheck,
     settleSessionMediaCheck,
   };

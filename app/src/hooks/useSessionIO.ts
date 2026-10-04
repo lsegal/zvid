@@ -7,7 +7,7 @@ import {
 import { DEFAULT_LANES, PALETTE } from "../app/constants.ts";
 import {
   buildStandaloneProject,
-  mergeMediaItemsById,
+  hydrateProjectMedia,
   patchProjectState,
   sessionToProject,
 } from "../app/session-project.ts";
@@ -79,6 +79,7 @@ export type SessionIOInputs = {
   claimWorkspaceSession: () => void;
   reportSessionMediaCheck: () => void;
   refuseReadOnlyEdit: () => boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -108,6 +109,7 @@ export function useSessionIO({
   claimWorkspaceSession,
   reportSessionMediaCheck,
   refuseReadOnlyEdit,
+  setHasUnsavedChanges,
   setStatus,
 }: SessionIOInputs) {
   async function applyOpenedSessionPayload(
@@ -182,6 +184,11 @@ export function useSessionIO({
         projectDurationFrames: project.projectDurationFrames,
         sourceTracksLocked: project.sourceTracksLocked,
       }),
+    );
+    // A session opened from a file is saved as it stands. A sample or an
+    // imported Live set has never been saved as a session.
+    setHasUnsavedChanges(
+      selection.kind === "sample" || Boolean(payload.alsImport),
     );
     setDragPreviewClips(null);
     setPendingSelection(null);
@@ -281,12 +288,10 @@ export function useSessionIO({
           seedLocalMediaItems(analyzedMedia);
           void cacheLocalMediaItems(analyzedMedia);
           commitViewChange("Hydrate session media", (current) =>
-            patchProjectState(current, {
-              mediaItems: mergeMediaItemsById(
-                current.mediaItems,
-                analyzedMedia.map((item) => toShareableMediaItem(item)),
-              ),
-            }),
+            hydrateProjectMedia(
+              current,
+              analyzedMedia.map((item) => toShareableMediaItem(item)),
+            ),
           );
           mediaCheck.analyzingFromDisk = false;
           reportSessionMediaCheck();
@@ -468,7 +473,7 @@ export function useSessionIO({
   }
 
   // Writes the project as a `.zvd` wherever the user picks, leaving the
-  // opened session's own file alone.
+  // opened session's own file alone. Resolves to whether it was written.
   async function handleExportProject() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
@@ -491,17 +496,17 @@ export function useSessionIO({
       );
       if (!nextSaveTarget) {
         setStatus("Export canceled.");
-        return;
+        return false;
       }
       saveTarget = nextSaveTarget;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setStatus("Export canceled.");
-        return;
+        return false;
       }
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Failed to prepare export destination: ${message}`);
-      return;
+      return false;
     }
 
     try {
@@ -509,12 +514,14 @@ export function useSessionIO({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Export failed: ${message}`);
-      return;
+      return false;
     }
+    setHasUnsavedChanges(false);
 
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
     setStatus(`Exported ${savedName}.`);
+    return true;
   }
 
   // Opens a bundled sample whose media is already in the media cache.
