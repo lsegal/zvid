@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
+  DOWNLOADS_PATH_PREFIX,
   type DownloadObject,
   type DownloadRange,
   type DownloadsBucket,
@@ -63,6 +65,23 @@ function request(path: string, init: RequestInit = {}) {
 function env() {
   return bucket({ [INSTALLER]: { contents: CONTENTS, etag: "abc123" } });
 }
+
+describe("wrangler.jsonc", () => {
+  // Static assets use SPA not-found handling, which answers navigations with
+  // index.html before the Worker runs unless the path is listed here.
+  it("runs the Worker first for downloads and the API", () => {
+    const source = readFileSync(
+      new URL("../wrangler.jsonc", import.meta.url),
+      "utf8",
+    );
+    const config = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
+    assert.equal(config.assets.not_found_handling, "single-page-application");
+    assert.deepEqual(config.assets.run_worker_first, [
+      `${DOWNLOADS_PATH_PREFIX}*`,
+      "/api/*",
+    ]);
+  });
+});
 
 describe("downloadKey", () => {
   it("maps /downloads paths to bucket keys", () => {

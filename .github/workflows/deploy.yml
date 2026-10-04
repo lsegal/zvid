@@ -32,3 +32,37 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Requests each published installer the way a clicked link does
+      # (`Sec-Fetch-Mode: navigate`), which static-asset SPA handling answers
+      # with index.html unless wrangler.jsonc runs the Worker first for
+      # /downloads/*. Retries while the new version propagates.
+      - name: Check installer downloads
+        env:
+          ORIGIN: https://zvid.lsegal.workers.dev
+        run: |
+          check() {
+            headers=$(curl -sSfI -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Dest: document" "$1") || return 1
+            type=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^content-type: *//Ip' | tail -n 1)
+            disposition=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^content-disposition: *//Ip' | tail -n 1)
+            echo "$1: $type; $disposition"
+            [[ "$type" != text/html* && "$disposition" == attachment* ]]
+          }
+          failed=0
+          for dir in capture desktop; do
+            files=$(curl -sSf "$ORIGIN/downloads/$dir/manifest.json" | jq -r '.installers[].file')
+            if [ -z "$files" ]; then
+              echo "::error::$dir/manifest.json lists no installers"
+              failed=1
+            fi
+            for file in $files; do
+              url="$ORIGIN/downloads/$dir/$file"
+              for attempt in 1 2 3 4 5 6; do
+                check "$url" && continue 2
+                sleep 10
+              done
+              echo "::error::$url is not served as an attachment to navigations"
+              failed=1
+            done
+          done
+          exit "$failed"
