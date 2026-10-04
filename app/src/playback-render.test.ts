@@ -110,10 +110,12 @@ describe("playback rendering", () => {
     );
     assert.match(draw, /playheadSignal\.get\(\)/);
     assert.match(draw, /\[playheadSignal\],\n {2}\);/);
+    const propsStart = playerTsx.indexOf("type CompositionPlayerProps = {");
     const props = playerTsx.slice(
-      playerTsx.indexOf("type CompositionPlayerProps = {"),
-      playerTsx.indexOf("export type CompositionRendererState"),
+      propsStart,
+      playerTsx.indexOf("\n};", propsStart),
     );
+    assert.match(props, /playheadSignal: PlayheadSignal;/);
     assert.doesNotMatch(props, /\bplayheadQ: number;/);
   });
 
