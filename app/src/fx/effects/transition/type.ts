@@ -6,17 +6,33 @@ export type Rgba = readonly [number, number, number, number];
 export type Vec2 = readonly [number, number];
 
 // The settings a type may use besides its progress: the Direction it moves
-// in and the Softness of its edge.
-export type TransitionOption = "direction" | "softness";
+// in, the Softness of its edge, whether an iris opens out of the center or
+// closes into it, the Orientation of its bands, how many it has (Count),
+// and the Origin it spreads from.
+export type TransitionOption =
+  | "direction"
+  | "softness"
+  | "iris"
+  | "orientation"
+  | "count"
+  | "origin";
 
 // What a type's `render` reads: the two comps, both premultiplied and
 // transparent outside 0..1, and the settings. `direction` is the unit
-// vector things move along, in picture coordinates (+y up).
+// vector things move along, in picture coordinates (+y up). `irisIn` is
+// true when an iris closes into the center rather than opening out of it,
+// `vertical` when bands run up and down rather than across, `count` how
+// many bands or squares there are, and `origin` the point things spread
+// from, in picture coordinates.
 export type TransitionInput = {
   a(uv: Vec2): Rgba;
   b(uv: Vec2): Rgba;
   direction: Vec2;
   softness: number;
+  irisIn: boolean;
+  vertical: boolean;
+  count: number;
+  origin: Vec2;
   resolution: Vec2;
 };
 
@@ -33,7 +49,8 @@ export type TransitionTypeDefinition = {
   // transparent outside 0..1, `over(top, bottom)`, `transitionAlong(uv)`
   // (0 at the side things move from, 1 at the side they move to) and
   // `transitionNoise(uv)` (0..1, per pixel), and read `uDirection`,
-  // `uSoftness` and `uResolution`.
+  // `uSoftness`, `uIrisIn` (1 for In, else 0), `uVertical` (1 for
+  // Vertical, else 0), `uCount`, `uOrigin` and `uResolution`.
   glsl: string;
   // The same function in TypeScript, for tests and anything drawn off the
   // GPU.

@@ -13,11 +13,47 @@ export const TRANSITION_EFFECT_NAME = "Transition";
 export const TYPE_KEY = "Type";
 export const DIRECTION_KEY = "Direction";
 export const SOFTNESS_KEY = "Softness";
+export const IRIS_KEY = "Iris";
+export const ORIENTATION_KEY = "Orientation";
+export const COUNT_KEY = "Count";
+export const ORIGIN_KEY = "Origin";
 
 export const TRANSITION_DIRECTIONS = ["Left", "Right", "Up", "Down"] as const;
 export type TransitionDirection = (typeof TRANSITION_DIRECTIONS)[number];
 export const DEFAULT_DIRECTION: TransitionDirection = "Left";
 export const DEFAULT_SOFTNESS = 0.2;
+
+// Out opens an iris out of the center onto B; In closes A into it.
+export const TRANSITION_IRISES = ["Out", "In"] as const;
+export type TransitionIris = (typeof TRANSITION_IRISES)[number];
+export const DEFAULT_IRIS: TransitionIris = "Out";
+
+export const TRANSITION_ORIENTATIONS = ["Horizontal", "Vertical"] as const;
+export type TransitionOrientation = (typeof TRANSITION_ORIENTATIONS)[number];
+export const DEFAULT_ORIENTATION: TransitionOrientation = "Horizontal";
+
+export const MIN_COUNT = 2;
+export const MAX_COUNT = 32;
+export const DEFAULT_COUNT = 8;
+
+export const TRANSITION_ORIGINS = [
+  "Center",
+  "Top Left",
+  "Top Right",
+  "Bottom Left",
+  "Bottom Right",
+] as const;
+export type TransitionOrigin = (typeof TRANSITION_ORIGINS)[number];
+export const DEFAULT_ORIGIN: TransitionOrigin = "Center";
+
+// Where each Origin is, in picture coordinates (+y up).
+const ORIGIN_POINTS: Record<TransitionOrigin, Vec2> = {
+  Center: [0.5, 0.5],
+  "Top Left": [0, 1],
+  "Top Right": [1, 1],
+  "Bottom Left": [0, 0],
+  "Bottom Right": [1, 0],
+};
 
 // The way things move for each Direction, in picture coordinates (+y up).
 const DIRECTION_VECTORS: Record<TransitionDirection, Vec2> = {
@@ -86,6 +122,20 @@ export function directionVector(direction: TransitionDirection): Vec2 {
   return DIRECTION_VECTORS[direction];
 }
 
+// The option in `options` named `value`, case-insensitively, or `fallback`.
+function parseOption<T extends string>(
+  options: readonly T[],
+  value: string | undefined,
+  fallback: T,
+): T {
+  const wanted = value?.trim().toLowerCase();
+  return options.find((option) => option.toLowerCase() === wanted) ?? fallback;
+}
+
+export function originPoint(origin: TransitionOrigin): Vec2 {
+  return ORIGIN_POINTS[origin];
+}
+
 type TransitionParameter = {
   key: string;
   value: string;
@@ -93,13 +143,25 @@ type TransitionParameter = {
 };
 
 // What a Transition draws with at a frame: its type's name, Direction as a
-// vector, Softness, and how far it is from comp A to comp B.
+// vector, Softness, whether an iris closes In, whether bands are Vertical,
+// their Count, the Origin as a point, and how far it is from comp A to
+// comp B.
 export type TransitionSettings = {
   type: string;
   direction: Vec2;
   softness: number;
+  irisIn: boolean;
+  vertical: boolean;
+  count: number;
+  origin: Vec2;
   progress: number;
 };
+
+function readNumber(parameter: TransitionParameter | undefined) {
+  const value =
+    parameter?.numericValue ?? Number.parseFloat(parameter?.value ?? "");
+  return Number.isFinite(value) ? value : undefined;
+}
 
 export function parseTransitionSettings(
   parameters: readonly TransitionParameter[],
@@ -107,17 +169,33 @@ export function parseTransitionSettings(
 ): TransitionSettings {
   const read = (key: string) =>
     parameters.find((parameter) => parameter.key === key);
-  const softness = read(SOFTNESS_KEY);
-  const softnessValue =
-    softness?.numericValue ?? Number.parseFloat(softness?.value ?? "");
+  const softness = readNumber(read(SOFTNESS_KEY));
+  const count = readNumber(read(COUNT_KEY));
   return {
     type: findTransitionType(read(TYPE_KEY)?.value).name,
     direction: directionVector(
       parseTransitionDirection(read(DIRECTION_KEY)?.value),
     ),
-    softness: Number.isFinite(softnessValue)
-      ? Math.max(0, Math.min(1, softnessValue))
-      : DEFAULT_SOFTNESS,
+    softness:
+      softness === undefined
+        ? DEFAULT_SOFTNESS
+        : Math.max(0, Math.min(1, softness)),
+    irisIn:
+      parseOption(TRANSITION_IRISES, read(IRIS_KEY)?.value, DEFAULT_IRIS) ===
+      "In",
+    vertical:
+      parseOption(
+        TRANSITION_ORIENTATIONS,
+        read(ORIENTATION_KEY)?.value,
+        DEFAULT_ORIENTATION,
+      ) === "Vertical",
+    count:
+      count === undefined
+        ? DEFAULT_COUNT
+        : Math.max(MIN_COUNT, Math.min(MAX_COUNT, Math.round(count))),
+    origin: originPoint(
+      parseOption(TRANSITION_ORIGINS, read(ORIGIN_KEY)?.value, DEFAULT_ORIGIN),
+    ),
     progress: Math.max(0, Math.min(1, progress)),
   };
 }

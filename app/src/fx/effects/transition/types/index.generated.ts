@@ -2,24 +2,46 @@
 // not edit; run `pnpm --dir app run gen:fx-index` after adding a type.
 
 import type { TransitionTypeDefinition } from "../type.ts";
+import { transitionType as barnDoor } from "./barn-door.ts";
+import { transitionType as blinds } from "./blinds.ts";
+import { transitionType as checkerboard } from "./checkerboard.ts";
+import { transitionType as clockWipe } from "./clock-wipe.ts";
 import { transitionType as cover } from "./cover.ts";
+import { transitionType as diamond } from "./diamond.ts";
 import { transitionType as dissolveNoise } from "./dissolve-noise.ts";
 import { transitionType as dissolve } from "./dissolve.ts";
 import { transitionType as fade } from "./fade.ts";
+import { transitionType as heart } from "./heart.ts";
+import { transitionType as irisBox } from "./iris-box.ts";
+import { transitionType as iris } from "./iris.ts";
 import { transitionType as push } from "./push.ts";
+import { transitionType as radialWipe } from "./radial-wipe.ts";
 import { transitionType as reveal } from "./reveal.ts";
+import { transitionType as split } from "./split.ts";
+import { transitionType as star } from "./star.ts";
 import { transitionType as swipe } from "./swipe.ts";
 import { transitionType as wipe } from "./wipe.ts";
 import { transitionType as zoom } from "./zoom.ts";
 
 // Every type file in this folder, in file order.
 export const TRANSITION_TYPE_MODULES: readonly TransitionTypeDefinition[] = [
+  barnDoor,
+  blinds,
+  checkerboard,
+  clockWipe,
   cover,
+  diamond,
   dissolveNoise,
   dissolve,
   fade,
+  heart,
+  irisBox,
+  iris,
   push,
+  radialWipe,
   reveal,
+  split,
+  star,
   swipe,
   wipe,
   zoom,
