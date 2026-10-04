@@ -144,12 +144,11 @@ type CompositeUniforms = QuadAxes & {
   saturation: number;
 };
 
-export function ensureWebGlResources(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext("webgl", {
-    alpha: true,
-    antialias: true,
-    premultipliedAlpha: false,
-  });
+export function ensureWebGlResources(
+  canvas: HTMLCanvasElement,
+  attributes: WebGLContextAttributes,
+) {
+  const gl = canvas.getContext("webgl", attributes);
   if (!gl) {
     throw new Error("WebGL is unavailable on this device.");
   }
