@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ArrangementClip, MediaItem } from "./composition-active-clips.ts";
-import { mediaWindowAt } from "./media-window.ts";
+import { drawnClipOf, mediaWindowAt } from "./media-window.ts";
 
 // At 60 BPM a quarter note lasts a second, so clip times read as seconds.
 const BPM = 60;
@@ -47,9 +47,12 @@ function windowAt(
   clips: ArrangementClip[],
   items: MediaItem[],
   seconds: number,
+  mixerPlays?: (clip: ArrangementClip) => boolean,
 ) {
   const mediaById = new Map(items.map((item) => [item.id, item]));
-  return Object.fromEntries(mediaWindowAt(clips, mediaById, seconds, BPM));
+  return Object.fromEntries(
+    mediaWindowAt(clips, mediaById, seconds, BPM, mixerPlays),
+  );
 }
 
 describe("mediaWindowAt", () => {
@@ -82,5 +85,18 @@ describe("mediaWindowAt", () => {
       clip(kind, 0, 4, { kind, mediaId: undefined }),
     );
     assert.deepEqual(windowAt(generated, items, 1), {});
+  });
+
+  it("makes no element for a clip the mixer plays from a video element of its own", () => {
+    const twice = [clip("a", 0, 4), clip("a2", 3, 4, { mediaId: "a" })];
+    const mixerPlays = (candidate: ArrangementClip) => candidate.id === "a";
+    assert.deepEqual(windowAt(twice, items, 1, mixerPlays), {
+      a: "metadata",
+    });
+    assert.deepEqual(windowAt(clips, items, 1, mixerPlays), {});
+  });
+
+  it("places a drawn clip on the timeline in seconds, as the mixer does", () => {
+    assert.equal(drawnClipOf(clip("b", 20, 4), 120).startSeconds, 10);
   });
 });
