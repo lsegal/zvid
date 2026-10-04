@@ -1,6 +1,6 @@
 // How the compositor applies an FX clip without an Order: its chain runs on
 // the composite drawn so far and the result replaces it inside the clip's
-// box.
+// box. With an Order, it places the clip's arrangement on its parent.
 
 import type {
   CompositeLayer,
@@ -9,11 +9,14 @@ import type {
   WebGlResources,
 } from "./composition-draw.ts";
 import { resolveCanvasBounds } from "./composition-layout.ts";
+import { fitTextureSize } from "./composition-textures.ts";
 import {
+  canvasBoxToFrame,
   frameBoxInCanvas,
   isIdentityChain,
   matrixQuadAxes,
   type QuadAxes,
+  resolveVisualTextBox,
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
@@ -75,4 +78,35 @@ export function applyFxClip(
   gl.uniform2f(fxMask.axisY, ...axes.axisY);
   gl.uniform2f(fxMask.offset, ...axes.offset);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// The size of FX clip `entry`'s arrangement on `parent`, and the axes that
+// draw it there. The box takes the Transforms' scale, so the layers are
+// arranged in a smaller or larger box rather than squeezed or stretched.
+// The arrangement is bottom-up, unlike the top-row-first layer textures the
+// composite shader expects, so it is drawn flipped.
+export function placeArrangement(
+  gl: WebGLRenderingContext,
+  entry: CompositeLayer,
+  parent: { width: number; height: number },
+) {
+  const parentSurface = { width: parent.width, height: parent.height };
+  const placed = resolveVisualTextBox(
+    { x: 0, y: 0, width: parent.width, height: parent.height },
+    parentSurface,
+    entry.visual,
+  );
+  const axes = matrixQuadAxes(
+    canvasBoxToFrame(placed.box, parentSurface),
+    placed.matrix,
+    parentSurface,
+  );
+  return {
+    size: fitTextureSize(gl, placed.box.width, placed.box.height),
+    axes: {
+      axisX: axes.axisX,
+      axisY: [-axes.axisY[0], -axes.axisY[1]],
+      offset: axes.offset,
+    } satisfies QuadAxes,
+  };
 }

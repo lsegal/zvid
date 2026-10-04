@@ -25,7 +25,24 @@ describe("Shape pass", () => {
   });
 
   it("draws an unknown shape as a Rectangle", () => {
-    assert.deepEqual(uniformValues(pass, shape("Custom")).uShape, [0]);
+    assert.deepEqual(uniformValues(pass, shape("Hexagon")).uShape, [0]);
+  });
+
+  it("draws a Custom shape whose SVG isn't loaded as the whole box", () => {
+    const custom = shape("Custom:missing.svg");
+    const values = uniformValues(pass, custom);
+    assert.deepEqual(values.uShape, [4]);
+    assert.deepEqual(values.uCustom, [0]);
+    assert.equal(pass.isIdentity?.(custom), true);
+  });
+
+  it("samples a Custom shape's mask alpha at the shape's own position", () => {
+    // Unscaled: the chain rewrites only texture2D calls to its input's
+    // corner of a pooled target.
+    assert.match(
+      pass.fragmentSource,
+      /texture2DProj\(uMask, vec3\(p, 1\.0\)\)\.a/,
+    );
   });
 
   it("skips a Rectangle, which leaves the layer as it is", () => {

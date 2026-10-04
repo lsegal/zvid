@@ -49,6 +49,7 @@ import {
 } from "./composition-effect-index.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
+import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
 import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
@@ -67,7 +68,6 @@ import {
   mediaWindowAt,
 } from "./media-window.ts";
 import type { PlayheadSignal } from "./playhead-signal";
-import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
 import { usePausedPlayheadFollow } from "./use-paused-playhead-follow.ts";
 
@@ -279,8 +279,8 @@ export class CompositionRenderer {
       await Promise.all(pendingSeeks.values());
     }
 
-    // Exported frames never draw text in a fallback font.
-    await loadTextFaces(nextActiveClips.map((entry) => entry.text));
+    // Exact frames wait for their text fonts and Custom shape SVGs.
+    await loadFrameAssets(nextActiveClips, this.state.effects);
 
     this.activeClips = nextActiveClips;
     this.draw(nextActiveClips, playheadQ, pixelRatio, {
@@ -774,8 +774,8 @@ export const CompositionPlayer = forwardRef<
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
-  // Text waits for its font, so a paused preview redraws once it loads.
-  useEffect(() => subscribeFonts(redrawIfPaused), [redrawIfPaused]);
+  // A paused preview redraws once a text font or Custom shape SVG loads.
+  useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
   useEffect(() => {

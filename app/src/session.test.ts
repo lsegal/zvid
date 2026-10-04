@@ -87,6 +87,31 @@ describe("collectSessionMediaPaths", () => {
 
     assert.deepEqual(collectSessionMediaPaths(session), ["a.mov"]);
   });
+
+  it("includes the SVGs Custom shapes take their masks from", () => {
+    const session: LvpSession = {
+      clips: [clip("a", "a.mov")],
+      effects: [
+        {
+          id: "s",
+          trackId: "lane-1",
+          effectName: "Shape",
+          parameters: { Shape: { stringValue: "Custom:C:\\art\\logo.svg" } },
+        },
+        {
+          id: "t",
+          trackId: "lane-2",
+          effectName: "Shape",
+          parameters: { Shape: { stringValue: "Star" } },
+        },
+      ],
+    };
+
+    assert.deepEqual(collectSessionMediaPaths(session), [
+      "a.mov",
+      "C:\\art\\logo.svg",
+    ]);
+  });
 });
 
 describe("formatClipsWithoutFile", () => {

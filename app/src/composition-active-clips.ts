@@ -99,7 +99,7 @@ import {
 } from "./text-style.ts";
 import type { MeterSignature } from "./timeline-format.ts";
 
-export type MediaKind = "video" | "audio";
+export type MediaKind = "video" | "audio" | "image";
 
 export type MediaItem = {
   id: string;
