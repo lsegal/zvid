@@ -4,12 +4,12 @@
   --lane-selected-accent: var(--amber);
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
-  /* Arrangement lane stacking, lowest first, over clip cards isolated at
-     z-index auto; the source header row hides the playhead, under labels. */
+  /* Arrangement lane stacking, lowest first. Clip cards are isolated at
+     z-index auto, so anything positive paints over them and their handles;
+     the selected clip rises above its neighbors only. */
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
-  --z-timeline-source-header: 5;
 }
 
 .app-shell {
