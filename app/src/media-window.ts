@@ -17,12 +17,15 @@ export type MediaPreload = "metadata" | "auto";
 
 // The video media the preview needs an element for at `playheadSeconds`, and
 // how much of each to load. Audio-only media plays through the mixer, so it
-// never needs one; fill, text and FX clips draw no media.
+// never needs one, nor does a clip the mixer plays from a <video> of its own
+// (`mixerPlays`), which the compositor draws instead; fill, text and FX
+// clips draw no media.
 export function mediaWindowAt(
   clips: readonly ArrangementClip[],
   mediaById: ReadonlyMap<string, MediaItem>,
   playheadSeconds: number,
   bpm: number,
+  mixerPlays: (clip: ArrangementClip) => boolean = () => false,
 ) {
   const window = new Map<string, MediaPreload>();
   for (const clip of clips) {
@@ -37,7 +40,8 @@ export function mediaWindowAt(
     const end = start + clip.durationSeconds;
     if (
       playheadSeconds < start - MEDIA_LOOKAHEAD_SECONDS ||
-      playheadSeconds >= end + MEDIA_RELEASE_SECONDS
+      playheadSeconds >= end + MEDIA_RELEASE_SECONDS ||
+      mixerPlays(clip)
     ) {
       continue;
     }
@@ -50,11 +54,23 @@ export function mediaWindowAt(
   return window;
 }
 
+// `clip` as the mixer matches it to the clip it plays (see playsLike).
+export function drawnClipOf(clip: ArrangementClip, bpm: number) {
+  return { ...clip, startSeconds: quartersToSeconds(clip.startQ, bpm) };
+}
+
 // The preview's media elements by source key (see ActiveClip.sourceKey).
-// Their audio plays through the mixer, so they are muted and only drawn.
+// Their audio, if any, is heard from the mixer's own element, so they are
+// muted and only drawn.
 export class MediaElementPool {
   readonly elements = new Map<string, HTMLMediaElement>();
   private mediaIdBySourceKey = new Map<string, string>();
+
+  // The elements clips draw from: `shared`, the mixer's, in place of the
+  // pool's own.
+  drawnWith(shared: ReadonlyMap<string, HTMLMediaElement>) {
+    return shared.size ? new Map([...this.elements, ...shared]) : this.elements;
+  }
 
   mediaIdOf(sourceKey: string) {
     return this.mediaIdBySourceKey.get(sourceKey);

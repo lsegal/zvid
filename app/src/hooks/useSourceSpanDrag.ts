@@ -1,15 +1,13 @@
 import { type Dispatch, type SetStateAction, useEffect } from "react";
 import { patchProjectState } from "../app/session-project.ts";
+import { findSourceTrackIdAt } from "../app/timeline-math.ts";
 import type {
   ProjectState,
   SourceSpan,
   SourceSpanDragState,
 } from "../app/types.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
-import {
-  dragSourceSpan,
-  resolveSourceSpanOverlaps,
-} from "../source-span-edit.ts";
+import { dragSourceSpanInSpans } from "../source-span-edit.ts";
 import { syncClipsToSourceSpans } from "../source-track-content.ts";
 
 export type SourceSpanDragInputs = {
@@ -32,9 +30,27 @@ export type SourceSpanDragInputs = {
   ) => void;
 };
 
+// The source track rows on screen, top to bottom.
+function getSourceTrackRows() {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '[data-source-track-drop-target="track"][data-source-track-id]',
+    ),
+    (row) => {
+      const bounds = row.getBoundingClientRect();
+      return {
+        id: row.dataset.sourceTrackId ?? "",
+        top: bounds.top,
+        bottom: bounds.bottom,
+      };
+    },
+  );
+}
+
 // Follows the pointer through a source clip move or edge trim, previewing it
-// and the clips it overlaps in its source track until the release commits it
-// as one undo step. A press released before the click threshold changes
+// and the clips it overlaps until the release commits it as one undo step.
+// A move follows the pointer onto other source track rows, like a layer clip
+// onto other layers. A press released before the click threshold changes
 // nothing.
 export function useSourceSpanDrag({
   sourceSpanDrag,
@@ -75,9 +91,12 @@ export function useSourceSpanDrag({
       }
 
       const deltaX = event.clientX - sourceSpanDrag.pointerStartX;
+      const deltaY = event.clientY - sourceSpanDrag.pointerStartY;
       if (
         !dragPreviewSourceSpans &&
-        Math.abs(deltaX) <= LANE_SELECTION_DRAG_THRESHOLD_PX
+        Math.abs(deltaX) <= LANE_SELECTION_DRAG_THRESHOLD_PX &&
+        (sourceSpanDrag.kind !== "move" ||
+          Math.abs(deltaY) <= LANE_SELECTION_DRAG_THRESHOLD_PX)
       ) {
         return;
       }
@@ -90,19 +109,28 @@ export function useSourceSpanDrag({
         return;
       }
 
-      const activeSpan = dragSourceSpan(
-        origin,
-        sourceSpanDrag.kind,
-        deltaX / quarterPx,
-        {
-          bpm,
-          fps,
-          snapUnit,
-          snap: snapEnabled && !event.shiftKey,
-        },
-      );
+      const sourceTrackId =
+        sourceSpanDrag.kind === "move"
+          ? findSourceTrackIdAt(
+              getSourceTrackRows(),
+              event.clientY,
+              origin.sourceTrackId,
+            )
+          : origin.sourceTrackId;
       setDragPreviewSourceSpans(
-        resolveSourceSpanOverlaps(sourceSpans, activeSpan, bpm),
+        dragSourceSpanInSpans(
+          sourceSpans,
+          origin,
+          sourceSpanDrag.kind,
+          deltaX / quarterPx,
+          sourceTrackId,
+          {
+            bpm,
+            fps,
+            snapUnit,
+            snap: snapEnabled && !event.shiftKey,
+          },
+        ),
       );
     };
 

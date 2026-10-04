@@ -48,11 +48,11 @@ import {
   visualTransformMatrix,
 } from "./composition-transform.ts";
 import type { FillPaint } from "./fill-paint.ts";
+import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   EffectChainRenderer,
   type PreparedEffectStep,
-  type RenderTarget,
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
@@ -182,12 +182,14 @@ export function createWebGlResources(
     FX_MASK_VERTEX_SOURCE,
     FX_MASK_FRAGMENT_SOURCE,
   );
+  const effectChain = new EffectChainRenderer(gl, positionBuffer);
+  effectChain.precompile(EFFECT_PASSES);
 
   return {
     ...createSourceTextures(gl),
     program,
     positionBuffer,
-    effectChain: new EffectChainRenderer(gl, positionBuffer),
+    effectChain,
     fxSteps: new Map<CompositeLayer, PreparedEffectStep[]>(),
     drawnLayers: [] as CompositeLayer[],
     fxMask: {
@@ -336,7 +338,7 @@ function renderLayerFrame(
 // layer's and the clip's Transforms move it.
 function applyFxClip(
   resources: WebGlResources,
-  scene: RenderTarget,
+  scene: { framebuffer: WebGLFramebuffer; region: TextureRegion },
   surface: CompositeSurface,
   entry: CompositeLayer,
   steps: PreparedEffectStep[],
@@ -344,7 +346,7 @@ function applyFxClip(
 ) {
   const { gl, effectChain, fxMask } = resources;
   const { width, height } = surface;
-  const source = wholeTexture(scene.texture);
+  const source = scene.region;
   const adjusted = effectChain.run(source, width, height, steps, {
     time: frameContext.time,
     clipProgress: entry.clipProgress,
@@ -394,7 +396,7 @@ type StackTarget = {
   framebuffer: WebGLFramebuffer | null;
   width: number;
   height: number;
-  texture?: WebGLTexture;
+  region?: TextureRegion;
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
@@ -608,6 +610,7 @@ export function drawComposition(
   const { width, height } = surface;
   beginTextureDraw(resources, mediaRefs);
   effectChain.syncSurface(width, height);
+  effectChain.settlePrecompiled();
   const groupSteps = effectChain.prepare(groupChain);
   // Each FX clip's chain, when it has one; an FX clip without effects
   // changes nothing, so it is skipped unless its Order arranges the layers
@@ -628,10 +631,11 @@ export function drawComposition(
     groupSteps.length || fxSteps.size
       ? effectChain.getSceneTarget(width, height)
       : null;
-  const sceneTarget: StackTarget = scene ?? {
-    framebuffer: null,
+  const sceneTarget: StackTarget = {
+    framebuffer: scene?.framebuffer ?? null,
     width,
     height,
+    region: scene ? wholeTexture(scene.texture) : undefined,
   };
   bindCompositeState(resources, sceneTarget.framebuffer, width, height);
   // The Global Order's border fills its gaps and empty cells.
@@ -661,14 +665,10 @@ export function drawComposition(
         settled = drawn && settled;
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
-      } else if (target.texture && target.framebuffer) {
+      } else if (target.region && target.framebuffer) {
         applyFxClip(
           resources,
-          {
-            ...target,
-            texture: target.texture,
-            framebuffer: target.framebuffer,
-          },
+          { framebuffer: target.framebuffer, region: target.region },
           { width: target.width, height: target.height },
           step.entry,
           fxSteps.get(step.entry) ?? [],
@@ -705,11 +705,11 @@ export function drawComposition(
     bindCompositeState(resources, target.framebuffer, size.width, size.height);
     gl.clearColor(...borderClearColor(step.order));
     gl.clear(gl.COLOR_BUFFER_BIT);
-    drawSteps(step.steps, target, depth + 1);
+    drawSteps(step.steps, { ...size, ...target }, depth + 1);
     gl.disable(gl.SCISSOR_TEST);
 
     // The FX clip's other effects run on the arranged layers.
-    const arrangement = wholeTexture(target.texture);
+    const arrangement = target.region;
     const steps = fxSteps.get(entry) ?? [];
     const arranged = steps.length
       ? (effectChain.run(arrangement, size.width, size.height, steps, {

@@ -166,4 +166,8 @@ export const pass: EffectPass = {
     gl.uniform2f(loc.uWaveA, a, b);
     gl.uniform2f(loc.uWaveB, c, d);
   },
+  // Amount 0 sees straight through the surface.
+  isIdentity(params) {
+    return clampUnit(readEffectNumber(params, "_Amount", 0.3)) <= 0;
+  },
 };
