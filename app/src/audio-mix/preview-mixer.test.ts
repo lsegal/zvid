@@ -7,7 +7,13 @@ import type {
   ChainNodeOptions,
   ChainReport,
 } from "./chain-node.ts";
-import { ONE_POLE, TEST_PROCESSORS, testStage } from "./chain-test-utils.ts";
+import {
+  DELAY,
+  ONE_POLE,
+  REVERSE,
+  TEST_PROCESSORS,
+  testStage,
+} from "./chain-test-utils.ts";
 import { PreviewAudioMixer } from "./preview-mixer.ts";
 import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
@@ -22,6 +28,8 @@ class FakeElement {
   static seekSeconds = 0;
   static loadSeconds = 0;
   private readonly loadsAt = FakeElement.now + FakeElement.loadSeconds;
+  readonly localName: string;
+  playsInline = false;
   src = "";
   crossOrigin = "";
   preload = "";
@@ -35,6 +43,10 @@ class FakeElement {
   private time = 0;
   private landsAt = 0;
   private listeners = new Map<string, Array<() => void>>();
+
+  constructor(localName = "audio") {
+    this.localName = localName;
+  }
 
   get readyState() {
     return FakeElement.now >= this.loadsAt ? 4 : 0;
@@ -269,7 +281,7 @@ describe("PreviewAudioMixer", () => {
     globalThis.AudioWorkletNode =
       FakeWorkletNode as unknown as typeof AudioWorkletNode;
     globalThis.document = {
-      createElement: () => new FakeElement(),
+      createElement: (tag: string) => new FakeElement(tag),
     } as unknown as Document;
   });
   afterEach(() => {
@@ -700,6 +712,157 @@ describe("PreviewAudioMixer", () => {
       const [source] = context().sources;
       assert.equal(source.connections[0].gain?.value, 0.5);
       assert.deepEqual(source.connections[0].connections, [context().gains[0]]);
+      mixer.dispose();
+    });
+  });
+
+  describe("with video media", () => {
+    const videoMedia = [
+      { id: "v", previewUrl: "blob:v", kind: "video" },
+      { id: "a", previewUrl: "blob:a", kind: "audio" },
+    ];
+    // The placement of `clip({ mediaId })` as the compositor draws it.
+    const drawn = (mediaId: string, startSeconds = 0) => ({
+      mediaId,
+      startSeconds,
+      durationSeconds: 4,
+      sourceOffsetSeconds: -startSeconds,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: 4,
+    });
+    const stopped = (playheadSeconds: number) => ({
+      ...playing(playheadSeconds),
+      isPlaying: false,
+    });
+
+    it("plays a video clip from a <video> the compositor draws, once", () => {
+      let changes = 0;
+      const mixer = new PreviewAudioMixer({
+        onVideoElementsChange: () => {
+          changes += 1;
+        },
+      });
+      mixer.update(
+        mix([
+          clip({ id: "picture", mediaId: "v" }),
+          clip({ id: "song", mediaId: "a" }),
+        ]),
+        videoMedia,
+      );
+      mixer.sync(playing(1));
+      const video = elementOf("v");
+      const audio = elementOf("a");
+      assert.ok(video && audio);
+      assert.equal(video.localName, "video");
+      assert.equal(video.playsInline, true);
+      // Muted, it would feed silence into the mix.
+      assert.equal(video.muted, false);
+      assert.equal(audio.localName, "audio");
+      assert.equal(context().sources.length, 2);
+      assert.equal(
+        mixer.videoElementFor(drawn("v")),
+        video as unknown as HTMLVideoElement,
+      );
+      assert.equal(mixer.videoElementFor(drawn("v", 1)), undefined);
+      assert.equal(mixer.videoElementFor(drawn("a")), undefined);
+      assert.deepEqual(mixer.videoElements(), [video]);
+      assert.equal(changes, 1);
+
+      mixer.update(mix([clip({ id: "song", mediaId: "a" })]), videoMedia);
+      assert.deepEqual(mixer.videoElements(), []);
+      assert.equal(video.src, "");
+      assert.equal(changes, 2);
+      mixer.dispose();
+    });
+
+    it("says which drawn clips it plays from a video element", () => {
+      const mixer = new PreviewAudioMixer({ registry: TEST_PROCESSORS });
+      mixer.update(
+        mix([
+          clip({ id: "loud", mediaId: "v" }),
+          clip({ id: "song", mediaId: "a" }),
+        ]),
+        videoMedia,
+      );
+      assert.equal(mixer.playsVideoOf(drawn("v")), true);
+      // Another placement, audio-only media, or no media at all.
+      assert.equal(mixer.playsVideoOf(drawn("v", 2)), false);
+      assert.equal(mixer.playsVideoOf(drawn("a")), false);
+      assert.equal(
+        mixer.playsVideoOf({ ...drawn("v"), mediaId: undefined }),
+        false,
+      );
+
+      // A silent clip makes no element, and a reversed one plays a decoded
+      // buffer, so the compositor keeps its own.
+      mixer.update(mix([clip({ mediaId: "v", amplitude: 0 })]), videoMedia);
+      assert.equal(mixer.playsVideoOf(drawn("v")), false);
+      mixer.update(
+        mix([
+          clip({
+            mediaId: "v",
+            stages: [gainStageAt(1), testStage(REVERSE)],
+          }),
+        ]),
+        videoMedia,
+      );
+      assert.equal(mixer.playsVideoOf(drawn("v")), false);
+      mixer.dispose();
+    });
+
+    it("stops a video element on the playhead and leads it by the chain latency while playing", async () => {
+      const mixer = new PreviewAudioMixer({
+        workletUrl: "chain-worklet.js",
+        registry: TEST_PROCESSORS,
+      });
+      // 4800 frames at 48 kHz: the mix comes out 0.1 s late.
+      const delayed = (mediaId: string) =>
+        clip({
+          id: mediaId,
+          mediaId,
+          stages: [gainStageAt(1), testStage(DELAY, { Frames: 4800 })],
+        });
+      mixer.update(mix([delayed("v"), delayed("a")]), videoMedia);
+      mixer.sync(stopped(1));
+      await Promise.resolve();
+      mixer.sync(stopped(1));
+      const video = elementOf("v");
+      const audio = elementOf("a");
+      assert.ok(video && audio);
+      assert.equal(video.currentTime, 1);
+      assert.equal(audio.currentTime, 1.1);
+
+      mixer.sync(playing(1));
+      assert.equal(video.paused, false);
+      assert.ok(Math.abs(video.currentTime - 1.1) < 1e-9);
+      // Once playing, it is inside the drift tolerance and left to play.
+      video.tick(0.5);
+      mixer.sync(playing(1.5));
+      assert.ok(Math.abs(video.currentTime - 1.6) < 1e-9);
+      assert.equal(video.seeks, 2);
+      mixer.dispose();
+    });
+
+    it("queues a scrub's seeks on a video element behind the one landing", () => {
+      FakeElement.seekSeconds = 0.3;
+      const mixer = new PreviewAudioMixer();
+      mixer.update(mix([clip({ mediaId: "v" })]), videoMedia);
+      const scrubbing = (playheadSeconds: number) => ({
+        ...stopped(playheadSeconds),
+        isScrubbing: true,
+      });
+      mixer.sync(scrubbing(1));
+      mixer.sync(scrubbing(1.5));
+      mixer.sync(scrubbing(2));
+      const video = elementOf("v");
+      assert.ok(video);
+      assert.equal(video.seeks, 1);
+      assert.equal(video.seeksWhileSeeking, 0);
+
+      FakeElement.now = 0.3;
+      video.tick(0);
+      assert.equal(video.currentTime, 2);
+      assert.equal(video.seeks, 2);
       mixer.dispose();
     });
   });

@@ -176,8 +176,8 @@ export class CompositionRenderer {
 
   update(state: CompositionRendererState) {
     this.state = state;
-    this.syncMediaWindow(this.windowPlayheadQ);
     this.mixer?.update(this.audioMix(), state.mediaItems);
+    this.syncMediaWindow(this.windowPlayheadQ);
   }
 
   destroy() {
@@ -273,6 +273,8 @@ export class CompositionRenderer {
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
+    // First, so the clips it plays from video elements draw from them.
+    this.mixer?.sync(playback);
     const activeClipBySourceKey = new Map(
       this.computeActiveClips(playback.playheadQ).map((entry) => [
         entry.sourceKey,
@@ -321,8 +323,6 @@ export class CompositionRenderer {
         element.pause();
       }
     }
-
-    this.mixer?.sync(playback);
   }
 
   addVideoFrameReadyListeners(scheduleDraw: () => void) {
