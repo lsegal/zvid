@@ -60,6 +60,31 @@ export function getBarStep(barPx: number, minPx: number) {
   return step;
 }
 
+// The ruler's bar lines from `startPx` to `endPx` of the timeline, so a long
+// session renders only the bars near the view. A label sits to the right of
+// its line, so the range should reach a little left of the view. An empty
+// range, before the view is measured, gives every bar.
+export function getRulerBars(
+  barLength: number,
+  totalQuarters: number,
+  quarterPx: number,
+  startPx: number,
+  endPx: number,
+) {
+  const barCount = Math.ceil(totalQuarters / barLength);
+  const barPx = barLength * quarterPx;
+  const visible = endPx > startPx && barPx > 0;
+  const first = visible ? Math.max(0, Math.floor(startPx / barPx)) : 0;
+  const last = visible
+    ? Math.min(barCount, Math.ceil(endPx / barPx) + 1)
+    : barCount;
+  const bars: Array<{ index: number; quarter: number }> = [];
+  for (let index = first; index < last; index++) {
+    bars.push({ index, quarter: index * barLength });
+  }
+  return bars;
+}
+
 // How far apart ruler labels must start so they don't overlap: a bar number
 // such as "128", or a timecode such as "01:23:15".
 export const RULER_LABEL_MIN_PX = { musical: 40, timecode: 80 } as const;

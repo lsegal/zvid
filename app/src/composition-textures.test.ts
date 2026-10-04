@@ -32,6 +32,7 @@ function createCountingGl() {
     [];
   const sourcedUploads: Upload[] = [];
   const subUploads: Upload[] = [];
+  const parameterReads: unknown[] = [];
   const methods: Record<string, (...args: never[]) => unknown> = {
     createBuffer: () => ({ id: nextId++ }),
     createFramebuffer: () => ({ id: nextId++ }),
@@ -50,7 +51,10 @@ function createCountingGl() {
     getAttribLocation: () => POSITION_ATTRIBUTE_LOCATION,
     getUniformLocation: (_program: unknown, name: string) => ({ name }),
     checkFramebufferStatus: () => "FRAMEBUFFER_COMPLETE",
-    getParameter: () => 4096,
+    getParameter: (name: unknown) => {
+      parameterReads.push(name);
+      return 4096;
+    },
     pixelStorei: (name: string, value: unknown) => {
       pixelStore.set(name, value);
     },
@@ -79,7 +83,7 @@ function createCountingGl() {
       return () => undefined;
     },
   }) as unknown as WebGLRenderingContext;
-  return { gl, live, allocations, sourcedUploads, subUploads };
+  return { gl, live, allocations, sourcedUploads, subUploads, parameterReads };
 }
 
 type FrameCallback = (
@@ -270,6 +274,20 @@ describe("source texture lifetime", () => {
     assert.equal(live.size, baseline);
     assert.equal(resources.videoUploads.size, 0);
     assert.equal(resources.readyTextureIds.size, 0);
+  });
+});
+
+describe("texture size limit", () => {
+  it("reads the largest texture size once per context", () => {
+    const { resources, parameterReads } = setup();
+    const reads = () =>
+      parameterReads.filter((name) => name === "MAX_TEXTURE_SIZE").length;
+    draw(resources, [textLayer(0)]);
+    const afterFirst = reads();
+    for (let frame = 0; frame < 10; frame++) {
+      draw(resources, [textLayer(0), textLayer(1)]);
+    }
+    assert.equal(reads(), afterFirst);
   });
 });
 
