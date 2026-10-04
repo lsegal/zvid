@@ -42,6 +42,10 @@ async function seek(page: Page, offset: number) {
 // The line ignores pointer events, so turn them on to let elementFromPoint
 // see it wherever it is on top.
 async function topmostAtPlayhead(page: Page, selector: string) {
+  await page
+    .locator(selector)
+    .first()
+    .evaluate((element) => element.scrollIntoView({ block: "center" }));
   await page.addStyleTag({
     content: ".timeline-playhead { pointer-events: auto !important; }",
   });
@@ -72,9 +76,10 @@ test("the playhead line hides behind the empty source header", async ({
   expect(
     await topmostAtPlayhead(page, '[data-timeline-lane-id="5"]'),
   ).toMatchObject({ playhead: true });
-  expect(
-    await topmostAtPlayhead(page, ".source-header__content"),
-  ).toEqual({ playhead: false, header: true });
+  expect(await topmostAtPlayhead(page, ".source-header__content")).toEqual({
+    playhead: false,
+    header: true,
+  });
 });
 
 test("the playhead line hides behind the source header with tracks", async ({
@@ -86,9 +91,10 @@ test("the playhead line hides behind the source header with tracks", async ({
   await expect(page.locator(".source-header--empty")).toHaveCount(0);
   await seek(page, 300);
 
-  expect(
-    await topmostAtPlayhead(page, ".source-header__content"),
-  ).toEqual({ playhead: false, header: true });
+  expect(await topmostAtPlayhead(page, ".source-header__content")).toEqual({
+    playhead: false,
+    header: true,
+  });
   // The source track row below the header still shows the line.
   expect(
     await topmostAtPlayhead(page, ".track-row__content--source"),
@@ -97,9 +103,10 @@ test("the playhead line hides behind the source header with tracks", async ({
   // Collapsing the group keeps the header covering the line.
   await page.locator(".source-header__toggle").click();
   await expect(page.locator(".source-header--collapsed")).toBeVisible();
-  expect(
-    await topmostAtPlayhead(page, ".source-header__content"),
-  ).toEqual({ playhead: false, header: true });
+  expect(await topmostAtPlayhead(page, ".source-header__content")).toEqual({
+    playhead: false,
+    header: true,
+  });
 });
 
 test("the source header drop target keeps its highlight over the opaque base", async ({
@@ -134,8 +141,9 @@ test.describe("at phone widths", () => {
     await expect(page.locator(".source-header--empty")).toBeVisible();
     await seek(page, 40);
 
-    expect(
-      await topmostAtPlayhead(page, ".source-header__content"),
-    ).toEqual({ playhead: false, header: true });
+    expect(await topmostAtPlayhead(page, ".source-header__content")).toEqual({
+      playhead: false,
+      header: true,
+    });
   });
 });
