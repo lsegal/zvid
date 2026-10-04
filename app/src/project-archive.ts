@@ -20,6 +20,8 @@ export class ProjectArchiveError extends Error {
   name = "ProjectArchiveError";
 }
 
+type Bytes = Uint8Array<ArrayBuffer>;
+
 const BLOCK = 512;
 // 11 octal digits is the largest size a ustar header holds.
 const MAX_USTAR_SIZE = 8 ** 11 - 1;
@@ -137,8 +139,8 @@ async function* tarChunks(entries: ArchiveEntry[]) {
   yield new Uint8Array(BLOCK * 2);
 }
 
-function iteratorStream(chunks: AsyncGenerator<Uint8Array>) {
-  return new ReadableStream<Uint8Array>({
+function iteratorStream(chunks: AsyncGenerator<Bytes>) {
+  return new ReadableStream<Bytes>({
     async pull(controller) {
       const { done, value } = await chunks.next();
       if (done) controller.close();
@@ -188,16 +190,16 @@ export async function writeProjectArchive({
 
 // Pulls exact byte counts off a stream of arbitrarily sized chunks.
 class ChunkReader {
-  #reader: ReadableStreamDefaultReader<Uint8Array>;
-  #chunk = new Uint8Array(0);
+  #reader: ReadableStreamDefaultReader<Bytes>;
+  #chunk: Bytes = new Uint8Array(0);
 
-  constructor(stream: ReadableStream<Uint8Array>) {
+  constructor(stream: ReadableStream<Bytes>) {
     this.#reader = stream.getReader();
   }
 
   // Returns chunks totaling `size` bytes, or fewer if the stream ends first.
-  async readParts(size: number): Promise<Uint8Array[]> {
-    const parts: Uint8Array[] = [];
+  async readParts(size: number): Promise<Bytes[]> {
+    const parts: Bytes[] = [];
     let remaining = size;
     while (remaining > 0) {
       if (this.#chunk.length === 0) {
@@ -214,7 +216,7 @@ class ChunkReader {
     return parts;
   }
 
-  async read(size: number): Promise<Uint8Array> {
+  async read(size: number): Promise<Bytes> {
     const parts = await this.readParts(size);
     if (parts.length === 1) return parts[0];
     const bytes = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -277,7 +279,7 @@ function parsePax(data: Uint8Array) {
   return records;
 }
 
-type TarEntry = { path: string; type: string; parts: Uint8Array[] };
+type TarEntry = { path: string; type: string; parts: Bytes[] };
 
 // Yields each regular file and directory in the tar stream. `wantData`
 // decides whether a file's contents are kept or skipped.
@@ -333,7 +335,10 @@ async function* tarEntries(
       continue;
     }
 
-    const prefix = readString(block, 345, 155);
+    // Only POSIX ustar headers carry a name prefix; old GNU headers store
+    // other fields there.
+    const isPosix = readString(block, 257, 6) === "ustar";
+    const prefix = isPosix ? readString(block, 345, 155) : "";
     const ustarName = prefix
       ? `${prefix}/${readString(block, 0, 100)}`
       : readString(block, 0, 100);
@@ -377,10 +382,7 @@ async function* tarEntries(
 }
 
 function gunzip(input: Uint8Array | Blob) {
-  const blob =
-    input instanceof Blob
-      ? input
-      : new Blob([input as Uint8Array<ArrayBuffer>]);
+  const blob = input instanceof Blob ? input : new Blob([input as Bytes]);
   return blob.stream().pipeThrough(new DecompressionStream("gzip"));
 }
 
@@ -411,9 +413,7 @@ export async function readProjectArchive(
     for await (const entry of tarEntries(reader, wanted)) {
       if (entry.type !== "0" || !wanted(entry.path)) continue;
       if (entry.path === PROJECT_ARCHIVE_SESSION_PATH) {
-        const text = await new Blob(
-          entry.parts as Uint8Array<ArrayBuffer>[],
-        ).text();
+        const text = await new Blob(entry.parts).text();
         let parsed: unknown;
         try {
           parsed = JSON.parse(text);
@@ -429,10 +429,7 @@ export async function readProjectArchive(
         }
         project = parsed as LvpSession;
       } else {
-        const file = new File(
-          entry.parts as Uint8Array<ArrayBuffer>[],
-          basename(entry.path),
-        );
+        const file = new File(entry.parts, basename(entry.path));
         media.push({ path: entry.path, file });
       }
     }
