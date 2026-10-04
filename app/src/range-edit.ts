@@ -96,6 +96,23 @@ export function resolveClipOverlaps<Clip extends RangeClip>(
 }
 
 /**
+ * Adds `placed` to `clips` one at a time, each trimming the clips it overlaps
+ * on its layer as `resolveClipOverlaps` does. A later clip trims an earlier
+ * one too, so `placed` should not overlap itself.
+ */
+export function placeClips<Clip extends RangeClip>(
+  clips: readonly Clip[],
+  placed: readonly Clip[],
+  bpm: number,
+) {
+  let nextClips = [...clips];
+  for (const clip of placed) {
+    nextClips = resolveClipOverlaps([...nextClips, clip], clip, bpm);
+  }
+  return nextClips;
+}
+
+/**
  * Places `activeClip` and trims the clips it overlaps in its container, the
  * way `resolveClipOverlaps` does on a layer: each keeps its longer uncovered
  * side, and is removed when it has none. Other containers are unchanged.
@@ -276,18 +293,14 @@ export function pasteClipboard<Clip extends RangeClip>(
   bpm: number,
   createId: () => string,
 ) {
-  const pasted: Clip[] = [];
-  let nextClips = [...clips];
-  for (const fragment of content.fragments) {
-    const clip = placeClipAt(
+  const pasted = content.fragments.map((fragment) =>
+    placeClipAt(
       fragment.clip,
       laneId,
       pasteQ + fragment.offsetQ,
       bpm,
       createId(),
-    );
-    nextClips = resolveClipOverlaps([...nextClips, clip], clip, bpm);
-    pasted.push(clip);
-  }
-  return { clips: nextClips, pasted };
+    ),
+  );
+  return { clips: placeClips(clips, pasted, bpm), pasted };
 }

@@ -5,6 +5,7 @@ import {
   copyClip,
   copyRange,
   pasteClipboard,
+  placeClips,
   type RangeClip,
   removeRangeFromLane,
   resolveClipOverlaps,
@@ -301,6 +302,44 @@ describe("copyRange", () => {
       copyRange([clip("a", 0, 8, { laneId: "2" })], "1", 2, 6, BPM).fragments,
       [],
     );
+  });
+});
+
+describe("placeClips", () => {
+  it("trims a clip the placed clip partly covers", () => {
+    assert.deepEqual(
+      spans(placeClips([clip("a", 0, 4)], [clip("w", 2, 4)], BPM)),
+      [
+        ["a", "1", 0, 2, 10],
+        ["w", "1", 2, 6, 11],
+      ],
+    );
+  });
+
+  it("removes a clip the placed clip fully covers", () => {
+    assert.deepEqual(
+      spans(placeClips([clip("a", 2, 2)], [clip("w", 0, 8)], BPM)),
+      [["w", "1", 0, 8, 10]],
+    );
+  });
+
+  it("keeps every window of a selection split across source clips", () => {
+    const placed = placeClips(
+      [clip("a", 0, 12), clip("o", 0, 12, { laneId: "2" })],
+      [
+        clip("w1", 2, 2, { sourceOffsetSeconds: 20 }),
+        clip("w2", 4, 2, { sourceOffsetSeconds: 30 }),
+        clip("w3", 6, 2, { sourceOffsetSeconds: 40 }),
+      ],
+      BPM,
+    );
+    assert.deepEqual(spans(placed), [
+      ["a", "1", 8, 12, 14],
+      ["o", "2", 0, 12, 10],
+      ["w1", "1", 2, 4, 21],
+      ["w2", "1", 4, 6, 32],
+      ["w3", "1", 6, 8, 43],
+    ]);
   });
 });
 
