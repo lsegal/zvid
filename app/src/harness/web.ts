@@ -184,7 +184,7 @@ function chooseWorkspaceSession(files: WorkspaceFileRef[]) {
 
   if (!sessionCandidates.length) {
     throw new Error(
-      "No .lvp session or Ableton .als set was found in the selected workspace.",
+      "No .zvd or .lvp session or Ableton .als set was found in the selected workspace.",
     );
   }
 
@@ -517,7 +517,7 @@ export function createWebHarness(): Harness {
     },
     async pickSession(): Promise<SessionSelection | null> {
       const files = await pickFiles({
-        accept: ".lvp,.als,application/json",
+        accept: ".zvd,.lvp,.als,application/json",
         multiple: false,
       });
       const file = files[0];

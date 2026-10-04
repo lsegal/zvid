@@ -41,10 +41,10 @@ import {
   type SessionOpenResponse,
 } from "../session";
 import {
-  chooseSessionSaveTarget,
+  PROJECT_FILE_EXTENSION,
+  projectExportFilename,
   projectToLvpSession,
   readSessionMediaRanges,
-  SESSION_FILE_EXTENSION,
 } from "../session-save.ts";
 import type { WorkspaceSessionSource } from "../workspace-session.ts";
 
@@ -467,68 +467,55 @@ export function useSessionIO({
     }
   }
 
-  async function handleSaveSession() {
+  // Writes the project as a `.zvd` wherever the user picks, leaving the
+  // opened session's own file alone.
+  async function handleExportProject() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
       playheadQ: playheadQRef.current,
       selectedClipId,
     });
-    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
+    const blob = new Blob([`${JSON.stringify(session, null, 2)}
+`], {
       type: "application/json",
     });
-    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
 
     let saveTarget: SaveTarget;
-    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
-      saveTarget = {
-        kind: "native-path",
-        filename: basename(choice.path),
-        path: choice.path,
-      };
-    } else {
-      const filename =
-        choice.kind === "path" ? basename(choice.path) : choice.filename;
-      try {
-        const nextSaveTarget = await harness.prepareSave(filename, {
+    try {
+      const nextSaveTarget = await harness.prepareSave(
+        projectExportFilename(sessionSource, sessionName),
+        {
           mimeType: "application/json",
-          extensions: [SESSION_FILE_EXTENSION],
-          description: "ZVID session",
-        });
-        if (!nextSaveTarget) {
-          setStatus("Save canceled.");
-          return;
-        }
-        saveTarget = nextSaveTarget;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          setStatus("Save canceled.");
-          return;
-        }
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Failed to prepare save destination: ${message}`);
+          extensions: [PROJECT_FILE_EXTENSION],
+          description: "ZVID project",
+        },
+      );
+      if (!nextSaveTarget) {
+        setStatus("Export canceled.");
         return;
       }
+      saveTarget = nextSaveTarget;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setStatus("Export canceled.");
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Failed to prepare export destination: ${message}`);
+      return;
     }
 
     try {
       await harness.saveBlob(blob, saveTarget);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Save failed: ${message}`);
+      setStatus(`Export failed: ${message}`);
       return;
     }
 
-    // A session saved to a new path keeps saving there.
-    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
-      setSessionSource({
-        kind: "path",
-        name: basename(saveTarget.path),
-        path: saveTarget.path,
-      });
-    }
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    setStatus(`Saved ${savedName}.`);
+    setStatus(`Exported ${savedName}.`);
   }
 
   // Opens a bundled sample whose media is already in the media cache.
@@ -541,6 +528,6 @@ export function useSessionIO({
     handleImport,
     handleOpenSession,
     handleOpenWorkspace,
-    handleSaveSession,
+    handleExportProject,
   };
 }

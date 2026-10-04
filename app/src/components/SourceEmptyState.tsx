@@ -25,7 +25,7 @@ export function SourceEmptyState({
       <button
         className="ghost-button"
         onClick={onOpenSession}
-        title="Open a .lvp session or an Ableton .als set"
+        title="Open a .zvd or .lvp session or an Ableton .als set"
         type="button"
       >
         Open Session

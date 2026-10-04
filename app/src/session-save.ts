@@ -1,12 +1,8 @@
-// File ▸ Save: where a session is written, and the `.lvp` it is written as.
-//
-// A session opened from a file path (the desktop build) saves back to that
-// path, including after a refresh restores it. Sessions opened from a browser
-// `File`, a workspace folder or an Ableton Live set import have no path the
-// app can write to, so they prompt for a location. An imported set is never
-// written back: its picker suggests the sibling `.lvp`.
+// File ▸ Export Project…: the `.zvd` filename it suggests, and the session
+// it writes. A `.zvd` holds the same JSON as an `.lvp`, so older builds read a
+// renamed file. Exporting always asks where to write, even for a session
+// opened from a path.
 
-import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
@@ -21,50 +17,25 @@ import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
-export const SESSION_FILE_EXTENSION = ".lvp";
-const DEFAULT_SESSION_FILENAME = `zvid-session${SESSION_FILE_EXTENSION}`;
-
-export type SessionSaveTarget =
-  | { kind: "path"; path: string }
-  | { kind: "prompt"; filename: string };
+export const PROJECT_FILE_EXTENSION = ".zvd";
+const DEFAULT_PROJECT_FILENAME = `zvid-session${PROJECT_FILE_EXTENSION}`;
 
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
 }
 
-// A session filename the picker can suggest: `.lvp` and `.json` sessions keep
-// their name, anything else gets `.lvp`.
-function sessionFilename(name: string | null | undefined) {
-  const trimmed = basename(name?.trim() ?? "");
-  if (!trimmed) {
-    return DEFAULT_SESSION_FILENAME;
-  }
-  if (/\.(lvp|json)$/i.test(trimmed)) {
-    return trimmed;
-  }
-  return `${trimmed.replace(/\.als$/i, "")}${SESSION_FILE_EXTENSION}`;
-}
-
-export function chooseSessionSaveTarget(
+// The filename Export Project… suggests: the opened session's name, or the
+// session's own name, with its session extension swapped for `.zvd`.
+export function projectExportFilename(
   source: WorkspaceSessionSource,
   sessionName: string | null,
-): SessionSaveTarget {
-  switch (source.kind) {
-    case "path":
-      return { kind: "path", path: source.path };
-    case "import":
-      return {
-        kind: "prompt",
-        filename: sessionFilename(
-          alsSavePath(source.name || sessionName || ""),
-        ),
-      };
-    case "file":
-    case "workspace":
-      return { kind: "prompt", filename: sessionFilename(source.name) };
-    default:
-      return { kind: "prompt", filename: sessionFilename(sessionName) };
-  }
+) {
+  const name = source.kind === "none" ? sessionName : source.name || sessionName;
+  const trimmed = basename(name?.trim() ?? "").replace(
+    /\.(zvd|lvp|json|als)$/i,
+    "",
+  );
+  return trimmed ? `${trimmed}${PROJECT_FILE_EXTENSION}` : DEFAULT_PROJECT_FILENAME;
 }
 
 export type SaveableLane = {

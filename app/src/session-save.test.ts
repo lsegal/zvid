@@ -8,7 +8,7 @@ import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
 import { migrateDefaultOrder } from "./project-state-compat.ts";
 import { clipSourceFrame, type LvpSession } from "./session.ts";
 import {
-  chooseSessionSaveTarget,
+  projectExportFilename,
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
@@ -23,22 +23,22 @@ import {
   type WorkspaceSessionSource,
 } from "./workspace-session.ts";
 
-describe("chooseSessionSaveTarget", () => {
-  it("writes a path-opened session back to its path", () => {
-    assert.deepEqual(
-      chooseSessionSaveTarget(
+describe("projectExportFilename", () => {
+  it("names a path-opened session's export after its file, as .zvd", () => {
+    assert.equal(
+      projectExportFilename(
         { kind: "path", name: "set.lvp", path: "/Users/me/set.lvp" },
         "set.lvp",
       ),
-      { kind: "path", path: "/Users/me/set.lvp" },
+      "set.zvd",
     );
   });
 
-  it("targets the restored path after a refresh", () => {
+  it("keeps the opened file's name after a refresh", () => {
     const source: WorkspaceSessionSource = {
       kind: "path",
-      name: "set.lvp",
-      path: "C:\\Sessions\\set.lvp",
+      name: "set.zvd",
+      path: "C:\Sessions\set.zvd",
     };
     const payload = serializeWorkspaceSession({
       history: { past: [], present: { clips: [] }, future: [] },
@@ -49,45 +49,36 @@ describe("chooseSessionSaveTarget", () => {
       normalizeState: (value) => value,
       normalizeView: (value) => value,
     });
-    assert.deepEqual(chooseSessionSaveTarget(restored.source, "set.lvp"), {
-      kind: "path",
-      path: "C:\\Sessions\\set.lvp",
-    });
+    assert.equal(projectExportFilename(restored.source, "set.zvd"), "set.zvd");
   });
 
-  it("prompts for a session opened from a browser file", () => {
-    assert.deepEqual(
-      chooseSessionSaveTarget({ kind: "file", name: "set.lvp" }, "set.lvp"),
-      { kind: "prompt", filename: "set.lvp" },
+  it("swaps a browser file or workspace session's extension for .zvd", () => {
+    assert.equal(
+      projectExportFilename({ kind: "file", name: "set.LVP" }, "set.LVP"),
+      "set.zvd",
     );
-  });
-
-  it("prompts for a session opened from a workspace", () => {
-    assert.deepEqual(
-      chooseSessionSaveTarget(
+    assert.equal(
+      projectExportFilename(
         { kind: "workspace", name: "session.json" },
         "session.json",
       ),
-      { kind: "prompt", filename: "session.json" },
+      "session.zvd",
     );
   });
 
-  it("prompts for an imported Live set, suggesting the sibling .lvp", () => {
-    assert.deepEqual(
-      chooseSessionSaveTarget({ kind: "import", name: "Song.als" }, "Song.als"),
-      { kind: "prompt", filename: "Song.lvp" },
+  it("names an imported Live set's export after the set", () => {
+    assert.equal(
+      projectExportFilename({ kind: "import", name: "Song.als" }, "Song.als"),
+      "Song.zvd",
     );
   });
 
-  it("prompts for a session with no source, named after the session", () => {
-    assert.deepEqual(chooseSessionSaveTarget({ kind: "none" }, "Demo"), {
-      kind: "prompt",
-      filename: "Demo.lvp",
-    });
-    assert.deepEqual(chooseSessionSaveTarget({ kind: "none" }, null), {
-      kind: "prompt",
-      filename: "zvid-session.lvp",
-    });
+  it("names a session with no source after the session", () => {
+    assert.equal(projectExportFilename({ kind: "none" }, "Demo"), "Demo.zvd");
+    assert.equal(
+      projectExportFilename({ kind: "none" }, null),
+      "zvid-session.zvd",
+    );
   });
 });
 
