@@ -13,11 +13,11 @@ export const definition: FxEffectDefinition = {
   effectName: MASK_EFFECT_NAME,
   displayName: "Mask",
   description:
-    "Shows the layer only where another layer draws, or cuts that layer's shape out of it.",
+    "Shows the layer only where another layer draws, or cuts that layer's shape out of it. On an FX clip, limits where its effects apply.",
   accent: "#8fd3ff",
   category: "transform",
   known: true,
-  scopes: ["layer", "clip"],
+  scopes: ["layer", "clip", "fxClip"],
   parameters: [
     // One layer's id, or empty for no masking.
     {
