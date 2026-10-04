@@ -60,16 +60,18 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     // Like the Layers app, it drops 4-Audio, which has no video.
     assert.deepEqual(
       session.tracks,
-      golden.tracks.map((track: NonNullable<ProjectSession["tracks"]>[number]) => ({
-        id: track.id,
-        name: track.name,
-        colorIndex: track.colorIndex,
-        // `numFrames`/`frameRate` come from media probing, not the .als.
-        recordings: track.recordings?.map(({ filename, frameStart }) => ({
-          filename,
-          frameStart,
-        })),
-      })),
+      golden.tracks.map(
+        (track: NonNullable<ProjectSession["tracks"]>[number]) => ({
+          id: track.id,
+          name: track.name,
+          colorIndex: track.colorIndex,
+          // `numFrames`/`frameRate` come from media probing, not the .als.
+          recordings: track.recordings?.map(({ filename, frameStart }) => ({
+            filename,
+            frameStart,
+          })),
+        }),
+      ),
     );
   });
 

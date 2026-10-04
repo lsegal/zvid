@@ -489,7 +489,9 @@ function readLayerClips(
 }
 
 // The media In/Out points a session was saved with, skipping malformed entries.
-export function readSessionMediaRanges(session: ProjectSession): SavedMediaRange[] {
+export function readSessionMediaRanges(
+  session: ProjectSession,
+): SavedMediaRange[] {
   const ranges: SavedMediaRange[] = [];
   const entries: unknown = session.mediaRanges;
   for (const entry of Array.isArray(entries) ? entries : []) {

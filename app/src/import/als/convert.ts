@@ -145,7 +145,10 @@ export function convertAls(
         ? matchTake(trackTakes, clip, content, tempoMap)
         : undefined;
       const importedVideo = !track.isVideoTrack && isVideoSample(clip);
-      const skip = (reason: AlsSkipReason, clipId = sessionClipId(track, clip)) =>
+      const skip = (
+        reason: AlsSkipReason,
+        clipId = sessionClipId(track, clip),
+      ) =>
         skipped.push({
           trackId: String(track.id),
           trackName: track.name,

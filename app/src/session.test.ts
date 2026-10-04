@@ -5,8 +5,8 @@ import {
   clipSourceFrame,
   collectSessionMediaPaths,
   formatClipsWithoutFile,
-  type ProjectSession,
   normalizeSession,
+  type ProjectSession,
 } from "./session.ts";
 
 // A clip as a session file may hold it: parsed JSON, so `filePath` can be

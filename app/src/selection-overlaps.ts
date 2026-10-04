@@ -4,7 +4,9 @@ import type { ProjectSession } from "./session.ts";
 // that overlap on the same main track. Clips placed later win an overlap, the
 // same rule the editor applies when a clip is moved onto another.
 
-export type ProjectSelection = NonNullable<ProjectSession["selections"]>[number];
+export type ProjectSelection = NonNullable<
+  ProjectSession["selections"]
+>[number];
 
 export interface SelectionOverlapResult {
   selections: ProjectSelection[];
