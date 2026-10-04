@@ -45,6 +45,7 @@ import {
   type TransformMotion,
   visualTransformMatrix,
 } from "./composition-transform.ts";
+import { defaultShapeScale } from "./fx/effects/shape/shape.ts";
 import {
   addEffect,
   clipEffectTrackId,
@@ -651,4 +652,25 @@ export function setLayerTransformParameters(
 
 export function moveHistoryLabel(layerName: string) {
   return `Move ${layerName}`;
+}
+
+// Gives stack `trackId` the Transform a new Shape starts from when it has
+// none: a square centered in the `canvas`, half its height across, so the
+// shape shows as drawn rather than stretched over the whole canvas. An
+// existing Transform is left as it is.
+export function addShapeTransform(
+  effects: SessionEffect[],
+  trackId: string,
+  canvas: Size,
+  newEffectId: string,
+) {
+  if (findLayerTransform(effects, trackId)) {
+    return effects;
+  }
+  return setLayerTransformParameters(
+    effects,
+    trackId,
+    defaultShapeScale(canvas.width, canvas.height),
+    newEffectId,
+  );
 }

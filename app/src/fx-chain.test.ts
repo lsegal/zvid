@@ -357,6 +357,7 @@ describe("addableEffectsFor", () => {
         "DigitalGlitch",
         "Bloom",
         "Transform",
+        "Shape",
         "Move",
         "Color",
       ]),
