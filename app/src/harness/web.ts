@@ -1,10 +1,7 @@
 import {
-  alsMainAudioPath,
-  alsSavePath,
   importAls,
   isAlsSession,
   probeAlsRecordings,
-  rankWorkspaceSessions,
   resolveAlsMedia,
   withFormatNotes,
 } from "../als-import";
@@ -12,11 +9,7 @@ import {
   isProjectArchiveFilename,
   openProjectArchive,
 } from "../project-archive-open";
-import type {
-  LvpSession,
-  ServerMediaRef,
-  SessionOpenResponse,
-} from "../session";
+import type { LvpSession, SessionOpenResponse } from "../session";
 import { detectOpenedSessionFormat } from "../session-format";
 import type {
   Harness,
@@ -25,23 +18,15 @@ import type {
   SaveOptions,
   SaveTarget,
   SessionSelection,
-  WorkspaceFileRef,
 } from "./contracts";
 import { exportVideo } from "./export";
 import { hasMediaExtension, MEDIA_EXTENSIONS } from "./media-extensions";
+import { buildFileOpenPayload } from "./open-payload";
 import {
   analyzeMediaSelection,
   generateThumbnailFromUrlAtTime,
   probeRecordingFrames,
 } from "./web-media";
-import {
-  basename,
-  buildFileOpenPayload,
-  buildWorkspaceOpenPayload,
-  createPathId,
-  createWorkspaceResolver,
-  normalizeWorkspacePath,
-} from "./workspace-open";
 
 type SaveFilePickerWindow = Window & {
   showSaveFilePicker?: (options?: {
@@ -91,7 +76,7 @@ function pickFiles(options: { accept: string; multiple: boolean }) {
 }
 
 function pickDirectoryFiles() {
-  return new Promise<WorkspaceFileRef[] | null>((resolve) => {
+  return new Promise<File[] | null>((resolve) => {
     const input = document.createElement("input") as DirectoryInput;
     input.type = "file";
     input.multiple = true;
@@ -108,19 +93,7 @@ function pickDirectoryFiles() {
         const files = Array.from(input.files ?? []);
         input.remove();
 
-        if (!files.length) {
-          resolve(null);
-          return;
-        }
-
-        resolve(
-          files.map((file) => ({
-            path:
-              file.webkitRelativePath.split("/").slice(1).join("/") ||
-              file.name,
-            file,
-          })),
-        );
+        resolve(files.length ? files : null);
       },
       { once: true },
     );
@@ -135,152 +108,13 @@ async function pickMediaFolder(): Promise<MediaSelection | null> {
     return null;
   }
 
-  const files = entries
-    .map(({ file }) => file)
-    .filter(
-      (file) =>
-        file.type.startsWith("video/") ||
-        file.type.startsWith("audio/") ||
-        hasMediaExtension(file.name),
-    );
+  const files = entries.filter(
+    (file) =>
+      file.type.startsWith("video/") ||
+      file.type.startsWith("audio/") ||
+      hasMediaExtension(file.name),
+  );
   return { kind: "files", files };
-}
-
-async function pickWorkspaceSession(): Promise<SessionSelection | null> {
-  const files = await pickDirectoryFiles();
-  if (!files) {
-    return null;
-  }
-
-  const firstRelativePath = files[0]?.file.webkitRelativePath;
-  const rootName = firstRelativePath?.split("/")[0] || "Workspace";
-  const sessionEntry = chooseWorkspaceSession(files);
-  if (!sessionEntry) {
-    return null;
-  }
-
-  return {
-    kind: "workspace",
-    rootName,
-    sessionPath: sessionEntry.path,
-    sessionFile: sessionEntry.file,
-    files,
-  };
-}
-
-function chooseWorkspaceSession(files: WorkspaceFileRef[]) {
-  const sessionCandidates = rankWorkspaceSessions(files);
-
-  if (!sessionCandidates.length) {
-    throw new Error(
-      "No .zvd or .lvp session or Ableton .als set was found in the selected workspace.",
-    );
-  }
-
-  if (sessionCandidates.length === 1) {
-    return sessionCandidates[0];
-  }
-
-  const choices = sessionCandidates
-    .slice(0, 20)
-    .map((entry, index) => `${index + 1}. ${entry.path}`)
-    .join("\n");
-  const rawChoice = window.prompt(
-    `Choose a session file to open:\n${choices}`,
-    "1",
-  );
-  if (!rawChoice) {
-    return null;
-  }
-
-  const index = Number.parseInt(rawChoice, 10) - 1;
-  return sessionCandidates[index] ?? null;
-}
-
-function workspaceDir(rawPath: string) {
-  const segments = normalizeWorkspacePath(rawPath).split("/");
-  return segments.slice(0, -1);
-}
-
-// Finds a Live set's recording in the workspace: in the set's ZVID Capture
-// `Recorded/ZVID` folder, beside the set, in the `Recorded` folder beside its
-// project, then anywhere by name.
-function createWorkspaceAlsLocator(
-  selection: Extract<SessionSelection, { kind: "workspace" }>,
-) {
-  const byPath = new Map(
-    selection.files.map((entry) => [normalizeWorkspacePath(entry.path), entry]),
-  );
-  const resolveFile = createWorkspaceResolver(
-    selection.rootName,
-    selection.files,
-  );
-  const setDir = workspaceDir(selection.sessionPath);
-  const recordedDir = [...setDir.slice(0, -1), "recorded"];
-  const zvidRecordedDir = [...setDir, "recorded", "zvid"];
-
-  return (name: string) => {
-    const filename = basename(name).toLowerCase();
-    const entry =
-      byPath.get([...zvidRecordedDir, filename].join("/")) ??
-      byPath.get([...setDir, filename].join("/")) ??
-      byPath.get([...recordedDir, filename].join("/")) ??
-      resolveFile(filename);
-    return entry?.path ?? null;
-  };
-}
-
-async function openWorkspaceAls(
-  bytes: Uint8Array,
-  selection: Extract<SessionSelection, { kind: "workspace" }>,
-): Promise<SessionOpenResponse> {
-  const workspacePaths = new Set(
-    selection.files.map((entry) => normalizeWorkspacePath(entry.path)),
-  );
-  const audioFilename = alsMainAudioPath(selection.sessionPath, (path) =>
-    workspacePaths.has(normalizeWorkspacePath(path)),
-  );
-  const imported = await importAls(bytes, selection.sessionFile.name, {
-    audioFilename,
-  });
-  const { session, recordingPaths, layersRecordTracks, summary } =
-    resolveAlsMedia(imported, createWorkspaceAlsLocator(selection));
-  const byPath = new Map(
-    selection.files.map((entry) => [entry.path, entry.file]),
-  );
-  const recordingRefs = recordingPaths.flatMap<ServerMediaRef>((path) => {
-    const file = byPath.get(path);
-    return file
-      ? [
-          {
-            id: createPathId(path),
-            path,
-            name: basename(path),
-            url: URL.createObjectURL(file),
-            exists: true,
-          },
-        ]
-      : [];
-  });
-  try {
-    const { session: probed, formatNotes } = await probeAlsRecordings(
-      session,
-      recordingRefs,
-      probeRecordingFrames,
-      layersRecordTracks,
-    );
-    return {
-      ...buildWorkspaceOpenPayload(probed, selection),
-      sessionPath: alsSavePath(
-        `${selection.rootName}/${selection.sessionPath}`,
-      ),
-      alsImport: withFormatNotes(summary, formatNotes),
-    };
-  } finally {
-    for (const ref of recordingRefs) {
-      URL.revokeObjectURL(ref.url);
-    }
-  }
 }
 
 // Fills an imported Live set's recording metadata from the refs the server
@@ -442,7 +276,6 @@ export function createWebHarness(): Harness {
 
       return { kind: "file", file };
     },
-    pickWorkspace: pickWorkspaceSession,
     guardWindowClose,
     async pickMedia(options) {
       const files = await pickFiles({
@@ -457,37 +290,6 @@ export function createWebHarness(): Harness {
     },
     pickMediaFolder,
     async openSession(selection): Promise<SessionOpenResponse> {
-      if (selection.kind === "workspace") {
-        const bytes = new Uint8Array(await selection.sessionFile.arrayBuffer());
-        // An archive is gzip too, so it is checked before a Live set.
-        if (isProjectArchiveFilename(selection.sessionFile.name)) {
-          return finishSessionOpen(
-            await openProjectArchive(
-              bytes,
-              selection.sessionFile.name,
-              selection,
-            ),
-          );
-        }
-
-        if (isAlsSession(bytes, selection.sessionFile.name)) {
-          return openWorkspaceAls(bytes, selection);
-        }
-
-        const session = JSON.parse(
-          new TextDecoder().decode(bytes),
-        ) as LvpSession;
-        const payload = buildWorkspaceOpenPayload(session, selection);
-        return {
-          ...payload,
-          session: await detectOpenedSessionFormat(
-            session,
-            payload.mediaRefs,
-            probeRecordingFrames,
-          ),
-        };
-      }
-
       if (selection.kind === "path") {
         return postSessionOpen("/api/session/open", {
           sessionPath: selection.path,

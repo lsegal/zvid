@@ -1,4 +1,10 @@
-import { type CSSProperties, useLayoutEffect, useRef } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 import {
   getWaveformSourceSpan,
@@ -38,8 +44,23 @@ export function WaveformCanvas({
     bpm,
     mediaDurationSeconds = 0,
   } = range;
+  // The canvas's CSS height, so it draws again when its row changes height,
+  // such as when the Audio row collapses or expands.
+  const [heightPx, setHeightPx] = useState(0);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      setHeightPx(canvas.clientHeight);
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   useLayoutEffect(() => {
+    void heightPx;
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) {
@@ -100,6 +121,7 @@ export function WaveformCanvas({
     }
   }, [
     bpm,
+    heightPx,
     mediaDurationSeconds,
     peaks,
     secondsPerPx,

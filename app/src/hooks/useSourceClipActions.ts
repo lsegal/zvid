@@ -106,24 +106,29 @@ export function useSourceClipActions({
     }
   }
 
-  // Pastes into source track `trackId` at the playhead.
-  function pasteInto(trackId: string) {
+  // Pastes into `target`'s source track at `pasteQ`, the playhead unless
+  // given, as layer paste does on a layer: the copy at its own length,
+  // overwriting what it covers there, selected afterwards.
+  function paste(
+    target: Pick<SourceSpan, "sourceTrackId">,
+    pasteQ = playheadQRef.current,
+  ) {
     const clipboard = clipClipboardRef.current;
     if (!canPasteIntoSourceTrack(clipboard)) {
       setStatus("Only media clips can be pasted into a source track.");
       return;
     }
 
+    const { sourceTrackId } = target;
     const pastedIds = clipboard.sourceSpan
       ? [newSourceSpanId()]
       : clipboard.fragments.map(newSourceSpanId);
-    const pasteQ = playheadQRef.current;
     const pasted = commitEdit("Paste source clip", (current) => {
       const ids = [...pastedIds];
       return pasteIntoSourceTrack(
         current,
         clipboard,
-        trackId,
+        sourceTrackId,
         pasteQ,
         () => ids.shift() ?? newSourceSpanId(),
       );
@@ -132,19 +137,14 @@ export function useSourceClipActions({
       return;
     }
 
-    selectSource(
-      selectSourceSpan({ id: pastedIds[0], sourceTrackId: trackId }),
-    );
+    selectSource(selectSourceSpan({ id: pastedIds[0], sourceTrackId }));
+    const label =
+      clipboard.sourceSpan?.label ?? clipboard.fragments[0]?.clip.label;
     setStatus(
       pastedIds.length === 1
-        ? "Pasted into the source track."
+        ? `Pasted ${label}.`
         : `Pasted ${pastedIds.length} source clips.`,
     );
-  }
-
-  // Pastes into the clip's source track at the playhead.
-  function paste(span: SourceSpan) {
-    pasteInto(span.sourceTrackId);
   }
 
   function duplicate(span: SourceSpan) {
@@ -182,7 +182,6 @@ export function useSourceClipActions({
     cut,
     copy: copySourceSpan,
     paste,
-    pasteInto,
     duplicate,
     split,
     remove,
