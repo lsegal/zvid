@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { logClient } from "../app/util.ts";
+import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
-  type AudioMixOrigin,
+  audioMixPeaksKey,
+  getAudioMixContributions,
+  getAudioMixOrigin,
+} from "../audio-mix-clips.ts";
+import {
   describeAudioMix,
   type MixPeaksClip,
   mixWaveformPeaks,
@@ -20,10 +25,10 @@ export type AudioMixContribution = Omit<MixPeaksClip, "peaks"> & {
 };
 
 export type AudioMixInputs = {
-  origin: AudioMixOrigin;
-  contributions: readonly AudioMixContribution[];
+  // The resolved mix the preview plays.
+  mix: AudioMix;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
-  // Resolves the mix again, which hands this hook new contributions.
+  // Resolves the mix again.
   refresh: () => void;
 };
 
@@ -34,14 +39,29 @@ type MixState = {
 };
 
 // The Audio row's read-only waveform: the peaks of the resolved mix, rebuilt
-// when its clips, their timing or their Gain change, or on Refresh.
+// when its clips, their timing or their Gain change, or on Refresh. Edits to
+// clips without audio leave it alone (see audioMixPeaksKey).
 export function useAudioMix({
-  origin,
-  contributions,
-  mediaItemsById,
-  refresh,
+  mix: audioMix,
+  mediaItemsById: allMediaItemsById,
+  refresh: refreshAudioMix,
 }: AudioMixInputs) {
   const [mix, setMix] = useState<MixState | null>(null);
+  const [refreshes, setRefreshes] = useState(0);
+  const key = `${refreshes}:${audioMixPeaksKey(audioMix, allMediaItemsById)}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key holds everything the peaks read from the mix and its media
+  const { origin, contributions, mediaItemsById } = useMemo(
+    () => ({
+      origin: getAudioMixOrigin(audioMix),
+      contributions: getAudioMixContributions(audioMix),
+      mediaItemsById: allMediaItemsById,
+    }),
+    [key],
+  );
+  const refresh = useCallback(() => {
+    setRefreshes((count) => count + 1);
+    refreshAudioMix();
+  }, [refreshAudioMix]);
 
   useEffect(() => {
     let canceled = false;
