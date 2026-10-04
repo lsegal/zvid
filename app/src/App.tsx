@@ -259,6 +259,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setSourceTracksCollapsed: layout.setSourceTracksCollapsed,
     setStatus,
     setRecordingEndQ,
+    barQuarters: timeline.barLength,
   });
   const historyCommands = useProjectHistoryCommands({
     ...store,

@@ -14,6 +14,10 @@ import type { ImportNoticeContent } from "../components/ImportNotice";
 import { getHarness } from "../harness";
 import type { MediaItem } from "../media";
 import { LiveTakeMonitor } from "../recording/live-take-monitor.ts";
+import {
+  LiveTakeStore,
+  recordingEndStepQ,
+} from "../recording/live-take-store.ts";
 import { useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
 import {
@@ -37,15 +41,16 @@ import {
   saveRecordedTakes,
 } from "../recording/save-recorded-takes.ts";
 
-// How often the growing clips redraw, in milliseconds.
+// How often the growing clips redraw, in milliseconds. Only the clips
+// themselves follow this tick, through the pass's LiveTakeStore.
 const LIVE_TICK_MS = 200;
 
-// A track's clip while it records: where it starts, how long it is so far,
-// and what it has captured.
+// A track's clip while it records: where it starts, where to read how long
+// it is so far, and what it has captured.
 export type LiveTake = {
   trackId: string;
   startQ: number;
-  durationSeconds: number;
+  store: LiveTakeStore;
   hasVideo: boolean;
   hasAudio: boolean;
   monitor: LiveTakeMonitor;
@@ -70,13 +75,19 @@ export type RecordingInputs = {
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   setStatus: Dispatch<SetStateAction<string>>;
   // Reports where the clips being recorded end, so the timeline makes room.
+  // It moves a bar at a time.
   setRecordingEndQ: (endQ: number) => void;
+  // The length of a bar, in quarters.
+  barQuarters: number;
   // Stands in for the browser's MediaRecorder and mediaDevices in tests.
   deps?: RecordingDeps | null;
 };
 
 type ActivePass = RecordedPass & {
   session: RecordingSession;
+  store: LiveTakeStore;
+  // The last end reported to `setRecordingEndQ`.
+  endQ: number;
   monitors: LiveTakeMonitor[];
   endedReasons: Map<string, string>;
 };
@@ -99,6 +110,7 @@ export function useRecording({
   setSourceTracksCollapsed,
   setStatus,
   setRecordingEndQ,
+  barQuarters,
   deps,
 }: RecordingInputs) {
   const armedTrackIds = useArmedTrackIds();
@@ -197,6 +209,7 @@ export function useRecording({
     if (!pass) return;
     passRef.current = null;
     setPhase("saving");
+    for (const trackId of pass.trackIds) pass.store.end(trackId);
     setLiveTakes((current) => markEnded(current, () => true));
     try {
       let finished: FinishedTake[];
@@ -246,6 +259,7 @@ export function useRecording({
         onTrackEnded: (trackId, message) => {
           setStatus(`Stopped recording ${trackName(trackId)}: ${message}.`);
           passRef.current?.endedReasons.set(trackId, message);
+          passRef.current?.store.end(trackId);
           setLiveTakes((current) =>
             markEnded(current, (take) => take.trackId === trackId),
           );
@@ -270,10 +284,13 @@ export function useRecording({
 
     const startQ = playheadQRef.current;
     session.start();
+    const store = new LiveTakeStore(
+      session.getTakes().map((take) => take.trackId),
+    );
     const takes = session.getTakes().map<LiveTake>((take) => ({
       trackId: take.trackId,
       startQ,
-      durationSeconds: 0,
+      store,
       hasVideo: take.hasVideo,
       hasAudio: take.hasAudio,
       monitor: new LiveTakeMonitor(take.stream, () => session.elapsedSeconds()),
@@ -284,6 +301,8 @@ export function useRecording({
       trackIds: takes.map((take) => take.trackId),
       startQ,
       startedAt: new Date(),
+      store,
+      endQ: 0,
       endedReasons: new Map(),
       monitors: takes.map((take) => take.monitor),
     };
@@ -311,26 +330,29 @@ export function useRecording({
     trackName,
   ]);
 
-  // Clips grow while their tracks record.
+  // Clips grow while their tracks record, without re-rendering the app; the
+  // timeline makes room a bar at a time.
   useEffect(() => {
     if (phase !== "recording") return;
-    const timer = window.setInterval(() => {
+    const tick = () => {
       const pass = passRef.current;
       if (!pass) return;
       const elapsed = pass.session.elapsedSeconds();
-      setRecordingEndQ(pass.startQ + secondsToQuarters(elapsed, bpm));
-      setLiveTakes((current) => {
-        const next = new Map(current);
-        for (const [trackId, take] of current) {
-          if (!take.ended) {
-            next.set(trackId, { ...take, durationSeconds: elapsed });
-          }
-        }
-        return next;
-      });
-    }, LIVE_TICK_MS);
+      pass.store.advance(elapsed);
+      const endQ = recordingEndStepQ(
+        pass.startQ,
+        secondsToQuarters(elapsed, bpm),
+        barQuarters,
+      );
+      if (endQ !== pass.endQ) {
+        pass.endQ = endQ;
+        setRecordingEndQ(endQ);
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, LIVE_TICK_MS);
     return () => window.clearInterval(timer);
-  }, [bpm, phase, setRecordingEndQ]);
+  }, [barQuarters, bpm, phase, setRecordingEndQ]);
 
   // Stopping playback ends the recording too.
   useEffect(() => {
