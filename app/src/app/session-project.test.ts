@@ -6,10 +6,11 @@ import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import type { LvpSession } from "../session.ts";
 import { projectToLvpSession } from "../session-save.ts";
+import { retimeSourceSpan } from "../source-span-edit.ts";
 import {
-  relinkClipsToSourceSpans,
-  retimeSourceSpan,
-} from "../source-span-edit.ts";
+  getClipPieceClips,
+  syncClipsToSourceSpans,
+} from "../source-track-content.ts";
 import { DEFAULT_LANES, INITIAL_PROJECT_STATE } from "./constants.ts";
 import {
   buildStandaloneProject,
@@ -679,14 +680,14 @@ describe("layer clips after their source clip changes", () => {
   };
 
   // The opened project with its source clip changed by `edit`, and the
-  // layer clip relinked to match.
+  // layer clip synced to match.
   function editedProject(edit: (span: SourceSpan) => SourceSpan[]) {
     const project = sessionToProject(session, []);
     const sourceSpans = edit(project.sourceSpans[0]);
     return {
       ...project,
       sourceSpans,
-      arrangementClips: relinkClipsToSourceSpans(
+      arrangementClips: syncClipsToSourceSpans(
         project.arrangementClips,
         project.sourceSpans,
         sourceSpans,
@@ -709,18 +710,20 @@ describe("layer clips after their source clip changes", () => {
     return sessionToProject(JSON.parse(JSON.stringify(saved)), []);
   }
 
-  // What each layer clip plays: its position, length, media offset and
-  // the media range it may show, rounded to frames.
+  const frames = (value: number) => Math.round(value * fps * 1000) / 1000;
+
+  // Each layer clip's position and length, then what each part of it plays:
+  // its position, length and media start, rounded to frames.
   const shown = (project: ReturnType<typeof editedProject>) =>
-    project.arrangementClips.map((clip) =>
-      [
-        clip.startQ,
-        clip.durationSeconds,
-        clip.sourceOffsetSeconds,
-        clip.sourceWindowStartSeconds,
-        clip.sourceWindowEndSeconds,
-      ].map((value) => Math.round(value * fps * 1000) / 1000),
-    );
+    project.arrangementClips.map((clip) => [
+      clip.startQ,
+      frames(clip.durationSeconds),
+      getClipPieceClips(clip, project.sourceSpans, bpm).map((piece) => [
+        piece.startQ,
+        frames(piece.durationSeconds),
+        frames(piece.trimStartSeconds),
+      ]),
+    ]);
 
   const edits: [string, (span: SourceSpan) => SourceSpan[]][] = [
     ["moved a little", (span) => [{ ...span, startQ: 1 }]],
@@ -739,14 +742,38 @@ describe("layer clips after their source clip changes", () => {
     });
   }
 
-  it("follows a source clip moved a little", () => {
+  it("shows a source clip moved a little at the same track time", () => {
     const project = editedProject((span) => [{ ...span, startQ: 1 }]);
     // Half a second later, the source clip's media plays half a second
     // later too, and so does the layer clip's.
     assert.equal(project.arrangementClips[0].sourceOffsetSeconds, 0.5);
+    assert.deepEqual(shown(project), [[2, 60, [[2, 60, 45]]]]);
   });
 
-  it("is removed with its source clip", () => {
-    assert.deepEqual(editedProject(() => []).arrangementClips, []);
+  it("shows nothing where a start-trimmed source clip no longer reaches", () => {
+    const project = editedProject((span) => [
+      retimeSourceSpan(span, span.startQ + 3, 5, bpm),
+    ]);
+    // Quarters 2 to 3 are empty now; 3 to 6 play as before.
+    assert.deepEqual(shown(project), [[2, 60, [[3, 45, 75]]]]);
+  });
+
+  it("stays in place with its source clip deleted, showing nothing", () => {
+    const project = editedProject(() => []);
+    assert.deepEqual(shown(project), [[2, 60, []]]);
+    assert.deepEqual(shown(saveAndReopen(project)), [[2, 60, []]]);
+  });
+
+  it("opens an older session's slipped clip showing the same media", () => {
+    // Saved by an older build against source clip c1, slipped a quarter:
+    // it shows the media half a second later than the clip's position.
+    const slipped: LvpSession = {
+      ...session,
+      selections: [
+        { ...session.selections![0], sourceClipId: "c1", sourceOffsetSeconds: 1.5 },
+      ],
+    };
+    const project = sessionToProject(slipped, []);
+    assert.deepEqual(shown(project), [[2, 60, [[2, 60, 75]]]]);
   });
 });
