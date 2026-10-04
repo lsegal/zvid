@@ -170,7 +170,7 @@ export function usePreview({
       ),
     [bpm, mediaItemsById, playheadQ, render],
   );
-  const renderedLayers = usePreviewLayers({
+  const { layers: renderedLayers, resolveLayersAt } = usePreviewLayers({
     clips: render.clips,
     mediaItemsById,
     playheadQ,
@@ -189,6 +189,11 @@ export function usePreview({
   const previewLayers = useMemo(
     () => renderedLayers.filter((layer) => !isSourceRenderId(layer.laneId)),
     [renderedLayers],
+  );
+  const resolvePreviewLayersAt = useCallback(
+    (atQ: number) =>
+      resolveLayersAt(atQ).filter((layer) => !isSourceRenderId(layer.laneId)),
+    [resolveLayersAt],
   );
   const previewEditing = usePreviewEditing({
     bpm,
@@ -222,6 +227,7 @@ export function usePreview({
   return {
     ...previewEditing,
     previewLayers,
+    resolvePreviewLayersAt,
     previewClip,
     renderClips: render.clips,
     renderLanes: render.lanes,
