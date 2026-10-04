@@ -15,6 +15,7 @@ import {
   type EffectPass,
   type EffectStage,
   type EffectUniformLocations,
+  effectPixelScale,
   stageSize,
 } from "./types.ts";
 
@@ -511,6 +512,8 @@ export class EffectChainRenderer {
     const stageCtx: EffectContext = {
       ...ctx,
       resolution: [stageWidth, stageHeight],
+      pixelScale: (effectPixelScale(ctx) * stageWidth) / width,
+      stageScale: stageWidth / width,
     };
     for (const [index, stage] of compiled.stages.entries()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, targets[index].framebuffer);

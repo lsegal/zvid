@@ -280,6 +280,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Intensity"]),
   ],
   [
+    "GaussianBlur",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Radius"]),
+  ],
+  [
     COLOR_EFFECT_NAME,
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
   ],
@@ -604,6 +608,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   ],
   // Intensity 0 adds no glow.
   ["Bloom", { _Intensity: { neutral: 0 } }],
+  // Radius 0 leaves the picture sharp.
+  ["GaussianBlur", { _Radius: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],
