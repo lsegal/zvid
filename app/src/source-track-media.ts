@@ -6,7 +6,7 @@ import type {
 } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
 import { addDefaultGain } from "./default-gain.ts";
-import type { MediaItem } from "./media.ts";
+import { isImageMedia, type MediaItem } from "./media.ts";
 import { mediaRangeOf } from "./media-range.ts";
 import {
   getDroppedSourceSpanStartQ,
@@ -60,9 +60,19 @@ export function addMediaToSourceTrack(
     | "sourceTracksLocked"
     | "bpm"
   >,
-  items: readonly MediaItem[],
+  allItems: readonly MediaItem[],
   target: SourceTrackDropTarget,
 ): SourceTrackMediaPlacement {
+  // Images make no clips; they stay in the Media drawer for effects to use.
+  const items = allItems.filter((item) => !isImageMedia(item));
+  if (!items.length) {
+    return {
+      sourceTracks: current.sourceTracks,
+      sourceSpans: current.sourceSpans,
+      clips: current.clips,
+      effects: current.effects,
+    };
+  }
   let targetTrack: SourceTrack | undefined =
     target.kind === "track"
       ? current.sourceTracks.find((track) => track.id === target.trackId)

@@ -17,8 +17,9 @@ import {
   resolveAlsMedia,
 } from "./src/als-import.ts";
 import { resolveAppCommit } from "./src/build-info.ts";
+import { collectShapeMediaPaths } from "./src/session.ts";
 
-type LvpSession = {
+type LvpSession = Parameters<typeof collectShapeMediaPaths>[0] & {
   clips?: Array<{ filePath: string }>;
   audioFilename?: string;
 };
@@ -69,6 +70,8 @@ function getMimeType(filePath: string) {
     case ".aif":
     case ".aiff":
       return "audio/aiff";
+    case ".svg":
+      return "image/svg+xml";
     default:
       return "application/octet-stream";
   }
@@ -89,6 +92,10 @@ function collectSessionMedia(session: LvpSession) {
 
   if (session.audioFilename?.trim()) {
     mediaPaths.add(normalizeMediaPath(session.audioFilename));
+  }
+
+  for (const shapePath of collectShapeMediaPaths(session)) {
+    mediaPaths.add(normalizeMediaPath(shapePath));
   }
 
   mediaRegistry.clear();

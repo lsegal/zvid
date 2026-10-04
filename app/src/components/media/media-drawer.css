@@ -498,6 +498,13 @@
   object-fit: cover;
 }
 
+/* An SVG keeps its whole drawing, on a checkerboard for its transparency. */
+.media-thumb--image .media-thumb__image {
+  object-fit: contain;
+  background: repeating-conic-gradient(#d8d8d8 0% 25%, #f4f4f4 0% 50%) 0 0 /
+    12px 12px;
+}
+
 .media-thumb__glyph {
   width: 42%;
   max-width: 48px;

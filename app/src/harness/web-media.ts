@@ -4,6 +4,9 @@ import {
   inferMediaKind,
   type MediaItem,
   type Palette,
+  probeImageUrl,
+  SVG_MIME_TYPE,
+  withMediaType,
 } from "../media";
 import { probeMediaDetails } from "../media-details.ts";
 import type { ServerMediaRef } from "../session";
@@ -453,12 +456,45 @@ async function createMetadataFallbackItem(
   };
 }
 
+// An image has no tracks for mediabunny to read; its own URL is its
+// thumbnail. One that won't load is kept, offline, so the import still shows
+// it.
+async function analyzeImageMedia(
+  options: MediaAnalysisOptions,
+): Promise<MediaItem> {
+  const size = await probeImageUrl(options.previewUrl).catch(() => undefined);
+  return {
+    id: options.id,
+    name: options.name,
+    kind: "image",
+    durationSeconds: 0,
+    width: size?.width,
+    height: size?.height,
+    hasAudio: false,
+    hasVideo: false,
+    fileSizeBytes: options.fileSizeBytes,
+    container: "SVG",
+    lastModified: options.lastModified,
+    color: options.palette.color,
+    accent: options.palette.accent,
+    previewUrl: options.previewUrl,
+    thumbnailUrl: size ? options.previewUrl : undefined,
+    sourcePath: options.sourcePath,
+    availability: size ? "ready" : "offline",
+    ...(size ? {} : { lastError: "Not an image or unsupported format" }),
+  };
+}
+
 async function analyzeLocalMediaFile(
   file: File,
   palette: Palette,
   runtime: WebMediaRuntime,
 ) {
-  const previewUrl = URL.createObjectURL(file);
+  const image =
+    file.type === SVG_MIME_TYPE || inferMediaKind(file.name) === "image";
+  const previewUrl = URL.createObjectURL(
+    image ? withMediaType(file, "image") : file,
+  );
   const options: MediaAnalysisOptions = {
     id: createMediaId(file),
     name: file.name,
@@ -467,6 +503,9 @@ async function analyzeLocalMediaFile(
     fileSizeBytes: file.size,
     lastModified: file.lastModified,
   };
+  if (image) {
+    return analyzeImageMedia(options);
+  }
   const { ALL_FORMATS, BlobSource, Input } = runtime.mediabunny;
 
   try {
@@ -503,6 +542,9 @@ async function analyzeServerMediaRef(
     palette,
     sourcePath: ref.path,
   };
+  if (inferMediaKind(ref.name) === "image") {
+    return analyzeImageMedia(options);
+  }
 
   try {
     return await analyzeInputMedia(

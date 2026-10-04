@@ -32,6 +32,20 @@ const SESSION: LvpSession = {
     clip("clip-4", ""),
   ],
   mediaRanges: [{ path: "/music/song.wav", inSeconds: 1, outSeconds: 2 }],
+  effects: [
+    {
+      id: "shape",
+      trackId: "lane-1",
+      effectName: "Shape",
+      parameters: { Shape: { stringValue: "Custom:/art/logo.svg" } },
+    },
+    {
+      id: "text",
+      trackId: "lane-1",
+      effectName: "Text",
+      parameters: { Text: { stringValue: "Custom:/art/logo.svg" } },
+    },
+  ],
 };
 
 function mediaItem(id: string, name: string, sourcePath: string) {
@@ -42,6 +56,7 @@ const MEDIA_ITEMS = [
   mediaItem("cam", "cam.mp4", "C:\\takes\\cam.mp4"),
   mediaItem("other", "cam.MP4", "D:/other/cam.MP4"),
   mediaItem("song", "song.wav", "/music/song.wav"),
+  mediaItem("logo", "logo.svg", "/art/logo.svg"),
 ];
 
 async function textOf(file: Blob) {
@@ -52,7 +67,13 @@ describe("collectLinkedMediaPaths", () => {
   it("lists each clip, recording and main audio path once", () => {
     assert.deepEqual(
       collectLinkedMediaPaths({ ...SESSION, audioFilename: " old.wav " }),
-      ["C:\\takes\\cam.mp4", "/music/song.wav", "D:/other/cam.MP4", "old.wav"],
+      [
+        "C:\\takes\\cam.mp4",
+        "/music/song.wav",
+        "D:/other/cam.MP4",
+        "/art/logo.svg",
+        "old.wav",
+      ],
     );
   });
 });
@@ -93,6 +114,18 @@ describe("rewriteSessionMediaPaths", () => {
     assert.deepEqual(rewritten.mediaRanges, [
       { path: "media/song.wav", inSeconds: 1, outSeconds: 2 },
     ]);
+    // Only a Custom shape's SVG is a path; other text is left alone.
+    const shapeRewrite = rewriteSessionMediaPaths(
+      SESSION,
+      assignArchiveMediaPaths(["/art/logo.svg"]),
+    );
+    assert.deepEqual(
+      shapeRewrite.effects?.map((effect) => effect.parameters),
+      [
+        { Shape: { stringValue: "Custom:media/logo.svg" } },
+        { Text: { stringValue: "Custom:/art/logo.svg" } },
+      ],
+    );
     assert.equal(SESSION.clips?.[0]?.filePath, "C:\\takes\\cam.mp4");
   });
 });
@@ -142,7 +175,12 @@ describe("buildProjectArchive", () => {
       [
         ["media/cam.mp4", "bytes of cam"],
         ["media/cam-2.MP4", "bytes of other"],
+        ["media/logo.svg", "bytes of logo"],
       ],
+    );
+    assert.equal(
+      archive.project.effects?.[0]?.parameters?.Shape?.stringValue,
+      "Custom:media/logo.svg",
     );
     assert.deepEqual(
       archive.project.clips?.map((entry) => entry.filePath),

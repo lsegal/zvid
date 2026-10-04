@@ -84,8 +84,9 @@ test("Shape is added with a centered square Transform and picks its shape from a
     const options = page
       .getByRole("listbox")
       .getByRole("option", { includeHidden: false });
-    await expect(options).toHaveCount(4);
-    // Every option is a black-on-white preview of its shape.
+    await expect(options).toHaveCount(5);
+    // Every option is a black-on-white preview of its shape; Custom shows
+    // its SVG once it has one.
     await expect(options.locator("svg path")).toHaveCount(4);
     await options.filter({ hasText: name }).click();
     await expect(page.getByRole("listbox")).toHaveCount(0);

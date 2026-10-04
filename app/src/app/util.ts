@@ -1,4 +1,5 @@
 import { hasMediaExtension } from "../harness/media-extensions.ts";
+import { SVG_MIME_TYPE } from "../media.ts";
 import { PALETTE } from "./constants.ts";
 import type { Lane, SourceTrackDropTarget } from "./types.ts";
 
@@ -55,7 +56,11 @@ export function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
 }
 
 function isMediaFileType(type: string) {
-  return type.startsWith("video/") || type.startsWith("audio/");
+  return (
+    type.startsWith("video/") ||
+    type.startsWith("audio/") ||
+    type === SVG_MIME_TYPE
+  );
 }
 
 export function isMediaFile(file: { name: string; type: string }) {
