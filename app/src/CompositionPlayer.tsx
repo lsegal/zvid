@@ -49,13 +49,13 @@ import {
 } from "./composition-effect-index.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
+import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
-import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";

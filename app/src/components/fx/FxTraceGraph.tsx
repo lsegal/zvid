@@ -1,10 +1,4 @@
-import {
-  type RefObject,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useContext, useEffect, useRef, useState } from "react";
 import { quartersToSeconds } from "../../composition-active-clips";
 import { scrollTrace } from "../../fx-modulation-trace";
 import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
@@ -185,8 +179,7 @@ export function FxTraceGraph({ accent, source, className }: FxTraceGraphProps) {
         if (current.kind !== "scroll") {
           return;
         }
-        steps +=
-          last === null ? 0 : ((now - last) / 1000) * current.perSecond;
+        steps += last === null ? 0 : ((now - last) / 1000) * current.perSecond;
         last = now;
         scrollTrace(trace, steps, current.level());
         steps -= Math.floor(steps);

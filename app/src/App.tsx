@@ -406,7 +406,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           ? projectDurationFrames / fps
           : undefined,
     }),
-    [fps, timelineClips, lanePriority, fxLaneId, fxClipId, projectDurationFrames],
+    [
+      fps,
+      timelineClips,
+      lanePriority,
+      fxLaneId,
+      fxClipId,
+      projectDurationFrames,
+    ],
   );
 
   return (

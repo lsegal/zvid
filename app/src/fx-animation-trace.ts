@@ -17,8 +17,8 @@ import type {
   ReactiveAnimation,
 } from "./fx-animation-defaults.ts";
 import { type ReactiveOnset, reactiveSwingAt } from "./fx-animation-impulse.ts";
-import type { FxDeviceGroup } from "./fx-stack.ts";
 import { transientTraceValue } from "./fx-modulation-trace.ts";
+import type { FxDeviceGroup } from "./fx-stack.ts";
 
 // A Clip or Reactive trace spans this long.
 export const ANIMATION_TRACE_SECONDS = 2;
@@ -58,7 +58,7 @@ export function sampleClipTrace(
   time: number,
   count: number,
   seconds: number,
-  into = new Float32Array(count),
+  into: Float32Array = new Float32Array(count),
 ) {
   const motion = clip.transition ? ORDER_SLIDE_MOTION : clip;
   return sampleTimes(
@@ -96,7 +96,7 @@ export function sampleReactiveTrace(
   time: number,
   count: number,
   seconds: number,
-  into = new Float32Array(count),
+  into: Float32Array = new Float32Array(count),
 ) {
   return sampleTimes(
     count,
@@ -119,13 +119,12 @@ export type AnimationTraceTarget = {
 
 type SpanClip = Pick<
   ArrangementClip,
-  | "id"
-  | "laneId"
-  | "startQ"
-  | "durationSeconds"
-  | "layerClipStartQ"
-  | "layerClipDurationSeconds"
->;
+  "id" | "laneId" | "startQ" | "durationSeconds"
+> & {
+  // A piece of a layer clip animates over the whole clip.
+  layerClipStartQ?: number;
+  layerClipDurationSeconds?: number;
+};
 
 // The clip a device's Clip-mode trace follows at `timeSeconds`, as the
 // compositor picks it: a clip device's own clip, a layer device's clip at
@@ -170,7 +169,10 @@ export function findAnimationClipSpan(
     found = [...topByLane.values()].sort(
       (left, right) => rank(left) - rank(right),
     )[0];
-    if (!found && (target.group === "global" || selected?.laneId === target.laneId)) {
+    if (
+      !found &&
+      (target.group === "global" || selected?.laneId === target.laneId)
+    ) {
       found = selected;
     }
   }
