@@ -1,6 +1,6 @@
 // The Animation modifier an effect can carry: its settings, and each
-// effect's defaults for them. Effects that aren't listed here, Layout among
-// them, don't support animation. Kept apart from the registry so the
+// effect's defaults for them. Effects that aren't listed here, Layout and
+// Mask among them, don't support animation. Kept apart from the registry so the
 // animation work doesn't collide with registry edits.
 
 import { ORDER_EFFECT_NAME } from "./composition-order.ts";

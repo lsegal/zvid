@@ -3956,6 +3956,19 @@
     },
     {
       "id": "sample-fx-108",
+      "trackId": "clip:fill-title-card",
+      "effectName": "Mask",
+      "parameters": {
+        "Target": {
+          "stringValue": "title-wordmark"
+        },
+        "Mode": {
+          "stringValue": "Subtractive"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-109",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -4025,7 +4038,7 @@
       }
     },
     {
-      "id": "sample-fx-109",
+      "id": "sample-fx-110",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -4053,7 +4066,7 @@
       }
     },
     {
-      "id": "sample-fx-110",
+      "id": "sample-fx-111",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -4123,7 +4136,7 @@
       }
     },
     {
-      "id": "sample-fx-111",
+      "id": "sample-fx-112",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -4151,7 +4164,7 @@
       }
     },
     {
-      "id": "sample-fx-112",
+      "id": "sample-fx-113",
       "trackId": "clip:selection-46",
       "effectName": "Gain",
       "parameters": {
@@ -4164,7 +4177,7 @@
       }
     },
     {
-      "id": "sample-fx-113",
+      "id": "sample-fx-114",
       "trackId": "clip:selection-47",
       "effectName": "Gain",
       "parameters": {
@@ -4177,7 +4190,7 @@
       }
     },
     {
-      "id": "sample-fx-114",
+      "id": "sample-fx-115",
       "trackId": "clip:selection-47",
       "effectName": "Bitcrush",
       "parameters": {
@@ -4193,7 +4206,7 @@
       }
     },
     {
-      "id": "sample-fx-115",
+      "id": "sample-fx-116",
       "trackId": "clip:selection-48",
       "effectName": "Gain",
       "parameters": {
@@ -4206,7 +4219,7 @@
       }
     },
     {
-      "id": "sample-fx-116",
+      "id": "sample-fx-117",
       "trackId": "clip:selection-48",
       "effectName": "Phaser",
       "parameters": {
@@ -4231,7 +4244,7 @@
       }
     },
     {
-      "id": "sample-fx-117",
+      "id": "sample-fx-118",
       "trackId": "clip:selection-49",
       "effectName": "Gain",
       "parameters": {
@@ -4244,7 +4257,7 @@
       }
     },
     {
-      "id": "sample-fx-118",
+      "id": "sample-fx-119",
       "trackId": "clip:selection-49",
       "effectName": "Chorus",
       "parameters": {
@@ -4269,7 +4282,7 @@
       }
     },
     {
-      "id": "sample-fx-119",
+      "id": "sample-fx-120",
       "trackId": "clip:selection-50",
       "effectName": "Gain",
       "parameters": {
@@ -4282,7 +4295,7 @@
       }
     },
     {
-      "id": "sample-fx-120",
+      "id": "sample-fx-121",
       "trackId": "clip:selection-50",
       "effectName": "Auto Pan",
       "parameters": {
@@ -4301,7 +4314,7 @@
       }
     },
     {
-      "id": "sample-fx-121",
+      "id": "sample-fx-122",
       "trackId": "clip:selection-51",
       "effectName": "Gain",
       "parameters": {
@@ -4314,7 +4327,7 @@
       }
     },
     {
-      "id": "sample-fx-122",
+      "id": "sample-fx-123",
       "trackId": "clip:selection-51",
       "effectName": "Tremolo",
       "parameters": {
@@ -4333,7 +4346,7 @@
       }
     },
     {
-      "id": "sample-fx-123",
+      "id": "sample-fx-124",
       "trackId": "clip:selection-52",
       "effectName": "Gain",
       "parameters": {
@@ -4346,7 +4359,7 @@
       }
     },
     {
-      "id": "sample-fx-124",
+      "id": "sample-fx-125",
       "trackId": "clip:selection-52",
       "effectName": "Transient Shaper",
       "parameters": {
@@ -4362,7 +4375,7 @@
       }
     },
     {
-      "id": "sample-fx-125",
+      "id": "sample-fx-126",
       "trackId": "clip:selection-53",
       "effectName": "Gain",
       "parameters": {
@@ -4375,7 +4388,7 @@
       }
     },
     {
-      "id": "sample-fx-126",
+      "id": "sample-fx-127",
       "trackId": "clip:selection-53",
       "effectName": "Compressor",
       "parameters": {
@@ -4403,7 +4416,7 @@
       }
     },
     {
-      "id": "sample-fx-127",
+      "id": "sample-fx-128",
       "trackId": "clip:selection-54",
       "effectName": "Gain",
       "parameters": {
@@ -4416,7 +4429,7 @@
       }
     },
     {
-      "id": "sample-fx-128",
+      "id": "sample-fx-129",
       "trackId": "clip:selection-54",
       "effectName": "High Cut",
       "parameters": {
@@ -4432,7 +4445,7 @@
       }
     },
     {
-      "id": "sample-fx-129",
+      "id": "sample-fx-130",
       "trackId": "clip:selection-55",
       "effectName": "Gain",
       "parameters": {
@@ -4445,7 +4458,7 @@
       }
     },
     {
-      "id": "sample-fx-130",
+      "id": "sample-fx-131",
       "trackId": "clip:selection-55",
       "effectName": "Low Cut",
       "parameters": {
@@ -4461,7 +4474,7 @@
       }
     },
     {
-      "id": "sample-fx-131",
+      "id": "sample-fx-132",
       "trackId": "clip:selection-56",
       "effectName": "Gain",
       "parameters": {
@@ -4474,7 +4487,7 @@
       }
     },
     {
-      "id": "sample-fx-132",
+      "id": "sample-fx-133",
       "trackId": "clip:selection-56",
       "effectName": "EQ",
       "parameters": {
@@ -4502,7 +4515,7 @@
       }
     },
     {
-      "id": "sample-fx-133",
+      "id": "sample-fx-134",
       "trackId": "clip:selection-57",
       "effectName": "Gain",
       "parameters": {
@@ -4515,7 +4528,7 @@
       }
     },
     {
-      "id": "sample-fx-134",
+      "id": "sample-fx-135",
       "trackId": "clip:selection-57",
       "effectName": "Saturation",
       "parameters": {
@@ -4537,7 +4550,7 @@
       }
     },
     {
-      "id": "sample-fx-135",
+      "id": "sample-fx-136",
       "trackId": "clip:selection-58",
       "effectName": "Gain",
       "parameters": {
@@ -4550,7 +4563,7 @@
       }
     },
     {
-      "id": "sample-fx-136",
+      "id": "sample-fx-137",
       "trackId": "clip:selection-58",
       "effectName": "Stereo",
       "parameters": {
@@ -4563,7 +4576,7 @@
       }
     },
     {
-      "id": "sample-fx-137",
+      "id": "sample-fx-138",
       "trackId": "clip:selection-59",
       "effectName": "Gain",
       "parameters": {
@@ -4576,7 +4589,7 @@
       }
     },
     {
-      "id": "sample-fx-138",
+      "id": "sample-fx-139",
       "trackId": "clip:selection-59",
       "effectName": "Mono",
       "parameters": {
@@ -4589,7 +4602,7 @@
       }
     },
     {
-      "id": "sample-fx-139",
+      "id": "sample-fx-140",
       "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
@@ -4602,7 +4615,7 @@
       }
     },
     {
-      "id": "sample-fx-140",
+      "id": "sample-fx-141",
       "trackId": "clip:selection-60",
       "effectName": "Noise Gate",
       "parameters": {
@@ -4624,7 +4637,7 @@
       }
     },
     {
-      "id": "sample-fx-141",
+      "id": "sample-fx-142",
       "trackId": "clip:selection-61",
       "effectName": "Gain",
       "parameters": {
@@ -4637,7 +4650,7 @@
       }
     },
     {
-      "id": "sample-fx-142",
+      "id": "sample-fx-143",
       "trackId": "clip:selection-61",
       "effectName": "De-ess",
       "parameters": {
@@ -4656,7 +4669,7 @@
       }
     },
     {
-      "id": "sample-fx-143",
+      "id": "sample-fx-144",
       "trackId": "clip:selection-62",
       "effectName": "Gain",
       "parameters": {
@@ -4669,13 +4682,13 @@
       }
     },
     {
-      "id": "sample-fx-144",
+      "id": "sample-fx-145",
       "trackId": "clip:selection-62",
       "effectName": "Reverse",
       "parameters": {}
     },
     {
-      "id": "sample-fx-145",
+      "id": "sample-fx-146",
       "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
@@ -4688,7 +4701,7 @@
       }
     },
     {
-      "id": "sample-fx-146",
+      "id": "sample-fx-147",
       "trackId": "clip:selection-63",
       "effectName": "Limiter",
       "parameters": {
@@ -4707,7 +4720,7 @@
       }
     },
     {
-      "id": "sample-fx-147",
+      "id": "sample-fx-148",
       "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
@@ -4720,7 +4733,7 @@
       }
     },
     {
-      "id": "sample-fx-148",
+      "id": "sample-fx-149",
       "trackId": "clip:selection-64",
       "effectName": "Delay",
       "parameters": {
@@ -4748,7 +4761,7 @@
       }
     },
     {
-      "id": "sample-fx-149",
+      "id": "sample-fx-150",
       "trackId": "clip:selection-65",
       "effectName": "Gain",
       "parameters": {
@@ -4761,7 +4774,7 @@
       }
     },
     {
-      "id": "sample-fx-150",
+      "id": "sample-fx-151",
       "trackId": "clip:selection-65",
       "effectName": "Reverb",
       "parameters": {
