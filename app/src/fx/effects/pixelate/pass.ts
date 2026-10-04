@@ -30,4 +30,10 @@ export const pass: EffectPass = {
       clampUnit(readEffectNumber(params, "_NumPixels", 0)),
     );
   },
+  // At 0 every block is one pixel.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_NumPixels", 0)) <= 0
+    );
+  },
 };

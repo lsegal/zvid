@@ -49,4 +49,11 @@ export const pass: EffectPass = {
       clampUnit(readEffectNumber(params, "_HighMod", 0)),
     );
   },
+  // No modulation tears, jitters, splits or darkens nothing.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_LowMod", 0)) <= 0 &&
+      clampUnit(readEffectNumber(params, "_HighMod", 0)) <= 0
+    );
+  },
 };

@@ -103,4 +103,10 @@ export const pass: EffectPass = {
       clampUnit(readEffectNumber(params, "_ColorCrush", 0)),
     );
   },
+  // Amount 0 glitches no block.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_Amount", 0.3)) <= 0
+    );
+  },
 };

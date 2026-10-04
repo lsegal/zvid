@@ -155,4 +155,10 @@ export const pass: EffectPass = {
     gl.uniform1f(loc.uPhase, (cycles - Math.floor(cycles)) * 2 * Math.PI);
     gl.uniform1f(loc.uFlip, ctx.bottomUp ? 1 : 0);
   },
+  // Amount 0 moves nothing, whatever the type and edges.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_Amount", 0.3), -1, 1) === 0
+    );
+  },
 };

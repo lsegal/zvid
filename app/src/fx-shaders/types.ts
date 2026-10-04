@@ -37,10 +37,47 @@ export type EffectPass = {
     params: EffectParameter[],
     ctx: EffectContext,
   ): void;
+  // True when `params` leave the picture as it is, so the chain can skip
+  // the pass. Passes without it always run.
+  isIdentity?(params: EffectParameter[]): boolean;
 };
 
 export function normalizeEffectKey(key: string) {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Lookup keys are the passes' own constant names, so each is normalized once.
+const normalizedLookupKeys = new Map<string, string>();
+
+function normalizeLookupKey(key: string) {
+  let normalized = normalizedLookupKeys.get(key);
+  if (normalized === undefined) {
+    normalized = normalizeEffectKey(key);
+    normalizedLookupKeys.set(key, normalized);
+  }
+  return normalized;
+}
+
+// Each parameter list indexed by normalized key, built once per list. A
+// parameter change produces a new list, so a list's index never goes stale.
+const parameterIndexes = new WeakMap<
+  EffectParameter[],
+  Map<string, EffectParameter>
+>();
+
+export function findEffectParameter(params: EffectParameter[], key: string) {
+  let index = parameterIndexes.get(params);
+  if (!index) {
+    index = new Map();
+    for (const parameter of params) {
+      const normalized = normalizeEffectKey(parameter.key);
+      if (!index.has(normalized)) {
+        index.set(normalized, parameter);
+      }
+    }
+    parameterIndexes.set(params, index);
+  }
+  return index.get(normalizeLookupKey(key));
 }
 
 export function readEffectNumber(
@@ -48,10 +85,7 @@ export function readEffectNumber(
   key: string,
   fallback: number,
 ) {
-  const target = normalizeEffectKey(key);
-  const parameter = params.find(
-    (candidate) => normalizeEffectKey(candidate.key) === target,
-  );
+  const parameter = findEffectParameter(params, key);
   if (!parameter) {
     return fallback;
   }

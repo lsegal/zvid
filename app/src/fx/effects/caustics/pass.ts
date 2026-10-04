@@ -152,4 +152,11 @@ export const pass: EffectPass = {
       causticsBlendIndex(readEffectValue(params, "_Blend")),
     );
   },
+  // Intensity 0 adds no light and Warp 0 bends nothing.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_Intensity", 0.5)) <= 0 &&
+      clampUnit(readEffectNumber(params, "_Warp", 0.1)) <= 0
+    );
+  },
 };
