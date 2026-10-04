@@ -283,7 +283,6 @@ export function useTimelineEditing({
     createSourceSpanClip,
     dispatchProject,
     effects,
-    fxLaneId,
     lanes,
     mediaItemsById,
     playheadQRef,

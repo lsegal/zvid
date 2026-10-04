@@ -4,7 +4,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import type { ClipClipboard } from "../app/clip-ops.ts";
+import { type ClipClipboard, canPasteOntoLayer } from "../app/clip-ops.ts";
 import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
 import type { getShortcutLabels } from "../app/shortcut-labels.ts";
 import { getClipDurationQ, getClipEndQ } from "../app/timeline-math.ts";
@@ -444,7 +444,7 @@ export function useMenus({
     };
     return buildClipMenuEntries({
       hasClip: Boolean(clip),
-      canPaste: Boolean(clipClipboardRef.current),
+      canPaste: canPasteOntoLayer(clipClipboardRef.current),
       canSplit: clip
         ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
         : false,

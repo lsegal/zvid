@@ -6,11 +6,16 @@ import {
 } from "react";
 import {
   type ClipClipboard,
+  canPasteOntoLayer,
   duplicateClip,
   withClipStacks,
 } from "../app/clip-ops.ts";
 import { patchProjectState } from "../app/session-project.ts";
-import { getClipEndQ, getSelectionEndQ } from "../app/timeline-math.ts";
+import {
+  getClipDurationQ,
+  getClipEndQ,
+  getSelectionEndQ,
+} from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
   Lane,
@@ -60,7 +65,6 @@ export type ClipActionsInputs = {
   ) => ArrangementClip | null;
   dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
   effects: SessionEffect[];
-  fxLaneId: string | undefined;
   lanes: Lane[];
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   playheadQRef: RefObject<number>;
@@ -84,7 +88,6 @@ export function useClipActions({
   createSourceSpanClip,
   dispatchProject,
   effects,
-  fxLaneId,
   lanes,
   mediaItemsById,
   playheadQRef,
@@ -212,10 +215,15 @@ export function useClipActions({
   // copied pieces' spacing.
   function pasteArrangementClip(laneId?: string) {
     const clipboard = clipClipboardRef.current;
-    const [firstFragment] = clipboard?.fragments ?? [];
-    if (!clipboard || !firstFragment) {
+    if (!clipboard) {
       return;
     }
+    if (!canPasteOntoLayer(clipboard)) {
+      setStatus("Only layer clips can be pasted onto a layer.");
+      return;
+    }
+
+    const [firstFragment] = clipboard.fragments;
 
     const pasteLaneId =
       laneId ??
@@ -355,28 +363,17 @@ export function useClipActions({
     setStatus(`Duplicated ${clip.label}.`);
   }
 
+  // A copied source clip pastes only into a source track, as the source clip
+  // with its stack.
   function copySourceSpan(span: SourceSpan) {
-    const clip = createSourceSpanClip(span, fxLaneId ?? "");
-    if (!clip) {
-      return;
-    }
-
-    // It pastes onto a layer as that clip, with the Gain a clip made from a
-    // source gets, or into a source track as the source clip with its stack.
-    const layerCopy = withClipStacks(
-      copyClip(clip, bpm),
-      addDefaultGain([], { clips: [clip] }, [...mediaItemsById.values()]),
-    );
     const stackId = sourceClipEffectTrackId(span.id);
     clipClipboardRef.current = {
-      ...layerCopy,
+      fragments: [],
+      durationQ: getClipDurationQ(span, bpm),
       sourceSpan: { ...span },
-      effects: [
-        ...(layerCopy.effects ?? []),
-        ...effects.filter((effect) => effect.trackId === stackId),
-      ],
+      effects: effects.filter((effect) => effect.trackId === stackId),
     };
-    setStatus(`Copied ${clip.label}.`);
+    setStatus(`Copied ${span.label}.`);
   }
 
   function copySourceSpanToLayer(span: SourceSpan, target: CopyToLayerTarget) {
