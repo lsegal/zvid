@@ -833,6 +833,31 @@ describe("projectToLvpSession", () => {
 });
 
 describe("clip stacks in a saved session", () => {
+  it("round-trips a Shape's shape by name", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        effects: [
+          {
+            id: "shape",
+            trackId: "main-1",
+            effectName: "Shape",
+            parameters: [{ key: "Shape", value: "Star" }],
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(session.effects?.[0]?.parameters, {
+      Shape: { stringValue: "Star" },
+    });
+    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    assert.deepEqual(mapEffects(reopened.effects)[0]?.parameters, [
+      { key: "Shape", value: "Star", numericValue: undefined },
+    ]);
+  });
+
   it("saves a media clip's stack under the id it loads back with", () => {
     const project = baseProject();
     const stackEffect = (id: string, trackId: string) => ({

@@ -302,6 +302,8 @@ const PANEL_EFFECTS = new Map([
     distortion("Turbulence", { _Amount: 0.4, _Size: 0.4, _Speed: 0.6 }),
   ],
 ]);
+// A panel cut to a Shape, its slot's border color showing around it.
+const PANEL_SHAPES = new Map([["ribbon 15", "Oval"]]);
 THREE_UPS.forEach((start, cutIndex) => {
   VIDEO_LAYERS.forEach((layerId, panel) => {
     const sourceIndex = (panel + cutIndex) % SOURCES.length;
@@ -332,6 +334,10 @@ THREE_UPS.forEach((start, cutIndex) => {
           ),
         },
       );
+    }
+    const panelShape = PANEL_SHAPES.get(`${layerId} ${start}`);
+    if (panelShape) {
+      addEffect(clipTrack(clipId), "Shape", { Shape: panelShape });
     }
     const panelEffect = PANEL_EFFECTS.get(`${layerId} ${start}`);
     if (panelEffect) {

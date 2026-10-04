@@ -44,7 +44,8 @@ export type FxDeviceParameter = {
     | "font"
     | "flags"
     | "layers"
-    | "layer";
+    | "layer"
+    | "shape";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;

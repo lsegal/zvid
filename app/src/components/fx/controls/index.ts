@@ -8,6 +8,7 @@ import { LayerControl } from "./LayerControl";
 import { LayersControl } from "./LayersControl";
 import { NumberControl } from "./NumberControl";
 import { PaintControl } from "./PaintControl";
+import { ShapeControl } from "./ShapeControl";
 import { TextControl } from "./TextControl";
 
 // The control each parameter kind renders with. A new kind adds its control
@@ -25,4 +26,5 @@ export const PARAMETER_CONTROLS: Record<
   flags: FlagsControl,
   layers: LayersControl,
   layer: LayerControl,
+  shape: ShapeControl,
 };

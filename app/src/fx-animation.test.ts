@@ -69,7 +69,8 @@ function legacy(effect: SessionEffect): SessionEffect {
 }
 
 describe("animation support", () => {
-  it("is on every known effect except Layout, Mask and the audio effects", () => {
+  // Layout, Mask and Shape have no knobs to animate.
+  it("is on every known effect except Layout, Mask, Shape and the audio effects", () => {
     assert.ok(KNOWN_EFFECTS.length > 1);
     assert.ok(KNOWN_EFFECTS.some(isAudioEffectName));
     for (const effectName of KNOWN_EFFECTS) {
@@ -77,6 +78,7 @@ describe("animation support", () => {
         supportsAnimation(effectName),
         effectName !== "Layout" &&
           effectName !== "Mask" &&
+          effectName !== "Shape" &&
           !isAudioEffectName(effectName),
         effectName,
       );
@@ -88,7 +90,7 @@ describe("animation support", () => {
     assert.equal(createDefaultAnimation("Mystery"), undefined);
   });
 
-  it("shows the Animation toggle on every device but Layout, Mask and the audio effects", () => {
+  it("shows the Animation toggle on every video device but Layout, Mask and Shape", () => {
     const effects = KNOWN_EFFECTS.map((effectName) =>
       createEffect("6", effectName, effectName),
     );
@@ -99,6 +101,7 @@ describe("animation support", () => {
         device.supportsAnimation,
         device.effectName !== "Layout" &&
           device.effectName !== "Mask" &&
+          device.effectName !== "Shape" &&
           device.domain === "video",
         device.effectName,
       );
