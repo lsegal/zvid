@@ -126,6 +126,33 @@ describe("getMediaClipTrim", () => {
 });
 
 describe("addMediaToSourceTrack", () => {
+  it("leaves images out, and the project as it is with only images", () => {
+    const image: MediaItem = {
+      ...media("logo", 0),
+      name: "logo.svg",
+      kind: "image",
+      hasAudio: false,
+      hasVideo: false,
+    };
+    const current = project();
+    const onlyImages = addMediaToSourceTrack(current, [image], {
+      kind: "new-track",
+      startQ: 0,
+    });
+    assert.equal(onlyImages.sourceTracks, current.sourceTracks);
+    assert.equal(onlyImages.sourceSpans, current.sourceSpans);
+
+    const mixed = addMediaToSourceTrack(current, [image, media("a", 2)], {
+      kind: "track",
+      trackId: "t1",
+      startQ: 0,
+    });
+    assert.deepEqual(
+      mixed.sourceSpans.map((entry) => entry.mediaId),
+      ["a"],
+    );
+  });
+
   it("starts the clip at the drop position, pre-trimmed to the range", () => {
     const placed = addMediaToSourceTrack(
       project(),

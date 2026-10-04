@@ -222,6 +222,10 @@ describe("media kind and duration", () => {
       describeMediaKind({ kind: "audio", hasVideo: false, hasAudio: true }),
       "Audio",
     );
+    assert.equal(
+      describeMediaKind({ kind: "image", hasVideo: false, hasAudio: false }),
+      "Image",
+    );
   });
 
   it("formats durations", () => {
