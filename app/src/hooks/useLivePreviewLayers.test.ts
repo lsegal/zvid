@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ArrangementClip, Lane } from "../app/types.ts";
-import type {
-  MediaItem,
-  SessionEffect,
-} from "../composition-active-clips.ts";
+import type { MediaItem } from "../composition-active-clips.ts";
 import { createDefaultAnimation } from "../fx-animation-defaults.ts";
+import type { SessionEffect } from "../fx-stack.ts";
 import { createPlayheadSignal } from "../playhead-signal.ts";
 import type { PreviewLayer } from "../preview-edit.ts";
 import {
@@ -37,6 +35,8 @@ const MEDIA: MediaItem = {
 const CLIP: ArrangementClip = {
   id: "clip-1",
   laneId: "1",
+  sourceSpanId: "span-1",
+  sourceTrackId: "track-1",
   label: "Box",
   mediaPath: "clip-media.mp4",
   mediaId: MEDIA.id,
@@ -62,6 +62,7 @@ function slidingTransform(): SessionEffect {
     trackId: "1",
     effectName: "Transform",
     parameters: [{ key: "PositionX", value: "0", numericValue: 0 }],
+    enabled: true,
     animation: {
       ...animation,
       mode: "lfo",

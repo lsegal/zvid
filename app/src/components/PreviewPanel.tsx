@@ -1,4 +1,5 @@
 import type {
+  ComponentProps,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
   RefObject,
@@ -15,11 +16,13 @@ import {
   describePreviewMediaState,
 } from "../clip-media-state";
 import type { SessionEffect } from "../fx-stack";
+import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
-import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
+import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
 import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
+import type { PreviewLayer } from "../preview-edit.ts";
 import type { TimeValueFormat } from "../time-value.ts";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
@@ -93,6 +96,27 @@ const PREVIEW_TABS = [
   { tab: "timeline", label: "Timeline" },
   { tab: "media", label: "Media" },
 ] as const;
+
+// The transform overlay with the selected layer's box where the live
+// playhead puts it, so it keeps up with an animating layer during playback
+// and scrubbing. Only the overlay re-renders as the playhead moves.
+function LivePreviewTransformOverlay({
+  layers,
+  resolveLayersAt,
+  playheadSignal,
+  ...props
+}: ComponentProps<typeof PreviewTransformOverlay> & {
+  resolveLayersAt: (playheadQ: number) => readonly PreviewLayer[];
+  playheadSignal: PlayheadSignal;
+}) {
+  const liveLayers = useLivePreviewLayers({
+    layers,
+    resolveLayersAt,
+    playheadSignal,
+    selectedLaneId: props.selectedLaneId,
+  });
+  return <PreviewTransformOverlay {...props} layers={liveLayers} />;
+}
 
 // The preview pane beside the timeline, with the handle that resizes it. Its
 // Timeline tab is the Program monitor: the composition player, the transform
@@ -230,7 +254,7 @@ export function PreviewPanel({
             projectDurationFrames={projectDurationFrames}
             hiddenTextClipId={textEdit?.clipId}
           />
-          <PreviewTransformOverlay
+          <LivePreviewTransformOverlay
             canvas={{ width: canvasWidth, height: canvasHeight }}
             layers={previewLayers}
             resolveLayersAt={resolvePreviewLayersAt}
