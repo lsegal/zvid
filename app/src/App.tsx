@@ -398,12 +398,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         collaboration={collaboration}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
-        handleCloseSession={workspace.handleCloseSession}
         handleSaveToLibrary={library.saveToLibrary}
         isExporting={isExporting}
         offlineMedia={mediaImport.offlineMedia}
         openExportDialog={openExportDialog}
-        projectHistory={projectHistory}
         renamingLaneIdRef={selection.renamingLaneIdRef}
         setStatus={setStatus}
         showsMediaSync={mediaImport.showsMediaSync}

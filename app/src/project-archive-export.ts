@@ -8,7 +8,7 @@ import {
 } from "./project-archive.ts";
 import type { LvpSession } from "./session.ts";
 
-// File ▸ Export Project…: the `.zvd` archive written from a session. With
+// File ▸ Export ▸ Project…: the `.zvd` archive written from a session. With
 // media included, each file the session links goes in once under `media/`,
 // and the session's paths to it are rewritten to that entry so the archive
 // opens self-contained. A file that can't be read keeps its original path.

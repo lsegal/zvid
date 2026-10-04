@@ -20,7 +20,7 @@ type SampleProjectInputs = {
   setStatus: (message: string) => void;
 };
 
-// File → Open Sample, and the sample opened on its own when the app starts
+// File → Open → Sample, and the sample opened on its own when the app starts
 // with nothing to restore. The sample opens at once; useSampleMedia then
 // loads its media in place, like media syncing from a peer.
 export function useSampleProject({

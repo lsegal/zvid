@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import { readProjectArchive } from "../src/project-archive.ts";
 
-// File ▸ Export Project… in the browser build prompts for a location, which is
+// File ▸ Export ▸ Project… in the browser build prompts for a location, which is
 // a download where the save picker is missing.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -25,15 +25,20 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-// Runs File ▸ Export Project… through its dialog and reads the downloaded
-// archive.
-async function exportProject(page: Page, { includeMedia = false } = {}) {
+// Opens File ▸ Export ▸ Project…'s dialog.
+async function openProjectExportDialog(page: Page) {
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Export Project" });
   await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+// Runs File ▸ Export ▸ Project… through its dialog and reads the downloaded
+// archive.
+async function exportProject(page: Page, { includeMedia = false } = {}) {
+  const dialog = await openProjectExportDialog(page);
   await dialog
     .getByRole("checkbox", { name: "Include media files" })
     .setChecked(includeMedia);
@@ -48,7 +53,7 @@ async function exportProject(page: Page, { includeMedia = false } = {}) {
   };
 }
 
-test("File ▸ Export Project… downloads the session as a .zvd archive", async ({
+test("File ▸ Export ▸ Project… downloads the session as a .zvd archive", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -71,7 +76,7 @@ test("File ▸ Export Project… downloads the session as a .zvd archive", async
   await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 });
 
-test("File ▸ Export Project… bundles the project's media when asked", async ({
+test("File ▸ Export ▸ Project… bundles the project's media when asked", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -90,24 +95,20 @@ test("File ▸ Export Project… bundles the project's media when asked", async 
   await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 });
 
-test("File ▸ Export Project… Cancel exports nothing", async ({ page }) => {
+test("File ▸ Export ▸ Project… Cancel exports nothing", async ({ page }) => {
   await page.goto("/");
   let downloads = 0;
   page.on("download", () => {
     downloads += 1;
   });
-  await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
-  const dialog = page.getByRole("dialog", { name: "Export Project" });
+  const dialog = await openProjectExportDialog(page);
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Export canceled.")).toBeVisible();
   expect(downloads).toBe(0);
 });
 
-test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen", async ({
+test("File ▸ Export ▸ Project… keeps fill clips and layer FX bypass on reopen", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -152,9 +153,8 @@ test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen"
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooserPromise = page.waitForEvent("filechooser");
-  await page
-    .getByRole("menuitem", { name: "Open Session", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
     name: "saved.zvd",

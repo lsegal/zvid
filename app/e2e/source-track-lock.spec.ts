@@ -188,9 +188,8 @@ test("an imported Live set opens with its source tracks locked", async ({
   await page.goto("/");
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooser = page.waitForEvent("filechooser");
-  await page
-    .getByRole("menuitem", { name: "Open Session", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   await (await chooser).setFiles({
     name: "time-signature-3-4.als",
     mimeType: "application/octet-stream",

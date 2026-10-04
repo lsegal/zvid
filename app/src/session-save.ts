@@ -1,4 +1,4 @@
-// File ▸ Export Project…: the `.zvd` filename it suggests, and the session
+// File ▸ Export ▸ Project…: the `.zvd` filename it suggests, and the session
 // it writes. The session goes into a `.zvd` project archive as its
 // `project.json` (see project-archive-export.ts). Exporting always asks where
 // to write, even for a session opened from a path.
@@ -24,7 +24,7 @@ function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
 }
 
-// The filename Export Project… suggests: the opened session's name, or the
+// The filename Export ▸ Project… suggests: the opened session's name, or the
 // session's own name, with its session extension swapped for `.zvd`.
 export function projectExportFilename(
   source: WorkspaceSessionSource,

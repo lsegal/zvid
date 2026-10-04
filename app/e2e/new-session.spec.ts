@@ -20,7 +20,8 @@ async function openSample(page: Page) {
   await page.goto("/");
   await expect(page.getByText("No source media yet")).toBeVisible();
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expect(page.locator(".source-span").first()).toBeVisible({
     timeout: 60_000,
   });
@@ -160,7 +161,8 @@ test("exporting doesn't count as saving for New Session", async ({ page }) => {
   });
   await openSample(page);
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Export Project…" }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
   const downloading = page.waitForEvent("download");
   await page
     .getByRole("dialog", { name: "Export Project" })

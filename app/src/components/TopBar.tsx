@@ -1,10 +1,10 @@
+import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import {
   type Dispatch,
   type RefObject,
   type SetStateAction,
   useState,
 } from "react";
-import { isPristineProjectHistory } from "../app/new-session.ts";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
@@ -15,7 +15,6 @@ import type {
 import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
 import { useMenubar } from "../hooks/useMenubar.ts";
 import type { useNewSession } from "../hooks/useNewSession.ts";
-import type { useProjectStore } from "../hooks/useProjectStore.ts";
 import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
 import { shareLinkVisible } from "../share-link";
@@ -30,6 +29,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import "./top-bar.css";
@@ -56,11 +58,9 @@ export type TopBarProps = Pick<
     collaboration: CollaborationStateResult;
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
-    handleCloseSession: () => void;
     handleSaveToLibrary: () => Promise<boolean>;
     isExporting: boolean;
     openExportDialog: () => void;
-    projectHistory: ReturnType<typeof useProjectStore>["projectHistory"];
     renamingLaneIdRef: RefObject<string | undefined>;
     sample: Pick<ReturnType<typeof useSampleProject>, "handleOpenSample">;
     setIsCaptureInstallerDialogOpen: SetOpen;
@@ -79,7 +79,6 @@ export function TopBar({
   collaboration,
   exportButtonLabel,
   getEditMenuEntries,
-  handleCloseSession,
   handleDisconnectConnection,
   handleImport,
   handleNewSession,
@@ -91,7 +90,6 @@ export function TopBar({
   isExporting,
   offlineMedia,
   openExportDialog,
-  projectHistory,
   renamingLaneIdRef,
   sample,
   setIsCaptureInstallerDialogOpen,
@@ -151,26 +149,28 @@ export function TopBar({
                   </DropdownMenuShortcut>
                 ) : null}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleOpenSession()}>
-                Open Session
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <span>Open</span>
+                  <ChevronRightIcon
+                    aria-hidden="true"
+                    className="dropdown-menu-sub-chevron"
+                  />
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onSelect={() => void handleOpenSession()}>
+                    Session…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={sample.handleOpenSample}>
+                    Sample
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
                 Open Workspace
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={sample.handleOpenSample}>
-                Open Sample
-              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={
-                  collaborationMode !== "idle" ||
-                  isPristineProjectHistory(projectHistory)
-                }
-                onSelect={handleCloseSession}
-              >
-                Close Session
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={!offlineMedia.length}
@@ -219,13 +219,31 @@ export function TopBar({
                 Save
                 <DropdownMenuShortcut>{saveShortcut}</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  setIsProjectExportDialogOpen(true);
-                }}
-              >
-                Export Project…
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <span>Export</span>
+                  <ChevronRightIcon
+                    aria-hidden="true"
+                    className="dropdown-menu-sub-chevron"
+                  />
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {/* Like the Export button, one export at a time. */}
+                  <DropdownMenuItem
+                    disabled={isExporting}
+                    onSelect={openExportDialog}
+                  >
+                    Video…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setIsProjectExportDialogOpen(true);
+                    }}
+                  >
+                    Project…
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu {...editMenu.root}>
@@ -269,7 +287,7 @@ export function TopBar({
               <DropdownMenuItem
                 onSelect={() =>
                   setStatus(
-                    "Use File → Open Session to open a .zvd or .lvp session or an Ableton .als set, or File → Import Media to add clips.",
+                    "Use File → Open → Session… to open a .zvd or .lvp session or an Ableton .als set, or File → Import Media to add clips.",
                   )
                 }
               >
