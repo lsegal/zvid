@@ -1,7 +1,9 @@
 // The Mask effect: shows a layer only where one other layer, its Target,
 // draws (Additive), or everywhere but there (Subtractive). The mask is the
 // target's own drawn alpha, after its effects, Transform and animation, in
-// canvas space, not its box. The target keeps drawing as usual.
+// canvas space, not its box. The target keeps drawing as usual. On an FX
+// clip it limits where the clip's effects apply instead: the processed
+// picture shows by the mask, and the picture beneath elsewhere.
 
 export const MASK_EFFECT_NAME = "Mask";
 
@@ -111,4 +113,18 @@ export function pruneMaskTargets<T extends MaskEffect>(
     });
     return changed ? { ...effect, parameters } : effect;
   });
+}
+
+// A channel of what an FX clip a Mask limits shows where the picture
+// beneath it is `beneath` and its effects make it `processed`, where the
+// target's drawn alpha is `targetAlpha`, or null where it isn't drawing:
+// Additive then applies nothing and Subtractive applies everywhere.
+export function maskedFxBlend(
+  beneath: number,
+  processed: number,
+  targetAlpha: number | null,
+  mode: MaskMode,
+) {
+  const coverage = maskCoverage(targetAlpha ?? 0, mode);
+  return beneath + (processed - beneath) * coverage;
 }

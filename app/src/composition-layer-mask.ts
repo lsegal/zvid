@@ -6,7 +6,9 @@
 // its own. A masked Target is drawn with its own mask, except inside a
 // cycle (A masks B and B masks A), where the layer that closes it is drawn
 // unmasked. A Target on a hidden layer is drawn only into the masks that
-// target it, over the whole canvas, since it takes no slot.
+// target it, over the whole canvas, since it takes no slot. An FX clip a
+// Mask limits draws its processed picture over the one it processed the
+// same way, so its effects apply only where the mask lets them.
 
 import type { LayerDrawStep } from "./composition-layout.ts";
 import {
@@ -51,15 +53,33 @@ export function locateCompositeUniforms(
   };
 }
 
-// The layer shader with a mask.
-export type MaskedComposite = {
-  program: WebGLProgram;
-  uniforms: CompositeUniformLocations;
+// A masked shader's mask uniforms.
+export type MaskUniformLocations = {
   mask: WebGLUniformLocation | null;
   maskSize: WebGLUniformLocation | null;
   maskUvScale: WebGLUniformLocation | null;
   maskUvMax: WebGLUniformLocation | null;
   maskInvert: WebGLUniformLocation | null;
+};
+
+export function locateMaskUniforms(
+  gl: WebGLRenderingContext,
+  program: WebGLProgram,
+): MaskUniformLocations {
+  return {
+    mask: gl.getUniformLocation(program, "uMask"),
+    maskSize: gl.getUniformLocation(program, "uMaskSize"),
+    maskUvScale: gl.getUniformLocation(program, "uMaskUvScale"),
+    maskUvMax: gl.getUniformLocation(program, "uMaskUvMax"),
+    maskInvert: gl.getUniformLocation(program, "uMaskInvert"),
+  };
+}
+
+// The layer shader with a mask.
+export type MaskedComposite = MaskUniformLocations & {
+  program: WebGLProgram;
+  uniforms: CompositeUniformLocations;
+  maskPremultiplied: WebGLUniformLocation | null;
 };
 
 export function createMaskedComposite(
@@ -73,11 +93,8 @@ export function createMaskedComposite(
   return {
     program,
     uniforms: locateCompositeUniforms(gl, program),
-    mask: gl.getUniformLocation(program, "uMask"),
-    maskSize: gl.getUniformLocation(program, "uMaskSize"),
-    maskUvScale: gl.getUniformLocation(program, "uMaskUvScale"),
-    maskUvMax: gl.getUniformLocation(program, "uMaskUvMax"),
-    maskInvert: gl.getUniformLocation(program, "uMaskInvert"),
+    ...locateMaskUniforms(gl, program),
+    maskPremultiplied: gl.getUniformLocation(program, "uMaskPremultiplied"),
   };
 }
 
@@ -126,11 +143,12 @@ export type MaskTargets<T> = {
   groups: MaskTargetGroup<T>[];
 };
 
-// Finds Mask `mask` of the layer `masked` draws among all of `root`, the
-// steps that draw the canvas, and its Target's clips, grouped by surface.
+// Finds Mask `mask` of the layer or FX clip `masked` draws among all of
+// `root`, the steps that draw the canvas, and its Target's clips, grouped
+// by surface. An FX clip's is the surface it draws its result on.
 export function findMaskTargets<T extends MaskableLayer>(
   root: readonly LayerDrawStep<T>[],
-  masked: LayerStep<T>,
+  masked: LayerDrawStep<T>,
   mask: LayerMask,
 ): MaskTargets<T> {
   const found: MaskTargets<T> = { maskedPath: [], groups: [] };
@@ -145,7 +163,8 @@ export function findMaskTargets<T extends MaskableLayer>(
     for (const step of steps) {
       if (step === masked) {
         found.maskedPath = path;
-      } else if (step.type === "arrange") {
+      }
+      if (step.type === "arrange") {
         visit(step.steps, [...path, step]);
       } else if (step.type === "transition") {
         // A Transition's comps are drawn whole, the size of the surface
@@ -276,9 +295,35 @@ export function drawLayerMask<T>(
   return { region: result.region, mode: mask.mode };
 }
 
+// Sets a masked shader's mask uniforms to `mask`, read at each pixel of the
+// `width` × `height` surface bound for it, draws with `draw` and unbinds
+// the mask, so no later draw into the mask's target reads it.
+export function withLayerMask(
+  gl: WebGLRenderingContext,
+  locations: MaskUniformLocations,
+  mask: DrawnMask,
+  width: number,
+  height: number,
+  draw: () => void,
+) {
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, mask.region.texture);
+  gl.uniform1i(locations.mask, 1);
+  gl.uniform2f(locations.maskSize, width, height);
+  gl.uniform2f(locations.maskUvScale, ...mask.region.uvScale);
+  gl.uniform2f(locations.maskUvMax, ...mask.region.uvMax);
+  gl.uniform1f(locations.maskInvert, mask.mode === "subtractive" ? 1 : 0);
+  gl.activeTexture(gl.TEXTURE0);
+  draw();
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  gl.activeTexture(gl.TEXTURE0);
+}
+
 // Draws a layer's quad with `draw`, given the masked shader's uniforms, with
 // its alpha multiplied by `mask`'s at each pixel of the `width` × `height`
-// surface bound for it, or by 1 minus it when Subtractive.
+// surface bound for it, or by 1 minus it when Subtractive, and its color
+// too when it is `premultiplied`.
 export function drawMaskedQuad(
   gl: WebGLRenderingContext,
   masked: MaskedComposite,
@@ -286,22 +331,12 @@ export function drawMaskedQuad(
   width: number,
   height: number,
   draw: (uniforms: CompositeUniformLocations) => void,
+  premultiplied = false,
 ) {
   // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
   gl.useProgram(masked.program);
   gl.enableVertexAttribArray(masked.uniforms.position);
   gl.vertexAttribPointer(masked.uniforms.position, 2, gl.FLOAT, false, 0, 0);
-  gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, mask.region.texture);
-  gl.uniform1i(masked.mask, 1);
-  gl.uniform2f(masked.maskSize, width, height);
-  gl.uniform2f(masked.maskUvScale, ...mask.region.uvScale);
-  gl.uniform2f(masked.maskUvMax, ...mask.region.uvMax);
-  gl.uniform1f(masked.maskInvert, mask.mode === "subtractive" ? 1 : 0);
-  gl.activeTexture(gl.TEXTURE0);
-  draw(masked.uniforms);
-  // Unbound, so no later draw into the mask's target reads it.
-  gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, null);
-  gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1f(masked.maskPremultiplied, premultiplied ? 1 : 0);
+  withLayerMask(gl, masked, mask, width, height, () => draw(masked.uniforms));
 }

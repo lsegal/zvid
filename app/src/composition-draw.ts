@@ -7,7 +7,13 @@ import {
   type CompositeUniforms,
   drawQuad,
 } from "./composition-draw-gl.ts";
-import { applyFxClip, placeArrangement } from "./composition-fx-clip.ts";
+import {
+  applyFxClip,
+  createFxMaskProgram,
+  drawMaskedFxResult,
+  type FxMaskProgram,
+  placeArrangement,
+} from "./composition-fx-clip.ts";
 import {
   type CompositeUniformLocations,
   createMaskedComposite,
@@ -39,8 +45,6 @@ import {
 import {
   COMPOSITE_FRAGMENT_SOURCE,
   COMPOSITE_VERTEX_SOURCE,
-  FX_MASK_FRAGMENT_SOURCE,
-  FX_MASK_VERTEX_SOURCE,
 } from "./composition-shaders.ts";
 import {
   beginTextureDraw,
@@ -119,7 +123,8 @@ export type CompositeLayer = {
   // Set for FX clips with an Order, which arranges the layers beneath them
   // inside the clip's box before `effectChain` runs.
   order?: CompositionOrder;
-  // Set for clips masked by another layer's drawn pixels.
+  // Set for clips masked by another layer's drawn pixels, or FX clips
+  // whose effects apply only where it lets them.
   mask?: LayerMask;
   // Set for FX clips with a Transition, which blends from the comp of the
   // layers beneath them at their start to the one at their end.
@@ -148,16 +153,10 @@ export type WebGlResources = SourceTextures & {
   // A frame's FX clip chains and the layers it draws, reused each frame.
   fxSteps: Map<CompositeLayer, PreparedEffectStep[]>;
   drawnLayers: CompositeLayer[];
-  // Copies an FX clip's adjusted composite back into its box.
-  fxMask: {
-    program: WebGLProgram;
-    texture: WebGLUniformLocation | null;
-    axisX: WebGLUniformLocation | null;
-    axisY: WebGLUniformLocation | null;
-    offset: WebGLUniformLocation | null;
-    uvScale: WebGLUniformLocation | null;
-    uvMax: WebGLUniformLocation | null;
-  };
+  // Copies an FX clip's adjusted composite back into its box, or blends it
+  // there by its Mask.
+  fxMask: FxMaskProgram;
+  maskedFxMask: FxMaskProgram;
   uniforms: CompositeUniformLocations;
   // The layer shader for a layer a Mask masks by its Target's drawn alpha.
   masked: MaskedComposite;
@@ -195,11 +194,6 @@ export function createWebGlResources(
     gl.STATIC_DRAW,
   );
 
-  const fxMaskProgram = linkProgram(
-    gl,
-    FX_MASK_VERTEX_SOURCE,
-    FX_MASK_FRAGMENT_SOURCE,
-  );
   const effectChain = new EffectChainRenderer(gl, positionBuffer);
   effectChain.precompile(EFFECT_PASSES);
 
@@ -211,15 +205,8 @@ export function createWebGlResources(
     transitions: new TransitionRenderer(gl, positionBuffer),
     fxSteps: new Map<CompositeLayer, PreparedEffectStep[]>(),
     drawnLayers: [] as CompositeLayer[],
-    fxMask: {
-      program: fxMaskProgram,
-      texture: gl.getUniformLocation(fxMaskProgram, "uTexture"),
-      axisX: gl.getUniformLocation(fxMaskProgram, "uAxisX"),
-      axisY: gl.getUniformLocation(fxMaskProgram, "uAxisY"),
-      offset: gl.getUniformLocation(fxMaskProgram, "uOffset"),
-      uvScale: gl.getUniformLocation(fxMaskProgram, "uUvScale"),
-      uvMax: gl.getUniformLocation(fxMaskProgram, "uUvMax"),
-    },
+    fxMask: createFxMaskProgram(gl),
+    maskedFxMask: createFxMaskProgram(gl, true),
     uniforms: locateCompositeUniforms(gl, program),
     masked: createMaskedComposite(gl),
   };
@@ -233,6 +220,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
   gl.deleteProgram(resources.fxMask.program);
+  gl.deleteProgram(resources.maskedFxMask.program);
   gl.deleteProgram(resources.masked.program);
 }
 
@@ -601,13 +589,10 @@ export function drawComposition(
   const maskable = hiddenSteps.length ? [...planned, ...hiddenSteps] : planned;
   // The layers whose masks are being drawn, so a cycle of masks ends.
   const masking = new Set<CompositeLayer>();
-  // A layer step's mask from mask target `slot` on: undefined when it has
-  // none, or when it closes a cycle of masks, and null when its Target
-  // draws nothing.
-  const maskFor = (
-    step: LayerDrawStep<CompositeLayer> & { type: "layer" },
-    slot: number,
-  ) => {
+  // A layer or FX clip step's mask from mask target `slot` on: undefined
+  // when it has none, or when it closes a cycle of masks, and null when its
+  // Target draws nothing.
+  const maskFor = (step: LayerDrawStep<CompositeLayer>, slot: number) => {
     const { mask } = step.entry;
     if (!mask || masking.has(step.entry)) {
       return undefined;
@@ -622,6 +607,15 @@ export function drawComposition(
     );
     masking.delete(step.entry);
     return drawn;
+  };
+  // An FX clip step's mask, drawn once what it processes is: false when
+  // its Target draws nothing and it is Additive, so its effects apply
+  // nowhere.
+  const fxMaskFor = (step: LayerDrawStep<CompositeLayer>) => {
+    const drawn = maskFor(step, 0);
+    return drawn === null && step.entry.mask?.mode === "additive"
+      ? false
+      : (drawn ?? undefined);
   };
   // Draws a layer step on `target`, masked from mask target `slot` on.
   const drawLayerStep = (
@@ -681,18 +675,23 @@ export function drawComposition(
           drawSteps,
           fxSteps.get(step.entry) ?? [],
           frameContext,
+          () => fxMaskFor(step),
         );
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
       } else if (target.region && target.framebuffer) {
-        applyFxClip(
-          resources,
-          { framebuffer: target.framebuffer, region: target.region },
-          { width: target.width, height: target.height },
-          step.entry,
-          fxSteps.get(step.entry) ?? [],
-          frameContext,
-        );
+        const mask = fxMaskFor(step);
+        if (mask !== false) {
+          applyFxClip(
+            resources,
+            { framebuffer: target.framebuffer, region: target.region },
+            { width: target.width, height: target.height },
+            step.entry,
+            fxSteps.get(step.entry) ?? [],
+            frameContext,
+            mask,
+          );
+        }
       }
     }
   };
@@ -719,9 +718,11 @@ export function drawComposition(
     drawSteps(step.steps, { ...size, ...target }, depth + 1);
     gl.disable(gl.SCISSOR_TEST);
 
-    // The FX clip's other effects run on the arranged layers.
+    // The FX clip's other effects run on the arranged layers, where its
+    // Mask lets them.
     const arrangement = target.region;
-    const steps = fxSteps.get(entry) ?? [];
+    const mask = fxMaskFor(step);
+    const steps = mask === false ? [] : (fxSteps.get(entry) ?? []);
     const arranged = steps.length
       ? (effectChain.run(arrangement, size.width, size.height, steps, {
           time: frameContext.time,
@@ -732,7 +733,12 @@ export function drawComposition(
           bottomUp: true,
         }) ?? arrangement)
       : arrangement;
-    drawPicture(parent, arranged, axes);
+    if (mask && arranged !== arrangement) {
+      drawPicture(parent, arrangement, axes);
+      drawMaskedFxResult(resources, parent, arranged, axes, mask);
+    } else {
+      drawPicture(parent, arranged, axes);
+    }
   };
 
   drawSteps(planned, sceneTarget, 0);

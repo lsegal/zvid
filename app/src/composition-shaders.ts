@@ -3,7 +3,8 @@
 // The layer shader, with or without a Mask: a masked layer's alpha is
 // multiplied by the alpha its Target drew at the same framebuffer pixel, in
 // the `uMaskSize` corner of `uMask` (see TextureRegion), or by 1 minus it
-// when `uMaskInvert` is 1 (Subtractive).
+// when `uMaskInvert` is 1 (Subtractive), and so is its color when
+// `uMaskPremultiplied` is 1.
 function compositeFragmentSource(masked: boolean) {
   return `
   ${masked ? "#define LAYER_MASK" : ""}
@@ -29,6 +30,7 @@ function compositeFragmentSource(masked: boolean) {
   uniform MASK_PRECISION vec2 uMaskUvScale;
   uniform MASK_PRECISION vec2 uMaskUvMax;
   uniform float uMaskInvert;
+  uniform float uMaskPremultiplied;
   #endif
 
   void main() {
@@ -47,7 +49,8 @@ function compositeFragmentSource(masked: boolean) {
       uMask,
       min(maskUv * uMaskUvScale, uMaskUvMax)
     ).a;
-    color.a *= mix(coverage, 1.0 - coverage, uMaskInvert);
+    float masked = mix(coverage, 1.0 - coverage, uMaskInvert);
+    color *= vec4(vec3(mix(1.0, masked, uMaskPremultiplied)), masked);
     #endif
     gl_FragColor = color;
   }
@@ -75,7 +78,8 @@ export const COMPOSITE_VERTEX_SOURCE = `
 
 // Draws a quad over an FX clip's box that samples the texture at the same
 // place on the canvas, so the adjusted composite replaces the original only
-// inside the box, however the box is turned.
+// inside the box, however the box is turned. With a Mask, its alpha is
+// multiplied as a masked layer's is, to be blended over the original.
 export const FX_MASK_VERTEX_SOURCE = `
   attribute vec2 aPosition;
   varying vec2 vUv;
@@ -91,15 +95,43 @@ export const FX_MASK_VERTEX_SOURCE = `
   }
 `;
 
-export const FX_MASK_FRAGMENT_SOURCE = `
+function fxMaskFragmentSource(masked: boolean) {
+  return `
+  ${masked ? "#define LAYER_MASK" : ""}
   precision mediump float;
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  #define MASK_PRECISION highp
+  #else
+  #define MASK_PRECISION mediump
+  #endif
 
   varying vec2 vUv;
   uniform sampler2D uTexture;
   uniform vec2 uUvScale;
   uniform vec2 uUvMax;
+  #ifdef LAYER_MASK
+  uniform sampler2D uMask;
+  uniform MASK_PRECISION vec2 uMaskSize;
+  uniform MASK_PRECISION vec2 uMaskUvScale;
+  uniform MASK_PRECISION vec2 uMaskUvMax;
+  uniform float uMaskInvert;
+  #endif
 
   void main() {
-    gl_FragColor = texture2D(uTexture, min(vUv * uUvScale, uUvMax));
+    vec4 color = texture2D(uTexture, min(vUv * uUvScale, uUvMax));
+    #ifdef LAYER_MASK
+    MASK_PRECISION vec2 maskUv = gl_FragCoord.xy / uMaskSize;
+    float coverage = texture2D(
+      uMask,
+      min(maskUv * uMaskUvScale, uMaskUvMax)
+    ).a;
+    color.a *= mix(coverage, 1.0 - coverage, uMaskInvert);
+    #endif
+    gl_FragColor = color;
   }
 `;
+}
+
+export const FX_MASK_FRAGMENT_SOURCE = fxMaskFragmentSource(false);
+
+export const MASKED_FX_MASK_FRAGMENT_SOURCE = fxMaskFragmentSource(true);

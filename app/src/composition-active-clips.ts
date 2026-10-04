@@ -580,10 +580,17 @@ export function computeActiveClips(
         clipContext.durationSeconds,
         () => transitionCompTimings(clips, mediaById, clip, bpm, lanePriority),
       );
+      // A Mask on its own stack limits where its effects apply.
+      const mask = findLayerMask(
+        effects.filter((effect) => effect.trackId === clipTrackId),
+        clip.laneId,
+        clipTrackId,
+      );
       return {
         ...resolved,
         effectChain: resolveEffectChain(effects, clipTrackId),
         fx: true,
+        ...(mask ? { mask } : {}),
         ...(transition ? { transition } : {}),
         ...withOrder(
           findAnimatedOrder(effects, clipTrackId, fps, {

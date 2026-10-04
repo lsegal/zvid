@@ -1493,7 +1493,12 @@ describe("drawComposition FX clips", () => {
         ? "composite"
         : draw.program === (resources.fxMask.program as unknown as Handle)
           ? "fx-mask"
-          : "effect";
+          : draw.program ===
+              (resources.maskedFxMask.program as unknown as Handle)
+            ? "masked-fx-mask"
+            : draw.program === (resources.masked.program as unknown as Handle)
+              ? "masked"
+              : "effect";
     return {
       draws: recording.draws,
       clears: recording.clears,
@@ -1674,6 +1679,100 @@ describe("drawComposition FX clips", () => {
       "ONE",
       "ONE_MINUS_SRC_ALPHA",
     ]);
+  });
+
+  describe("with a Mask", () => {
+    // Layer 3 beneath an FX clip on Layer 1 masked by Layer 4, hidden.
+    function masked(mode: "additive" | "subtractive", targetDrawn = true) {
+      const [beneath, target] = mediaLayers([2, 3]).map((layer, index) => ({
+        ...layer,
+        clip: {
+          ...layer.clip,
+          laneId: `${index + 3}`,
+          ...(index ? { hidden: true } : {}),
+        },
+      }));
+      const fx: CompositeLayer = {
+        ...fxLayer(0, [colorize("clip:fx")]),
+        clip: { startQ: 0, laneId: "1" },
+        mask: { targetLaneId: "4", mode },
+      };
+      return draw(targetDrawn ? [fx, beneath, target] : [fx, beneath]);
+    }
+
+    it("blends its effects over the composite by its Target's drawn alpha", () => {
+      for (const mode of ["additive", "subtractive"] as const) {
+        const { draws, resources, program } = masked(mode);
+        const scene = resources.effectChain.getSceneTarget(WIDTH, HEIGHT);
+        const sceneFramebuffer = scene.framebuffer as unknown as Handle;
+        assert.deepEqual(
+          draws.map((call) => [
+            program(call),
+            call.framebuffer === sceneFramebuffer,
+          ]),
+          [
+            ["composite", true],
+            // The hidden Target, only into the mask.
+            ["composite", false],
+            ["effect", false],
+            ["masked-fx-mask", true],
+            ["composite", false],
+          ],
+        );
+        const blended = draws[3];
+        assert.equal(blended.blend, true);
+        assert.deepEqual(blended.blendFunc, [
+          "SRC_ALPHA",
+          "ONE_MINUS_SRC_ALPHA",
+          "ONE",
+          "ONE_MINUS_SRC_ALPHA",
+        ]);
+        // The mask is unbound again once it is read.
+        assert.equal(blended.activeTexture, "TEXTURE0");
+      }
+    });
+
+    it("applies nothing when Additive and everything when Subtractive with its Target not drawing", () => {
+      const additive = masked("additive", false);
+      assert.deepEqual(additive.draws.map(additive.program), [
+        "composite",
+        "composite",
+      ]);
+      const subtractive = masked("subtractive", false);
+      assert.deepEqual(subtractive.draws.map(subtractive.program), [
+        "composite",
+        "effect",
+        "fx-mask",
+        "composite",
+      ]);
+      assert.equal(subtractive.draws[2].blend, false);
+    });
+
+    it("limits the effects run on an Order's arrangement", () => {
+      const { draws, program } = draw([
+        {
+          ...fxLayer(0, [colorize("clip:fx")]),
+          clip: { startQ: 0, laneId: "1" },
+          order: DEFAULT_COMPOSITION_ORDER,
+          mask: { targetLaneId: "3", mode: "additive" },
+        },
+        ...mediaLayers([1, 2]).map((layer, index) => ({
+          ...layer,
+          clip: { ...layer.clip, laneId: `${index + 2}` },
+        })),
+      ]);
+      // The arrangement unprocessed, then processed where the mask lets
+      // it, then the composite shown on the canvas.
+      assert.deepEqual(draws.map(program).slice(-4), [
+        "effect",
+        "composite",
+        "masked",
+        "composite",
+      ]);
+      const [unprocessed, processed] = draws.slice(-3);
+      assert.equal(processed.framebuffer, unprocessed.framebuffer);
+      assert.notEqual(processed.texture, unprocessed.texture);
+    });
   });
 
   it("is adjusted by the Global chain after it", () => {

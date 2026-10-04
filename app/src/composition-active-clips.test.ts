@@ -812,6 +812,30 @@ describe("FX clips", () => {
     assert.deepEqual(entry.effectChain, []);
   });
 
+  it("is limited by its own Mask, not its layer's", () => {
+    const maskEffect = (trackId: string, target: string, mode: string) => ({
+      id: `mask-${trackId}`,
+      trackId,
+      effectName: "Mask",
+      parameters: [
+        { key: "Target", value: target },
+        { key: "Mode", value: mode },
+      ],
+    });
+    const maskOf = (effects: Parameters<typeof active>[0]) =>
+      active(effects).find((candidate) => candidate.clip.id === "fx-6")?.mask;
+    assert.deepEqual(maskOf([maskEffect("clip:fx-6", "5", "Subtractive")]), {
+      targetLaneId: "5",
+      mode: "subtractive",
+    });
+    assert.equal(maskOf([maskEffect("6", "5", "Additive")]), undefined);
+    // Its Mask is no shader pass.
+    const entry = active([maskEffect("clip:fx-6", "5", "Additive")]).find(
+      (candidate) => candidate.clip.id === "fx-6",
+    );
+    assert.deepEqual(entry?.effectChain, []);
+  });
+
   it("runs only its own stack, not its layer's", () => {
     const entry = active([
       {
