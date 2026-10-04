@@ -68,8 +68,21 @@ export function stageSize(size: number, scale: number) {
   return Math.max(1, Math.round(size * scale));
 }
 
+// Effect names and parameter keys come from a small set and are normalized
+// for every effect at every frame, so each is normalized once.
+const MAX_NORMALIZED_KEYS = 4096;
+const normalizedKeys = new Map<string, string>();
+
 export function normalizeEffectKey(key: string) {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let normalized = normalizedKeys.get(key);
+  if (normalized === undefined) {
+    normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalizedKeys.size >= MAX_NORMALIZED_KEYS) {
+      normalizedKeys.clear();
+    }
+    normalizedKeys.set(key, normalized);
+  }
+  return normalized;
 }
 
 export function readEffectNumber(

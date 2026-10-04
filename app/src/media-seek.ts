@@ -135,3 +135,56 @@ export function nudgedPlaybackRate(rate: number, behindSeconds: number) {
   );
   return rate * (1 + Math.round(nudge * 100) / 100);
 }
+
+// The playback rates every browser accepts; a media element throws outside
+// them.
+const MIN_PLAYBACK_RATE = 0.0625;
+const MAX_PLAYBACK_RATE = 16;
+
+// Plays, pauses and seeks `element` to follow the clip it is drawn for at
+// the playhead, if any.
+export function syncPlaybackElement(
+  element: HTMLMediaElement,
+  entry:
+    | { mediaTime: number; playbackRate: number; isInBounds: boolean }
+    | undefined,
+  playback: { isPlaying: boolean; isScrubbing: boolean },
+) {
+  if (!entry?.isInBounds) {
+    if (!element.paused) {
+      element.pause();
+    }
+    return;
+  }
+
+  // A warped clip changes speed between its warp markers; the drift
+  // check below re-seeks it at each marker. Smaller drift in steady
+  // playback is made up by playing a little faster or slower.
+  const behind = entry.mediaTime - element.currentTime;
+  const steady = playback.isPlaying && !playback.isScrubbing;
+  const playbackRate = clamp(
+    steady
+      ? nudgedPlaybackRate(entry.playbackRate, behind)
+      : entry.playbackRate,
+    MIN_PLAYBACK_RATE,
+    MAX_PLAYBACK_RATE,
+  );
+  if (element.playbackRate !== playbackRate) {
+    element.playbackRate = playbackRate;
+  }
+
+  if (needsPlaybackSeek(Math.abs(behind), playback)) {
+    seekWhenReady(element, entry.mediaTime);
+  } else {
+    cancelQueuedSeek(element);
+  }
+
+  // Clip audio plays through the mixer; these elements are only drawn.
+  if (playback.isPlaying) {
+    if (element.paused) {
+      element.play().catch(() => {});
+    }
+  } else if (!element.paused) {
+    element.pause();
+  }
+}
