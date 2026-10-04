@@ -81,18 +81,19 @@ test("Record plays from the playhead and grows a clip; Record again keeps playin
   // The camera's frames fill the filmstrip; Chromium's fake camera is
   // mostly green.
   await expect
-    .poll(() =>
-      clip.locator(".live-recording-clip__filmstrip").evaluate((node) => {
-        const canvas = node as HTMLCanvasElement;
-        const context = canvas.getContext("2d");
-        if (!context || !canvas.width) return 0;
-        const { data } = context.getImageData(0, 0, 8, 8);
-        let green = 0;
-        for (let index = 1; index < data.length; index += 4) {
-          green += data[index] ?? 0;
-        }
-        return green;
-      }),
+    .poll(
+      () =>
+        clip.locator(".live-recording-clip__filmstrip").evaluate((node) => {
+          const canvas = node as HTMLCanvasElement;
+          const context = canvas.getContext("2d");
+          if (!context || !canvas.width) return 0;
+          const { data } = context.getImageData(0, 0, 8, 8);
+          let green = 0;
+          for (let index = 1; index < data.length; index += 4) {
+            green += data[index] ?? 0;
+          }
+          return green;
+        }),
       { timeout: 15_000 },
     )
     .toBeGreaterThan(0);
