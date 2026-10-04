@@ -10,7 +10,8 @@
 
 .ruler-row__content {
   height: 40px;
-  background-color: rgba(15, 16, 24, 0.3);
+  /* Lighter than the lanes so the ruler reads as the playhead scrub area. */
+  background-color: var(--bg-soft);
 }
 
 .timeline-playhead-marker {
@@ -64,7 +65,7 @@
   bottom: 12px;
   left: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ruler-marker span {
