@@ -270,20 +270,94 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("pushes the last Horizontal three-up out as one comp at 12 s", () => {
+  it("transitions across the cuts at 12 s, bar 6 and bar 7", () => {
     const transitions = (session.fxClips ?? []).filter(
       (clip) => clip.mainTrackId === "transitions",
     );
+    // A Push at 12 s, a Clock Wipe at bar 6 (15 s) and a Dissolve at bar 7
+    // (18 s), each centered on its cut.
     assert.deepEqual(
-      transitions.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
-      [[11.5, 12.5]],
+      transitions.map((clip) => {
+        const [effect] = effectsOn(`clip:${clip.id}`);
+        return [
+          clip.frameStart / FPS,
+          clip.frameEnd / FPS,
+          effect.effectName,
+          stringParameter(effect, "Type"),
+        ];
+      }),
+      [
+        [11.5, 12.5, "Transition", "Push"],
+        [14.5, 15.5, "Transition", "Clock Wipe"],
+        [17.5, 18.5, "Transition", "Dissolve"],
+      ],
     );
-    const [transition] = effectsOn(`clip:${transitions[0].id}`);
-    assert.equal(transition.effectName, "Transition");
-    assert.equal(stringParameter(transition, "Type"), "Push");
     // Above the Order, so the arranged three-up is one comp.
     const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
     assert.ok(layerIds.indexOf("transitions") < layerIds.indexOf("order"));
+  });
+
+  it("shows the 12 s shot only through a bolt icon on a hidden layer", () => {
+    const iconLayer = session.mainTracks?.find(
+      (layer) => layer.id === "icon-mask",
+    );
+    assert.equal(iconLayer?.hidden, true);
+    // Only the icon layer is hidden.
+    assert.deepEqual(
+      (session.mainTracks ?? [])
+        .filter((layer) => layer.hidden)
+        .map((layer) => layer.id),
+      ["icon-mask"],
+    );
+    const icons = (session.fills ?? []).filter(
+      (clip) => clip.mainTrackId === "icon-mask",
+    );
+    assert.deepEqual(
+      icons.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
+      [[12, 15]],
+    );
+    const iconEffects = effectsOn(`clip:${icons[0].id}`);
+    assert.deepEqual(
+      iconEffects.map((effect) => effect.effectName),
+      ["Color", "Shape", "Move"],
+    );
+    const bolt = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "bolt.svg",
+    );
+    assert.equal(bolt?.mediaType, "image/svg+xml");
+    assert.equal(
+      stringParameter(iconEffects[1], "Shape"),
+      `Custom:${bolt?.path}`,
+    );
+    // The icon spins and grows in, square on the 16:9 canvas.
+    const move = iconEffects[2];
+    assert.equal(numberParameter(move, "StartRotation"), -90);
+    assert.equal(numberParameter(move, "EndRotation"), 0);
+    for (const end of ["Start", "End"]) {
+      assert.equal(
+        Math.round(
+          ((numberParameter(move, `${end}ScaleX`) ?? 0) * 1920) /
+            ((numberParameter(move, `${end}ScaleY`) ?? 1) * 1080),
+        ),
+        1,
+      );
+    }
+    assert.ok(
+      (numberParameter(move, "StartScaleY") ?? 0) <
+        (numberParameter(move, "EndScaleY") ?? 0),
+    );
+
+    // The full-frame ribbon shot under it, with no three-up, is masked by
+    // it.
+    const [shot] = clipsAt(videoSelections(), 13);
+    assert.equal(shot.mainTrackId, "ribbon");
+    assert.deepEqual([shot.frameStart / FPS, shot.frameEnd / FPS], [12, 15]);
+    const mask = effectsOn(`clip:selection-${shot.id}`).find(
+      (effect) => effect.effectName === "Mask",
+    );
+    assert.ok(mask);
+    assert.equal(stringParameter(mask, "Target"), "icon-mask");
+    assert.equal(stringParameter(mask, "Mode"), "Additive");
   });
 
   it("limits Pixelate, Negative Split and Analog Glitch to moving, turning boxes", () => {
@@ -492,7 +566,9 @@ describe("zvid opening sample", () => {
 
   // The mix plays the layer clips with sound: the Audio layer's music.
   it("has video-only sources and an audio-only music file", () => {
-    for (const asset of OPENING_SAMPLE_MANIFEST.assets) {
+    for (const asset of OPENING_SAMPLE_MANIFEST.assets.filter(
+      (candidate) => candidate.mediaType !== "image/svg+xml",
+    )) {
       const bytes = readFileSync(
         new URL(`../../public${asset.url}`, import.meta.url),
       );
@@ -527,6 +603,22 @@ describe("zvid opening sample", () => {
       /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\)$/m,
     );
     assert.match(credits, /^`just-nasty-30s\.m4a` is the excerpt/m);
+  });
+
+  it("credits its icon in the manifest and CREDITS.md", () => {
+    const bolt = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "bolt.svg",
+    );
+    assert.match(bolt?.credit ?? "", /Heroicons by Tailwind Labs.*MIT/);
+    const credits = readFileSync(
+      new URL(
+        `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(credits, /^`bolt\.svg` is the "bolt" icon/m);
+    assert.match(credits, /MIT License/);
   });
 
   it("opens with every clip on its stable media and the Audio layer in the mix", () => {

@@ -500,26 +500,26 @@ for (const [start, type] of [
 // grows into place over the shot.
 const ICON_SIZE = 0.8;
 const icon = layerClip("fills", "fill-bolt-icon", "icon-mask", 12, 3);
-addEffect(clipTrack(icon), "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
+addEffect(clipTrack(icon), "Color", {
+  Mode: "Solid",
+  Color: LIGHT,
+  Opacity: 1,
+});
 addEffect(clipTrack(icon), "Shape", {
   Shape: `Custom:${samplePath(ICON.file)}`,
 });
-addEffect(
-  clipTrack(icon),
-  "Move",
-  {
-    Motion: "Ease Out",
-    ...transformValues("Start", {
-      scaleX: (0.2 * HEIGHT) / WIDTH,
-      scaleY: 0.2,
-      rotation: -90,
-    }),
-    ...transformValues("End", {
-      scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
-      scaleY: ICON_SIZE,
-    }),
-  },
-);
+addEffect(clipTrack(icon), "Move", {
+  Motion: "Ease Out",
+  ...transformValues("Start", {
+    scaleX: (0.2 * HEIGHT) / WIDTH,
+    scaleY: 0.2,
+    rotation: -90,
+  }),
+  ...transformValues("End", {
+    scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
+    scaleY: ICON_SIZE,
+  }),
+});
 
 // Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
 // canvas) and a Move before it sweeps the box left to right, widening it
