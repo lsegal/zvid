@@ -49,6 +49,8 @@ const MUSIC_CREDIT =
   "graphics.";
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
+const ICON_CREDIT =
+  '"bolt" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License.';
 
 const SOURCES = [
   { key: "orbit", name: "Orbit", file: "orbit.mp4" },
@@ -60,14 +62,18 @@ const MUSIC = {
   name: "Just Nasty",
   file: "just-nasty-30s.m4a",
 };
+const ICON = { key: "bolt", file: "bolt.svg" };
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
-// effect or arrangement touches them. The Audio layer holds only the music.
+// effect or arrangement touches them. The hidden icon layer is never drawn
+// itself: it is the Mask Target that cuts the 12 s shot to a bolt. The
+// Audio layer holds only the music.
 const LAYERS = [
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
   { id: "transitions", name: "Transitions" },
+  { id: "icon-mask", name: "Mask · bolt icon", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -370,12 +376,11 @@ THREE_UPS.forEach((start, cutIndex) => {
   });
 });
 
-// Full-frame ribbon under the Pixelate window.
-zoomAndPan(
-  clipTrack(cut("ribbon", 1, 12, 3, 3)),
-  { zoom: 1.05, x: 0.42 },
-  { zoom: 1.25, x: 0.58 },
-);
+// Full-frame ribbon under the Pixelate window, seen only through the bolt
+// icon on the hidden layer.
+const boltShot = clipTrack(cut("ribbon", 1, 12, 3, 3));
+zoomAndPan(boltShot, { zoom: 1.05, x: 0.42 }, { zoom: 1.25, x: 0.58 });
+addEffect(boltShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
 
 // ---- layer clips: Order, FX regions, titles, background ------------------
 
@@ -461,6 +466,60 @@ addEffect(
     },
   },
 );
+
+// Transitions across the cuts at bar 6 (15 s) and bar 7 (18 s): a Clock
+// Wipe sweeps the bolt shot round into the next three-up, and that three-up
+// dissolves into the Vertical one after it.
+for (const [start, type] of [
+  [15, "Clock Wipe"],
+  [18, "Dissolve"],
+]) {
+  const id = layerClip(
+    "fxClips",
+    `transition-${start.toFixed(1).replace(".", "-")}`,
+    "transitions",
+    start - 0.5,
+    1,
+  );
+  addEffect(
+    clipTrack(id),
+    "Transition",
+    { Type: type, Softness: 0.2 },
+    {
+      animation: {
+        enabled: true,
+        mode: "clip",
+        clip: { motionIn: "Ease In", motionOut: "Ease Out", timing: "Full" },
+      },
+    },
+  );
+}
+
+// The bolt icon the 12 s shot is masked by: a Custom Shape on the hidden
+// layer, kept square on the 16:9 canvas, that spins a quarter turn and
+// grows into place over the shot.
+const ICON_SIZE = 0.8;
+const icon = layerClip("fills", "fill-bolt-icon", "icon-mask", 12, 3);
+addEffect(clipTrack(icon), "Color", {
+  Mode: "Solid",
+  Color: LIGHT,
+  Opacity: 1,
+});
+addEffect(clipTrack(icon), "Shape", {
+  Shape: `Custom:${samplePath(ICON.file)}`,
+});
+addEffect(clipTrack(icon), "Move", {
+  Motion: "Ease Out",
+  ...transformValues("Start", {
+    scaleX: (0.2 * HEIGHT) / WIDTH,
+    scaleY: 0.2,
+    rotation: -90,
+  }),
+  ...transformValues("End", {
+    scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
+    scaleY: ICON_SIZE,
+  }),
+});
 
 // Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
 // canvas) and a Move before it sweeps the box left to right, widening it
@@ -789,6 +848,7 @@ const session = {
     id: layer.id,
     name: layer.name,
     colorIndex: index,
+    ...(layer.hidden ? { hidden: true } : {}),
   })),
   tracks: sourceTracks,
   clips: spans,
@@ -836,6 +896,7 @@ const manifest = {
   assets: [
     ...SOURCES.map((source) => asset(source, "video/mp4", VIDEO_CREDIT)),
     asset(MUSIC, "audio/mp4", MUSIC_CREDIT),
+    asset(ICON, "image/svg+xml", ICON_CREDIT),
   ],
 };
 

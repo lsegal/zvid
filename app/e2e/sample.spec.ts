@@ -129,6 +129,8 @@ async function expectSampleOpen(page: Page) {
     "corridor",
     "order",
     "fx-regions",
+    "transitions",
+    "icon-mask",
     "audio",
   ]) {
     await expect(lane(page, id)).toHaveCount(1);

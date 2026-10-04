@@ -22,3 +22,12 @@ fade-in and a two-second fade-out, synchronized to the sample's graphics.
 clips made for zvid (1920×1080, 30 fps, 16 seconds each) by
 `app/scripts/sample/render_sources.py`. They are clean sources: every cut,
 arrangement, effect and title in the sample is built in zvid itself.
+
+## Icon
+
+`bolt.svg` is the "bolt" icon (24×24, solid) from Heroicons by Tailwind Labs,
+unchanged. The sample masks the 12-second shot with it.
+Licensed under the MIT License, Copyright (c) Tailwind Labs, Inc.
+
+- Source: https://github.com/tailwindlabs/heroicons/blob/master/optimized/24/solid/bolt.svg
+- License: https://github.com/tailwindlabs/heroicons/blob/master/LICENSE
