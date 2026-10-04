@@ -1,4 +1,4 @@
-import { WandIcon } from "./WandIcon";
+import { SparklesIcon } from "@heroicons/react/24/solid";
 import "./arrangement-empty-state.css";
 
 // Floating call to action over an empty arrangement. Only the two buttons take
@@ -36,7 +36,7 @@ export function ArrangementEmptyState({
           onClick={onGenerate}
           type="button"
         >
-          <WandIcon />
+          <SparklesIcon aria-hidden="true" />
           <span>Generate a sweet timeline</span>
         </button>
         <button

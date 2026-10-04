@@ -1,22 +1,30 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-const wandIconTsx = readFileSync(
-  new URL("./components/WandIcon.tsx", import.meta.url),
-  "utf8",
-);
-const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const read = (path: string) =>
+  readFileSync(new URL(path, import.meta.url), "utf8");
+const transportBarTsx = read("./components/timeline/TransportBar.tsx");
+const emptyStateTsx = read("./components/ArrangementEmptyState.tsx");
+const appCss = read("./App.css");
 
 describe("the wand icon", () => {
-  it("is a stroked outline icon, so its diagonal shaft does not alias", () => {
-    assert.match(wandIconTsx, /viewBox="0 0 24 24"/);
-    assert.match(wandIconTsx, /fill="none"/);
-    assert.match(wandIconTsx, /stroke="currentColor"/);
-    assert.match(wandIconTsx, /strokeLinecap="round"/);
-    assert.match(wandIconTsx, /strokeLinejoin="round"/);
-    assert.match(wandIconTsx, /aria-hidden="true"/);
-    assert.doesNotMatch(wandIconTsx, /fill="currentColor"/);
+  it("is Heroicons' solid sparkles icon in both places", () => {
+    for (const tsx of [transportBarTsx, emptyStateTsx]) {
+      assert.match(
+        tsx,
+        /import \{[^}]*\bSparklesIcon\b[^}]*\} from "@heroicons\/react\/24\/solid";/,
+      );
+      assert.match(tsx, /<SparklesIcon aria-hidden="true" \/>/);
+      assert.doesNotMatch(tsx, /WandIcon/);
+    }
+  });
+
+  it("is not a custom-drawn icon", () => {
+    assert.equal(
+      existsSync(new URL("./components/WandIcon.tsx", import.meta.url)),
+      false,
+    );
   });
 
   it("draws at the same size as the other transport icons", () => {
