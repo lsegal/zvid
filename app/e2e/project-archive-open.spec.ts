@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { writeProjectArchive } from "../src/project-archive.ts";
 import type { LvpSession } from "../src/session.ts";
 
-// File ▸ Open Session opens a `.zvd` project archive with the media bundled
+// File ▸ Open ▸ Session… opens a `.zvd` project archive with the media bundled
 // under its `media/` folder, so a project exported with its media opens with
 // nothing offline.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
@@ -37,9 +37,8 @@ async function exportedSession(page: Page) {
   await dropVideoIntoNewSourceTrack(page);
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloading = page.waitForEvent("download");
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
   const session = JSON.parse(
     await readFile(await (await downloading).path(), "utf8"),
   ) as LvpSession;
@@ -49,18 +48,25 @@ async function exportedSession(page: Page) {
   return session;
 }
 
-async function closeSession(page: Page) {
+// File ▸ New Session, discarding the session the archive was built from.
+async function startNewSession(page: Page) {
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await page.getByRole("menuitem", { name: "New Session" }).click();
+  const prompt = page.getByRole("dialog", {
+    name: "Save changes to this session?",
+  });
+  await expect(prompt.or(page.getByText("No source media yet"))).toBeVisible();
+  if (await prompt.isVisible()) {
+    await prompt.getByRole("button", { name: "Don't Save" }).click();
+  }
   await expect(page.locator(".source-span")).toHaveCount(0);
 }
 
 async function openSessionFile(page: Page, name: string, buffer: Buffer) {
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const choosing = page.waitForEvent("filechooser");
-  await page
-    .getByRole("menuitem", { name: "Open Session", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   await (await choosing).setFiles({
     name,
     mimeType: "application/gzip",
@@ -85,7 +91,7 @@ test("a .zvd archive opens with its bundled media online", async ({ page }) => {
   const buffer = await archive(session, [
     { path: "media/test-pattern.mp4", blob: new Blob([await readFile(VIDEO)]) },
   ]);
-  await closeSession(page);
+  await startNewSession(page);
 
   await openSessionFile(page, "Bundled.zvd", buffer);
 
@@ -110,7 +116,7 @@ test("a .zvd archive without media opens with its media offline", async ({
 }) => {
   const session = await exportedSession(page);
   const buffer = await archive(session, []);
-  await closeSession(page);
+  await startNewSession(page);
 
   await openSessionFile(page, "Bare.zvd", buffer);
 
@@ -130,7 +136,7 @@ test("an old plain-JSON .zvd is rejected as not a project archive", async ({
   page,
 }) => {
   const session = await exportedSession(page);
-  await closeSession(page);
+  await startNewSession(page);
 
   await openSessionFile(page, "Old.zvd", Buffer.from(JSON.stringify(session)));
 
