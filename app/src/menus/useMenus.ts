@@ -5,12 +5,12 @@ import type {
   SetStateAction,
 } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
+import type { getShortcutLabels } from "../app/shortcut-labels.ts";
 import {
   type SourceSelection,
   selectSourceTrack,
 } from "../app/source-selection.ts";
-import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
-import type { getShortcutLabels } from "../app/shortcut-labels.ts";
 import { getClipDurationQ, getClipEndQ } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -278,7 +278,7 @@ export function useMenus({
     event.preventDefault();
     event.stopPropagation();
     setPendingSelection(null);
-    if (selectedClip || selectedSourceSpan?.sourceTrackId !== trackId) {
+    if (selectedSourceSpan?.sourceTrackId !== trackId) {
       selectSource(selectSourceTrack(trackId));
     }
     setClipMenu({
