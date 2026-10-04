@@ -9,7 +9,10 @@
 }
 
 .ruler-row__content {
-  height: 40px;
+  /* At least the ruler's height, and stretched to the row when the header
+     label cell makes it taller, so the playhead marker always reaches the
+     row's bottom edge, where the layers' playhead line takes over. */
+  min-height: var(--ruler-height);
   /* Lighter than the lanes so the ruler reads as the playhead scrub area. */
   background-color: var(--bg-soft);
 }
