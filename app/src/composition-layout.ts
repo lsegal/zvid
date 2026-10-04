@@ -79,6 +79,8 @@ export type LayerPlacement = {
 export type StackedLayer = {
   laneRank: number;
   clip: {
+    // Absent in tests that never need it.
+    id?: string;
     startQ: number;
     laneId?: string;
     durationSeconds?: number;
@@ -91,6 +93,16 @@ export type StackedLayer = {
   clipProgress?: number;
   // The clip's ends on the session's, which it doesn't slide in or out at.
   sessionEdges?: SessionEdges;
+  // Set for a clip drawn only for a Transition beneath which it is not
+  // active, held on its last or first frame (see composition-clip-timing.ts).
+  held?: boolean;
+};
+
+// The clips a Transition FX clip blends between, by id: those beneath it at
+// its start (comp A) and at its end (comp B).
+export type TransitionComps = {
+  outgoing: ReadonlySet<string>;
+  incoming: ReadonlySet<string>;
 };
 
 // How an animated Order's layer sits between arrangements while clips
@@ -116,7 +128,10 @@ export type SlotMotion = {
 // One step of drawing the composite: a layer drawn into slot `slot` of
 // `slotCount` as `order` arranges them, an FX clip whose chain adjusts what
 // has been drawn so far, or an FX clip with an Order that arranges the
-// layers beneath it (`steps`) by `order` inside its own box. A layer the
+// layers beneath it (`steps`) by `order` inside its own box, or an FX clip
+// with a Transition that blends from the layers beneath it at its start
+// (`outgoing`) to those at its end (`incoming`), each arranged by `order`
+// as one comp. A layer the
 // Order leaves out is drawn with the z-order overlay, into the whole
 // canvas. While an animated Order's clips enter or exit, `motion` says
 // where the layer is on its way.
@@ -135,6 +150,13 @@ export type LayerDrawStep<T> =
       entry: T;
       order: CompositionOrder;
       steps: LayerDrawStep<T>[];
+    }
+  | {
+      type: "transition";
+      entry: T;
+      order: CompositionOrder;
+      outgoing: LayerDrawStep<T>[];
+      incoming: LayerDrawStep<T>[];
     };
 
 /**
@@ -153,16 +175,26 @@ export type LayerDrawStep<T> =
  * layer beneath it: they are planned again by its Order, as an "arrange"
  * step drawn first, under everything above it. Layers above it keep the
  * slots they have without it: the slots are counted over every arranged
- * layer.
+ * layer but those held for a Transition.
+ *
+ * An FX clip with a Transition (`transition` set) governs the layers
+ * beneath it the same way, if it is above any FX clip with an Order: they
+ * are planned as two comps, each arranged by the clip's Order or `order`,
+ * in a "transition" step. A layer whose clip is in neither comp started
+ * after the Transition did, so it is coming in with comp B.
  */
 export function planLayerDraws<
-  T extends StackedLayer & { fx?: boolean; order?: CompositionOrder },
+  T extends StackedLayer & {
+    fx?: boolean;
+    order?: CompositionOrder;
+    transition?: TransitionComps;
+  },
 >(
   layers: readonly T[],
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): LayerDrawStep<T>[] {
   const arranger = layers
-    .filter((layer) => layer.fx && layer.order)
+    .filter((layer) => layer.fx && (layer.order || layer.transition))
     .reduce<T | undefined>(
       (top, layer) =>
         top === undefined || layer.laneRank < top.laneRank ? layer : top,
@@ -175,7 +207,10 @@ export function planLayerDraws<
     layer.clip.laneId === undefined ||
     isLayerArranged(order, layer.clip.laneId);
   const ordered = orderStackedLayers(
-    layers.filter((layer) => !layer.fx && isArranged(layer)),
+    layers.filter(
+      (layer) =>
+        !layer.fx && isArranged(layer) && !(layer.held && isGoverned(layer)),
+    ),
     order,
   );
   const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
@@ -207,17 +242,20 @@ export function planLayerDraws<
     slotCount: 1,
     order: Z_ORDER_COMPOSITION,
   }));
-  const arrange: LayerDrawStep<T>[] =
-    arranger?.order === undefined
-      ? []
-      : [
-          {
-            type: "arrange",
-            entry: arranger,
-            order: arranger.order,
-            steps: planLayerDraws(layers.filter(isGoverned), arranger.order),
-          },
-        ];
+  const arrange: LayerDrawStep<T>[] = !arranger
+    ? []
+    : arranger.transition
+      ? [planTransition(arranger, layers.filter(isGoverned), order)]
+      : arranger.order
+        ? [
+            {
+              type: "arrange",
+              entry: arranger,
+              order: arranger.order,
+              steps: planLayerDraws(layers.filter(isGoverned), arranger.order),
+            },
+          ]
+        : [];
   const fxLayers = layers
     .filter((layer) => layer.fx && layer !== arranger && !isGoverned(layer))
     .sort((left, right) => right.laneRank - left.laneRank);
@@ -244,6 +282,31 @@ export function planLayerDraws<
     steps.push({ type: "fx", entry });
   }
   return steps;
+}
+
+// The "transition" step of `entry`, whose comps are made of `governed`, the
+// layers beneath it, each arranged by the clip's own Order or `order`.
+function planTransition<
+  T extends StackedLayer & {
+    fx?: boolean;
+    order?: CompositionOrder;
+    transition?: TransitionComps;
+  },
+>(entry: T, governed: readonly T[], order: CompositionOrder): LayerDrawStep<T> {
+  const comps = entry.transition as TransitionComps;
+  const outgoing = (layer: T) =>
+    layer.clip.id !== undefined && comps.outgoing.has(layer.clip.id);
+  const incoming = (layer: T) =>
+    !outgoing(layer) ||
+    (layer.clip.id !== undefined && comps.incoming.has(layer.clip.id));
+  const compOrder = entry.order ?? order;
+  return {
+    type: "transition",
+    entry,
+    order: compOrder,
+    outgoing: planLayerDraws(governed.filter(outgoing), compOrder),
+    incoming: planLayerDraws(governed.filter(incoming), compOrder),
+  };
 }
 
 // The whole canvas as clip-space bounds: the box an FX clip adjusts before

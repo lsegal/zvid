@@ -243,6 +243,22 @@ describe("zvid opening sample", () => {
     }
   });
 
+  it("pushes the last Horizontal three-up out as one comp at 12 s", () => {
+    const transitions = (session.fxClips ?? []).filter(
+      (clip) => clip.mainTrackId === "transitions",
+    );
+    assert.deepEqual(
+      transitions.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
+      [[11.5, 12.5]],
+    );
+    const [transition] = effectsOn(`clip:${transitions[0].id}`);
+    assert.equal(transition.effectName, "Transition");
+    assert.equal(stringParameter(transition, "Type"), "Push");
+    // Above the Order, so the arranged three-up is one comp.
+    const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
+    assert.ok(layerIds.indexOf("transitions") < layerIds.indexOf("order"));
+  });
+
   it("limits Pixelate, Negative Split and Analog Glitch to moving, turning boxes", () => {
     const regions = (session.fxClips ?? []).filter(
       (clip) => clip.mainTrackId === "fx-regions",

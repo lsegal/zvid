@@ -180,7 +180,11 @@ function main() {
   sync(INDEX_PATH, renderIndex(folders), check);
   sync(PROCESSORS_PATH, renderProcessors(folders), check);
   for (const registry of TYPE_REGISTRIES) {
-    sync(join(registry.dir, "index.generated.ts"), renderTypeIndex(registry), check);
+    sync(
+      join(registry.dir, "index.generated.ts"),
+      renderTypeIndex(registry),
+      check,
+    );
   }
 }
 

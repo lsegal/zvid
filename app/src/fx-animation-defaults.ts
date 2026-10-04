@@ -6,6 +6,10 @@
 import { ORDER_EFFECT_NAME } from "./composition-order.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
 import { COLOR_EFFECT_NAME } from "./fill-paint.ts";
+import {
+  TRANSITION_EFFECT_NAME,
+  TRANSITION_FRAMES,
+} from "./fx/effects/transition/transition.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import { TEXT_EFFECT_NAME } from "./text-style.ts";
 
@@ -204,12 +208,29 @@ function withTransition(
   };
 }
 
+function withClipTiming(
+  effectDefaults: FxAnimationDefaults,
+  timing: ClipTiming,
+): FxAnimationDefaults {
+  return { ...effectDefaults, clip: { ...effectDefaults.clip, timing } };
+}
+
 const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   // Order arranges layers; jiggling its arrangement on audio hits isn't a
   // meaningful effect, so it only animates in Clip mode.
   [
     ORDER_EFFECT_NAME,
     withTransition(clipDefaults("Ease Out", "Ease In", [7, 5, 3]), "Squish"),
+  ],
+  // A Transition blends between comps rather than animating its knobs: its
+  // Clip mode times the blend, which spans the FX clip by default, and
+  // eases A out then B in.
+  [
+    TRANSITION_EFFECT_NAME,
+    withClipTiming(
+      clipDefaults("Ease In", "Ease Out", TRANSITION_FRAMES),
+      FULL_CLIP_TIMING,
+    ),
   ],
   [
     "Transform",

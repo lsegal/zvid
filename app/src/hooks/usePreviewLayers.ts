@@ -59,7 +59,9 @@ export function usePreviewLayers({
       signature,
     );
     return resolvePreviewLayers(
-      activeClips.filter((entry) => entry.media.kind === "video"),
+      activeClips.filter(
+        (entry) => entry.media.kind === "video" && !entry.held,
+      ),
       { width: canvasWidth, height: canvasHeight },
       // Animated with the topmost clip, as the compositor draws it.
       resolveAnimatedOrder(
