@@ -9,6 +9,9 @@ export const EXPORT_CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
   premultipliedAlpha: false,
 };
 
+// `alpha: false`, `premultipliedAlpha: true` and `antialias: false` each
+// measured within noise of these in Chromium and WebKit playback (#991), so
+// the preview keeps export's attributes until one shows a real gain.
 export const PREVIEW_CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
   ...EXPORT_CONTEXT_ATTRIBUTES,
 };
