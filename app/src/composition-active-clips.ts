@@ -34,6 +34,7 @@ import type { ClipWarp } from "./clip-warp.ts";
 import {
   computeActiveClipTimings,
   quartersToSeconds,
+  transitionCompTimings,
 } from "./composition-clip-timing.ts";
 import {
   clipStackEffects,
@@ -49,6 +50,7 @@ import {
   parseCompositionOrder,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
+import type { TransitionComps } from "./composition-layout.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   isMoveEffectName,
@@ -59,6 +61,10 @@ import {
   resolveMoveTransform,
   type TransformMotion,
 } from "./composition-transform.ts";
+import {
+  findTransitionClips,
+  resolveClipTransition,
+} from "./composition-transition.ts";
 import {
   type FillPaint,
   isColorEffectName,
@@ -76,6 +82,7 @@ import {
   type SessionEdges,
 } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   type EffectChainStep,
@@ -201,6 +208,12 @@ export type ActiveClip = {
   // Set for FX clips with an enabled Order, which arranges the layers
   // beneath them.
   order?: CompositionOrder;
+  // Set for FX clips with an enabled Transition, which blends from the
+  // clips beneath them at their start to those at their end.
+  transition?: TransitionSettings & TransitionComps;
+  // Set for a clip a Transition draws while it isn't under the playhead,
+  // held on its last or first frame.
+  held?: true;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -504,6 +517,7 @@ export function computeActiveClips(
     playheadQ,
     bpm,
     lanePriority,
+    findTransitionClips(clips, effectIndex),
   ).map<ActiveClip>((timing) => {
     const { clip } = timing;
     const animationTiming = getAnimationTiming(clip);
@@ -538,10 +552,19 @@ export function computeActiveClips(
     if (clip.kind === "fx") {
       // Only the FX clip's own stack adjusts what is beneath it, so an FX
       // clip without effects changes nothing.
+      const transition = resolveClipTransition(
+        effects,
+        clipTrackId,
+        fps,
+        clipContext.elapsedSeconds,
+        clipContext.durationSeconds,
+        () => transitionCompTimings(clips, mediaById, clip, bpm, lanePriority),
+      );
       return {
         ...resolved,
         effectChain: resolveEffectChain(effects, clipTrackId),
         fx: true,
+        ...(transition ? { transition } : {}),
         ...withOrder(
           findAnimatedOrder(effects, clipTrackId, fps, {
             elapsedSeconds: clipContext.elapsedSeconds,

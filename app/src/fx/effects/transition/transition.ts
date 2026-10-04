@@ -19,6 +19,9 @@ export type TransitionDirection = (typeof TRANSITION_DIRECTIONS)[number];
 export const DEFAULT_DIRECTION: TransitionDirection = "Left";
 export const DEFAULT_SOFTNESS = 0.2;
 
+// Frames the blend takes at the Slow, Normal and Fast Timings.
+export const TRANSITION_FRAMES = [30, 20, 10] as const;
+
 // The way things move for each Direction, in picture coordinates (+y up).
 const DIRECTION_VECTORS: Record<TransitionDirection, Vec2> = {
   Left: [-1, 0],

@@ -1,8 +1,4 @@
-import {
-  along,
-  mixRgba,
-  type TransitionTypeDefinition,
-} from "../type.ts";
+import { along, mixRgba, type TransitionTypeDefinition } from "../type.ts";
 
 // The widest edge, at Softness 100%: half the picture.
 const MAX_EDGE = 0.5;

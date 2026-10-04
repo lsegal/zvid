@@ -196,6 +196,8 @@ export class EffectChainRenderer {
   // One pool per Order nesting depth, since an arrangement draws into its
   // own target while the one it sits in is still in use.
   private arrangementTargets = new Map<number, TargetPool>();
+  // A Transition's two comps and its result, by nesting depth and index.
+  private compTargets = new Map<number, TargetPool>();
   private readonly release: (targets: RenderTarget[]) => void;
   // Handed to every pass, refilled for each run rather than allocated.
   private readonly stepContext: EffectContext = {
@@ -362,6 +364,23 @@ export class EffectChainRenderer {
     if (!pool) {
       pool = new TargetPool(this.release);
       this.arrangementTargets.set(depth, pool);
+    }
+    const [target] = this.getPooledTargets(pool, width, height, 1);
+    return {
+      framebuffer: target.framebuffer,
+      region: targetRegion(target, width, height),
+    };
+  }
+
+  // Surface a Transition draws one of its comps (`index` 0 and 1) or its
+  // result (2) into, in its `width` × `height` corner, from a pool per
+  // nesting `depth`, since a comp can hold another Transition.
+  getCompTarget(depth: number, index: number, width: number, height: number) {
+    const key = depth * 3 + index;
+    let pool = this.compTargets.get(key);
+    if (!pool) {
+      pool = new TargetPool(this.release);
+      this.compTargets.set(key, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -745,6 +764,10 @@ export class EffectChainRenderer {
       pool.clear();
     }
     this.arrangementTargets.clear();
+    for (const pool of this.compTargets.values()) {
+      pool.clear();
+    }
+    this.compTargets.clear();
     if (this.sceneTarget) {
       this.deleteTarget(this.sceneTarget);
       this.sceneTarget = null;

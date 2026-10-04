@@ -1019,11 +1019,13 @@ describe("planLayerDraws with excluded layers", () => {
     steps.map((step) =>
       step.type === "arrange"
         ? `${step.entry.id}[${describeSteps(step.steps).join(" ")}]`
-        : step.type === "fx"
-          ? step.entry.id
-          : step.order.arrangement === "none"
-            ? `${step.entry.id}@full`
-            : `${step.entry.id}@${step.slot}/${step.slotCount}`,
+        : step.type === "transition"
+          ? `${step.entry.id}<${describeSteps(step.outgoing).join(" ")} > ${describeSteps(step.incoming).join(" ")}>`
+          : step.type === "fx"
+            ? step.entry.id
+            : step.order.arrangement === "none"
+              ? `${step.entry.id}@full`
+              : `${step.entry.id}@${step.slot}/${step.slotCount}`,
     );
   const layers = [1, 2, 3, 4, 5].map((number) => layer(number));
 
@@ -1137,11 +1139,13 @@ describe("planLayerDraws with an FX clip Order that excludes layers", () => {
     steps.map((step) =>
       step.type === "arrange"
         ? `${step.entry.id}[${describeSteps(step.steps).join(" ")}]`
-        : step.type === "fx"
-          ? step.entry.id
-          : step.order.arrangement === "none"
-            ? `${step.entry.id}@full`
-            : `${step.entry.id}@${step.slot}/${step.slotCount}`,
+        : step.type === "transition"
+          ? `${step.entry.id}<${describeSteps(step.outgoing).join(" ")} > ${describeSteps(step.incoming).join(" ")}>`
+          : step.type === "fx"
+            ? step.entry.id
+            : step.order.arrangement === "none"
+              ? `${step.entry.id}@full`
+              : `${step.entry.id}@${step.slot}/${step.slotCount}`,
     );
 
   it("draws a layer its Order excludes full-frame inside its box", () => {
