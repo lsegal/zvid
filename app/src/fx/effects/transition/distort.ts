@@ -15,11 +15,29 @@ export function luminance(color: Rgba) {
   return color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
 }
 
-// 0..1, the same for the same `x` and `y`, as GLSL
-// `fract(sin(x * 12.9898 + y * 78.233) * 43758.5453)`.
+// 0..1, the same for the same `x` and `y`. It avoids `sin`, whose float
+// precision differs between GPUs, so a shader's `hashGlsl` gives the same
+// values as this for the small whole numbers it is used with.
 export function hash(x: number, y: number) {
-  const value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-  return value - Math.floor(value);
+  const fract = (value: number) => value - Math.floor(value);
+  let p0 = fract(x * 0.1031);
+  let p1 = fract(y * 0.1031);
+  let p2 = p0;
+  const d = p0 * (p1 + 33.33) + p1 * (p2 + 33.33) + p2 * (p0 + 33.33);
+  p0 += d;
+  p1 += d;
+  p2 += d;
+  return fract((p0 + p1) * p2);
+}
+
+// GLSL for `hash`: declares the float `name` from the float expressions
+// `x` and `y`.
+export function hashGlsl(name: string, x: string, y: string) {
+  return `
+    vec3 ${name}Seed = fract(vec3(${x}, ${y}, ${x}) * 0.1031);
+    ${name}Seed += dot(${name}Seed, ${name}Seed.yzx + 33.33);
+    float ${name} = fract((${name}Seed.x + ${name}Seed.y) * ${name}Seed.z);
+  `;
 }
 
 // 0 at the start and end of a transition and 1 halfway, for effects that

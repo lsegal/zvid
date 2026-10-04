@@ -1,4 +1,4 @@
-import { hash, peak } from "../distort.ts";
+import { hash, hashGlsl, peak } from "../distort.ts";
 import type { TransitionTypeDefinition } from "../type.ts";
 
 // How many bands the picture tears into, how often they jump, and how far
@@ -18,8 +18,10 @@ export const transitionType: TransitionTypeDefinition = {
     float strength = 1.0 - abs(2.0 * p - 1.0);
     float band = floor(uv.y * ${BANDS.toFixed(1)});
     float jump = floor(p * ${JUMPS.toFixed(1)});
-    float tear = (fract(sin(band * 12.9898 + jump * 78.233) * 43758.5453) - 0.5) * ${TEAR.toFixed(6)} * strength;
-    bool cut = fract(sin(band * 12.9898 + 7.0 * 78.233) * 43758.5453) < p;
+    ${hashGlsl("tearHash", "band", "jump")}
+    ${hashGlsl("cutHash", "band", "7.0")}
+    float tear = (tearHash - 0.5) * ${TEAR.toFixed(6)} * strength;
+    bool cut = cutHash < p;
     vec2 at = uv + vec2(tear, 0.0);
     vec2 split = vec2(${SPLIT.toFixed(6)} * strength, 0.0);
     vec4 red = cut ? compB(at + split) : compA(at + split);
