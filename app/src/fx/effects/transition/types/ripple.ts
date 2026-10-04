@@ -1,4 +1,10 @@
-import { aspectOf, centered, smoothstep, uncentered } from "../distort.ts";
+import {
+  aspectOf,
+  centered,
+  clampUv,
+  smoothstep,
+  uncentered,
+} from "../distort.ts";
 import { mixRgba, type TransitionTypeDefinition } from "../type.ts";
 
 // How far the ripples push the picture at their strongest.
@@ -19,7 +25,7 @@ export const transitionType: TransitionTypeDefinition = {
     vec2 outward = r > 0.0001 ? q / r : vec2(0.0);
     float push = ${AMPLITUDE.toFixed(6)} * sin(3.14159265 * p) * sin(r * ${FREQUENCY.toFixed(1)} - p * ${SPEED.toFixed(1)});
     vec2 moved = q + outward * push;
-    vec2 at = vec2(moved.x / aspect + 0.5, moved.y + 0.5);
+    vec2 at = clamp(vec2(moved.x / aspect + 0.5, moved.y + 0.5), 0.0, 1.0);
     return mix(compA(at), compB(at), smoothstep(0.3, 0.7, p));
   `,
   render({ a, b, resolution }, uv, p) {
@@ -29,7 +35,7 @@ export const transitionType: TransitionTypeDefinition = {
     const push =
       AMPLITUDE * Math.sin(Math.PI * p) * Math.sin(r * FREQUENCY - p * SPEED);
     const scale = r > 1e-4 ? push / r : 0;
-    const at = uncentered([x + x * scale, y + y * scale], aspect);
+    const at = clampUv(uncentered([x + x * scale, y + y * scale], aspect));
     return mixRgba(a(at), b(at), smoothstep(0.3, 0.7, p));
   },
 };

@@ -1,6 +1,7 @@
 import {
   aspectOf,
   centered,
+  clampUv,
   peak,
   smoothstep,
   uncentered,
@@ -11,7 +12,8 @@ import { mixRgba, type TransitionTypeDefinition } from "../type.ts";
 const TURNS = 2;
 
 // A swirls into a vortex about the center, which unwinds into B. The
-// center turns furthest, the corners not at all.
+// center turns furthest, the corners not at all, and what turns in from
+// beyond the edge repeats the edge.
 export const transitionType: TransitionTypeDefinition = {
   name: "Twirl",
   menuOrder: 330,
@@ -21,7 +23,7 @@ export const transitionType: TransitionTypeDefinition = {
     float falloff = max(0.0, 1.0 - length(q) / length(vec2(0.5 * aspect, 0.5)));
     float angle = (1.0 - abs(2.0 * p - 1.0)) * ${(TURNS * 2 * Math.PI).toFixed(6)} * falloff * falloff;
     vec2 turned = vec2(q.x * cos(angle) + q.y * sin(angle), -q.x * sin(angle) + q.y * cos(angle));
-    vec2 at = vec2(turned.x / aspect + 0.5, turned.y + 0.5);
+    vec2 at = clamp(vec2(turned.x / aspect + 0.5, turned.y + 0.5), 0.0, 1.0);
     return mix(compA(at), compB(at), smoothstep(0.4, 0.6, p));
   `,
   render({ a, b, resolution }, uv, p) {
@@ -34,7 +36,9 @@ export const transitionType: TransitionTypeDefinition = {
     const angle = peak(p) * TURNS * 2 * Math.PI * falloff * falloff;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const at = uncentered([x * cos + y * sin, -x * sin + y * cos], aspect);
+    const at = clampUv(
+      uncentered([x * cos + y * sin, -x * sin + y * cos], aspect),
+    );
     return mixRgba(a(at), b(at), smoothstep(0.4, 0.6, p));
   },
 };

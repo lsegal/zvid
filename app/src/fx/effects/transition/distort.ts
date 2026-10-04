@@ -46,6 +46,13 @@ export function peak(p: number) {
   return 1 - Math.abs(2 * p - 1);
 }
 
+// `uv` moved to the nearest point of the picture, as GLSL
+// `clamp(uv, 0.0, 1.0)`, so a distortion repeats the edge rather than
+// showing what lies beyond it.
+export function clampUv(uv: Vec2): Vec2 {
+  return [Math.max(0, Math.min(1, uv[0])), Math.max(0, Math.min(1, uv[1]))];
+}
+
 // Width over height, so turns and circles stay round on any picture.
 export function aspectOf(resolution: Vec2) {
   return resolution[0] / Math.max(resolution[1], 1);
