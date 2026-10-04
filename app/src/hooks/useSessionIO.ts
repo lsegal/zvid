@@ -40,6 +40,7 @@ import {
   normalizeLvpSession,
   type SessionOpenResponse,
 } from "../session";
+import { createSessionLibraryId } from "../session-library.ts";
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
@@ -114,18 +115,26 @@ export function useSessionIO({
     opened: SessionOpenResponse,
     // A sample opens as an editable copy: saving it asks where to save.
     selection: SessionSelection | { kind: "sample" },
+    // Whether the session gets its own Sessions library entry.
+    record = true,
   ) {
     const payload = {
       ...opened,
       mediaRefs: resolveSampleMediaRefs(opened.mediaRefs, SAMPLE_MANIFESTS),
     };
     claimWorkspaceSession();
+    const library = record ? { libraryId: createSessionLibraryId() } : {};
     setSessionSource(
       payload.alsImport || selection.kind === "sample"
-        ? { kind: "import", name: payload.sessionName }
+        ? { kind: "import", name: payload.sessionName, ...library }
         : selection.kind === "path"
-          ? { kind: "path", name: payload.sessionName, path: selection.path }
-          : { kind: selection.kind, name: payload.sessionName },
+          ? {
+              kind: "path",
+              name: payload.sessionName,
+              path: selection.path,
+              ...library,
+            }
+          : { kind: selection.kind, name: payload.sessionName, ...library },
     );
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
@@ -467,6 +476,7 @@ export function useSessionIO({
     }
   }
 
+  // File › Export Project…: writes the session to a file.
   async function handleSaveSession() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
@@ -524,6 +534,7 @@ export function useSessionIO({
         kind: "path",
         name: basename(saveTarget.path),
         path: saveTarget.path,
+        libraryId: sessionSource.libraryId,
       });
     }
     const savedName =
@@ -531,9 +542,13 @@ export function useSessionIO({
     setStatus(`Saved ${savedName}.`);
   }
 
-  // Opens a bundled sample whose media is already in the media cache.
-  async function openSamplePayload(payload: SessionOpenResponse) {
-    await applyOpenedSessionPayload(payload, { kind: "sample" });
+  // Opens a bundled sample whose media is already in the media cache. The
+  // sample opened on its own at startup stays out of the Sessions library.
+  async function openSamplePayload(
+    payload: SessionOpenResponse,
+    record = true,
+  ) {
+    await applyOpenedSessionPayload(payload, { kind: "sample" }, record);
   }
 
   return {

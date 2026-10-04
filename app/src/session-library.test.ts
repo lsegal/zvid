@@ -7,6 +7,7 @@ import {
   createSessionLibraryStore,
   formatSessionTime,
   getDuplicateName,
+  getSessionContentHash,
   getSessionContentKey,
   getSessionLibraryName,
   type SessionLibraryEntry,
@@ -23,6 +24,7 @@ function entry(
     createdAt: 1,
     updatedAt: 1,
     clipCount: 0,
+    contentHash: "",
     payload: `payload-${id}`,
     ...overrides,
   };
@@ -147,6 +149,10 @@ describe("session content key", () => {
     };
 
     assert.equal(getSessionContentKey(opened), getSessionContentKey(hydrated));
+    assert.equal(
+      getSessionContentHash(opened),
+      getSessionContentHash(hydrated),
+    );
   });
 
   it("changes with an edit", () => {
@@ -156,6 +162,11 @@ describe("session content key", () => {
       getSessionContentKey(INITIAL_PROJECT_STATE),
       getSessionContentKey(edited),
     );
+    assert.notEqual(
+      getSessionContentHash(INITIAL_PROJECT_STATE),
+      getSessionContentHash(edited),
+    );
+    assert.match(getSessionContentHash(edited), /^[0-9a-f]{8}$/);
   });
 });
 

@@ -2,8 +2,9 @@ import type { MediaItem } from "../../media";
 
 export type MediaDrawerView = "icons" | "list";
 
-// Media lists the linked media; Record sets the default record inputs.
-export type MediaDrawerTab = "media" | "record";
+// Sessions lists the Sessions library; Media lists the linked media; Record
+// sets the default record inputs.
+export type MediaDrawerTab = "sessions" | "media" | "record";
 
 export type MediaDrawerPrefs = {
   open: boolean;
@@ -72,7 +73,7 @@ export function getListIconSize(thumbnailSize: number) {
   );
 }
 
-// A click on the toolbar's Media | Record switch: the drawer's open tab closes
+// A click on the toolbar's Sessions | Media | Record switch: the drawer's open tab closes
 // it, any other tab opens the drawer on that tab.
 export function selectMediaDrawerTab(
   prefs: MediaDrawerPrefs,
@@ -107,7 +108,9 @@ export function parseMediaDrawerPrefs(
         ? clampMediaDrawerWidth(value.width, Number.POSITIVE_INFINITY)
         : defaults.width,
     tab:
-      value.tab === "media" || value.tab === "record"
+      value.tab === "sessions" ||
+      value.tab === "media" ||
+      value.tab === "record"
         ? value.tab
         : defaults.tab,
     view:

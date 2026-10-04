@@ -18,6 +18,9 @@ export type SessionLibraryEntry = {
   // When the entry was last saved or opened; the list is sorted by it.
   updatedAt: number;
   clipCount: number;
+  // getSessionContentHash of the saved project, to tell whether the open
+  // session has changed since.
+  contentHash: string;
   // The output of serializeWorkspaceSession, with the undo history dropped.
   payload: string;
 };
@@ -65,9 +68,9 @@ export function getDuplicateName(name: string, existing: readonly string[]) {
 }
 
 // Newest first.
-export function sortSessionLibrary<T extends Pick<SessionLibrarySummary, "updatedAt">>(
-  entries: readonly T[],
-) {
+export function sortSessionLibrary<
+  T extends Pick<SessionLibrarySummary, "updatedAt">,
+>(entries: readonly T[]) {
   return [...entries].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
@@ -79,6 +82,17 @@ export function getSessionContentKey(project: ProjectState) {
     ...project,
     mediaItems: project.mediaItems.map((item) => item.id),
   });
+}
+
+// A short FNV-1a hash of getSessionContentKey.
+export function getSessionContentHash(project: ProjectState) {
+  const key = getSessionContentKey(project);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 const RELATIVE_UNITS = [
@@ -132,9 +146,11 @@ function normalizeEntry(raw: SessionLibraryEntry): SessionLibraryEntry {
   return {
     id: raw.id,
     name: raw.name,
-    createdAt: typeof raw.createdAt === "number" ? raw.createdAt : raw.updatedAt,
+    createdAt:
+      typeof raw.createdAt === "number" ? raw.createdAt : raw.updatedAt,
     updatedAt: raw.updatedAt,
     clipCount: typeof raw.clipCount === "number" ? raw.clipCount : 0,
+    contentHash: typeof raw.contentHash === "string" ? raw.contentHash : "",
     payload: raw.payload,
   };
 }

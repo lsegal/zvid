@@ -9,6 +9,7 @@ import {
 } from "react";
 import { formatMediaTime } from "../../app/media-preview.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
+import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
 import type { MediaItem } from "../../media";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
@@ -35,6 +36,7 @@ import {
   THUMBNAIL_SIZE_MIN,
 } from "./media-drawer-model.ts";
 import { RecordTab } from "./RecordTab";
+import { SessionsTab } from "./SessionsTab";
 import "./media-drawer.css";
 
 export const MEDIA_DRAWER_ID = "media-drawer";
@@ -44,6 +46,7 @@ const THUMBNAIL_DECODE_WIDTH = THUMBNAIL_SIZE_MAX;
 
 type MediaDrawerProps = {
   drawer: MediaDrawerState;
+  library: SessionLibraryState;
   mediaItems: MediaItem[];
   remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
@@ -111,10 +114,12 @@ function countColumns(listbox: HTMLElement) {
 // The Media drawer at the left of the timeline: every linked media item in a
 // Finder-like icon or list view, with search, a thumbnail size slider, the
 // item count and the selected item's details, plus the handle that resizes
-// it. Its Record tab, picked from the timeline toolbar's Media | Record
-// switch, sets the default camera and mic to record from.
+// it. Its Sessions tab, picked from the timeline toolbar's Sessions | Media |
+// Record switch, lists the Sessions library, and its Record tab sets the
+// default camera and mic to record from.
 export function MediaDrawer({
   drawer,
+  library,
   mediaItems,
   remoteMediaProgress,
   prefersReducedMotion,
@@ -324,8 +329,8 @@ export function MediaDrawer({
     );
   }
 
-  // The Media tab shows it in the header beside Icons / List, the Record tab
-  // in its title row.
+  // The Media tab shows it in the header beside Icons / List, the Sessions
+  // and Record tabs in their title rows.
   const closeButton = (
     <button
       aria-label="Close media drawer"
@@ -350,7 +355,7 @@ export function MediaDrawer({
     >
       <aside
         aria-hidden={!isOpen}
-        aria-label="Media"
+        aria-label={tab === "sessions" ? "Sessions" : "Media"}
         className="media-drawer"
         id={MEDIA_DRAWER_ID}
         inert={!isOpen}
@@ -374,7 +379,9 @@ export function MediaDrawer({
               {closeButton}
             </div>
           ) : null}
-          {tab === "record" ? (
+          {tab === "sessions" ? (
+            <SessionsTab closeButton={closeButton} library={library} />
+          ) : tab === "record" ? (
             isOpen ? (
               <RecordTab
                 closeButton={closeButton}

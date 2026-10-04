@@ -13,7 +13,10 @@ type SampleProjectInputs = {
   // anything the user did in the meantime.
   isPristine: () => boolean;
   refuseReadOnlyEdit: () => boolean;
-  openSamplePayload: (payload: SessionOpenResponse) => Promise<void>;
+  openSamplePayload: (
+    payload: SessionOpenResponse,
+    record: boolean,
+  ) => Promise<void>;
   setStatus: (message: string) => void;
 };
 
@@ -39,6 +42,7 @@ export function useSampleProject({
     try {
       await inputsRef.current.openSamplePayload(
         buildSampleOpenPayload(manifest, sessionText),
+        !automatic,
       );
     } catch (error) {
       inputsRef.current.setStatus(

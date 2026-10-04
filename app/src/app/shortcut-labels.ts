@@ -6,6 +6,7 @@ export function getShortcutLabels() {
       mac: false,
       undo: "Ctrl+Z",
       redo: "Ctrl+Shift+Z",
+      save: "Ctrl+S",
       sourceClipDrop: "Ctrl+click",
       clipJump: formatClipJumpShortcut(false),
     };
@@ -25,6 +26,7 @@ export function getShortcutLabels() {
     mac: isMac,
     undo: isMac ? "Cmd+Z" : "Ctrl+Z",
     redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
+    save: isMac ? "Cmd+S" : "Ctrl+S",
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
     clipJump: formatClipJumpShortcut(isMac),
   };

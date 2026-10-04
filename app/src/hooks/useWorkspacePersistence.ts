@@ -386,6 +386,14 @@ export function useWorkspacePersistence({
     setStatus("Closed the session.");
   }
 
+  // Replaces the session with one from the Sessions library, as a refresh
+  // would restore it.
+  function openWorkspaceSession(session: SavedWorkspaceSession) {
+    workspaceAutosave.cancel();
+    claimWorkspaceSession();
+    applyWorkspaceSession(session);
+  }
+
   const reportSessionMediaCheck = useCallback(() => {
     const check = sessionMediaCheckRef.current;
     if (!check || check.pendingIds.size || check.analyzingFromDisk) {
@@ -419,6 +427,9 @@ export function useWorkspacePersistence({
     handleTakeOverWorkspace,
     handleOpenWorkspaceReadOnly,
     handleCloseSession,
+    openWorkspaceSession,
+    // The session as it would be saved now.
+    readWorkspaceSession: () => readWorkspaceSessionRef.current(),
     reportSessionMediaCheck,
     settleSessionMediaCheck,
   };

@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useState,
 } from "react";
+import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import { isPristineProjectHistory } from "../app/workspace-boot.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
@@ -27,6 +28,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import "./top-bar.css";
@@ -53,6 +55,7 @@ export type TopBarProps = Pick<
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
     handleCloseSession: () => void;
+    handleSaveToLibrary: () => Promise<boolean>;
     isExporting: boolean;
     openExportDialog: () => void;
     projectHistory: ReturnType<typeof useProjectStore>["projectHistory"];
@@ -78,6 +81,7 @@ export function TopBar({
   handleOpenSession,
   handleOpenWorkspace,
   handleSaveSession,
+  handleSaveToLibrary,
   handleStopShare,
   showsMediaSync,
   isExporting,
@@ -107,6 +111,7 @@ export function TopBar({
     shareUrl,
   } = collaboration;
   const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
+  const [saveShortcut] = useState(() => getShortcutLabels().save);
   const menu = useMenubar(MENUS);
   const fileMenu = menu("file");
   const editMenu = menu("edit");
@@ -191,10 +196,18 @@ export function TopBar({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
-                  void handleSaveSession();
+                  void handleSaveToLibrary();
                 }}
               >
                 Save
+                <DropdownMenuShortcut>{saveShortcut}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  void handleSaveSession();
+                }}
+              >
+                Export Project…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

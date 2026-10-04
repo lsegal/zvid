@@ -69,7 +69,7 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   const setOpen = useCallback((open: boolean) => {
     setPrefs((current) => ({ ...current, open }));
   }, []);
-  // The toolbar's Media | Record switch opens, switches or closes the drawer.
+  // The toolbar's Sessions | Media | Record switch opens, switches or closes the drawer.
   const selectTab = useCallback((tab: MediaDrawerTab) => {
     if (tab === "record") {
       setRecordRequested(true);
