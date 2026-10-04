@@ -10,6 +10,9 @@
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
+  /* opaque source group header row: covers the playhead line, below the
+     sticky track labels (z-index 6) */
+  --z-timeline-source-header: 5;
 }
 
 .app-shell {

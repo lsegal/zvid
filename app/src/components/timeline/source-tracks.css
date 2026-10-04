@@ -82,12 +82,17 @@
 }
 
 .source-header__content {
+  /* opaque timeline color, so the header hides the playhead line */
+  --source-header-base: #202230;
+  z-index: var(--z-timeline-source-header);
   min-height: 48px;
   display: flex;
   align-items: center;
   padding: 0 16px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
+    var(--source-header-base);
   border-bottom: 1px solid var(--line);
 }
 
@@ -182,6 +187,12 @@
     linear-gradient(180deg, rgba(124, 161, 255, 0.14), rgba(124, 161, 255, 0.06)),
     rgba(20, 21, 32, 0.3);
   box-shadow: inset 0 0 0 1px rgba(124, 161, 255, 0.34);
+}
+
+.source-header.is-drop-target .source-header__content {
+  background:
+    linear-gradient(180deg, rgba(124, 161, 255, 0.14), rgba(124, 161, 255, 0.06)),
+    var(--source-header-base);
 }
 
 .track-row--source-drop .track-label {
@@ -407,11 +418,8 @@
   }
 
   .source-header--empty .source-header__content {
-    /* opaque and above the playhead line, below the sticky track labels */
-    z-index: 5;
     border-left: none;
     padding-block: 10px;
-    background: #202230;
   }
 
   .source-header--empty .source-empty-state {
