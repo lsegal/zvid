@@ -171,6 +171,9 @@ export function useFxEditing({
         isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
           ? "fxClip"
           : undefined;
+      // Made once, so the updater adds the same Transform however often
+      // it runs.
+      const transformId = crypto.randomUUID();
       editEffects(effectHistoryLabels.add(effectName), (current, project) => {
         const added = addEffect(
           current,
@@ -187,7 +190,7 @@ export function useFxEditing({
               added,
               trackId,
               { width: project.canvasWidth, height: project.canvasHeight },
-              crypto.randomUUID(),
+              transformId,
             )
           : added;
       });
