@@ -770,7 +770,15 @@ describe("layer clips after their source clip changes", () => {
     const slipped: LvpSession = {
       ...session,
       selections: [
-        { ...session.selections![0], sourceClipId: "c1", sourceOffsetSeconds: 1.5 },
+        {
+          id: 7,
+          trackId: "t1",
+          mainTrackId: "main-1",
+          frameStart: 30,
+          frameEnd: 90,
+          sourceClipId: "c1",
+          sourceOffsetSeconds: 1.5,
+        },
       ],
     };
     const project = sessionToProject(slipped, []);

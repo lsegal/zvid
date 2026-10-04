@@ -300,9 +300,11 @@ describe("deleteSourceSpan", () => {
       ["clip", 2, 2],
     );
     assert.deepEqual(
-      getClipSourcePieces(after, patch?.sourceSpans ?? [], BPM).map(
-        (piece) => [piece.span.id, piece.startQ, piece.endQ],
-      ),
+      getClipSourcePieces(after, patch?.sourceSpans ?? [], BPM).map((piece) => [
+        piece.span.id,
+        piece.startQ,
+        piece.endQ,
+      ]),
       [["b", 4, 6]],
     );
   });
