@@ -33,6 +33,9 @@ export function renderClipSpan(
   return span;
 }
 
+// A rendered span's channels.
+export type ClipSpan = Float32Array<ArrayBuffer>[];
+
 export type ClipSpanRequest = {
   clip: AudioMixClip;
   bpm: number;
@@ -100,7 +103,10 @@ export class ClipSpanRenderer {
     this.media.set(key, media, audioBytes(media.channels));
   }
 
-  render(key: string, { clip, bpm, sampleRate }: ClipSpanRequest) {
+  render(
+    key: string,
+    { clip, bpm, sampleRate }: ClipSpanRequest,
+  ): ClipSpan | undefined {
     const media = this.media.get(key);
     if (!media) {
       return undefined;

@@ -7,8 +7,9 @@
 import {
   audioBytes,
   BoundedCache,
-  type ClipSpanRequest,
+  type ClipSpan,
   ClipSpanRenderer,
+  type ClipSpanRequest,
 } from "./clip-span.ts";
 import type {
   ClipSpanWorkerMessage,
@@ -21,10 +22,7 @@ import type { AudioMixClip } from "./resolve.ts";
 // undefined once it no longer holds the media, as after an eviction.
 export type ClipSpanBackend = {
   store(key: string, media: DecodedAudio): void;
-  render(
-    key: string,
-    request: ClipSpanRequest,
-  ): Promise<Float32Array[] | undefined>;
+  render(key: string, request: ClipSpanRequest): Promise<ClipSpan | undefined>;
 };
 
 export type ClipSpanSource = {
@@ -64,7 +62,7 @@ export class WorkerClipSpanBackend implements ClipSpanBackend {
   private readonly pending = new Map<
     number,
     {
-      resolve: (span: Float32Array[] | undefined) => void;
+      resolve: (span: ClipSpan | undefined) => void;
       reject: (error: Error) => void;
     }
   >();
@@ -114,7 +112,7 @@ export class WorkerClipSpanBackend implements ClipSpanBackend {
     if (!worker) {
       return this.inline?.render(key, request) ?? Promise.resolve(undefined);
     }
-    return new Promise<Float32Array[] | undefined>((resolve, reject) => {
+    return new Promise<ClipSpan | undefined>((resolve, reject) => {
       const id = this.nextId++;
       this.pending.set(id, { resolve, reject });
       worker.postMessage({
@@ -138,8 +136,8 @@ export class WorkerClipSpanBackend implements ClipSpanBackend {
 }
 
 export class ClipAudioCache {
-  private readonly spans: BoundedCache<Float32Array[]>;
-  private readonly pendingSpans = new Map<string, Promise<Float32Array[]>>();
+  private readonly spans: BoundedCache<ClipSpan>;
+  private readonly pendingSpans = new Map<string, Promise<ClipSpan>>();
   private readonly pendingMedia = new Map<string, Promise<void>>();
   private readonly backend: ClipSpanBackend;
 
@@ -154,7 +152,7 @@ export class ClipAudioCache {
   span(
     source: ClipSpanSource,
     decode: (url: string) => Promise<DecodedAudio>,
-  ): Promise<Float32Array[]> {
+  ): Promise<ClipSpan> {
     const { clip, url, bpm, sampleRate } = source;
     const key = JSON.stringify([url, bpm, sampleRate, clip]);
     const cached = this.spans.get(key);

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { renderClipSpan } from "../../../audio-mix/clip-span.ts";
 import type { DecodedAudio } from "../../../audio-mix/mix.ts";
 import { renderAudioMix } from "../../../audio-mix/mix.ts";
-import { renderClipSpan } from "../../../audio-mix/clip-span.ts";
 import {
   type AudioStage,
   createProcessorRegistry,

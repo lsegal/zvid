@@ -1,14 +1,18 @@
 // Holds decoded clip media and renders clip spans from it, off the main
 // thread (see clip-audio-cache.ts).
+import {
+  type ClipSpan,
+  ClipSpanRenderer,
+  type ClipSpanRequest,
+} from "./clip-span.ts";
 import type { DecodedAudio } from "./mix.ts";
-import { ClipSpanRenderer, type ClipSpanRequest } from "./clip-span.ts";
 
 export type ClipSpanWorkerMessage =
   | { type: "store"; key: string; media: DecodedAudio }
   | { type: "render"; id: number; key: string; request: ClipSpanRequest };
 
 export type ClipSpanWorkerResponse =
-  | { id: number; span: Float32Array[] | null }
+  | { id: number; span: ClipSpan | null }
   | { id: number; error: string };
 
 // The decoded media it keeps, about five minutes of 48 kHz stereo per
