@@ -4,7 +4,6 @@ import { expect, type Page, test } from "@playwright/test";
 // [ + Layer ] and [ + Track ] buttons replace the toolbar's layer count and
 // Create Layer button.
 
-const MAX_LAYERS_MESSAGE = "You already have the maximum of 9 layers.";
 const tracks = '[data-source-track-drop-target="track"]';
 
 function headers(page: Page) {
@@ -83,17 +82,15 @@ test("[ + Layer ] works from the keyboard", async ({ page }) => {
   await expect(headers(page)).toHaveCount(count + 2);
 });
 
-test("[ + Layer ] is disabled with the max message at 9 layers", async ({
-  page,
-}) => {
+test("[ + Layer ] keeps adding layers past 9", async ({ page }) => {
   const button = addLayer(page);
-  while ((await headers(page).count()) < 9) {
+  while ((await headers(page).count()) < 11) {
     const count = await headers(page).count();
     await button.click();
     await expect(headers(page)).toHaveCount(count + 1);
   }
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveAttribute("title", MAX_LAYERS_MESSAGE);
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveAttribute("title", "Add a layer");
 });
 
 test("[ + Track ] adds an empty source track and selects it", async ({

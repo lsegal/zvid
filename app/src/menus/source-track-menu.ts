@@ -36,8 +36,6 @@ export type SourceTrackMenuContext = {
   lanes: readonly LaneLike[];
   laneId: string;
   disabled: boolean;
-  canAdd: boolean;
-  addTitle: string | undefined;
   canRemove: boolean;
   removeTitle: string | undefined;
   canMove: boolean;
@@ -67,9 +65,6 @@ export function buildSourceTrackMenuEntries({
     lanes: tracks,
     laneId: trackId,
     disabled,
-    // Source tracks have no limit, and the last one can go too.
-    canAdd: true,
-    addTitle: undefined,
     canRemove: !locked,
     removeTitle: lockedTitle,
     canMove: !locked,
