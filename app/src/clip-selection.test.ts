@@ -99,3 +99,39 @@ describe("selected clip ring", () => {
     assert.match(clipCardTsx, /selected \? "clip-card--selected" : ""/);
   });
 });
+
+// Hovering or trimming one edge shows that edge's handle, not both (#925).
+describe("trim handle highlight", () => {
+  it("shows only the hovered or trimmed arrangement clip handle", () => {
+    assert.match(
+      ruleBody(
+        clipCardCss,
+        ".clip-card__handle:hover,\n.clip-card:has(:focus-visible) .clip-card__handle,\n.clip-card__handle--trimming",
+      ),
+      /opacity: 1;/,
+    );
+    assert.doesNotMatch(clipCardCss, /\.clip-card:hover \.clip-card__handle/);
+    assert.doesNotMatch(
+      clipCardCss,
+      /\.clip-card--trimming \.clip-card__handle/,
+    );
+  });
+
+  it("shows only the hovered or trimmed source clip handle", () => {
+    assert.match(
+      ruleBody(
+        sourceSpanCss,
+        ".source-span__handle:hover,\n.source-span__handle--trimming",
+      ),
+      /opacity: 1;/,
+    );
+    assert.doesNotMatch(
+      sourceSpanCss,
+      /\.source-span:hover \.source-span__handle/,
+    );
+    assert.doesNotMatch(
+      sourceSpanCss,
+      /\.source-span--trimming \.source-span__handle/,
+    );
+  });
+});

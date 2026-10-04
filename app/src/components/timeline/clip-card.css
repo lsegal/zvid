@@ -21,10 +21,11 @@
   padding: 0;
 }
 
-/* The handles sit over the body's edges and stay hidden until the clip is
-   hovered, keyboard-focused or trimmed; selection alone shows only the
-   outline. Hidden handles keep their hit area, so an edge can still be
-   grabbed without hovering first. */
+/* The handles sit over the body's edges and stay hidden until one is
+   hovered or trimmed, which shows that handle only, or the clip is
+   keyboard-focused; selection alone shows only the outline. Hidden handles
+   keep their hit area, so an edge can still be grabbed without hovering
+   first. */
 .clip-card__handle {
   position: relative;
   z-index: 1;
@@ -35,9 +36,9 @@
   transition: opacity 100ms ease;
 }
 
-.clip-card:hover .clip-card__handle,
+.clip-card__handle:hover,
 .clip-card:has(:focus-visible) .clip-card__handle,
-.clip-card--trimming .clip-card__handle {
+.clip-card__handle--trimming {
   opacity: 1;
 }
 
@@ -260,8 +261,7 @@
 }
 
 /* Audio-only clips draw their waveform, like the Audio lane, behind a quiet
-   border; hovering, focusing or trimming shows the full accent border with
-   the handles. */
+   border; hovering, focusing or trimming shows the full accent border. */
 .clip-card__waveform {
   position: absolute;
   top: 0;

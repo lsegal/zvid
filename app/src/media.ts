@@ -137,6 +137,42 @@ export function probeMediaBlob(
   });
 }
 
+// Reads the length of playable media from its URL, resolving 0 when it can't
+// be read. A stream whose header has no length, like a recorded WebM, reports
+// an infinite one until it is seeked to its end.
+export function probeMediaUrlDuration(
+  url: string,
+  kind: MediaKind,
+): Promise<number> {
+  return new Promise((resolve) => {
+    const element = document.createElement(kind);
+    const settle = (durationSeconds: number) => {
+      window.clearTimeout(timeoutId);
+      element.removeEventListener("loadedmetadata", handleDuration);
+      element.removeEventListener("durationchange", handleDuration);
+      element.removeEventListener("error", handleError);
+      element.removeAttribute("src");
+      element.load();
+      resolve(durationSeconds);
+    };
+    const handleDuration = () => {
+      if (Number.isFinite(element.duration)) {
+        settle(Math.max(0, element.duration));
+      } else if (element.duration === Number.POSITIVE_INFINITY) {
+        element.currentTime = Number.MAX_SAFE_INTEGER;
+      }
+    };
+    const handleError = () => settle(0);
+    const timeoutId = window.setTimeout(handleError, MEDIA_PROBE_TIMEOUT_MS);
+
+    element.preload = "metadata";
+    element.addEventListener("loadedmetadata", handleDuration);
+    element.addEventListener("durationchange", handleDuration);
+    element.addEventListener("error", handleError);
+    element.src = url;
+  });
+}
+
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
