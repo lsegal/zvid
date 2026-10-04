@@ -34,10 +34,16 @@ function gain(trackId: string) {
   };
 }
 
-function span(id: string, mediaId: string, startQ = 0, durationSeconds = 2) {
+function span(
+  id: string,
+  mediaId: string,
+  startQ = 0,
+  durationSeconds = 2,
+  sourceTrackId = "track-1",
+) {
   return {
     id,
-    sourceTrackId: "track-1",
+    sourceTrackId,
     mediaId,
     startQ,
     durationSeconds,
@@ -45,6 +51,8 @@ function span(id: string, mediaId: string, startQ = 0, durationSeconds = 2) {
   };
 }
 
+// A layer clip showing its media's own source track (see `inputs`) from
+// its start.
 function layerClip(
   id: string,
   mediaId: string | undefined,
@@ -54,26 +62,46 @@ function layerClip(
   return {
     id,
     laneId: "lane-1",
+    sourceSpanId: `of-${mediaId}`,
+    sourceTrackId: `track-${mediaId}`,
+    mediaPath: `${mediaId}.wav`,
     mediaId,
     startQ,
     durationSeconds: 2,
+    trimStartSeconds: 0,
     sourceOffsetSeconds: -startQ / 2,
+    sourceSpanOffsetSeconds: 0,
     sourceWindowStartSeconds: 0,
     sourceWindowEndSeconds: 2,
     ...(kind ? { kind } : {}),
   };
 }
 
+// Layer clips show what their source tracks hold, so each media a layer
+// clip names gets a source track holding it.
 function inputs(overrides: Partial<AudioMixInputs> = {}): AudioMixInputs {
+  const mediaIds = new Set(
+    (overrides.clips ?? []).flatMap((clip) =>
+      !clip.kind && clip.mediaId ? [clip.mediaId] : [],
+    ),
+  );
   return {
     clips: [],
     lanes: [{ id: "lane-1" }],
     sourceTracks: [{ id: "track-1" }],
-    sourceSpans: [span("audio", "tone"), span("picture", "video", 8)],
     mediaById: MEDIA,
     effects: [gain("source-track:track-1"), gain("lane-1")],
     bpm: 120,
     ...overrides,
+    sourceSpans: [
+      ...(overrides.sourceSpans ?? [
+        span("audio", "tone"),
+        span("picture", "video", 8),
+      ]),
+      ...[...mediaIds].map((mediaId) =>
+        span(`of-${mediaId}`, mediaId, 0, 16, `track-${mediaId}`),
+      ),
+    ],
   };
 }
 
