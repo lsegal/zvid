@@ -52,8 +52,9 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
-import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
+import { listenForVideoFrames } from "./media-element.ts";
 import { seekMediaElement, syncPlaybackElement } from "./media-seek.ts";
+import { MediaElementPool, mediaWindowAt } from "./media-window.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -131,10 +132,9 @@ export class CompositionRenderer {
   readonly canvas: HTMLCanvasElement;
 
   private resources: WebGlResources | null = null;
-  // Media elements by source key (see ActiveClip.sourceKey), and the media
-  // each one plays.
-  private mediaRefs = new Map<string, HTMLMediaElement>();
-  private mediaIdBySourceKey = new Map<string, string>();
+  // Video elements for the media near the playhead (see mediaWindowAt).
+  private media = new MediaElementPool();
+  private windowPlayheadQ = 0;
   // Plays the audio mix in "live" mode.
   private mixer: PreviewAudioMixer | null = null;
   private removeVideoFrameReadyListeners: (() => void) | null = null;
@@ -180,7 +180,7 @@ export class CompositionRenderer {
       getRenderedEffects(state.effects, state.lanes, state.clips),
     );
     this.sessionEffectIndex = indexEffects(state.effects);
-    this.syncMediaElements();
+    this.syncMediaWindow(this.windowPlayheadQ);
     this.mixer?.update(this.audioMix(), state.mediaItems);
   }
 
@@ -193,12 +193,7 @@ export class CompositionRenderer {
       disposeWebGlResources(this.resources);
       this.resources = null;
     }
-
-    for (const element of this.mediaRefs.values()) {
-      releaseMediaElement(element);
-    }
-    this.mediaRefs.clear();
-    this.mediaIdBySourceKey.clear();
+    this.media.clear();
   }
 
   // The preview playback volume, which export renders never set.
@@ -249,6 +244,7 @@ export class CompositionRenderer {
 
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
     const nextActiveClips = this.computeActiveClips(playheadQ, audio);
+    this.syncMediaWindow(playheadQ);
     const pendingSeeks = new Map<string, Promise<void>>();
 
     for (const entry of nextActiveClips) {
@@ -256,7 +252,7 @@ export class CompositionRenderer {
         continue;
       }
 
-      const mediaElement = this.mediaRefs.get(entry.sourceKey);
+      const mediaElement = this.media.elements.get(entry.sourceKey);
       if (!(mediaElement instanceof HTMLVideoElement)) {
         continue;
       }
@@ -302,14 +298,8 @@ export class CompositionRenderer {
     const activeClipBySourceKey = new Map(
       timings.map((entry) => [entry.sourceKey, entry]),
     );
-    for (const [sourceKey, element] of this.mediaRefs) {
-      const item = this.mediaById.get(
-        this.mediaIdBySourceKey.get(sourceKey) ?? "",
-      );
-      if (!item) {
-        continue;
-      }
-
+    this.syncMediaWindow(playback.playheadQ);
+    for (const [sourceKey, element] of this.media.elements) {
       syncPlaybackElement(
         element,
         activeClipBySourceKey.get(sourceKey),
@@ -368,9 +358,9 @@ export class CompositionRenderer {
     for (const entry of timings) {
       if (
         !isGeneratedClip(entry.clip) &&
-        !this.mediaRefs.has(entry.sourceKey)
+        entry.media.kind === "video" &&
+        this.media.ensure(entry.sourceKey, entry.media, "auto")
       ) {
-        this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }
     }
@@ -460,63 +450,33 @@ export class CompositionRenderer {
       this.resources as WebGlResources,
       this.canvas,
       activeClips,
-      this.mediaRefs,
+      this.media.elements,
       resolveEffectChain(effects, GROUP_TRACK_ID),
       frameContext,
       resolveAnimatedOrder(effects, GROUP_TRACK_ID, this.state.fps),
     );
   }
 
-  private ensureMediaElement(sourceKey: string, item: MediaItem) {
-    let element = this.mediaRefs.get(sourceKey);
-    if (!element) {
-      element =
-        item.kind === "video"
-          ? document.createElement("video")
-          : document.createElement("audio");
-      element.crossOrigin = "anonymous";
-      element.preload = "auto";
-      if (element instanceof HTMLVideoElement) {
-        element.playsInline = true;
-      }
-      // Clip audio plays through the mixer instead.
-      element.muted = true;
-      this.mediaRefs.set(sourceKey, element);
-      this.mediaIdBySourceKey.set(sourceKey, item.id);
+  // Keeps video elements only for the media near `playheadQ`.
+  private syncMediaWindow(playheadQ: number) {
+    this.windowPlayheadQ = playheadQ;
+    const { clips, bpm } = this.state;
+    const window = mediaWindowAt(
+      clips,
+      this.mediaById,
+      quartersToSeconds(playheadQ, bpm),
+      bpm,
+    );
+    if (this.media.sync(window, this.mediaById)) {
+      this.refreshVideoFrameReadyListeners();
     }
-
-    if (element.getAttribute("src") !== item.previewUrl) {
-      element.src = item.previewUrl;
-    }
-  }
-
-  private syncMediaElements() {
-    for (const [sourceKey, element] of this.mediaRefs) {
-      const item = this.mediaById.get(
-        this.mediaIdBySourceKey.get(sourceKey) ?? "",
-      );
-      if (item) {
-        this.ensureMediaElement(sourceKey, item);
-        continue;
-      }
-
-      releaseMediaElement(element);
-      this.mediaRefs.delete(sourceKey);
-      this.mediaIdBySourceKey.delete(sourceKey);
-    }
-
-    for (const item of this.state.mediaItems) {
-      this.ensureMediaElement(item.id, item);
-    }
-
-    this.refreshVideoFrameReadyListeners();
   }
 
   private refreshVideoFrameReadyListeners() {
     this.clearVideoFrameReadyListeners();
     if (this.videoFrameReadyListener) {
       this.removeVideoFrameReadyListeners = listenForVideoFrames(
-        this.mediaRefs.values(),
+        this.media.elements.values(),
         this.videoFrameReadyListener,
       );
     }

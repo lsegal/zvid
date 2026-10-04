@@ -8,6 +8,7 @@ import {
   GRID_MIN_PX,
   getBarStep,
   getGridLayers,
+  getRulerBars,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "./timeline-grid.ts";
@@ -184,5 +185,25 @@ describe("getBarStep", () => {
   it("falls back to every bar for an invalid width", () => {
     assert.equal(getBarStep(0, 40), 1);
     assert.equal(getBarStep(Number.NaN, 40), 1);
+  });
+});
+
+describe("getRulerBars", () => {
+  const indexes = (bars: Array<{ index: number }>) =>
+    bars.map((bar) => bar.index);
+
+  it("gives the bars from the start of the range to just past its end", () => {
+    // 4/4 bars of 100px over 100 bars, the range in the middle.
+    const bars = getRulerBars(4, 400, 25, 1050, 1420);
+    assert.deepEqual(indexes(bars), [10, 11, 12, 13, 14, 15]);
+    assert.deepEqual(bars[0], { index: 10, quarter: 40 });
+  });
+
+  it("stops at the timeline's ends", () => {
+    assert.deepEqual(indexes(getRulerBars(4, 16, 25, 0, 10_000)), [0, 1, 2, 3]);
+  });
+
+  it("gives every bar before the view is measured", () => {
+    assert.equal(getRulerBars(4, 400, 25, 0, 0).length, 100);
   });
 });

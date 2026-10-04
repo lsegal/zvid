@@ -270,6 +270,18 @@ describe("RecordingSession", () => {
     assert.ok(streams.get("cam")?.tracks.every((track) => track.stopped));
   });
 
+  it("hands shared devices back through releaseStream", async () => {
+    const { deps, streams } = setup({ a: { video: "cam", audio: null } });
+    const released: MediaStream[] = [];
+    deps.releaseStream = (stream) => released.push(stream);
+    const { session } = await RecordingSession.open(["a"], deps);
+    session.start();
+    await session.stop();
+    assert.deepEqual(released, [streams.get("cam")]);
+    // The shared owner stops the tracks, not the session.
+    assert.ok(streams.get("cam")?.tracks.every((track) => !track.stopped));
+  });
+
   it("skips tracks whose inputs are both None", async () => {
     const { deps, recorders } = setup({ a: { video: null, audio: null } });
     const { session, skipped } = await RecordingSession.open(["a"], deps);

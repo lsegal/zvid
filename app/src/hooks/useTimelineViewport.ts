@@ -27,6 +27,7 @@ import {
   type GridDivision,
   getBarStep,
   getGridLayers,
+  getRulerBars,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "../timeline-grid";
@@ -155,13 +156,6 @@ export function useTimelineViewport({
         .join(", "),
     };
   }, [gridUnit, quarterPx, signature]);
-  const rulerBars = useMemo(() => {
-    const barCount = Math.ceil(totalQuarters / barLength);
-    return Array.from({ length: barCount }, (_, index) => ({
-      index,
-      quarter: index * barLength,
-    }));
-  }, [barLength, totalQuarters]);
   // Zoomed far out, only every 2nd, 4th, 8th... bar is labeled.
   const rulerLabelBarStep = getBarStep(
     barLength * quarterPx,
@@ -179,6 +173,26 @@ export function useTimelineViewport({
   );
   const filmstripRangeStartPx = filmstripRange.startPx;
   const filmstripRangeEndPx = filmstripRange.endPx;
+  // The bars across the same range: it reaches a block past either side of
+  // the view and only moves a block at a time, so scrolling within a block
+  // keeps the same bars.
+  const rulerBars = useMemo(
+    () =>
+      getRulerBars(
+        barLength,
+        totalQuarters,
+        quarterPx,
+        filmstripRangeStartPx,
+        filmstripRangeEndPx,
+      ),
+    [
+      barLength,
+      filmstripRangeEndPx,
+      filmstripRangeStartPx,
+      quarterPx,
+      totalQuarters,
+    ],
+  );
 
   const syncTimelineViewport = useCallback(() => {
     const timelineScroll = timelineScrollRef.current;

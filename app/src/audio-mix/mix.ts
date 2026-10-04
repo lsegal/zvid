@@ -67,13 +67,15 @@ export function clipMediaTimeAt(
   seconds: number,
   bpm: number,
 ): ClipMediaTime | undefined {
+  // The preview asks every frame, so this makes one object, not three.
   const media = clipUnloopedMediaTimeAt(clip, seconds, bpm);
-  return (
-    media && {
-      ...media,
-      mediaTime: loopMediaTime(media.mediaTime, clip.mediaDurationSeconds ?? 0),
-    }
-  );
+  if (media) {
+    media.mediaTime = loopMediaTime(
+      media.mediaTime,
+      clip.mediaDurationSeconds ?? 0,
+    );
+  }
+  return media;
 }
 
 // clipMediaTimeAt before the media loops: past the media's end it keeps
@@ -97,9 +99,14 @@ function clipUnloopedMediaTimeAt(
   ) {
     return undefined;
   }
-  const { seconds: mediaTime, rate: playbackRate } = clip.warp
-    ? warpSourceTime(clip.warp, linear, bpm)
-    : { seconds: linear, rate: 1 };
+  if (!clip.warp) {
+    return linear >= 0 ? { mediaTime: linear, playbackRate: 1 } : undefined;
+  }
+  const { seconds: mediaTime, rate: playbackRate } = warpSourceTime(
+    clip.warp,
+    linear,
+    bpm,
+  );
   return mediaTime >= 0 ? { mediaTime, playbackRate } : undefined;
 }
 

@@ -218,17 +218,31 @@ test("Mod+D and Delete act on the selected source clip", async ({ page }) => {
   await expect(spans(page)).toHaveCount(1);
 });
 
-test("Copy pastes onto a layer and into the source track", async ({ page }) => {
+// Source clips paste only into source tracks, and layer clips only onto
+// layers (#958).
+test("Copy pastes into the source track but not onto a layer", async ({
+  page,
+}) => {
   const span = spans(page).first();
   const [{ left, width }] = await layout(page);
   await openMenu(page, span);
   await menuItem(page, /^Copy(?! to)/).click();
 
-  // Onto a layer, from its menu.
+  // A layer's menu, and the Edit menu with a layer selected, gray Paste out.
   await lane(page, "5").scrollIntoViewIfNeeded();
   await lane(page, "5").click({ button: "right", position: { x: 400, y: 20 } });
-  await menuItem(page, /^Paste/).click();
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
+  await expect(menuItem(page, /^Paste/)).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(menuItem(page, /^Paste/)).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".clip-card")).toHaveCount(0);
 
   // Into the source track at the playhead, overwriting the rest of the clip.
   await seekInto(page, span, 0.5);
@@ -240,6 +254,40 @@ test("Copy pastes onto a layer and into the source track", async ({ page }) => {
   expect(kept.width).toBeCloseTo(width / 2, -1);
   expect(pasted.left).toBeCloseTo(left + width / 2, -1);
   expect(pasted.width).toBeCloseTo(width, -1);
+});
+
+test("a copied layer clip pastes onto a layer but not into the source track", async ({
+  page,
+}) => {
+  const span = spans(page).first();
+  await openMenu(page, span);
+  await menuItem(page, "Copy to layer").hover();
+  await menuItem(page, "Layer 1").click();
+  const clip = lane(page, "1").locator(".clip-card");
+  await expect(clip).toHaveCount(1);
+  await rightClick(clip);
+  await menuItem(page, /^Copy/).click();
+
+  // The source clip's menu grays Paste out, and Mod+V does nothing there.
+  await openMenu(page, span);
+  await expect(menuItem(page, /^Paste/)).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await span.click();
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.locator(".status-bar__message")).toHaveText(
+    "Only source clips can be pasted into a source track.",
+  );
+  await expect(spans(page)).toHaveCount(1);
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+
+  // A layer still takes it.
+  await lane(page, "5").scrollIntoViewIfNeeded();
+  await lane(page, "5").click({ button: "right", position: { x: 400, y: 20 } });
+  await menuItem(page, /^Paste/).click();
+  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
 });
 
 test("Cut removes it, and Paste puts it back into the source track", async ({

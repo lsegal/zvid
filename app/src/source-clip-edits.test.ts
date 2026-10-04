@@ -4,7 +4,7 @@ import type { ClipClipboard } from "./app/clip-ops.ts";
 import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import type { SessionEffect } from "./fx-stack.ts";
-import { clipEffectTrackId, sourceClipEffectTrackId } from "./fx-stack.ts";
+import { sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
   canPasteIntoSourceTrack,
   deleteSourceSpan,
@@ -313,44 +313,20 @@ describe("pasteIntoSourceTrack", () => {
     );
   });
 
-  it("pastes a media layer clip's shown media as a source clip", () => {
-    // The clip starts a quarter before its track's source clip, and shows
-    // nothing there.
-    const source = span("a", 1, 8, { trimStartSeconds: 10.5 });
-    const clip = windowClip("clip", source, 0, 4);
-    const patch = pasteIntoSourceTrack(
-      project([source], {
-        effects: [effect("e1", clipEffectTrackId("clip"))],
-      }),
-      {
-        fragments: [{ clip, offsetQ: 0 }],
-        durationQ: 4,
-        effects: [effect("e1", clipEffectTrackId("clip"))],
-      },
-      "t2",
-      8,
-      ids("pasted"),
-    );
-    assert.deepEqual(timing(patch?.sourceSpans), [
-      "a@t1:1+8q from 10.5s",
-      "pasted@t2:9+3q from 10.5s",
-    ]);
-    assert.ok(
-      patch?.effects?.some(
-        (item) => item.trackId === sourceClipEffectTrackId("pasted"),
-      ),
-    );
-  });
-
-  it("refuses fill, text and FX clips", () => {
-    const fill = windowClip("fill", span("a", 0, 4), 0, 4, { kind: "fill" });
-    const clipboard = { fragments: [{ clip: fill, offsetQ: 0 }], durationQ: 4 };
-    assert.equal(canPasteIntoSourceTrack(clipboard), false);
+  it("refuses layer clips, which paste only onto layers", () => {
+    const source = span("a", 0, 8);
+    const media = windowClip("clip", source, 0, 4);
+    const fill = windowClip("fill", source, 0, 4, { kind: "fill" });
+    for (const clip of [media, fill]) {
+      const clipboard = { fragments: [{ clip, offsetQ: 0 }], durationQ: 4 };
+      assert.equal(canPasteIntoSourceTrack(clipboard), false);
+      assert.equal(
+        pasteIntoSourceTrack(project([]), clipboard, "t1", 0, ids("x")),
+        undefined,
+      );
+    }
     assert.equal(canPasteIntoSourceTrack(null), false);
-    assert.equal(
-      pasteIntoSourceTrack(project([]), clipboard, "t1", 0, ids("x")),
-      undefined,
-    );
+    assert.equal(canPasteIntoSourceTrack(sourceClipboard(source)), true);
   });
 });
 

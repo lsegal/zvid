@@ -23,6 +23,7 @@ export type ClipMenuActions = {
 
 export type ClipMenuContext = {
   hasClip: boolean;
+  // Whether the clipboard holds layer clips to paste onto a layer.
   canPaste: boolean;
   canSplit: boolean;
   mac: boolean;
