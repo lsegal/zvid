@@ -12,16 +12,21 @@
 //   element → clip chain → track bus chain → master chain → master GainNode
 //     → limiter → analyser → preview volume → speakers
 //
+// There a clip whose own stack is steady Gain alone, with no latency to make
+// up, skips its chain: its GainNode applies those Gains and feeds the bus.
+//
 // The analyser feeds audio-reactive effects (see LiveAudioBands), and the
 // limiter also feeds the transport's VU meter, so both follow the mix after
 // every Gain but not the preview volume. Elements are made shortly before
 // their clip starts and released once it, and its chain's tail, has passed,
-// and follow the playhead as the compositor's video elements do. A clip
+// and follow the playhead as the compositor's video elements do. A clip that
+// starts while its own element is still loading or seeking takes over a
+// loaded element of the same media that another clip has finished with, so
+// back-to-back short clips keep playing on a slow main thread. A clip
 // whose source stages read its media other than forwards plays from a
 // decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { clamp } from "../app/util.ts";
-import { loopMediaTime } from "../clip-warp.ts";
 import {
   createBandAnalyser,
   createMeterTap,
@@ -46,6 +51,12 @@ import {
   limiterCurve,
 } from "./mix.ts";
 import { DecodedClipVoice } from "./preview-buffer-voice.ts";
+import {
+  createPlayer,
+  type Player,
+  seekPlayer,
+  takeReadyPlayer,
+} from "./preview-player.ts";
 import type { AudioProcessorRegistry } from "./processor.ts";
 import { AUDIO_PROCESSORS } from "./processors.ts";
 import {
@@ -53,7 +64,7 @@ import {
   type AudioMixClip,
   SILENT_AUDIO_MIX,
 } from "./resolve.ts";
-import { hasProcessingStages } from "./stages.ts";
+import { hasProcessingStages, steadyGainAmplitude } from "./stages.ts";
 import {
   receiveTransientReport,
   subscribeWatchedTransients,
@@ -79,15 +90,14 @@ type Voice = {
   url: string;
   // Its media element, or for a clip read other than forwards, its decoded
   // buffer.
-  element: HTMLAudioElement | null;
-  source: MediaElementAudioSourceNode | null;
+  player: Player | null;
   decoded: DecodedClipVoice | null;
   gain: GainNode;
-  // Its clip chain, when the mix runs in the worklet.
+  // Its clip chain, when the mix runs in the worklet and its clip needs one.
   chain: AudioWorkletNode | null;
-  // The audio clock time its element's seek during playback was made, until
-  // it lands.
-  seekStartedAt: number | null;
+  // The audio clock time its chain, no longer needed, has faded out and
+  // drained, when it is dropped.
+  retireAt: number | null;
 };
 
 type MixGraph = {
@@ -113,6 +123,9 @@ const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
 // loaded by then, and released this long after it ends, or after its
 // chain's tail when that is longer.
 const PRELOAD_SECONDS = 1.5;
+// A clip read other than forwards decodes its media and renders its span
+// before it can play, so its voice is made this much earlier.
+const DECODED_PRELOAD_SECONDS = 8;
 const RELEASE_SECONDS = 3;
 // The playback rates every browser accepts; a media element throws outside
 // them.
@@ -123,9 +136,9 @@ const MAX_PLAYBACK_RATE = 16;
 // timeline time.
 const SEEK_SECONDS = 0.25;
 const TRANSPORT_DRIFT_SECONDS = 0.02;
-// The most a seek during playback aims ahead of the playhead to make up for
-// how long seeks take to land.
-const MAX_SEEK_LEAD_SECONDS = 0.5;
+// How long past its tail a clip chain no longer needed waits to be dropped,
+// so its last stage crossfade and Gain ramps finish first.
+const RETIRE_MARGIN_SECONDS = 0.1;
 
 // Sets `param` to `value`, ramping where the browser can so a live edit
 // never clicks.
@@ -143,6 +156,9 @@ export class PreviewAudioMixer {
   private chains: ChainGraph | null = null;
   private voices = new Map<string, Voice>();
   private mix: AudioMix = SILENT_AUDIO_MIX;
+  // Whether the mix needs its chains run, beyond Gain, as of its last
+  // update.
+  private needsChains = false;
   private urlById = new Map<string, string>();
   private volume: PreviewVolume = { volume: 1, muted: false };
   private readonly workletUrl: string | undefined;
@@ -170,11 +186,18 @@ export class PreviewAudioMixer {
     mediaItems: readonly { id: string; previewUrl: string }[],
   ) {
     this.mix = mix;
+    this.needsChains = this.mixNeedsChains();
     this.urlById = new Map(
       mediaItems
         .filter((item) => item.previewUrl)
         .map((item) => [item.id, item.previewUrl]),
     );
+    // How long the old mix keeps sounding, which a clip chain no longer
+    // needed plays out.
+    const previousTail = this.timing
+      ? this.timing.tailSeconds +
+        this.timing.latencyFrames / (this.graph?.context.sampleRate ?? 1)
+      : 0;
     this.timing = this.graph
       ? audioMixTiming(mix, this.graph.context.sampleRate, this.registry)
       : null;
@@ -188,8 +211,8 @@ export class PreviewAudioMixer {
         this.needsDecoded(clip) !== Boolean(voice.decoded)
       ) {
         this.release(clipId);
-      } else if (voice.chain) {
-        this.configure(voice.chain, this.clipSettings(clip));
+      } else if (this.graph && this.chains) {
+        this.retune(voice, clip, this.chains, this.graph.context, previousTail);
       } else if (this.graph) {
         setSmoothly(voice.gain.gain, clip.amplitude, this.graph.context);
       }
@@ -249,10 +272,14 @@ export class PreviewAudioMixer {
       this.chains ? (this.timing?.tailSeconds ?? 0) : 0,
     );
 
+    const clipById = new Map(this.mix.clips.map((clip) => [clip.id, clip]));
     for (const clip of this.mix.clips) {
       const start = clip.startSeconds;
       const end = clip.startSeconds + clip.durationSeconds;
-      const nearby = now >= start - PRELOAD_SECONDS && now < end + linger;
+      const preload = this.needsDecoded(clip)
+        ? DECODED_PRELOAD_SECONDS
+        : PRELOAD_SECONDS;
+      const nearby = now >= start - preload && now < end + linger;
       if (!nearby) {
         this.release(clip.id);
         continue;
@@ -264,6 +291,14 @@ export class PreviewAudioMixer {
       if (!voice) {
         continue;
       }
+      if (
+        voice.retireAt !== null &&
+        this.chains &&
+        this.graph &&
+        this.graph.context.currentTime >= voice.retireAt
+      ) {
+        this.dropChain(voice, clip, this.chains, this.graph.context);
+      }
       const at = now + ahead;
 
       if (voice.decoded) {
@@ -274,8 +309,21 @@ export class PreviewAudioMixer {
         );
         continue;
       }
-      const element = voice.element as HTMLAudioElement;
       const media = clipMediaTimeAt(clip, at, this.mix.bpm);
+      if (media) {
+        takeReadyPlayer(
+          this.voices,
+          voice,
+          media.mediaTime,
+          driftTolerance,
+          (clipId) => {
+            const other = clipById.get(clipId);
+            return Boolean(other && clipMediaTimeAt(other, at, this.mix.bpm));
+          },
+        );
+      }
+      const player = voice.player as Player;
+      const { element } = player;
       if (!media) {
         if (!element.paused) {
           element.pause();
@@ -283,7 +331,7 @@ export class PreviewAudioMixer {
         // Waits at the clip's first sound, ready for it to start.
         const first = clipMediaTimeAt(clip, Math.max(at, start), this.mix.bpm);
         if (first && at < start) {
-          this.seek(voice, element, first.mediaTime, driftTolerance, false, 0);
+          this.seek(player, first.mediaTime, driftTolerance, false, 0);
         }
         continue;
       }
@@ -297,15 +345,16 @@ export class PreviewAudioMixer {
         element.playbackRate = rate;
       }
       this.seek(
-        voice,
-        element,
+        player,
         media.mediaTime,
         shouldPlay ? driftTolerance : 0,
         steady,
         clip.mediaDurationSeconds ?? 0,
       );
       if (shouldPlay) {
-        element.play().catch(() => {});
+        if (element.paused) {
+          element.play().catch(() => {});
+        }
       } else if (!element.paused) {
         element.pause();
       }
@@ -328,8 +377,8 @@ export class PreviewAudioMixer {
   // their tails fade out.
   pause() {
     for (const voice of this.voices.values()) {
-      if (voice.element && !voice.element.paused) {
-        voice.element.pause();
+      if (voice.player && !voice.player.element.paused) {
+        voice.player.element.pause();
       }
       voice.decoded?.stop();
     }
@@ -353,7 +402,7 @@ export class PreviewAudioMixer {
     return clipReadSeconds(clip, this.registry) !== undefined;
   }
 
-  // Whether the mix needs its chains run, beyond Gain.
+  // Whether the mix needs its chains run, beyond Gain; update caches it.
   private mixNeedsChains() {
     const { registry } = this;
     return (
@@ -367,7 +416,7 @@ export class PreviewAudioMixer {
   // loaded, else through native gains, rebuilding the voices on a change.
   // While the worklet loads, a mix that needs it makes no voices.
   private applyMode() {
-    const wantsChains = this.mixNeedsChains() && this.worklet !== "failed";
+    const wantsChains = this.needsChains && this.worklet !== "failed";
     if (wantsChains && this.worklet === "idle" && this.graph) {
       this.loadWorklet(this.graph.context);
     }
@@ -578,55 +627,46 @@ export class PreviewAudioMixer {
     }
     try {
       const graph = this.ensureGraph();
-      if (this.mixNeedsChains() && this.worklet === "loading") {
+      if (this.needsChains && this.worklet === "loading") {
         return undefined;
       }
       const { context } = graph;
       const gain = context.createGain();
       let chain: AudioWorkletNode | null = null;
-      if (this.chains) {
+      if (this.chains && this.clipNeedsChain(clip)) {
         chain = this.chainNode(context, this.clipSettings(clip));
         gain.connect(chain);
         chain.connect(this.busNode(this.chains, context, clip.busId));
+      } else if (this.chains) {
+        gain.gain.value = this.directAmplitude(clip);
+        gain.connect(this.busNode(this.chains, context, clip.busId));
       } else {
         gain.gain.value = clip.amplitude;
         gain.connect(graph.master);
       }
 
-      let element: HTMLAudioElement | null = null;
-      let source: MediaElementAudioSourceNode | null = null;
-      let decoded: DecodedClipVoice | null = null;
-      if (this.needsDecoded(clip)) {
-        decoded = new DecodedClipVoice(context, clip, url, this.mix.bpm, gain);
-      } else {
-        element = document.createElement("audio");
-        element.crossOrigin = "anonymous";
-        element.preload = "auto";
-        element.src = url;
-        // Routing through Web Audio is permanent; the element plays at full
-        // volume into its clip's gain.
-        source = context.createMediaElementSource(element);
-        source.connect(gain);
-      }
       const voice: Voice = {
         url,
-        element,
-        source,
-        decoded,
+        player: null,
+        decoded: null,
         gain,
         chain,
-        seekStartedAt: null,
+        retireAt: null,
       };
-      element?.addEventListener("seeked", () => {
-        if (voice.seekStartedAt !== null) {
-          this.seekLatency = clamp(
-            context.currentTime - voice.seekStartedAt,
-            0,
-            MAX_SEEK_LEAD_SECONDS,
-          );
-          voice.seekStartedAt = null;
-        }
-      });
+      if (this.needsDecoded(clip)) {
+        voice.decoded = new DecodedClipVoice(
+          context,
+          clip,
+          url,
+          this.mix.bpm,
+          gain,
+        );
+      } else {
+        voice.player = createPlayer(context, url, (seconds) => {
+          this.seekLatency = seconds;
+        });
+        voice.player.source.connect(gain);
+      }
       this.voices.set(clip.id, voice);
       return voice;
     } catch (error) {
@@ -635,51 +675,120 @@ export class PreviewAudioMixer {
     }
   }
 
-  private release(clipId: string) {
-    const voice = this.voices.get(clipId);
-    if (!voice) {
-      return;
-    }
-    if (voice.element) {
-      releaseMediaElement(voice.element);
-    }
-    voice.source?.disconnect();
-    voice.decoded?.dispose();
-    voice.gain.disconnect();
-    voice.chain?.disconnect();
-    this.voices.delete(clipId);
+  // Whether `clip` needs its own chain in a mix that runs its chains: its
+  // stack does more than steady Gain, or its path is delayed to line up
+  // with slower ones.
+  private clipNeedsChain(clip: AudioMixClip) {
+    return (
+      hasProcessingStages(this.registry, clip.stages) ||
+      this.clipSettings(clip).delayFrames > 0
+    );
   }
 
-  // Seeks `voice`'s element to `mediaTime` once it drifts further than
-  // `tolerance`. In `steady` playback a seek still landing is left to land,
-  // and a new one aims as far ahead as the last one took to land, so an
-  // element that starts late, as on a slow main thread, meets the playhead
-  // rather than chasing it from behind. Aiming past the end of media
-  // `mediaDurationSeconds` long loops back to its start, as the clip does.
-  private seek(
+  // The amplitude `clip`'s chain would apply, as its GainNode does in its
+  // place; silent without a Gain on its path.
+  private directAmplitude(clip: AudioMixClip) {
+    return clip.hasGain ? steadyGainAmplitude(this.registry, clip.stages) : 0;
+  }
+
+  // Applies `clip`'s edit to its voice in a mix that runs its chains: a
+  // chain it no longer needs is dropped once the old mix's tail, `tail`
+  // seconds, has passed.
+  private retune(
     voice: Voice,
-    element: HTMLMediaElement,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+    tail: number,
+  ) {
+    if (voice.chain) {
+      this.configure(voice.chain, this.clipSettings(clip));
+      voice.retireAt = this.clipNeedsChain(clip)
+        ? null
+        : (voice.retireAt ??
+          context.currentTime + tail + RETIRE_MARGIN_SECONDS);
+    } else if (this.clipNeedsChain(clip)) {
+      this.insertChain(voice, clip, chains, context);
+    } else {
+      setSmoothly(voice.gain.gain, this.directAmplitude(clip), context);
+    }
+  }
+
+  // Routes `voice` through a new chain for `clip`. The chain starts with
+  // the stages that do more than Gain bypassed, so it sounds as the
+  // GainNode did, then crossfades them in.
+  private insertChain(
+    voice: Voice,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+  ) {
+    const settings = this.clipSettings(clip);
+    const chain = this.chainNode(context, {
+      ...settings,
+      stages: settings.stages.map((stage) =>
+        hasProcessingStages(this.registry, [stage])
+          ? { ...stage, enabled: false }
+          : stage,
+      ),
+    });
+    this.configure(chain, settings);
+    voice.gain.disconnect();
+    voice.gain.gain.cancelScheduledValues?.(context.currentTime);
+    voice.gain.gain.value = 1;
+    voice.gain.connect(chain);
+    chain.connect(this.busNode(chains, context, clip.busId));
+    voice.chain = chain;
+    voice.retireAt = null;
+  }
+
+  // Routes `voice` straight to its bus once its chain, now steady Gain
+  // alone, has drained.
+  private dropChain(
+    voice: Voice,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+  ) {
+    voice.gain.disconnect();
+    voice.chain?.disconnect();
+    voice.chain = null;
+    voice.retireAt = null;
+    voice.gain.gain.cancelScheduledValues?.(context.currentTime);
+    voice.gain.gain.value = this.directAmplitude(clip);
+    voice.gain.connect(this.busNode(chains, context, clip.busId));
+  }
+
+  private seek(
+    player: Player,
     mediaTime: number,
     tolerance: number,
     steady: boolean,
     mediaDurationSeconds: number,
   ) {
-    if (steady && element.seeking) {
-      return;
-    }
-    if (Math.abs(element.currentTime - mediaTime) <= tolerance) {
-      return;
-    }
-    const context = this.graph?.context;
-    if (!steady || !context) {
-      element.currentTime = mediaTime;
-      voice.seekStartedAt = null;
-      return;
-    }
-    element.currentTime = loopMediaTime(
-      mediaTime + this.seekLatency * element.playbackRate,
+    seekPlayer(
+      player,
+      mediaTime,
+      tolerance,
+      steady,
       mediaDurationSeconds,
+      this.graph?.context,
+      this.seekLatency,
     );
-    voice.seekStartedAt = context.currentTime;
+  }
+
+  private release(clipId: string) {
+    const voice = this.voices.get(clipId);
+    if (!voice) {
+      return;
+    }
+    if (voice.player) {
+      releaseMediaElement(voice.player.element);
+      voice.player.source.disconnect();
+    }
+    voice.decoded?.dispose();
+    voice.gain.disconnect();
+    voice.chain?.disconnect();
+    this.voices.delete(clipId);
   }
 }

@@ -7,6 +7,7 @@ import {
   type RecordInputs,
   withBrowserDefaults,
 } from "./record-inputs.ts";
+import { sharedMediaStreams } from "./shared-media-streams.ts";
 
 // The parts of MediaRecorder a recording uses, so tests can stand one in.
 export type MediaRecorderLike = {
@@ -25,6 +26,8 @@ export type RecordingDeps = {
       Partial<Pick<MediaDeviceInfo, "groupId" | "label">>)[]
   >;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+  // Hands back a stream `getUserMedia` opened; stops its tracks when unset.
+  releaseStream?: (stream: MediaStream) => void;
   isTypeSupported: (mimeType: string) => boolean;
   createRecorder: (
     stream: MediaStream,
@@ -252,7 +255,7 @@ export class RecordingSession {
           stopRequested: false,
         });
       } catch (error) {
-        stopStream(stream);
+        releaseStream(deps, stream);
         failures.push({ trackId, message: describeError(error) });
       }
     }
@@ -304,7 +307,7 @@ export class RecordingSession {
     }
     await Promise.all(this.takes.map((take) => take.stopped));
     for (const take of this.takes) {
-      stopStream(take.stream);
+      releaseStream(this.deps, take.stream);
     }
     return this.takes.flatMap((take) => {
       if (!take.chunks.length) return [];
@@ -342,7 +345,7 @@ export class RecordingSession {
     if (this.finished || take.endedAtSeconds !== undefined) return;
     take.endedAtSeconds = this.elapsedSeconds();
     stopRecorder(take);
-    stopStream(take.stream);
+    releaseStream(this.deps, take.stream);
     this.callbacks.onTrackEnded?.(take.trackId, message);
   }
 }
@@ -363,13 +366,20 @@ function stopRecorder(take: TakeState) {
   }
 }
 
-function stopStream(stream: MediaStream) {
+function releaseStream(deps: RecordingDeps, stream: MediaStream) {
+  if (deps.releaseStream) {
+    deps.releaseStream(stream);
+    return;
+  }
   for (const track of stream.getTracks()) {
     track.stop();
   }
 }
 
-/** The browser's MediaRecorder and mediaDevices, for the app. */
+/**
+ * The browser's MediaRecorder and mediaDevices, for the app. Devices are
+ * shared with the device previews, so recording doesn't capture them again.
+ */
 export function getBrowserRecordingDeps(
   resolveInputs: RecordingDeps["resolveInputs"],
 ): RecordingDeps | null {
@@ -380,7 +390,8 @@ export function getBrowserRecordingDeps(
   }
   return {
     enumerateDevices: () => mediaDevices.enumerateDevices(),
-    getUserMedia: (constraints) => mediaDevices.getUserMedia(constraints),
+    getUserMedia: (constraints) => sharedMediaStreams.acquire(constraints),
+    releaseStream: (stream) => sharedMediaStreams.release(stream),
     isTypeSupported: (type) => Recorder.isTypeSupported(type),
     createRecorder: (stream, options) =>
       new Recorder(stream, options) as unknown as MediaRecorderLike,

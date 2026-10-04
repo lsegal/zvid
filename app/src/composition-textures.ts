@@ -9,7 +9,7 @@ import {
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import { renderStats } from "./render-stats.ts";
 import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
-import { createTextCanvas, drawText } from "./text-render.ts";
+import { createTextCanvas, drawText, type TextCanvas } from "./text-render.ts";
 import type { TextStyle } from "./text-style.ts";
 
 // Fill textures are drawn at most this many pixels on a side; the linear
@@ -24,9 +24,17 @@ export const TEXTURE_GRACE_DRAWS = 120;
 // have not run for this long, its time names the frame instead.
 const FRAME_CALLBACK_STALE_MS = 200;
 
-// What a video texture's storage was allocated at, and the frame it holds
-// (null when unknown, so the next draw uploads).
-type VideoUpload = { width: number; height: number; frame: string | null };
+// What a video texture's storage was allocated at, and the frame it holds:
+// the element's source (null when unknown, so the next draw uploads), its
+// presented-frame count, and its time, or -1 while frame callbacks name
+// the frame instead.
+type VideoUpload = {
+  width: number;
+  height: number;
+  source: string | null;
+  count: number;
+  time: number;
+};
 
 // The texture each media, fill or text source is drawn from.
 export type SourceTextures = {
@@ -40,6 +48,12 @@ export type SourceTextures = {
   drawCount: number;
   textureLastDrawn: Map<string, number>;
   videoUploads: Map<string, VideoUpload>;
+  // The size each text raster's texture storage was allocated at, so a
+  // redraw at the same size writes into it rather than reallocating.
+  textStorage: Map<string, { width: number; height: number }>;
+  // The canvas text is drawn into before it is uploaded, reused across
+  // redraws and resized only when the box changes.
+  textCanvas: TextCanvas | undefined;
 };
 
 export function createSourceTextures(gl: WebGLRenderingContext) {
@@ -51,6 +65,8 @@ export function createSourceTextures(gl: WebGLRenderingContext) {
     drawCount: 0,
     textureLastDrawn: new Map<string, number>(),
     videoUploads: new Map<string, VideoUpload>(),
+    textStorage: new Map<string, { width: number; height: number }>(),
+    textCanvas: undefined as TextCanvas | undefined,
   };
 }
 
@@ -87,6 +103,7 @@ export function releaseTexture(textures: SourceTextures, id: string) {
   textures.rasters.release(id);
   textures.textureLastDrawn.delete(id);
   textures.videoUploads.delete(id);
+  textures.textStorage.delete(id);
 }
 
 export function releaseAllTextures(textures: SourceTextures) {
@@ -98,6 +115,8 @@ export function releaseAllTextures(textures: SourceTextures) {
   textures.rasters.clear();
   textures.textureLastDrawn.clear();
   textures.videoUploads.clear();
+  textures.textStorage.clear();
+  textures.textCanvas = undefined;
 }
 
 // Starts drawing a composition: deletes the textures of videos no longer in
@@ -146,20 +165,20 @@ function watchPresentedFrames(element: HTMLVideoElement) {
   return watched;
 }
 
-// Names the frame `element` shows. While it plays, its frame callbacks
-// count each new frame, so a draw between two frames names the same one;
-// paused, or without callbacks, its time does. The count also catches a
-// frame presented late after a seek.
-function presentedFrameId(element: HTMLVideoElement) {
-  const watched = watchPresentedFrames(element);
-  const source = element.currentSrc || element.src;
-  if (
-    !element.paused &&
+// The time that, with its source and presented-frame count, names the
+// frame `element` shows: -1 while it plays, as its frame callbacks count
+// each new frame and a draw between two frames names the same one; its
+// time when paused or without callbacks. The count also catches a frame
+// presented late after a seek. These are compared field by field, so no
+// name is built each draw.
+function presentedFrameTime(
+  element: HTMLVideoElement,
+  watched: PresentedFrames,
+) {
+  return !element.paused &&
     performance.now() - watched.at < FRAME_CALLBACK_STALE_MS
-  ) {
-    return `${source}#${watched.count}`;
-  }
-  return `${source}@${element.currentTime}#${watched.count}`;
+    ? -1
+    : element.currentTime;
 }
 
 // Uploads the media element's current frame into the source's texture,
@@ -176,7 +195,7 @@ export function uploadVideoTexture(
   const texture = getOrCreateTexture(textures, sourceKey);
   let upload = textures.videoUploads.get(sourceKey);
   if (!upload) {
-    upload = { width: 0, height: 0, frame: null };
+    upload = { width: 0, height: 0, source: null, count: 0, time: 0 };
     textures.videoUploads.set(sourceKey, upload);
   }
   const hasDecodedFrame =
@@ -196,7 +215,9 @@ export function uploadVideoTexture(
     return texture;
   }
 
-  const frame = presentedFrameId(mediaElement);
+  const watched = watchPresentedFrames(mediaElement);
+  const source = mediaElement.currentSrc || mediaElement.src;
+  const time = presentedFrameTime(mediaElement, watched);
   const { videoWidth: width, videoHeight: height } = mediaElement;
   if (upload.width !== width || upload.height !== height) {
     if (width > 0 && height > 0) {
@@ -214,8 +235,12 @@ export function uploadVideoTexture(
     }
     upload.width = width;
     upload.height = height;
-    upload.frame = null;
-  } else if (upload.frame === frame) {
+    upload.source = null;
+  } else if (
+    upload.source === source &&
+    upload.count === watched.count &&
+    upload.time === time
+  ) {
     return texture;
   }
 
@@ -242,7 +267,9 @@ export function uploadVideoTexture(
     );
   }
   // Mid-seek the element may still show the frame it is leaving.
-  upload.frame = mediaElement.seeking ? null : frame;
+  upload.source = mediaElement.seeking ? null : source;
+  upload.count = watched.count;
+  upload.time = time;
   return texture;
 }
 
@@ -259,7 +286,7 @@ function generatedTexture<T>(
   size: RasterSize,
   extent: RasterExtent,
   preview: boolean,
-  draw: (() => boolean) | undefined,
+  draw: ((textureId: string) => boolean) | undefined,
 ) {
   const { gl } = textures;
   const found = textures.rasters.lookup(
@@ -291,7 +318,7 @@ function generatedTexture<T>(
   const texture = getOrCreateTexture(textures, textureId);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (!draw()) {
+  if (!draw(textureId)) {
     return undefined;
   }
   textures.rasters.store(sourceKey, textureId, content, size);
@@ -328,8 +355,9 @@ export function uploadFillTexture(
     size,
     { width: bandWidth, height: bandHeight },
     Boolean(preview),
-    () => {
+    (textureId) => {
       renderStats.fillRasterizations++;
+      textures.textStorage.delete(textureId);
       const raster = rasterizeFillPaint(
         { ...fill, opacity: 1 },
         size.width,
@@ -353,6 +381,19 @@ export function uploadFillTexture(
   );
 }
 
+// Each context's largest texture size, read once: getParameter is a
+// synchronous driver query, and this runs per text clip every frame.
+const maxTextureSizes = new WeakMap<WebGLRenderingContext, number>();
+
+function maxTextureSize(gl: WebGLRenderingContext) {
+  let size = maxTextureSizes.get(gl);
+  if (size === undefined) {
+    size = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
+    maxTextureSizes.set(gl, size);
+  }
+  return size;
+}
+
 // A texture size for a `width` × `height` box: whole pixels, shrunk by
 // `factor` to fit the largest texture the context allows.
 export function fitTextureSize(
@@ -360,13 +401,28 @@ export function fitTextureSize(
   width: number,
   height: number,
 ) {
-  const maxSize = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
+  const maxSize = maxTextureSize(gl);
   const factor = Math.min(1, maxSize / Math.max(width, height, 1));
   return {
     width: Math.max(1, Math.min(maxSize, Math.round(width * factor))),
     height: Math.max(1, Math.min(maxSize, Math.round(height * factor))),
     factor,
   };
+}
+
+// The scratch canvas text is drawn into, at `width` × `height`. Its 2D
+// state needs no reset: drawText clears it and sets everything it uses.
+function textCanvas(textures: SourceTextures, width: number, height: number) {
+  const canvas = textures.textCanvas;
+  if (!canvas) {
+    textures.textCanvas = createTextCanvas(width, height);
+    return textures.textCanvas;
+  }
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  return canvas;
 }
 
 // Draws a text clip into its texture at the full size of its box, so it
@@ -396,21 +452,35 @@ export function uploadTextTexture(
     { width: boxWidth, height: boxHeight },
     Boolean(preview),
     isFontFaceReady(face)
-      ? () => {
+      ? (textureId) => {
           renderStats.textRasterizations++;
-          const canvas = createTextCanvas(width, height);
+          const canvas = textCanvas(textures, width, height);
           if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
             return false;
           }
           gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-          gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            canvas as TexImageSource,
-          );
+          const storage = textures.textStorage.get(textureId);
+          if (storage?.width === width && storage.height === height) {
+            gl.texSubImage2D(
+              gl.TEXTURE_2D,
+              0,
+              0,
+              0,
+              gl.RGBA,
+              gl.UNSIGNED_BYTE,
+              canvas as TexImageSource,
+            );
+          } else {
+            gl.texImage2D(
+              gl.TEXTURE_2D,
+              0,
+              gl.RGBA,
+              gl.RGBA,
+              gl.UNSIGNED_BYTE,
+              canvas as TexImageSource,
+            );
+            textures.textStorage.set(textureId, { width, height });
+          }
           return true;
         }
       : undefined,

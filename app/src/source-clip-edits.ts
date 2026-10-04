@@ -4,24 +4,17 @@
 // source track overwrite them as a moved span does. Arrangement clips keep
 // their windows on their source tracks and show whatever those now hold
 // (see source-track-content.ts).
-import type { ClipClipboard } from "./app/clip-ops.ts";
-import { getClipEndQ, secondsToQuarters } from "./app/timeline-math.ts";
+import { type ClipClipboard, clipClipboardKind } from "./app/clip-ops.ts";
+import { getClipEndQ } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
-import {
-  clipEffectTrackId,
-  copyEffectStacks,
-  sourceClipEffectTrackId,
-} from "./fx-stack.ts";
+import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
 } from "./source-span-edit.ts";
-import {
-  getClipPieceClips,
-  syncClipsToSourceSpans,
-} from "./source-track-content.ts";
+import { syncClipsToSourceSpans } from "./source-track-content.ts";
 
 export type SourceClipProject = Pick<
   ProjectState,
@@ -33,21 +26,13 @@ export type SourceClipPatch = Partial<
 >;
 
 /**
- * Whether `clipboard` can be pasted into a source track: it was copied from
- * a source clip, or holds only media clips. Fill, text and FX clips have no
- * media to play there.
+ * Whether `clipboard` can be pasted into a source track: only content copied
+ * from a source clip can. Layer clips paste only onto layers.
  */
 export function canPasteIntoSourceTrack(
   clipboard: ClipClipboard | null,
-): clipboard is ClipClipboard {
-  if (!clipboard) {
-    return false;
-  }
-  return (
-    clipboard.sourceSpan !== undefined ||
-    (clipboard.fragments.length > 0 &&
-      clipboard.fragments.every((fragment) => fragment.clip.kind === undefined))
-  );
+): clipboard is ClipClipboard & { sourceSpan: SourceSpan } {
+  return clipboard !== null && clipClipboardKind(clipboard) === "source";
 }
 
 // `spans` placed in order, each overwriting what it lands on in its track,
@@ -81,10 +66,9 @@ function placeSourceSpans(
 }
 
 /**
- * Pastes `clipboard` into source track `trackId` from `pasteQ` as new source
- * clips, keeping its pieces' spacing: the source clip it was copied from, or
- * each media clip's shown media. Each takes the stack it was copied with.
- * Undefined when there is nothing to paste there.
+ * Pastes the source clip `clipboard` was copied from into source track
+ * `trackId` at `pasteQ`, with the stack it was copied with. Undefined when
+ * there is nothing to paste there: layer clips paste only onto layers.
  */
 export function pasteIntoSourceTrack(
   current: SourceClipProject,
@@ -98,74 +82,24 @@ export function pasteIntoSourceTrack(
     return undefined;
   }
 
-  const { bpm } = current;
   const swatch = getSwatch(track.colorIndex);
-  const copies: Array<[string, string]> = [];
-  const spans: SourceSpan[] = [];
-  if (clipboard.sourceSpan) {
-    const id = createId();
-    copies.push([
+  const id = createId();
+  const copies: Array<[string, string]> = [
+    [
       sourceClipEffectTrackId(clipboard.sourceSpan.id),
       sourceClipEffectTrackId(id),
-    ]);
-    spans.push({
+    ],
+  ];
+  const spans: SourceSpan[] = [
+    {
       ...clipboard.sourceSpan,
       id,
       sourceTrackId: trackId,
       startQ: pasteQ,
       tint: swatch.color,
       accent: swatch.accent,
-    });
-  } else {
-    for (const { clip: fragment, offsetQ } of clipboard.fragments) {
-      // Each part of the clip that shows a source clip becomes one, and of
-      // that only what shows media.
-      for (const clip of getClipPieceClips(
-        fragment,
-        current.sourceSpans,
-        bpm,
-      )) {
-        const startSeconds = Math.max(
-          clip.trimStartSeconds,
-          clip.sourceWindowStartSeconds,
-        );
-        const endSeconds = Math.min(
-          clip.trimStartSeconds + clip.durationSeconds,
-          clip.sourceWindowEndSeconds,
-        );
-        if (endSeconds <= startSeconds) {
-          continue;
-        }
-
-        const id = createId();
-        copies.push([
-          clipEffectTrackId(fragment.id),
-          sourceClipEffectTrackId(id),
-        ]);
-        spans.push({
-          id,
-          sourceTrackId: trackId,
-          label: clip.label,
-          mediaPath: clip.mediaPath,
-          ...(clip.mediaId ? { mediaId: clip.mediaId } : {}),
-          startQ:
-            pasteQ +
-            offsetQ +
-            clip.startQ -
-            fragment.startQ +
-            secondsToQuarters(startSeconds - clip.trimStartSeconds, bpm),
-          durationSeconds: endSeconds - startSeconds,
-          trimStartSeconds: startSeconds,
-          ...(clip.warp ? { warp: clip.warp } : {}),
-          tint: swatch.color,
-          accent: swatch.accent,
-        });
-      }
-    }
-  }
-  if (!spans.length) {
-    return undefined;
-  }
+    },
+  ];
 
   // The track lists the media it plays, as a drop onto it does.
   const newPaths = [...new Set(spans.map((span) => span.mediaPath))].filter(

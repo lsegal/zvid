@@ -258,24 +258,68 @@
   background: var(--record-red);
   border-color: #ff8a8a;
   color: #fff;
-  animation: transport-record-pulse 1s ease-in-out infinite;
 }
 
-@keyframes transport-record-pulse {
+/* The pulse animates only opacity and transform, on pseudo-elements, so it
+   composites without repainting the button for the whole recording: a ring
+   spreading out and fading, and a darker fill fading in and out under the
+   icon. */
+.transport-button--recording > svg {
+  position: relative;
+}
+
+.transport-button--recording::before,
+.transport-button--recording::after {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  content: '';
+  pointer-events: none;
+}
+
+.transport-button--recording::before {
+  box-shadow: 0 0 0 7px rgba(255, 59, 59, 0.65);
+  opacity: 0;
+  animation: transport-record-ring 1s ease-in-out infinite;
+}
+
+.transport-button--recording::after {
+  inset: 0;
+  background: #c81e1e;
+  opacity: 0;
+  animation: transport-record-fill 1s ease-in-out infinite;
+}
+
+@keyframes transport-record-ring {
+  0% {
+    opacity: 1;
+    transform: scale(0.86);
+  }
+  50%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes transport-record-fill {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.65);
+    opacity: 0;
   }
   50% {
-    box-shadow: 0 0 0 7px rgba(255, 59, 59, 0);
-    background: #c81e1e;
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .transport-button--recording,
   .transport-button--recording:hover {
-    animation: none;
     box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.45);
+  }
+
+  .transport-button--recording::before,
+  .transport-button--recording::after {
+    animation: none;
   }
 }

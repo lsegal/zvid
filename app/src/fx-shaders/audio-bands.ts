@@ -162,21 +162,18 @@ class OnsetDetector {
   private readonly history = new Float64Array(ONSET_WINDOW_TICKS);
   private historyCount = 0;
   private historyNext = 0;
+  // Running sums of the history and its squares, so each tick costs the
+  // same however long the window is.
+  private sum = 0;
+  private sumOfSquares = 0;
   private refractoryTicks = 0;
   impulse = 0;
 
   // Steps one tick and returns the strength of the hit it detected, or 0.
   tick(flux: number) {
-    let mean = 0;
-    for (let index = 0; index < this.historyCount; index++) {
-      mean += this.history[index];
-    }
-    mean /= Math.max(1, this.historyCount);
-    let variance = 0;
-    for (let index = 0; index < this.historyCount; index++) {
-      variance += (this.history[index] - mean) ** 2;
-    }
-    variance /= Math.max(1, this.historyCount);
+    const count = Math.max(1, this.historyCount);
+    const mean = this.sum / count;
+    const variance = Math.max(0, this.sumOfSquares / count - mean * mean);
     const threshold = Math.max(
       ONSET_MIN_FLUX,
       mean + ONSET_THRESHOLD_DEVIATIONS * Math.sqrt(variance),
@@ -192,17 +189,41 @@ class OnsetDetector {
       this.refractoryTicks = ONSET_REFRACTORY_TICKS;
     }
 
-    this.history[this.historyNext] = flux;
-    this.historyNext = (this.historyNext + 1) % ONSET_WINDOW_TICKS;
-    this.historyCount = Math.min(ONSET_WINDOW_TICKS, this.historyCount + 1);
+    this.record(flux);
     return hit;
   }
 
   reset() {
     this.historyCount = 0;
     this.historyNext = 0;
+    this.sum = 0;
+    this.sumOfSquares = 0;
     this.refractoryTicks = 0;
     this.impulse = 0;
+  }
+
+  private record(flux: number) {
+    if (this.historyCount === ONSET_WINDOW_TICKS) {
+      const dropped = this.history[this.historyNext];
+      this.sum -= dropped;
+      this.sumOfSquares -= dropped * dropped;
+    } else {
+      this.historyCount += 1;
+    }
+    this.history[this.historyNext] = flux;
+    this.sum += flux;
+    this.sumOfSquares += flux * flux;
+    this.historyNext = (this.historyNext + 1) % ONSET_WINDOW_TICKS;
+    // Sums the window afresh once per lap, so rounding never accumulates
+    // over a long session.
+    if (this.historyNext === 0) {
+      this.sum = 0;
+      this.sumOfSquares = 0;
+      for (const value of this.history) {
+        this.sum += value;
+        this.sumOfSquares += value * value;
+      }
+    }
   }
 }
 
@@ -220,7 +241,9 @@ export class AudioBandTracker {
   // Ticks stepped since the last reset, and the hits among the latest of
   // them.
   private tickCount = 0;
-  private hits: Array<{ tick: number; strength: number }> = [];
+  private readonly hits: Array<{ tick: number; strength: number }> = [];
+  // The onsets `bands` gives, reused from call to call.
+  private readonly onsets: AudioOnset[] = [];
 
   // Feeds the latest analyser bins after `elapsedSeconds` of playback and
   // steps every grid tick that elapsed. Only the latest bins are known, so
@@ -252,18 +275,27 @@ export class AudioBandTracker {
   }
 
   // The bands `sinceTickSeconds` after the last tick, with the impulses
-  // decayed over that gap. Defaults to the time carried by `advance`.
+  // decayed over that gap. Defaults to the time carried by `advance`. The
+  // onsets array is reused, so it holds only until the next call.
   bands(sinceTickSeconds = this.sinceTick): AudioBands {
+    this.onsets.length = this.hits.length;
+    this.hits.forEach((hit, index) => {
+      const secondsAgo =
+        (this.tickCount - hit.tick) * TICK_SECONDS + sinceTickSeconds;
+      const onset = this.onsets[index];
+      if (onset) {
+        onset.secondsAgo = secondsAgo;
+        onset.strength = hit.strength;
+      } else {
+        this.onsets[index] = { secondsAgo, strength: hit.strength };
+      }
+    });
     return {
       low: this.envelope.low,
       high: this.envelope.high,
       impulseLow: decayImpulse(this.lowOnsets.impulse, sinceTickSeconds),
       impulseHigh: decayImpulse(this.highOnsets.impulse, sinceTickSeconds),
-      onsets: this.hits.map((hit) => ({
-        secondsAgo:
-          (this.tickCount - hit.tick) * TICK_SECONDS + sinceTickSeconds,
-        strength: hit.strength,
-      })),
+      onsets: this.onsets,
     };
   }
 
@@ -274,7 +306,7 @@ export class AudioBandTracker {
     this.hasPrevious = false;
     this.sinceTick = 0;
     this.tickCount = 0;
-    this.hits = [];
+    this.hits.length = 0;
   }
 
   // A tick whose spectrum matches the previous one, so nothing rose.
@@ -354,8 +386,16 @@ export function createBandAnalyser(context: BaseAudioContext) {
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
 
 // The meter reads only the samples that arrived since its last frame, so
-// each analyser keeps enough for frames up to about 340 ms apart at 48 kHz.
-const METER_FFT_SIZE = 16384;
+// each analyser keeps enough for frames this far apart: well past a 30 fps
+// frame, as each frame copies the whole analyser.
+const METER_MAX_FRAME_GAP_SECONDS = 0.08;
+
+// The smallest analyser size, a power of two, holding a frame gap's worth
+// of samples at `sampleRate`: 4096 at 44.1 or 48 kHz.
+export function meterFftSize(sampleRate: number) {
+  const samples = sampleRate * METER_MAX_FRAME_GAP_SECONDS;
+  return Math.min(32768, Math.max(32, 2 ** Math.ceil(Math.log2(samples))));
+}
 
 // Splits `context`'s input into one analyser per channel, upmixing mono to
 // both sides first (a splitter alone would leave the right channel silent).
@@ -366,9 +406,10 @@ export function createMeterTap(context: BaseAudioContext) {
   input.channelInterpretation = "speakers";
   const splitter = context.createChannelSplitter(2);
   input.connect(splitter);
+  const fftSize = meterFftSize(context.sampleRate);
   const [left, right] = [0, 1].map((channel) => {
     const analyser = context.createAnalyser();
-    analyser.fftSize = METER_FFT_SIZE;
+    analyser.fftSize = fftSize;
     analyser.smoothingTimeConstant = 0;
     splitter.connect(analyser, channel);
     return analyser;
@@ -379,6 +420,8 @@ export function createMeterTap(context: BaseAudioContext) {
 // Measures the preview's audio mix as it plays, through the analyser the
 // mixer feeds it (see createBandAnalyser). The preview volume is a gain
 // after the analyser, so the bands don't follow it.
+// Without an analyser it measures nothing and starts afresh once given one,
+// so the preview passes none while no effect reacts to the mix.
 export class LiveAudioBands {
   private bins = new Uint8Array(FFT_SIZE / 2);
   private tracker = new AudioBandTracker();

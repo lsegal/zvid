@@ -24,7 +24,7 @@ export type SourceSpanMenuContext = ClipMenuContext & {
 export type SourceSpanMenuOptions = {
   lanes: readonly (DropLane & { name: string })[];
   mac: boolean;
-  // Whether the clipboard holds something to paste into a source track.
+  // Whether the clipboard holds a source clip to paste into a source track.
   canPaste: boolean;
   canSplit: boolean;
   // Disables the entries that change the source track's timing or content.

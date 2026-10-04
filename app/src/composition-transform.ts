@@ -399,6 +399,22 @@ export type QuadAxes = {
   offset: [number, number];
 };
 
+// Quad axes for a quad scaled by `scale`, turned clockwise by `radians` in
+// clip space and centered on `translate`.
+export function quadAxes(
+  scale: [number, number],
+  translate: [number, number],
+  radians: number,
+): QuadAxes {
+  const s = Math.sin(radians);
+  const c = Math.cos(radians);
+  return {
+    axisX: [c * scale[0], -s * scale[0]],
+    axisY: [s * scale[1], c * scale[1]],
+    offset: translate,
+  };
+}
+
 // Where the composite shader's unit quad (-1..1, +y up, (-1, 1) at the top
 // left of the image) lands in clip space when it shows the transformed box.
 export function transformedQuadAxes(

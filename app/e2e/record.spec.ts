@@ -78,9 +78,25 @@ test("Record plays from the playhead and grows a clip; Record again keeps playin
   const early = await liveClipWidth(page);
   await page.waitForTimeout(1200);
   expect(await liveClipWidth(page)).toBeGreaterThan(early);
-  await expect(
-    clip.locator(".live-recording-clip__tile").first(),
-  ).toHaveAttribute("style", /url\("data:image\/jpeg/);
+  // The camera's frames fill the filmstrip; Chromium's fake camera is
+  // mostly green.
+  await expect
+    .poll(
+      () =>
+        clip.locator(".live-recording-clip__filmstrip").evaluate((node) => {
+          const canvas = node as HTMLCanvasElement;
+          const context = canvas.getContext("2d");
+          if (!context || !canvas.width) return 0;
+          const { data } = context.getImageData(0, 0, 8, 8);
+          let green = 0;
+          for (let index = 1; index < data.length; index += 4) {
+            green += data[index] ?? 0;
+          }
+          return green;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0);
 
   await recordButton(page).click();
   // Stopping the recording keeps playback going.
@@ -102,6 +118,64 @@ test("Record plays from the playhead and grows a clip; Record again keeps playin
     "0px",
   );
   await expect(page.locator(".status-bar")).toContainText("Recorded 1 clip.");
+  await page.getByRole("button", { name: "Pause playback" }).click();
+});
+
+// Recording is cheap on top of playback (#955): the live tick grows only the
+// recording clip, without re-rendering the app around it, and the track's
+// camera and microphone are captured once, shared by its previews and its
+// recording.
+test("recording doesn't re-render the app each tick or open its devices again", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const devices = navigator.mediaDevices;
+    const getUserMedia = devices.getUserMedia.bind(devices);
+    (window as unknown as { mediaRequests: number }).mediaRequests = 0;
+    devices.getUserMedia = (constraints) => {
+      (window as unknown as { mediaRequests: number }).mediaRequests += 1;
+      return getUserMedia(constraints);
+    };
+  });
+  await page.reload();
+  await page
+    .locator(".track-row--source-drop")
+    .getByRole("button", { name: "Track", exact: true })
+    .click();
+
+  // Arming the selected track opens its Record device with live previews.
+  await page.locator(".track-label--source").click();
+  const device = page.locator(".track-record-device");
+  await device.getByRole("button", { name: /^Arm .+ for recording$/ }).click();
+  await expect
+    .poll(() =>
+      device
+        .getByLabel("Camera preview")
+        .evaluate((video) => (video as HTMLVideoElement).videoWidth),
+    )
+    .toBeGreaterThan(0);
+  await expect(device.locator(".vu-meter")).toBeVisible();
+
+  const requests = await mediaRequests(page);
+  await recordButton(page).click();
+  const clip = page.locator(".live-recording-clip");
+  await expect(clip).toBeVisible();
+  await page.waitForTimeout(300);
+  const early = await liveClipWidth(page);
+  const recording = await countAppRenders(page, 2000);
+  expect(await liveClipWidth(page)).toBeGreaterThan(early);
+  // Playback commits the playhead 4 times a second, re-rendering the app 8
+  // times in 2 s. The live tick runs 5 times a second and used to re-render
+  // it on each one too, about 18 times in all; now it only does when the
+  // timeline grows by a bar.
+  expect(recording).toBeLessThanOrEqual(11);
+  expect(await mediaRequests(page)).toBe(requests);
+
+  await recordButton(page).click();
+  await expect(trackRow(page).locator(".source-span")).toHaveCount(1, {
+    timeout: 30_000,
+  });
   await page.getByRole("button", { name: "Pause playback" }).click();
 });
 
@@ -294,6 +368,40 @@ test("a take that can't be kept shows an error naming its track", async ({
   await alert.getByRole("button", { name: "Dismiss" }).click();
   await expect(alert).toHaveCount(0);
 });
+
+// How many times the app renders over `durationMs`: each render hands the
+// app shell's element new props, which React stores on the element.
+function countAppRenders(page: Page, durationMs: number) {
+  return page.evaluate(async (duration) => {
+    const shell = document.querySelector(".app-shell");
+    if (!shell) throw new Error("no app shell");
+    const key = Object.keys(shell).find((name) =>
+      name.startsWith("__reactProps$"),
+    );
+    if (!key) throw new Error("the app shell has no React props");
+    const element = shell as unknown as Record<string, unknown>;
+    let props = element[key];
+    let renders = 0;
+    Object.defineProperty(shell, key, {
+      configurable: true,
+      get: () => props,
+      set: (next) => {
+        props = next;
+        renders += 1;
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, duration));
+    delete element[key];
+    element[key] = props;
+    return renders;
+  }, durationMs);
+}
+
+function mediaRequests(page: Page) {
+  return page.evaluate(
+    () => (window as unknown as { mediaRequests: number }).mediaRequests,
+  );
+}
 
 // The saved session payload, or null when nothing is saved.
 function readSavedPayload(page: Page) {

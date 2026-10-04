@@ -1,7 +1,8 @@
 // Cut, copy and paste. Cut and copy act on the uncommitted selection's span
 // when there is one, else on the selected clip or source clip. Paste goes
 // into the selected source clip's track, or the selected source track, when
-// one is selected.
+// one is selected. Source clips paste only into source tracks and layer clips
+// only onto layers; the other kind does nothing but say so in the status bar.
 import { canEditTimeline } from "./guards.ts";
 import type { Shortcut } from "./types.ts";
 
