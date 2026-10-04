@@ -15,7 +15,12 @@
 // by the modulator's swing at the end of each block (see modulation.ts),
 // ramped over PARAMETER_RAMP_SECONDS like an edit, so they never click.
 // A stage whose input has been silent for longer than its tail and latency
-// is idle: it is skipped and its processor dropped, so it starts afresh.
+// is idle: it is skipped and its processor reset, so it starts afresh.
+//
+// The chain runs in the audio thread, so nothing here allocates once a
+// chain has warmed up: a processor that stops is kept and reset for its
+// stage's next sound rather than made anew, and per-block state lives in
+// buffers and objects made up front.
 import {
   type ModulatedParameter,
   modulatedValue,
@@ -29,6 +34,7 @@ import {
   type AudioProcessorRegistry,
   type AudioStage,
   type AudioTempo,
+  copyFrames,
   DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
 
@@ -37,6 +43,9 @@ import {
 export const BLOCK_FRAMES = 128;
 export const PARAMETER_RAMP_SECONDS = 0.015;
 export const SWITCH_CROSSFADE_SECONDS = 0.008;
+// A swung knob's value is worked out through its taper this many frames
+// apart and interpolated in between, rather than at every frame.
+export const SWING_STEP_FRAMES = 16;
 
 // A value that moves linearly to its target over a number of frames.
 export class Ramp {
@@ -109,7 +118,8 @@ export function createBuffers(channels: number, frames: number) {
 }
 
 export function isSilent(buffers: readonly Float32Array[], frames: number) {
-  for (const buffer of buffers) {
+  for (let channel = 0; channel < buffers.length; channel++) {
+    const buffer = buffers[channel];
     for (let index = 0; index < frames; index++) {
       if (buffer[index] !== 0) {
         return false;
@@ -125,13 +135,13 @@ function copy(
   frames: number,
 ) {
   for (let channel = 0; channel < to.length; channel++) {
-    to[channel].set(from[channel].subarray(0, frames));
+    copyFrames(from[channel], to[channel], frames);
   }
 }
 
 function clear(buffers: Float32Array[], frames: number) {
-  for (const buffer of buffers) {
-    buffer.fill(0, 0, frames);
+  for (let channel = 0; channel < buffers.length; channel++) {
+    buffers[channel].fill(0, 0, frames);
   }
 }
 
@@ -173,6 +183,7 @@ type StageHost = { sampleRate: number; channels: number; maxFrames: number };
 // A knob's swing away from its stored value, ramped, and the values it
 // gives over the block. A swing at rest leaves the knob at its stored value.
 type Swing = {
+  key: string;
   ramp: Ramp;
   parameter: ModulatedParameter;
   active: boolean;
@@ -185,11 +196,32 @@ type ProcessorSlot = {
   switches: Readonly<Record<string, string>>;
 };
 
+type RampEntry = { key: string; ramp: Ramp };
+
+// Whether `parameters` modulate the knob `key`.
+function modulates(
+  parameters: readonly ModulatedParameter[] | undefined,
+  key: string,
+) {
+  if (!parameters) {
+    return false;
+  }
+  for (let index = 0; index < parameters.length; index++) {
+    if (parameters[index].key === key) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class ChainStage implements AudioParameterBlock {
   config: AudioStage;
   readonly dsp: AudioEffectDsp | undefined;
   private readonly ramps = new Map<string, Ramp>();
+  // The ramps and swings again, as arrays to walk every block.
+  private readonly rampList: RampEntry[] = [];
   private readonly swings = new Map<string, Swing>();
+  private readonly swingList: Swing[] = [];
   private modulator: StageModulator | null = null;
   // Swings jump to their first values in the first block after a reset,
   // as the knobs do, and ramp from then on.
@@ -199,6 +231,9 @@ class ChainStage implements AudioParameterBlock {
   private readonly wet: Ramp;
   private current: ProcessorSlot | null = null;
   private fading: { slot: ProcessorSlot; weight: Ramp } | null = null;
+  // A processor no longer running, kept to reset and reuse for the next
+  // sound rather than made afresh in the audio thread.
+  private spare: ProcessorSlot | null = null;
   // The switches the processor being run reads.
   private switches: Readonly<Record<string, string>>;
   private readonly output: Float32Array[];
@@ -222,8 +257,14 @@ class ChainStage implements AudioParameterBlock {
     this.output = createBuffers(host.channels, host.maxFrames);
     this.faded = createBuffers(host.channels, host.maxFrames);
     for (const [key, value] of Object.entries(config.numbers)) {
-      this.ramps.set(key, new Ramp(value, host.maxFrames));
+      this.addRamp(key, value);
     }
+  }
+
+  private addRamp(key: string, value: number) {
+    const ramp = new Ramp(value, this.host.maxFrames);
+    this.ramps.set(key, ramp);
+    this.rampList.push({ key, ramp });
   }
 
   update(config: AudioStage) {
@@ -238,11 +279,14 @@ class ChainStage implements AudioParameterBlock {
       if (ramp) {
         ramp.set(value, rampFrames);
       } else {
-        this.ramps.set(key, new Ramp(value, this.host.maxFrames));
+        this.addRamp(key, value);
       }
     }
     if (!sameSwitches(this.config.switches, config.switches)) {
       if (this.current) {
+        if (this.fading) {
+          this.release(this.fading.slot);
+        }
         const weight = new Ramp(1, this.host.maxFrames);
         weight.set(0, fadeFrames);
         this.fading = { slot: this.current, weight };
@@ -253,9 +297,41 @@ class ChainStage implements AudioParameterBlock {
     this.config = config;
   }
 
+  // Keeps `slot`'s processor to reuse, unless one is already kept.
+  private release(slot: ProcessorSlot) {
+    this.spare ??= slot;
+  }
+
+  // Stops the running processors, keeping one to reuse.
+  private stop() {
+    if (this.current) {
+      this.release(this.current);
+      this.current = null;
+    }
+    if (this.fading) {
+      this.release(this.fading.slot);
+      this.fading = null;
+    }
+  }
+
+  // A processor at the stage's switches, as it was when made: the kept one
+  // reset, or a new one when none is kept.
+  private start(dsp: AudioEffectDsp): ProcessorSlot {
+    const spare = this.spare;
+    if (spare) {
+      this.spare = null;
+      spare.processor.reset();
+      spare.switches = this.config.switches;
+      return spare;
+    }
+    return {
+      processor: dsp.createProcessor(this.host.sampleRate, this.host.channels),
+      switches: this.config.switches,
+    };
+  }
+
   reset() {
-    this.current = null;
-    this.fading = null;
+    this.stop();
     this.silentFrames = Number.POSITIVE_INFINITY;
     this.wet.jump(this.wet.target);
     for (const ramp of this.ramps.values()) {
@@ -307,7 +383,8 @@ class ChainStage implements AudioParameterBlock {
     this.modulate(input, frames, time);
     // Advances every ramp by the block; number() then reads the block.
     this.changingKeys.clear();
-    for (const [key, ramp] of this.ramps) {
+    for (let index = 0; index < this.rampList.length; index++) {
+      const { key, ramp } = this.rampList[index];
       if (ramp.changing) {
         this.changingKeys.add(key);
       }
@@ -318,25 +395,17 @@ class ChainStage implements AudioParameterBlock {
     const wet = this.wet.fill(frames);
 
     if (silent && this.silentFrames - frames >= this.drainFrames) {
-      this.current = null;
-      this.fading = null;
+      this.stop();
       this.wet.jump(this.wet.target);
       clear(this.output, frames);
       return this.output;
     }
     if (!wetChanging && this.wet.value === 0) {
-      this.current = null;
-      this.fading = null;
+      this.stop();
       return input;
     }
 
-    this.current ??= {
-      processor: this.dsp.createProcessor(
-        this.host.sampleRate,
-        this.host.channels,
-      ),
-      switches: this.config.switches,
-    };
+    this.current ??= this.start(this.dsp);
     this.run(this.current, input, this.output, frames, time);
     if (this.fading) {
       const { slot, weight } = this.fading;
@@ -350,6 +419,7 @@ class ChainStage implements AudioParameterBlock {
         }
       }
       if (!weight.changing) {
+        this.release(slot);
         this.fading = null;
       }
     }
@@ -390,51 +460,72 @@ class ChainStage implements AudioParameterBlock {
     const targets = modulation
       ? this.modulator?.advance(modulation, this.config.id, input, frames, time)
       : undefined;
-    for (const parameter of modulation?.parameters ?? []) {
+    const parameters = modulation?.parameters;
+    for (let index = 0; index < (parameters?.length ?? 0); index++) {
+      const parameter = (parameters as readonly ModulatedParameter[])[index];
       const swing = this.swings.get(parameter.key);
       if (swing) {
         swing.parameter = parameter;
       } else if (this.ramps.has(parameter.key)) {
-        this.swings.set(parameter.key, {
+        const added: Swing = {
+          key: parameter.key,
           ramp: new Ramp(0, this.host.maxFrames),
           parameter,
           active: false,
           values: new Float32Array(this.host.maxFrames),
           value: 0,
-        });
+        };
+        this.swings.set(parameter.key, added);
+        this.swingList.push(added);
       }
     }
-    for (const [key, swing] of this.swings) {
-      swing.ramp.set(targets?.get(key) ?? 0, rampFrames);
+    for (let index = 0; index < this.swingList.length; index++) {
+      const swing = this.swingList[index];
+      swing.ramp.set(targets?.get(swing.key) ?? 0, rampFrames);
     }
   }
 
   // Fills each swung knob's values for the block from its stored value's
   // ramp and its swing's. Swings that have settled back to none rest, and
-  // are dropped once their knob is no longer modulated.
+  // are dropped once their knob is no longer modulated. A moving knob goes
+  // through its taper every SWING_STEP_FRAMES frames and at the block's
+  // last frame, and moves in a straight line in between; a still one goes
+  // through it once.
   private applySwings(frames: number) {
     const modulated = this.config.modulation?.parameters;
-    for (const [key, swing] of this.swings) {
-      const { ramp, parameter, values } = swing;
+    for (let at = 0; at < this.swingList.length; at++) {
+      const swing = this.swingList[at];
+      const { key, ramp, parameter, values } = swing;
       const base = this.ramps.get(key);
       swing.active = Boolean(base) && (ramp.changing || ramp.value !== 0);
       if (!base || !swing.active) {
-        if (!modulated?.some((candidate) => candidate.key === key)) {
+        if (!modulates(modulated, key)) {
           this.swings.delete(key);
+          this.swingList.splice(at, 1);
+          at -= 1;
         }
         continue;
       }
-      if (ramp.changing) {
-        this.changingKeys.add(key);
-      }
+      const moving = ramp.changing || this.changingKeys.has(key);
       const offsets = ramp.fill(frames);
       const stored = base.values;
-      for (let index = 0; index < frames; index++) {
-        values[index] = modulatedValue(
-          stored[index],
-          offsets[index],
-          parameter,
-        );
+      if (!moving) {
+        swing.value = modulatedValue(stored[0], offsets[0], parameter);
+        values.fill(swing.value, 0, frames);
+        continue;
+      }
+      this.changingKeys.add(key);
+      let from = modulatedValue(stored[0], offsets[0], parameter);
+      values[0] = from;
+      for (let start = 0; start < frames - 1; start += SWING_STEP_FRAMES) {
+        const end = Math.min(start + SWING_STEP_FRAMES, frames - 1);
+        const to = modulatedValue(stored[end], offsets[end], parameter);
+        const step = (to - from) / (end - start);
+        for (let index = start + 1; index < end; index++) {
+          values[index] = from + step * (index - start);
+        }
+        values[end] = to;
+        from = to;
       }
       swing.value = values[frames - 1];
     }
@@ -485,7 +576,13 @@ export class AudioChain {
   private silentFrames = Number.POSITIVE_INFINITY;
   // Whether the last block was skipped as idle.
   private idle = false;
-  private tempo: AudioTempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
+  // The block's time, updated in place for each block.
+  private readonly time: AudioBlockTime = {
+    bpm: 120,
+    signature: DEFAULT_TIME_SIGNATURE,
+    sampleRate: 0,
+    timeSeconds: 0,
+  };
   private drain = 0;
   private readonly registry: AudioProcessorRegistry;
   readonly sampleRate: number;
@@ -504,6 +601,7 @@ export class AudioChain {
     this.maxFrames = maxFrames;
     this.inputGain = new Ramp(1, maxFrames);
     this.gated = createBuffers(channels, maxFrames);
+    this.time.sampleRate = sampleRate;
   }
 
   // Applies new settings. The first call sets every value at once; later
@@ -532,7 +630,8 @@ export class AudioChain {
         Math.ceil(Math.max(0, tail) * this.sampleRate) +
         Math.max(0, Math.round(latency));
     }
-    this.tempo = tempo;
+    this.time.bpm = tempo.bpm;
+    this.time.signature = tempo.signature;
     if (this.configured) {
       this.inputGain.set(
         settings.inputGain,
@@ -609,7 +708,7 @@ export class AudioChain {
       const from = input[channel];
       const to = this.gated[channel];
       if (!gainChanging && this.inputGain.value === 1) {
-        to.set(from.subarray(0, frames));
+        copyFrames(from, to, frames);
       } else {
         for (let index = 0; index < frames; index++) {
           to[index] = from[index] * gain[index];
@@ -617,14 +716,11 @@ export class AudioChain {
       }
     }
 
-    const time: AudioBlockTime = {
-      ...this.tempo,
-      sampleRate: this.sampleRate,
-      timeSeconds,
-    };
+    const time = this.time;
+    time.timeSeconds = timeSeconds;
     let signal: readonly Float32Array[] = this.gated;
-    for (const stage of this.stages) {
-      signal = stage.process(signal, frames, time);
+    for (let index = 0; index < this.stages.length; index++) {
+      signal = this.stages[index].process(signal, frames, time);
     }
 
     if (!this.delay.frames) {

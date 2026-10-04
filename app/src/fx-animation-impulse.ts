@@ -50,19 +50,18 @@ export type ReactiveImpulse = {
 // hit starts an envelope `lengthFrames` long at `fps`; a hit while one is
 // running restarts it at the larger of the two strengths. `onsets` must be
 // in ascending time order, as `placeOnsets` gives them. Runs every frame, so
-// it searches rather than sorting or copying the hits.
+// it searches rather than sorting or copying the hits, and fills `into`
+// when given one rather than making a new impulse.
 export function findReactiveImpulse(
   onsets: readonly ReactiveOnset[],
   time: number,
   lengthFrames: number,
   fps = REACTIVE_FRAME_RATE,
+  into?: ReactiveImpulse,
 ): ReactiveImpulse | undefined {
   if (!(lengthFrames > 0) || !(fps > 0)) {
     return undefined;
   }
-  const framesBetween = (from: number, to: number) => (to - from) * fps;
-  const isRunning = (start: number, at: number) =>
-    framesBetween(start, at) < lengthFrames - FRAME_EPSILON;
 
   // The first hit after `time`; the one before it last (re)started the
   // envelope.
@@ -70,7 +69,7 @@ export function findReactiveImpulse(
   let high = onsets.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (framesBetween(time, onsets[middle].time) > FRAME_EPSILON) {
+    if (framesBetween(time, onsets[middle].time, fps) > FRAME_EPSILON) {
       high = middle;
     } else {
       low = middle + 1;
@@ -81,21 +80,39 @@ export function findReactiveImpulse(
     return undefined;
   }
   const start = onsets[index].time;
-  if (!isRunning(start, time)) {
+  if (!isRunning(start, time, fps, lengthFrames)) {
     return undefined;
   }
   // Each hit that landed while the previous envelope ran carried that
   // envelope's strength forward.
   let strength = onsets[index].strength;
-  while (index > 0 && isRunning(onsets[index - 1].time, onsets[index].time)) {
+  while (
+    index > 0 &&
+    isRunning(onsets[index - 1].time, onsets[index].time, fps, lengthFrames)
+  ) {
     index--;
     strength = Math.max(strength, onsets[index].strength);
   }
-  return {
-    seed: Math.round(start * ONSET_GRID_RATE),
-    strength,
-    u: Math.max(0, framesBetween(start, time)) / lengthFrames,
-  };
+  const impulse = into ?? { seed: 0, strength: 0, u: 0 };
+  impulse.seed = Math.round(start * ONSET_GRID_RATE);
+  impulse.strength = strength;
+  impulse.u = Math.max(0, framesBetween(start, time, fps)) / lengthFrames;
+  return impulse;
+}
+
+function framesBetween(from: number, to: number, fps: number) {
+  return (to - from) * fps;
+}
+
+// Whether an envelope that started at `start` still runs at `at`.
+function isRunning(start: number, at: number, fps: number, lengthFrames: number) {
+  return framesBetween(start, at, fps) < lengthFrames - FRAME_EPSILON;
+}
+
+// The timeline second of a hit `secondsAgo` before `time`, snapped to the
+// detector's grid.
+export function onsetTime(time: number, secondsAgo: number) {
+  return Math.round((time - secondsAgo) * ONSET_GRID_RATE) / ONSET_GRID_RATE;
 }
 
 // The detector's recent hits placed on the timeline at `time` (seconds), in
@@ -106,8 +123,7 @@ export function placeOnsets(
   time: number,
 ): ReactiveOnset[] {
   return (onsets ?? []).map((onset) => ({
-    time:
-      Math.round((time - onset.secondsAgo) * ONSET_GRID_RATE) / ONSET_GRID_RATE,
+    time: onsetTime(time, onset.secondsAgo),
     strength: onset.strength,
   }));
 }
@@ -135,20 +151,30 @@ export function reactiveOffset(effectId: string, key: string, seed: number) {
   );
 }
 
+export type ReactiveSwing = { seed: number; amount: number };
+
 // The hit moving the knobs at `time` under Reactive settings, and how hard:
 // `amount` is the Motion envelope scaled by Reactivity and the hit's
-// strength. Undefined while nothing moves.
+// strength. Undefined while nothing moves. With `into`, it fills that and
+// `impulse` rather than making new objects, for the audio thread.
 export function reactiveSwingAt(
   reactive: { motion: ReactiveMotion; reactivity: number },
   onsets: readonly ReactiveOnset[],
   time: number,
   lengthFrames: number,
   fps = REACTIVE_FRAME_RATE,
-): { seed: number; amount: number } | undefined {
+  into?: { swing: ReactiveSwing; impulse: ReactiveImpulse },
+): ReactiveSwing | undefined {
   if (reactive.motion === "None" || !(reactive.reactivity > 0)) {
     return undefined;
   }
-  const impulse = findReactiveImpulse(onsets, time, lengthFrames, fps);
+  const impulse = findReactiveImpulse(
+    onsets,
+    time,
+    lengthFrames,
+    fps,
+    into?.impulse,
+  );
   if (!impulse) {
     return undefined;
   }
@@ -156,5 +182,11 @@ export function reactiveSwingAt(
     reactiveEnvelope(reactive.motion, impulse.u) *
     Math.min(1, reactive.reactivity) *
     impulse.strength;
-  return amount === 0 ? undefined : { seed: impulse.seed, amount };
+  if (amount === 0) {
+    return undefined;
+  }
+  const swing = into?.swing ?? { seed: 0, amount: 0 };
+  swing.seed = impulse.seed;
+  swing.amount = amount;
+  return swing;
 }

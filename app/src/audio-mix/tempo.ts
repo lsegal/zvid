@@ -41,7 +41,22 @@ export const NOTE_VALUE_OPTIONS: readonly string[] = NOTE_VALUES.flatMap(
   ],
 );
 
+type ParsedNoteValue = { bars: number; quarters: number; feel: NoteFeel };
+
+// Parsed options by their text, so the audio thread parses each one once.
+// Sessions only ever hold a handful of distinct options.
+const parsedNoteValues = new Map<string, ParsedNoteValue | null>();
+
 function parseNoteValue(option: string) {
+  let parsed = parsedNoteValues.get(option);
+  if (parsed === undefined) {
+    parsed = parseNoteValueText(option) ?? null;
+    parsedNoteValues.set(option, parsed);
+  }
+  return parsed ?? undefined;
+}
+
+function parseNoteValueText(option: string): ParsedNoteValue | undefined {
   const trimmed = option.trim();
   const suffix = trimmed.at(-1);
   const feel: NoteFeel =
