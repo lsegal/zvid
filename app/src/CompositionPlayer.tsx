@@ -51,7 +51,11 @@ import {
   seekMediaElement,
   seekWhenReady,
 } from "./media-seek.ts";
-import { MediaElementPool, mediaWindowAt } from "./media-window.ts";
+import {
+  drawnClipOf,
+  MediaElementPool,
+  mediaWindowAt,
+} from "./media-window.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -135,6 +139,8 @@ export class CompositionRenderer {
   private resources: WebGlResources | null = null;
   // Video elements for the media near the playhead (see mediaWindowAt).
   private media = new MediaElementPool();
+  // The mixer's video elements active clips draw instead, by source key.
+  private sharedElements = new Map<string, HTMLVideoElement>();
   private windowPlayheadQ = 0;
   // Plays the audio mix in "live" mode.
   private mixer: PreviewAudioMixer | null = null;
@@ -159,7 +165,10 @@ export class CompositionRenderer {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
     if (this.audioAnalysis === "live") {
-      this.mixer = new PreviewAudioMixer({ workletUrl: CHAIN_WORKLET_URL });
+      this.mixer = new PreviewAudioMixer({
+        workletUrl: CHAIN_WORKLET_URL,
+        onVideoElementsChange: () => this.refreshVideoFrameReadyListeners(),
+      });
     }
     this.state = state;
     this.update(state);
@@ -222,7 +231,13 @@ export class CompositionRenderer {
     );
 
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
-    const nextActiveClips = this.computeActiveClips(playheadQ, audio);
+    // Exact frames draw only from the compositor's own elements.
+    const nextActiveClips = this.computeActiveClips(
+      playheadQ,
+      audio,
+      undefined,
+      false,
+    );
     this.syncMediaWindow(playheadQ);
     const pendingSeeks = new Map<string, Promise<void>>();
 
@@ -269,7 +284,7 @@ export class CompositionRenderer {
 
     for (const [sourceKey, element] of this.media.elements) {
       const activeEntry = activeClipBySourceKey.get(sourceKey);
-      if (!activeEntry?.isInBounds) {
+      if (!activeEntry?.isInBounds || this.sharedElements.has(sourceKey)) {
         if (!element.paused) {
           element.pause();
         }
@@ -332,6 +347,7 @@ export class CompositionRenderer {
     playheadQ: number,
     audio = SILENT_AUDIO_BANDS,
     effects = this.renderedEffects(),
+    share = true,
   ) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
@@ -353,20 +369,29 @@ export class CompositionRenderer {
       this.state.signature,
     );
 
-    // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed. Fill, text and FX clips draw no media.
+    // A clip the mixer plays from a video element draws from it. Clips
+    // sharing a media at this playhead draw from extra elements, made the
+    // first time they are needed. Fill, text and FX clips draw no media.
     let addedElement = false;
+    this.sharedElements.clear();
     for (const entry of activeClips) {
       if (entry.text && entry.clip.id === this.state.hiddenTextClipId) {
         entry.text = { ...entry.text, text: "" };
       }
       if (
-        !entry.fill &&
-        !entry.text &&
-        !entry.fx &&
-        entry.media.kind === "video" &&
-        this.media.ensure(entry.sourceKey, entry.media, "auto")
+        entry.fill ||
+        entry.text ||
+        entry.fx ||
+        entry.media.kind !== "video"
       ) {
+        continue;
+      }
+      const shared = share
+        ? this.mixer?.videoElementFor(drawnClipOf(entry.clip, this.state.bpm))
+        : undefined;
+      if (shared) {
+        this.sharedElements.set(entry.sourceKey, shared);
+      } else if (this.media.ensure(entry.sourceKey, entry.media, "auto")) {
         addedElement = true;
       }
     }
@@ -461,7 +486,7 @@ export class CompositionRenderer {
       this.resources as WebGlResources,
       this.canvas,
       activeClips,
-      this.media.elements,
+      this.media.drawnWith(this.sharedElements),
       resolveEffectChain(effects, GROUP_TRACK_ID),
       frameContext,
       resolveAnimatedOrder(effects, GROUP_TRACK_ID, this.state.fps),
@@ -478,6 +503,7 @@ export class CompositionRenderer {
       mediaById,
       quartersToSeconds(playheadQ, bpm),
       bpm,
+      (clip) => Boolean(this.mixer?.playsVideoOf(drawnClipOf(clip, bpm))),
     );
     if (this.media.sync(window, mediaById)) {
       this.refreshVideoFrameReadyListeners();
@@ -488,7 +514,10 @@ export class CompositionRenderer {
     this.clearVideoFrameReadyListeners();
     if (this.videoFrameReadyListener) {
       this.removeVideoFrameReadyListeners = listenForVideoFrames(
-        this.media.elements.values(),
+        [
+          ...this.media.elements.values(),
+          ...(this.mixer?.videoElements() ?? []),
+        ],
         this.videoFrameReadyListener,
       );
     }

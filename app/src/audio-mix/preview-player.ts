@@ -42,8 +42,8 @@ export function createPlayer(
   const element = document.createElement(video ? "video" : "audio");
   element.crossOrigin = "anonymous";
   element.preload = "auto";
-  if (element instanceof HTMLVideoElement) {
-    element.playsInline = true;
+  if (video) {
+    (element as HTMLVideoElement).playsInline = true;
   }
   element.src = url;
   // Routing through Web Audio is permanent; the element plays at full
@@ -95,4 +95,70 @@ export function playsLike(audio: AudioMixClip, drawn: DrawnClip) {
     (audio.warp === drawn.warp ||
       JSON.stringify(audio.warp) === JSON.stringify(drawn.warp))
   );
+}
+
+// A voice that plays a player into its gain.
+export type PlayerVoice = {
+  url: string;
+  player: Player | null;
+  gain: AudioNode;
+};
+
+// Gives `voice`, whose clip plays `mediaTime` now, a ready player of the
+// same media from one of `voices` whose clip is not playing now (per
+// `isPlaying`), when its own would have to load or seek first: preferably
+// one already there, as the previous clip's is when back-to-back clips play
+// on through the media, else, when its own has not loaded, any ready one,
+// which seeks faster than a fresh one loads. The voices trade players, so
+// the other keeps one for when it plays again.
+export function takeReadyPlayer<Voice extends PlayerVoice>(
+  voice: Voice,
+  voices: Iterable<[string, Voice]>,
+  mediaTime: number,
+  tolerance: number,
+  isPlaying: (voiceId: string) => boolean,
+) {
+  const own = voice.player;
+  if (!own) {
+    return;
+  }
+  const near = (player: Player) =>
+    Math.abs(player.element.currentTime - mediaTime) <= tolerance;
+  if (isReady(own.element) && near(own)) {
+    return;
+  }
+  const ownLoaded = own.element.readyState >= HAVE_FUTURE_DATA;
+  let best: Voice | null = null;
+  for (const [otherId, other] of voices) {
+    const candidate = other.player;
+    if (
+      other === voice ||
+      !candidate ||
+      other.url !== voice.url ||
+      !isReady(candidate.element) ||
+      isPlaying(otherId)
+    ) {
+      continue;
+    }
+    if (near(candidate)) {
+      best = other;
+      break;
+    }
+    if (!ownLoaded && !best) {
+      best = other;
+    }
+  }
+  if (!best?.player) {
+    return;
+  }
+  const taken = best.player;
+  own.source.disconnect();
+  taken.source.disconnect();
+  own.source.connect(best.gain);
+  taken.source.connect(voice.gain);
+  if (!own.element.paused) {
+    own.element.pause();
+  }
+  best.player = own;
+  voice.player = taken;
 }
