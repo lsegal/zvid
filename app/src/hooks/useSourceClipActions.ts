@@ -115,36 +115,21 @@ export function useSourceClipActions({
   ) {
     const clipboard = clipClipboardRef.current;
     if (!canPasteIntoSourceTrack(clipboard)) {
-      setStatus("Only media clips can be pasted into a source track.");
+      setStatus("Only source clips can be pasted into a source track.");
       return;
     }
 
     const { sourceTrackId } = target;
-    const pastedIds = clipboard.sourceSpan
-      ? [newSourceSpanId()]
-      : clipboard.fragments.map(newSourceSpanId);
-    const pasted = commitEdit("Paste source clip", (current) => {
-      const ids = [...pastedIds];
-      return pasteIntoSourceTrack(
-        current,
-        clipboard,
-        sourceTrackId,
-        pasteQ,
-        () => ids.shift() ?? newSourceSpanId(),
-      );
-    });
+    const id = newSourceSpanId();
+    const pasted = commitEdit("Paste source clip", (current) =>
+      pasteIntoSourceTrack(current, clipboard, sourceTrackId, pasteQ, () => id),
+    );
     if (!pasted) {
       return;
     }
 
-    selectSource(selectSourceSpan({ id: pastedIds[0], sourceTrackId }));
-    const label =
-      clipboard.sourceSpan?.label ?? clipboard.fragments[0]?.clip.label;
-    setStatus(
-      pastedIds.length === 1
-        ? `Pasted ${label}.`
-        : `Pasted ${pastedIds.length} source clips.`,
-    );
+    selectSource(selectSourceSpan({ id, sourceTrackId }));
+    setStatus(`Pasted ${clipboard.sourceSpan.label}.`);
   }
 
   function duplicate(span: SourceSpan) {

@@ -195,6 +195,8 @@ export function SourceTrackRow({
             bpm={span.bpm}
             quarterPx={span.quarterPx}
             take={liveTake}
+            visibleStartPx={span.visibleTimelineStartPx}
+            visibleWidthPx={span.visibleTimelineWidthPx}
           />
         ) : null}
         {isDropTarget ? (

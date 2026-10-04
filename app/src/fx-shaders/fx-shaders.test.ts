@@ -10,6 +10,7 @@ import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
   AudioBandTracker,
+  LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./audio-bands.ts";
@@ -338,6 +339,68 @@ describe("audio onsets", () => {
     const seeked = new OfflineAudioBands(samples, SAMPLE_RATE);
 
     assert.deepEqual(seeked.at(2.6).onsets, sequential.at(2.6).onsets);
+  });
+
+  it("detects the same hits after many windows as just after a seek", () => {
+    const samples = clickTrack(20);
+    const sequential = new OfflineAudioBands(samples, SAMPLE_RATE);
+    for (let time = 0; time <= 19.6; time += 1 / 30) {
+      sequential.at(time);
+    }
+    const seeked = new OfflineAudioBands(samples, SAMPLE_RATE);
+    const expected = (seeked.at(19.6).onsets ?? []).map((onset) => ({
+      ...onset,
+    }));
+
+    assert.equal(expected.length, 2);
+    assert.deepEqual(sequential.at(19.6).onsets, expected);
+  });
+
+  it("reuses one onsets array, aging each hit from call to call", () => {
+    const tracker = new AudioBandTracker();
+    const quiet = new Uint8Array(512);
+    const hit = new Uint8Array(512).fill(200, 1, 6);
+    tracker.step(quiet, SAMPLE_RATE);
+    tracker.step(hit, SAMPLE_RATE);
+    const first = tracker.bands(0).onsets;
+    assert.equal(first?.length, 1);
+    assert.equal(first[0].secondsAgo, 0);
+
+    tracker.step(quiet, SAMPLE_RATE);
+    const second = tracker.bands(0.005).onsets;
+    assert.equal(second, first);
+    assert.ok(
+      Math.abs((second?.[0].secondsAgo ?? 0) - (1 / 60 + 0.005)) < 1e-9,
+    );
+  });
+});
+
+describe("LiveAudioBands", () => {
+  // Counts the analyser reads LiveAudioBands makes.
+  function countingAnalyser() {
+    const analyser = {
+      reads: 0,
+      context: { sampleRate: SAMPLE_RATE },
+      getByteFrequencyData(bins: Uint8Array) {
+        analyser.reads += 1;
+        bins.fill(0);
+      },
+    };
+    return analyser;
+  }
+
+  it("reads the analyser on each sample it is given", () => {
+    const live = new LiveAudioBands();
+    const analyser = countingAnalyser();
+    live.sample(analyser as unknown as AnalyserNode, 0);
+    live.sample(analyser as unknown as AnalyserNode, 16);
+    assert.equal(analyser.reads, 2);
+  });
+
+  it("measures nothing without an analyser", () => {
+    const live = new LiveAudioBands();
+    assert.deepEqual(live.sample(null, 0), SILENT_AUDIO_BANDS);
+    assert.deepEqual(live.sample(null, 16), SILENT_AUDIO_BANDS);
   });
 });
 

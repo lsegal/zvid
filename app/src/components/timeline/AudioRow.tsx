@@ -1,4 +1,5 @@
 import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
+import { useMemo } from "react";
 import { mixPeakLevel } from "../../audio-mix-peaks.ts";
 import { audioRowToggleLabel } from "../../audio-row-section.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
@@ -48,6 +49,11 @@ export function AudioRow({
     durationSeconds > 0
       ? { left: 0, width: ((durationSeconds * bpm) / 60) * quarterPx }
       : { left: visibleTimelineStartPx, width: visibleTimelineWidthPx };
+  // Scans every peak, so only once per mix rather than on each scroll.
+  const peakLevel = useMemo(
+    () => (peaks ? mixPeakLevel(peaks).toFixed(2) : undefined),
+    [peaks],
+  );
 
   return (
     <section
@@ -84,9 +90,7 @@ export function AudioRow({
       <div
         className={`track-row__content track-row__content--waveform ${computing && !prefersReducedMotion ? "is-syncing is-syncing--animated" : ""}`}
         data-audio-mix={computing ? "computing" : peaks ? "ready" : "empty"}
-        data-audio-mix-level={
-          peaks ? mixPeakLevel(peaks).toFixed(2) : undefined
-        }
+        data-audio-mix-level={peakLevel}
         style={gridStyle}
       >
         {computing ? (

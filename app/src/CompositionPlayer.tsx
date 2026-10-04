@@ -19,6 +19,7 @@ import {
   effectUsesAudio,
   GROUP_TRACK_ID,
   type Lane,
+  liveBandsAnalyser,
   type MediaItem,
   quartersToSeconds,
   resolveAnimatedOrder,
@@ -42,8 +43,15 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
-import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
-import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
+import { listenForVideoFrames } from "./media-element.ts";
+import {
+  cancelQueuedSeek,
+  needsPlaybackSeek,
+  nudgedPlaybackRate,
+  seekMediaElement,
+  seekWhenReady,
+} from "./media-seek.ts";
+import { MediaElementPool, mediaWindowAt } from "./media-window.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -125,10 +133,9 @@ export class CompositionRenderer {
   readonly canvas: HTMLCanvasElement;
 
   private resources: WebGlResources | null = null;
-  // Media elements by source key (see ActiveClip.sourceKey), and the media
-  // each one plays.
-  private mediaRefs = new Map<string, HTMLMediaElement>();
-  private mediaIdBySourceKey = new Map<string, string>();
+  // Video elements for the media near the playhead (see mediaWindowAt).
+  private media = new MediaElementPool();
+  private windowPlayheadQ = 0;
   // Plays the audio mix in "live" mode.
   private mixer: PreviewAudioMixer | null = null;
   private removeVideoFrameReadyListeners: (() => void) | null = null;
@@ -160,7 +167,7 @@ export class CompositionRenderer {
 
   update(state: CompositionRendererState) {
     this.state = state;
-    this.syncMediaElements();
+    this.syncMediaWindow(this.windowPlayheadQ);
     this.mixer?.update(this.audioMix(), state.mediaItems);
   }
 
@@ -173,12 +180,7 @@ export class CompositionRenderer {
       disposeWebGlResources(this.resources);
       this.resources = null;
     }
-
-    for (const element of this.mediaRefs.values()) {
-      releaseMediaElement(element);
-    }
-    this.mediaRefs.clear();
-    this.mediaIdBySourceKey.clear();
+    this.media.clear();
   }
 
   // The preview playback volume, which export renders never set.
@@ -195,11 +197,12 @@ export class CompositionRenderer {
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
-    const audio = this.sampleLiveAudioBands();
-    this.activeClips = this.computeActiveClips(playheadQ, audio);
+    const effects = this.renderedEffects();
+    const audio = this.sampleLiveAudioBands(effects);
+    this.activeClips = this.computeActiveClips(playheadQ, audio, effects);
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
-      audio: audio ?? SILENT_AUDIO_BANDS,
+      audio,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
       preview: playing,
     });
@@ -220,6 +223,7 @@ export class CompositionRenderer {
 
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
     const nextActiveClips = this.computeActiveClips(playheadQ, audio);
+    this.syncMediaWindow(playheadQ);
     const pendingSeeks = new Map<string, Promise<void>>();
 
     for (const entry of nextActiveClips) {
@@ -227,7 +231,7 @@ export class CompositionRenderer {
         continue;
       }
 
-      const mediaElement = this.mediaRefs.get(entry.sourceKey);
+      const mediaElement = this.media.elements.get(entry.sourceKey);
       if (!(mediaElement instanceof HTMLVideoElement)) {
         continue;
       }
@@ -260,16 +264,10 @@ export class CompositionRenderer {
         entry,
       ]),
     );
-    const mediaById = new Map(
-      this.state.mediaItems.map((item) => [item.id, item]),
-    );
+    this.syncMediaWindow(playback.playheadQ);
+    const steady = playback.isPlaying && !playback.isScrubbing;
 
-    for (const [sourceKey, element] of this.mediaRefs) {
-      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
-      if (!item) {
-        continue;
-      }
-
+    for (const [sourceKey, element] of this.media.elements) {
       const activeEntry = activeClipBySourceKey.get(sourceKey);
       if (!activeEntry?.isInBounds) {
         if (!element.paused) {
@@ -279,9 +277,13 @@ export class CompositionRenderer {
       }
 
       // A warped clip changes speed between its warp markers; the drift
-      // check below re-seeks it at each marker.
+      // check below re-seeks it at each marker. Smaller drift in steady
+      // playback is made up by playing a little faster or slower.
+      const behind = activeEntry.mediaTime - element.currentTime;
       const playbackRate = clamp(
-        activeEntry.playbackRate,
+        steady
+          ? nudgedPlaybackRate(activeEntry.playbackRate, behind)
+          : activeEntry.playbackRate,
         MIN_PLAYBACK_RATE,
         MAX_PLAYBACK_RATE,
       );
@@ -289,14 +291,17 @@ export class CompositionRenderer {
         element.playbackRate = playbackRate;
       }
 
-      const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
-      if (needsPlaybackSeek(drift, playback)) {
-        element.currentTime = activeEntry.mediaTime;
+      if (needsPlaybackSeek(Math.abs(behind), playback)) {
+        seekWhenReady(element, activeEntry.mediaTime);
+      } else {
+        cancelQueuedSeek(element);
       }
 
       // Clip audio plays through the mixer; these elements are only drawn.
       if (playback.isPlaying) {
-        element.play().catch(() => {});
+        if (element.paused) {
+          element.play().catch(() => {});
+        }
       } else if (!element.paused) {
         element.pause();
       }
@@ -323,7 +328,11 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(playheadQ: number, audio = SILENT_AUDIO_BANDS) {
+  private computeActiveClips(
+    playheadQ: number,
+    audio = SILENT_AUDIO_BANDS,
+    effects = this.renderedEffects(),
+  ) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
     );
@@ -337,7 +346,7 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.renderedEffects(),
+      effects,
       this.state.fps,
       audio,
       this.state.projectDurationFrames,
@@ -355,9 +364,9 @@ export class CompositionRenderer {
         !entry.fill &&
         !entry.text &&
         !entry.fx &&
-        !this.mediaRefs.has(entry.sourceKey)
+        entry.media.kind === "video" &&
+        this.media.ensure(entry.sourceKey, entry.media, "auto")
       ) {
-        this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }
     }
@@ -378,19 +387,14 @@ export class CompositionRenderer {
     return getRenderedEffects(effects, lanes, clips);
   }
 
-  private usesAudioBands() {
-    return this.renderedEffects().some(effectUsesAudio);
-  }
-
   private audioMix() {
     return this.state.audioMix ?? SILENT_AUDIO_MIX;
   }
 
-  private sampleLiveAudioBands() {
-    return this.liveAudioBands.sample(
-      this.mixer?.analyser ?? null,
-      performance.now(),
-    );
+  // The mix is measured only while some effect reacts to it.
+  private sampleLiveAudioBands(effects = this.renderedEffects()) {
+    const analyser = liveBandsAnalyser(effects, this.mixer?.analyser ?? null);
+    return this.liveAudioBands.sample(analyser, performance.now());
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
@@ -399,7 +403,7 @@ export class CompositionRenderer {
     }
 
     const mix = this.audioMix();
-    if (!this.usesAudioBands()) {
+    if (!this.renderedEffects().some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
 
@@ -457,64 +461,34 @@ export class CompositionRenderer {
       this.resources as WebGlResources,
       this.canvas,
       activeClips,
-      this.mediaRefs,
+      this.media.elements,
       resolveEffectChain(effects, GROUP_TRACK_ID),
       frameContext,
       resolveAnimatedOrder(effects, GROUP_TRACK_ID, this.state.fps),
     );
   }
 
-  private ensureMediaElement(sourceKey: string, item: MediaItem) {
-    let element = this.mediaRefs.get(sourceKey);
-    if (!element) {
-      element =
-        item.kind === "video"
-          ? document.createElement("video")
-          : document.createElement("audio");
-      element.crossOrigin = "anonymous";
-      element.preload = "auto";
-      if (element instanceof HTMLVideoElement) {
-        element.playsInline = true;
-      }
-      // Clip audio plays through the mixer instead.
-      element.muted = true;
-      this.mediaRefs.set(sourceKey, element);
-      this.mediaIdBySourceKey.set(sourceKey, item.id);
-    }
-
-    if (element.getAttribute("src") !== item.previewUrl) {
-      element.src = item.previewUrl;
-    }
-  }
-
-  private syncMediaElements() {
-    const mediaById = new Map(
-      this.state.mediaItems.map((item) => [item.id, item]),
+  // Keeps video elements only for the media near `playheadQ`.
+  private syncMediaWindow(playheadQ: number) {
+    this.windowPlayheadQ = playheadQ;
+    const { clips, mediaItems, bpm } = this.state;
+    const mediaById = new Map(mediaItems.map((item) => [item.id, item]));
+    const window = mediaWindowAt(
+      clips,
+      mediaById,
+      quartersToSeconds(playheadQ, bpm),
+      bpm,
     );
-    for (const [sourceKey, element] of this.mediaRefs) {
-      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
-      if (item) {
-        this.ensureMediaElement(sourceKey, item);
-        continue;
-      }
-
-      releaseMediaElement(element);
-      this.mediaRefs.delete(sourceKey);
-      this.mediaIdBySourceKey.delete(sourceKey);
+    if (this.media.sync(window, mediaById)) {
+      this.refreshVideoFrameReadyListeners();
     }
-
-    for (const item of this.state.mediaItems) {
-      this.ensureMediaElement(item.id, item);
-    }
-
-    this.refreshVideoFrameReadyListeners();
   }
 
   private refreshVideoFrameReadyListeners() {
     this.clearVideoFrameReadyListeners();
     if (this.videoFrameReadyListener) {
       this.removeVideoFrameReadyListeners = listenForVideoFrames(
-        this.mediaRefs.values(),
+        this.media.elements.values(),
         this.videoFrameReadyListener,
       );
     }
