@@ -8,6 +8,7 @@ import {
   copyClipEffects,
   ensureLayerLayouts,
   pruneClipEffects,
+  pruneMaskTargets,
   type SessionEffect,
 } from "./fx-stack.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
@@ -155,14 +156,19 @@ export function deleteLane<Lane extends LaneLike, Clip extends LaneClip>(
   }
 
   const clips = project.clips.filter((clip) => clip.laneId !== laneId);
+  const lanes = project.lanes.filter((lane) => lane.id !== laneId);
   return {
     ...project,
-    lanes: project.lanes.filter((lane) => lane.id !== laneId),
+    lanes,
     clips,
-    // The layer's stack goes, and so do its clips' own stacks.
-    effects: pruneClipEffects(
-      project.effects.filter((effect) => effect.trackId !== laneId),
-      clips,
+    // The layer's stack goes, and so do its clips' own stacks. Masks it
+    // was the Target of mask nothing.
+    effects: pruneMaskTargets(
+      pruneClipEffects(
+        project.effects.filter((effect) => effect.trackId !== laneId),
+        clips,
+      ),
+      lanes.map((lane) => lane.id),
     ),
   };
 }

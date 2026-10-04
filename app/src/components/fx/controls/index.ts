@@ -4,6 +4,7 @@ import type { FxParameterControlProps } from "../types";
 import { EnumControl } from "./EnumControl";
 import { FlagsControl } from "./FlagsControl";
 import { FontControl } from "./FontControl";
+import { LayerControl } from "./LayerControl";
 import { LayersControl } from "./LayersControl";
 import { NumberControl } from "./NumberControl";
 import { PaintControl } from "./PaintControl";
@@ -23,4 +24,5 @@ export const PARAMETER_CONTROLS: Record<
   font: FontControl,
   flags: FlagsControl,
   layers: LayersControl,
+  layer: LayerControl,
 };

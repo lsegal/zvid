@@ -3,6 +3,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -12,6 +13,7 @@ import {
   animationCollapseKey,
   canStartFxChainPan,
   describeDeviceMove,
+  deviceLayerOptions,
   type FxLayerOption,
   groupChainDevices,
   modulationCollapseKey,
@@ -60,7 +62,8 @@ export type FxChainProps = {
   clipScope?: FxEffectScope;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
-  // The layers the Global Order's Layers menu lists, in timeline order.
+  // Every layer, in timeline order: the Global Order's Layers menu lists
+  // them all, and a Mask's Target menu all but the selected layer.
   layers?: readonly FxLayerOption[];
   // The layers beneath the selected FX clip, which its Order's menu lists.
   clipLayers?: readonly FxLayerOption[];
@@ -182,6 +185,14 @@ export function FxChain({
     setAnnouncement,
   });
   const canEdit = layerTrackId !== undefined;
+  const layerOptions = useMemo(
+    () => ({
+      global: layers,
+      layer: deviceLayerOptions("layer", clipScope, layers, clipLayers, layerTrackId),
+      clip: deviceLayerOptions("clip", clipScope, layers, clipLayers, layerTrackId),
+    }),
+    [clipLayers, clipScope, layerTrackId, layers],
+  );
   const showClip = canEdit && clipTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
@@ -392,7 +403,7 @@ export function FxChain({
           onSetEnabled={onSetEnabled}
           onSetAnimationEnabled={onSetAnimationEnabled}
           onSetModulationEnabled={onSetModulationEnabled}
-          layers={device.group === "clip" ? clipLayers : layers}
+          layers={layerOptions[device.group]}
           onSetParameter={onSetParameter}
           onStripClick={() => {
             if (suppressClickRef.current) {

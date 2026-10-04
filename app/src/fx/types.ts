@@ -63,8 +63,9 @@ export type FxFlagOption = { value: string; label: string; title: string };
 // String parameters with their own editors: a CSS color (`color`) or CSS
 // linear/radial gradient (`gradient`) with a color picker, free text
 // (`text`) in a text area, a font (`font`) from the font list, a set of
-// toggles (`flags`) stored comma-separated, and a set of layers (`layers`)
-// stored as comma-separated layer ids.
+// toggles (`flags`) stored comma-separated, a set of layers (`layers`)
+// stored as comma-separated layer ids, and one layer (`layer`) stored as its
+// id, empty for none.
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -82,6 +83,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "text" })
   | (FxStringParameterFields & { kind: "font" })
   | (FxStringParameterFields & { kind: "layers" })
+  | (FxStringParameterFields & { kind: "layer" })
   | (FxStringParameterFields & {
       kind: "flags";
       options: readonly FxFlagOption[];
