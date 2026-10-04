@@ -535,6 +535,7 @@ export function useTimelineEditing({
     sourceTracksLocked,
     setSourceTracksLocked,
     renamingSourceTrackId,
+    setRenamingSourceTrackId,
     commitSourceTrackRename,
     cancelSourceTrackRename,
     createEmptySourceTrack,
