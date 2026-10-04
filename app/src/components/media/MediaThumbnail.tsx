@@ -1,5 +1,9 @@
-import { FilmIcon, SpeakerWaveIcon } from "@heroicons/react/24/solid";
-import type { MediaItem } from "../../media";
+import {
+  FilmIcon,
+  PhotoIcon,
+  SpeakerWaveIcon,
+} from "@heroicons/react/24/solid";
+import { isImageMedia, type MediaItem } from "../../media";
 import {
   getMediaSyncClassName,
   type MediaSyncView,
@@ -15,8 +19,8 @@ type MediaThumbnailProps = {
   badge?: string;
 };
 
-// A media item's picture: a video frame, or a glyph for audio-only media and
-// frames not decoded yet, with the media sync skeleton while it hydrates.
+// A media item's picture: a video frame or the image itself, or a glyph for
+// audio-only media and pictures not loaded yet, with the media sync skeleton while it hydrates.
 export function MediaThumbnail({
   media,
   thumbnailUrl,
@@ -24,12 +28,17 @@ export function MediaThumbnail({
   prefersReducedMotion,
   badge,
 }: MediaThumbnailProps) {
-  const Glyph = media.hasVideo ? FilmIcon : SpeakerWaveIcon;
+  const image = isImageMedia(media);
+  const Glyph = image ? PhotoIcon : media.hasVideo ? FilmIcon : SpeakerWaveIcon;
   return (
     <span
       className={[
         "media-thumb",
-        media.hasVideo ? "media-thumb--video" : "media-thumb--audio",
+        image
+          ? "media-thumb--image"
+          : media.hasVideo
+            ? "media-thumb--video"
+            : "media-thumb--audio",
         mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : "",
       ]
         .filter(Boolean)
@@ -39,7 +48,7 @@ export function MediaThumbnail({
         ["--clip-accent" as string]: media.accent,
       }}
     >
-      {thumbnailUrl && media.hasVideo ? (
+      {thumbnailUrl && (media.hasVideo || image) ? (
         // The item drags the media, not the frame's image file.
         <img
           alt=""

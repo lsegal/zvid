@@ -193,6 +193,10 @@ export class EffectChainRenderer {
   private stageTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
+  // One pool per slot, since a mask is carried between surfaces through
+  // targets of its own and a masked Target draws its mask while the one it
+  // is drawn into is still in use.
+  private maskTargets = new Map<number, TargetPool>();
   // One pool per Order nesting depth, since an arrangement draws into its
   // own target while the one it sits in is still in use.
   private arrangementTargets = new Map<number, TargetPool>();
@@ -356,14 +360,15 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface an FX clip with an Order arranges the layers beneath it into, in
-  // its `width` × `height` corner, from a pool per nesting `depth`, since an
-  // arrangement can hold another.
-  getArrangementTarget(depth: number, width: number, height: number) {
-    let pool = this.arrangementTargets.get(depth);
+  // Surface a Mask's Target layer is drawn into, in its `width` × `height`
+  // corner, for the layer it masks to read while it is drawn. It is kept
+  // apart from the layer and ping-pong targets, which drawing either layer
+  // uses, from a pool per `slot`.
+  getMaskTarget(width: number, height: number, slot = 0) {
+    let pool = this.maskTargets.get(slot);
     if (!pool) {
       pool = new TargetPool(this.release);
-      this.arrangementTargets.set(depth, pool);
+      this.maskTargets.set(slot, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -372,15 +377,30 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface a Transition draws one of its comps (`index` 0 and 1) or its
-  // result (2) into, in its `width` × `height` corner, from a pool per
-  // nesting `depth`, since a comp can hold another Transition.
+  // Surface an FX clip with an Order arranges the layers beneath it into, in
+  // its `width` × `height` corner, from a pool per nesting `depth`, since an
+  // arrangement can hold another.
+  getArrangementTarget(depth: number, width: number, height: number) {
+    return this.keyedTarget(this.arrangementTargets, depth, width, height);
+  }
+
+  // Surface a Transition draws a comp (`index` 0, 1) or its blend (2) into,
+  // as above, pooled per nesting `depth`: a comp can hold a Transition.
   getCompTarget(depth: number, index: number, width: number, height: number) {
-    const key = depth * 3 + index;
-    let pool = this.compTargets.get(key);
+    return this.keyedTarget(this.compTargets, depth * 3 + index, width, height);
+  }
+
+  // A target from the pool `key` of `pools`, made the first time it is used.
+  private keyedTarget(
+    pools: Map<number, TargetPool>,
+    key: number,
+    width: number,
+    height: number,
+  ) {
+    let pool = pools.get(key);
     if (!pool) {
       pool = new TargetPool(this.release);
-      this.compTargets.set(key, pool);
+      pools.set(key, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -760,6 +780,10 @@ export class EffectChainRenderer {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
     this.layerTargets.clear();
+    for (const pool of this.maskTargets.values()) {
+      pool.clear();
+    }
+    this.maskTargets.clear();
     for (const pool of this.arrangementTargets.values()) {
       pool.clear();
     }

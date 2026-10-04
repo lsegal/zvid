@@ -193,9 +193,11 @@ const selections = [];
 
 // Places `source` on `layerId` from `start` for `duration` seconds, playing
 // the source from `inSeconds`: the selection slips its source track's clip
-// to that in-point, which may fall in the clip's looped media. Returns the
-// arrangement clip's id.
-function cut(layerId, sourceIndex, start, duration, inSeconds) {
+// to that in-point, which may fall in the clip's looped media. `trim`
+// optionally moves the clip's start or end frame without slipping its
+// source, so the visible content stays where it was on the timeline. Returns
+// the arrangement clip's id.
+function cut(layerId, sourceIndex, start, duration, inSeconds, trim = {}) {
   const source = SOURCES[sourceIndex];
   const index = selections.length + 1;
   const inFrame = frames(inSeconds);
@@ -203,8 +205,8 @@ function cut(layerId, sourceIndex, start, duration, inSeconds) {
     id: index,
     trackId: `source-${source.key}`,
     mainTrackId: layerId,
-    frameStart: frames(start),
-    frameEnd: frames(start + duration),
+    frameStart: trim.frameStart ?? frames(start),
+    frameEnd: trim.frameEnd ?? frames(start + duration),
     sourceClipId: sourceSpanId(source.key),
     sourceOffsetSeconds: (inFrame - frames(start)) / FPS,
   });
@@ -305,12 +307,28 @@ const PANEL_EFFECTS = new Map([
 ]);
 // A panel cut to a Shape, its slot's border color showing around it.
 const PANEL_SHAPES = new Map([["ribbon 15", "Oval"]]);
+// Panels trimmed so they enter or leave while an Order is running, showing
+// off its enter and leave Push. Frames at 30 fps, keyed by layer and start.
+// A layer shows one clip at a time, so no trim runs past the next cut.
+const PANEL_TRIMS = new Map([
+  ["ribbon 3", { frameStart: 101 }],
+  ["corridor 3", { frameStart: 113 }],
+  ["ribbon 4.5", { frameEnd: 169 }],
+  ["ribbon 6", { frameStart: 191 }],
+]);
 THREE_UPS.forEach((start, cutIndex) => {
   VIDEO_LAYERS.forEach((layerId, panel) => {
     const sourceIndex = (panel + cutIndex) % SOURCES.length;
     const inSeconds = 0.4 + ((cutIndex * 7 + panel * 5) % 11) * 1.2;
     const tight = cutIndex % 2 === 1;
-    const clipId = cut(layerId, sourceIndex, start, 1.5, inSeconds);
+    const clipId = cut(
+      layerId,
+      sourceIndex,
+      start,
+      1.5,
+      inSeconds,
+      PANEL_TRIMS.get(`${layerId} ${start}`),
+    );
     const drift = (panel - 1) * 0.08;
     zoomAndPan(
       clipTrack(clipId),
@@ -606,6 +624,12 @@ addEffect(clipTrack(card), "Caustics", {
   _Warp: 0,
   _Color: "rgba(170,240,255,1)",
   _Blend: "Multiply",
+});
+// The wordmark is knocked out of the card, so its letters fade in from the
+// dark beneath it rather than over the ivory.
+addEffect(clipTrack(card), "Mask", {
+  Target: "title-wordmark",
+  Mode: "Subtractive",
 });
 addEffect(
   text(

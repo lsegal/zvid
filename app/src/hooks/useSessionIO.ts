@@ -30,6 +30,7 @@ import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
 import { getHarness, type SaveTarget, type SessionSelection } from "../harness";
 import {
   buildFallbackMediaItem,
+  isImageMedia,
   type MediaItem,
   toShareableMediaItem,
 } from "../media";
@@ -348,7 +349,8 @@ export function useSessionIO({
       const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
 
       const nextMedia = [...projectMediaItems, ...sharedAnalyzed];
-      if (!sessionName) {
+      // Images make no clips, so importing only images keeps the timeline.
+      if (!sessionName && analyzed.some((item) => !isImageMedia(item))) {
         const standalone = buildStandaloneProject(nextMedia);
         commitProjectChange("Import media", (current) =>
           patchProjectState(current, {

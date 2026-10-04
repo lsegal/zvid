@@ -8,6 +8,7 @@ import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import {
   pruneExcludedLayers,
+  pruneMaskTargets,
   renameClipEffectTracks,
   renameSourceClipEffectTracks,
 } from "./fx-stack.ts";
@@ -326,13 +327,17 @@ export function projectToLvpSession(
     ...(fills.length ? { fills } : {}),
     ...(texts.length ? { texts } : {}),
     ...(fxClips.length ? { fxClips } : {}),
-    // An Order only keeps exclusions of layers that still exist. Source
+    // An Order only keeps exclusions of layers that still exist, and a Mask
+    // only a Target that still exists. Source
     // clips load back as `source-<clip id>`, so their own stacks are saved
     // under that id too.
     effects: renameSourceClipEffectTracks(
       renameClipEffectTracks(
-        pruneExcludedLayers(
-          project.effects,
+        pruneMaskTargets(
+          pruneExcludedLayers(
+            project.effects,
+            project.lanes.map((lane) => lane.id),
+          ),
           project.lanes.map((lane) => lane.id),
         ),
         savedClipIds,

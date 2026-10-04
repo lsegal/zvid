@@ -9,10 +9,12 @@ import { getKnownMediaDurationSeconds } from "../source-clip-properties.ts";
 export function useMediaDurationSeconds(media: MediaItem | undefined) {
   const knownSeconds = getKnownMediaDurationSeconds(media);
   const probeUrl =
-    media?.availability === "ready" && knownSeconds === 0
+    media?.availability === "ready" &&
+    media.kind !== "image" &&
+    knownSeconds === 0
       ? media.previewUrl
       : "";
-  const kind = media?.kind ?? "video";
+  const kind = media?.kind === "audio" ? "audio" : "video";
   const [probed, setProbed] = useState<{ url: string; seconds: number }>();
 
   useEffect(() => {
