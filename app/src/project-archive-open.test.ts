@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { WorkspaceFileRef } from "./harness/contracts.ts";
 import { ProjectArchiveError, writeProjectArchive } from "./project-archive.ts";
 import {
   isProjectArchiveFilename,
@@ -73,38 +72,6 @@ describe("openProjectArchive", () => {
 
     assert.equal(payload.mediaRefs.length, 3);
     assert.ok(payload.mediaRefs.every((ref) => !ref.exists && !ref.url));
-  });
-
-  it("resolves the rest from a workspace folder, preferring bundled files", async () => {
-    const bytes = await archiveBytes(SESSION, [
-      { path: "media/take.mp4", blob: new Blob(["bundled"]) },
-    ]);
-    const files: WorkspaceFileRef[] = [
-      { path: "Set.zvd", file: new File([bytes], "Set.zvd") },
-      { path: "media/take.mp4", file: new File(["beside"], "take.mp4") },
-      { path: "media/other.mov", file: new File(["other"], "other.mov") },
-    ];
-
-    const payload = await openProjectArchive(bytes, "Set.zvd", {
-      kind: "workspace",
-      rootName: "Project",
-      sessionPath: "Set.zvd",
-      sessionFile: files[0].file,
-      files,
-    });
-
-    assert.equal(payload.sessionName, "Set.zvd");
-    assert.equal(payload.sessionPath, "Project/Set.zvd");
-    const byPath = new Map(payload.mediaRefs.map((ref) => [ref.path, ref]));
-    assert.equal(
-      await textAt(byPath.get("media/take.mp4")?.url ?? ""),
-      "bundled",
-    );
-    assert.equal(
-      await textAt(byPath.get("media/other.mov")?.url ?? ""),
-      "other",
-    );
-    assert.equal(byPath.get("media/Song.wav")?.exists, false);
   });
 
   it("rejects an old plain-JSON .zvd as not a project archive", async () => {

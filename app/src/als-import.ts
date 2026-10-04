@@ -75,32 +75,6 @@ export function isAlsSession(bytes: Uint8Array, name: string) {
   return isGzipBytes(bytes) || isAlsFilename(name);
 }
 
-// Ableton writes a timestamped copy of the set into `Backup/` on every save.
-export function isAlsBackupPath(rawPath: string) {
-  const segments = rawPath.split(/[/\\]/).filter(Boolean);
-  return isAlsFilename(rawPath) && segments.at(-2)?.toLowerCase() === "backup";
-}
-
-// Session files a workspace can open, best first: `.zvd` and `.lvp` sessions,
-// then Live sets (ignoring Ableton's backups), then bare JSON.
-export function rankWorkspaceSessions<T extends { path: string }>(files: T[]) {
-  const byExtension = (...extensions: string[]) =>
-    files.filter((entry) =>
-      extensions.some((extension) =>
-        entry.path.toLowerCase().endsWith(extension),
-      ),
-    );
-  const sessions = byExtension(".zvd", ".lvp");
-  if (sessions.length) {
-    return sessions;
-  }
-
-  const als = byExtension(".als").filter(
-    (entry) => !isAlsBackupPath(entry.path),
-  );
-  return als.length ? als : byExtension(".json");
-}
-
 // An imported set is never written back: saves target the sibling `.lvp`.
 export function alsSavePath(alsPath: string) {
   return alsPath.replace(/\.als$/i, ".lvp");

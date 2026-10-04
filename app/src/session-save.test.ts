@@ -52,14 +52,14 @@ describe("projectExportFilename", () => {
     assert.equal(projectExportFilename(restored.source, "set.zvd"), "set.zvd");
   });
 
-  it("swaps a browser file or workspace session's extension for .zvd", () => {
+  it("swaps a browser file session's extension for .zvd", () => {
     assert.equal(
       projectExportFilename({ kind: "file", name: "set.LVP" }, "set.LVP"),
       "set.zvd",
     );
     assert.equal(
       projectExportFilename(
-        { kind: "workspace", name: "session.json" },
+        { kind: "file", name: "session.json" },
         "session.json",
       ),
       "session.zvd",
