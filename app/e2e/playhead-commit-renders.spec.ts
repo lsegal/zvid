@@ -24,17 +24,19 @@ async function installRenderCounter(page: Page) {
   await page.addInitScript(() => {
     type Fiber = {
       tag: number;
-      key: string | null;
       memoizedProps: Record<string, unknown> | null;
       child: Fiber | null;
       sibling: Fiber | null;
     };
+    // Each row's identifying prop, then one only it takes.
     const rows: Record<string, [string, string]> = {
       ClipCard: ["clip", "openArrangementClipMenu"],
       SourceSpan: ["clip", "selectSourceSpan"],
       LaneRow: ["lane", "clipCard"],
       SourceTrackRow: ["track", "span"],
     };
+    // The context objects rows share, compared by their fields.
+    const contexts = new Set(["clipCard", "span"]);
     const counts: RenderCounts = {
       commits: 0,
       renders: {},
@@ -59,16 +61,26 @@ async function installRenderCounter(page: Page) {
           if (!keys.every((key) => key in props)) {
             continue;
           }
-          const id = `${name}:${fiber.key}`;
+          const id = `${name}:${(props[keys[0]] as { id: string }).id}`;
           const previous = lastProps.get(id);
           lastProps.set(id, props);
           if (!previous) {
             continue;
           }
           counts.renders[name] = (counts.renders[name] ?? 0) + 1;
-          const changed = Object.keys(props).filter(
-            (key) => previous[key] !== props[key],
-          );
+          const changed = Object.keys(props).flatMap((key) => {
+            const [before, after] = [previous[key], props[key]];
+            if (before === after) {
+              return [];
+            }
+            if (!contexts.has(key)) {
+              return [key];
+            }
+            const [from, to] = [before, after] as Record<string, unknown>[];
+            return Object.keys(to)
+              .filter((field) => from[field] !== to[field])
+              .map((field) => `${key}.${field}`);
+          });
           counts.changedProps[name] = [
             ...new Set([...(counts.changedProps[name] ?? []), ...changed]),
           ];
@@ -180,6 +192,19 @@ test("a playhead commit during playback doesn't re-render clip rows", async ({
   const edgeX = Math.max(firstBox.x, secondBox.x) - laneBox.x;
   expect(Math.abs(firstBox.x - secondBox.x)).toBeGreaterThan(40);
   expect(await playheadX(page)).toBeLessThan(edgeX - 40);
+
+  // Thumbnails and filmstrips decode for a while after the clips land, and
+  // re-render the rows they show in; wait for them to settle.
+  await expect
+    .poll(
+      async () => {
+        await resetRenderCounts(page);
+        await page.waitForTimeout(1_000);
+        return (await readRenderCounts(page)).renders;
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual({});
 
   await page.getByRole("button", { name: "Play timeline" }).click();
   await expect(
