@@ -307,16 +307,20 @@ describe("copyRange", () => {
 
 describe("placeClips", () => {
   it("trims a clip the placed clip partly covers", () => {
-    assert.deepEqual(spans(placeClips([clip("a", 0, 4)], [clip("w", 2, 4)], BPM)), [
-      ["a", "1", 0, 2, 10],
-      ["w", "1", 2, 6, 11],
-    ]);
+    assert.deepEqual(
+      spans(placeClips([clip("a", 0, 4)], [clip("w", 2, 4)], BPM)),
+      [
+        ["a", "1", 0, 2, 10],
+        ["w", "1", 2, 6, 11],
+      ],
+    );
   });
 
   it("removes a clip the placed clip fully covers", () => {
-    assert.deepEqual(spans(placeClips([clip("a", 2, 2)], [clip("w", 0, 8)], BPM)), [
-      ["w", "1", 0, 8, 10],
-    ]);
+    assert.deepEqual(
+      spans(placeClips([clip("a", 2, 2)], [clip("w", 0, 8)], BPM)),
+      [["w", "1", 0, 8, 10]],
+    );
   });
 
   it("keeps every window of a selection split across source clips", () => {
