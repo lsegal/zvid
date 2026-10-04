@@ -31,7 +31,10 @@ export function createPathId(rawPath: string) {
   return `${hash.toString(16)}-${basename(rawPath)}`;
 }
 
-export function createWorkspaceResolver(rootName: string, files: WorkspaceFileRef[]) {
+export function createWorkspaceResolver(
+  rootName: string,
+  files: WorkspaceFileRef[],
+) {
   const byPath = new Map<string, WorkspaceFileRef>();
   const byBasename = new Map<string, WorkspaceFileRef | null>();
 
@@ -104,4 +107,3 @@ export function buildFileOpenPayload(
 
   return { session, sessionName, mediaRefs };
 }
-

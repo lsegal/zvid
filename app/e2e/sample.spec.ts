@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { writeProjectArchive } from "../src/project-archive.ts";
 
 // The zvid opening sample: File → Open Sample, and the sample opened on an
 // empty start (`?sample=1`, since automation turns it off by default). The
@@ -432,10 +433,17 @@ test("an exported copy of the sample reopens with its media still linked", async
   const choosing = page.waitForEvent("filechooser");
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open Session" }).click();
+  // Export still writes plain JSON, which a .zvd no longer opens as, so the
+  // copy is reopened from a project archive holding it.
+  const { readFileSync } = await import("node:fs");
+  const archive = await writeProjectArchive({
+    project: JSON.parse(readFileSync(saved as string, "utf8")),
+    media: [],
+  });
   await (await choosing).setFiles({
     name: "zvid opening sample.zvd",
-    mimeType: "application/json",
-    buffer: (await import("node:fs")).readFileSync(saved as string),
+    mimeType: "application/gzip",
+    buffer: Buffer.from(await archive.arrayBuffer()),
   });
   await expectSampleOpen(page);
 });

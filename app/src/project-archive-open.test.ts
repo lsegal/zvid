@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { WorkspaceFileRef } from "./harness/contracts.ts";
-import {
-  ProjectArchiveError,
-  writeProjectArchive,
-} from "./project-archive.ts";
+import { ProjectArchiveError, writeProjectArchive } from "./project-archive.ts";
 import {
   isProjectArchiveFilename,
   openProjectArchive,

@@ -351,6 +351,7 @@ async function postSessionOpen(
   return finishSessionOpen(payload);
 }
 
+async function prepareSave(
   filename: string,
   options?: SaveOptions,
 ): Promise<SaveTarget> {
