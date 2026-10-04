@@ -3,6 +3,7 @@ import {
   type MediaItem,
   quartersToSeconds,
 } from "./composition-active-clips.ts";
+import type { ActiveClipTiming } from "./composition-clip-timing.ts";
 import { releaseMediaElement } from "./media-element.ts";
 
 // The preview keeps a video element only for media whose clips are near the
@@ -19,15 +20,22 @@ export type MediaPreload = "metadata" | "auto";
 // how much of each to load. Audio-only media plays through the mixer, so it
 // never needs one, nor does a clip the mixer plays from a <video> of its own
 // (`mixerPlays`), which the compositor draws instead; fill, text and FX
-// clips draw no media.
+// clips draw no media. Clips a Transition holds on a frame (`held` among
+// `timings`) are drawn from elements of their own, which load in full.
 export function mediaWindowAt(
   clips: readonly ArrangementClip[],
   mediaById: ReadonlyMap<string, MediaItem>,
   playheadSeconds: number,
   bpm: number,
   mixerPlays: (clip: ArrangementClip) => boolean = () => false,
+  timings: readonly Pick<ActiveClipTiming, "held" | "media">[] = [],
 ) {
   const window = new Map<string, MediaPreload>();
+  for (const { held, media } of timings) {
+    if (held && media.kind === "video" && media.previewUrl) {
+      window.set(media.id, "auto");
+    }
+  }
   for (const clip of clips) {
     if (clip.kind === "fill" || clip.kind === "text" || clip.kind === "fx") {
       continue;

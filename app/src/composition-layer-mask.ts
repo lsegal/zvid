@@ -110,7 +110,8 @@ export function findMaskTargetSteps<T extends MaskableLayer>(
 }
 
 // A surface is the canvas, or reached from it through the FX clips with an
-// Order in a path, outermost first, each arranging the layers beneath it.
+// Order in a path, outermost first, each arranging the layers beneath it. A
+// Transition's comps are on the surface its FX clip is on.
 export type MaskTargetGroup<T> = {
   path: ArrangeStep<T>[];
   steps: LayerStep<T>[];
@@ -145,6 +146,11 @@ export function findMaskTargets<T extends MaskableLayer>(
         found.maskedPath = path;
       } else if (step.type === "arrange") {
         visit(step.steps, [...path, step]);
+      } else if (step.type === "transition") {
+        // A Transition's comps are drawn whole, the size of the surface
+        // it is on.
+        visit(step.outgoing, path);
+        visit(step.incoming, path);
       }
     }
   };

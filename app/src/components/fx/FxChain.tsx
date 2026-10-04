@@ -453,6 +453,7 @@ export function FxChain({
               collapsed={collapsed.has(animationKey)}
               device={device}
               onSetAnimation={onSetAnimation}
+              onSetParameter={onSetParameter}
               onToggleCollapsed={() => toggleCollapsed(animationKey)}
             />
           ) : modulation ? (

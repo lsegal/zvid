@@ -11,6 +11,7 @@ import {
   type LayerDrawStep,
   planLayerDraws,
   type StackedLayer,
+  type TransitionComps,
 } from "./composition-layout.ts";
 import {
   type CompositionOrder,
@@ -23,6 +24,7 @@ type Layer = StackedLayer & {
   id: string;
   fx?: boolean;
   order?: CompositionOrder;
+  transition?: TransitionComps;
 };
 
 function layer(id: string, laneId: string, laneRank: number, fx?: boolean) {
@@ -52,6 +54,10 @@ function layerSteps(steps: readonly LayerDrawStep<Layer>[]) {
     for (const step of list) {
       if (step.type === "layer") found.set(step.entry.id, step);
       else if (step.type === "arrange") visit(step.steps);
+      else if (step.type === "transition") {
+        visit(step.outgoing);
+        visit(step.incoming);
+      }
     }
   };
   visit(steps);
@@ -105,6 +111,41 @@ describe("findMaskTargetSteps", () => {
 
 describe("findMaskTargets", () => {
   const additive = { targetLaneId: "4", mode: "additive" } as const;
+
+  it("finds a Target in the Transition comp the masked layer is in", () => {
+    const masked = {
+      ...layer("masked", "3", 2),
+      clip: { id: "masked", startQ: 0, laneId: "3" },
+    };
+    const target = {
+      ...layer("t", "4", 3),
+      clip: { id: "t", startQ: 0, laneId: "4" },
+    };
+    const steps = planLayerDraws<Layer>(
+      [
+        {
+          ...layer("fx", "1", 0, true),
+          transition: {
+            outgoing: new Set(["masked", "t"]),
+            incoming: new Set(),
+          },
+        },
+        masked,
+        target,
+      ],
+      Z_ORDER_COMPOSITION,
+    );
+    const found = findMaskTargets(
+      steps,
+      layerSteps(steps).get("masked") as LayerStep,
+      additive,
+    );
+    assert.deepEqual(pathIds(found.maskedPath), []);
+    assert.deepEqual(
+      found.groups.map((group) => [pathIds(group.path), ids(group.steps)]),
+      [[[], ["t"]]],
+    );
+  });
 
   it("finds a Target inside an FX clip's arrangement the masked layer is outside", () => {
     const masked = layer("masked", "1", 0);

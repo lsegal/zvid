@@ -59,7 +59,8 @@ export function resolvePreviewLayersAt(
     signature,
   );
   return resolvePreviewLayers(
-    activeClips.filter((entry) => entry.media.kind === "video"),
+    // Clips a Transition holds aren't at the playhead to edit.
+    activeClips.filter((entry) => entry.media.kind === "video" && !entry.held),
     { width: canvasWidth, height: canvasHeight },
     // Animated with the topmost clip, as the compositor draws it.
     resolveAnimatedOrder(
