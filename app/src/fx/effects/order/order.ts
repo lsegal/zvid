@@ -6,10 +6,7 @@
 // covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
 import { parseCssColor, type Rgba } from "../../../fill-paint.ts";
-import type {
-  ClipMotion,
-  OrderTransition,
-} from "../../../fx-animation-defaults.ts";
+import type { OrderTransition } from "../../../fx-animation-defaults.ts";
 
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
@@ -32,22 +29,25 @@ export type CompositionOrder = {
   // What fills the Order's area beneath its layers, showing in the gaps
   // and empty grid cells. Black when unset.
   borderColor?: Rgba;
-  // Set when the Order animates in Clip mode: clips slide into and out of
-  // their slots as they enter and exit, and the others glide to their new
-  // slots. Absent means the layers snap into place.
+  // Set when the Order animates in Clip mode: clips beneath it slide into
+  // and out of their slots as they enter and exit while it is active, and
+  // the others glide to their new slots. Absent means the layers snap into
+  // place.
   slide?: OrderSlide;
 };
 
-// An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`,
-// eased by `motionIn` as a clip enters and by `motionOut` as it exits.
-// `transition` is how the clip enters and exits: Push, when absent, slides
-// it in from a canvas edge; Squish grows it from zero width or height.
+// An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`.
+// `transition` is how a clip enters and exits, from the side of the
+// arrangement its slot is on: Push, when absent, slides it in from that
+// canvas edge, or fades it in between others; Squish grows it from zero
+// width or height. `window`, set for an FX clip's Order, is how long the
+// Order's clip has run and has left at this frame: a clip already there
+// when it starts, or still there when it ends, doesn't slide at that end.
 export type OrderSlide = {
-  motionIn: ClipMotion;
-  motionOut: ClipMotion;
   frames: number;
   fps: number;
   transition?: OrderTransition;
+  window?: { elapsedSeconds: number; remainingSeconds: number };
 };
 
 export const ORDER_EFFECT_NAME = "Order";

@@ -511,7 +511,7 @@ function drawLayer(
     frame: textBox && canvasBoxToFrame(textBox.box, surface),
     motion,
   });
-  const { frame, halfExtents, translate, scissor } = placement;
+  const { frame, halfExtents, translate, scissor, opacity } = placement;
   let uniforms = layerUniforms(
     quadAxes(
       [halfExtents.x, halfExtents.y],
@@ -519,7 +519,7 @@ function drawLayer(
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
     entry.visual,
-    entry.visual.opacity * sourceOpacity,
+    entry.visual.opacity * sourceOpacity * opacity,
   );
 
   // A Transform moves the slot's content, so the layer is framed into its
@@ -577,7 +577,7 @@ function drawLayer(
             0,
           ),
       entry.visual,
-      entry.visual.opacity,
+      entry.visual.opacity * opacity,
     );
   }
 

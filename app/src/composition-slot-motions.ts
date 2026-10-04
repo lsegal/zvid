@@ -1,5 +1,6 @@
 import type { SlotMotion, StackedLayer } from "./composition-layout.ts";
-import type { OrderSlide } from "./composition-order.ts";
+import type { CompositionOrder, OrderSlide } from "./composition-order.ts";
+import type { SlotEntry } from "./composition-squish.ts";
 import { orderSlideWeight } from "./fx-animation-clip.ts";
 
 // Transitions blended at once. Clips entering or exiting at the same moment
@@ -11,6 +12,45 @@ const MAX_SLOT_TRANSITIONS = 6;
 export const TRANSITION_EPSILON = 1e-6;
 
 /**
+ * The side of `order`'s arrangement a layer enters and leaves from. In a
+ * Horizontal or Vertical Order that is its place among the `others` that
+ * stay, `before` of them ahead of it: the start edge (left or top) first,
+ * the end edge (right or bottom) last, and the middle between them or with
+ * no others. A Grid goes by the layer's own cell, slot `index`: the left or
+ * right edge in the first or last column, else the top or bottom edge in
+ * the first or last row, else the middle.
+ */
+export function resolveSlotEntry(
+  order: CompositionOrder,
+  index: number,
+  before: number,
+  others: number,
+): SlotEntry {
+  if (order.arrangement === "horizontal" || order.arrangement === "vertical") {
+    const [start, end] =
+      order.arrangement === "horizontal"
+        ? (["left", "right"] as const)
+        : (["top", "bottom"] as const);
+    return others <= 0 ? "middle" : before <= 0 ? start : before >= others ? end : "middle";
+  }
+  if (order.arrangement !== "grid") {
+    return "middle";
+  }
+  const last = order.gridSize - 1;
+  const column = index % order.gridSize;
+  const row = Math.floor(index / order.gridSize);
+  return column === 0
+    ? "left"
+    : column === last
+      ? "right"
+      : row === 0
+        ? "top"
+        : row === last
+          ? "bottom"
+          : "middle";
+}
+
+/**
  * Where each of `stacked`, the layers an animated Order arranges in slot
  * order, is while clips enter and exit. Each layer's weight says how far it
  * has slid in: 1 settled in its slot, 0 not yet in or already out, from its
@@ -18,11 +58,14 @@ export const TRANSITION_EPSILON = 1e-6;
  * exiting slides between its slot and the canvas edge, and every other
  * layer's slot is between the arrangement with it and the one without it,
  * by the same weight. Layers moving at once blend every combination of
- * their arrangements. Layers that are all settled have no motion.
+ * their arrangements. Layers that are all settled have no motion. Each
+ * moving layer enters and leaves from its `resolveSlotEntry` side of
+ * `order`.
  */
 export function resolveSlotMotions<T extends StackedLayer>(
   stacked: readonly T[],
   slide: OrderSlide,
+  order: CompositionOrder,
 ): Map<T, SlotMotion> {
   const weights = stacked.map((layer) => {
     // A piece of a layer clip slides in and out with the whole clip.
@@ -117,12 +160,26 @@ export function resolveSlotMotions<T extends StackedLayer>(
       slots.length === 1 &&
       slots[0].slot === index &&
       slots[0].slotCount === stacked.length;
-    if (!settled) {
-      motions.set(layer, {
-        slots,
-        slide: group < 0 ? 0 : 1 - groups[group].weight,
-      });
+    if (settled) {
+      return;
     }
+    if (group < 0) {
+      motions.set(layer, { slots, slide: 0 });
+      return;
+    }
+    const others = stacked
+      .map((_, other) => other)
+      .filter((other) => groupOf(other) !== group);
+    motions.set(layer, {
+      slots,
+      slide: 1 - groups[group].weight,
+      entry: resolveSlotEntry(
+        order,
+        index,
+        others.filter((other) => other < index).length,
+        others.length,
+      ),
+    });
   });
   return motions;
 }
