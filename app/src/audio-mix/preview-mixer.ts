@@ -330,7 +330,9 @@ export class PreviewAudioMixer {
         clip.mediaDurationSeconds ?? 0,
       );
       if (shouldPlay) {
-        element.play().catch(() => {});
+        if (element.paused) {
+          element.play().catch(() => {});
+        }
       } else if (!element.paused) {
         element.pause();
       }

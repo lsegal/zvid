@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
+import {
+  cancelQueuedSeek,
+  needsPlaybackSeek,
+  nudgedPlaybackRate,
+  seekMediaElement,
+  seekWhenReady,
+} from "./media-seek.ts";
 
 // A stand-in media element that records seeks and fires events on demand.
 function fakeElement(currentTime: number, readyState: number) {
@@ -85,5 +91,78 @@ describe("needsPlaybackSeek", () => {
   it("seeks playing media only once it drifts too far", () => {
     assert.equal(needsPlaybackSeek(0.1, playing), false);
     assert.equal(needsPlaybackSeek(0.2, playing), true);
+  });
+});
+
+describe("seekWhenReady", () => {
+  // A stand-in element that is still seeking until `land` is called.
+  function seekingElement(currentTime: number) {
+    const element = fakeElement(currentTime, 4) as ReturnType<
+      typeof fakeElement
+    > & { seeking: boolean; land(): void };
+    let time = currentTime;
+    element.seeking = false;
+    Object.defineProperty(element, "currentTime", {
+      get: () => time,
+      set: (value: number) => {
+        time = value;
+        element.seeks.push(value);
+        element.seeking = true;
+      },
+    });
+    element.land = () => {
+      element.seeking = false;
+      element.fire("seeked");
+    };
+    return element;
+  }
+
+  it("seeks an element that isn't seeking right away", () => {
+    const element = seekingElement(0);
+    seekWhenReady(element as unknown as HTMLMediaElement, 2);
+    assert.deepEqual(element.seeks, [2]);
+  });
+
+  it("coalesces a scrub's seeks to the latest target once the seek lands", () => {
+    const element = seekingElement(0);
+    const media = element as unknown as HTMLMediaElement;
+    seekWhenReady(media, 1);
+    seekWhenReady(media, 2);
+    seekWhenReady(media, 3);
+    seekWhenReady(media, 4);
+    assert.deepEqual(element.seeks, [1]);
+
+    element.land();
+    assert.deepEqual(element.seeks, [1, 4]);
+    element.land();
+    assert.deepEqual(element.seeks, [1, 4]);
+  });
+
+  it("drops a queued seek once it is canceled", () => {
+    const element = seekingElement(0);
+    const media = element as unknown as HTMLMediaElement;
+    seekWhenReady(media, 1);
+    seekWhenReady(media, 2);
+    cancelQueuedSeek(media);
+    element.land();
+    assert.deepEqual(element.seeks, [1]);
+  });
+});
+
+describe("nudgedPlaybackRate", () => {
+  it("keeps the clip's rate for media within a frame or so of its time", () => {
+    assert.equal(nudgedPlaybackRate(1, 0.03), 1);
+    assert.equal(nudgedPlaybackRate(2, -0.03), 2);
+  });
+
+  it("plays media behind its time faster and media ahead of it slower", () => {
+    assert.equal(nudgedPlaybackRate(1, 0.1), 1.05);
+    assert.equal(nudgedPlaybackRate(1, -0.1), 0.95);
+    assert.equal(nudgedPlaybackRate(2, 0.1), 2.1);
+  });
+
+  it("nudges by at most a tenth", () => {
+    assert.equal(nudgedPlaybackRate(1, 5), 1.1);
+    assert.equal(nudgedPlaybackRate(1, -5), 0.9);
   });
 });
