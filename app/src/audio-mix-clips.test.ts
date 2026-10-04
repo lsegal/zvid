@@ -92,7 +92,9 @@ describe("audioMixPeaksKey", () => {
       before,
     );
     assert.equal(
-      key({ sourceSpans: [base.sourceSpans[0], span("picture", "video", 8, 5)] }),
+      key({
+        sourceSpans: [base.sourceSpans[0], span("picture", "video", 8, 5)],
+      }),
       before,
     );
     assert.equal(
@@ -149,7 +151,9 @@ describe("audioMixPeaksKey", () => {
     const before = key({ clips: [layerClip("voice", "tone")] });
     assert.notEqual(key({ clips: [layerClip("voice", "tone", 2)] }), before);
     assert.notEqual(
-      key({ clips: [layerClip("voice", "tone"), layerClip("kit", "drums", 8)] }),
+      key({
+        clips: [layerClip("voice", "tone"), layerClip("kit", "drums", 8)],
+      }),
       before,
     );
     assert.notEqual(key(), before);
@@ -163,7 +167,9 @@ describe("audioMixPeaksKey", () => {
     });
     assert.notEqual(withoutAudio, withAudio);
     assert.notEqual(
-      key({ sourceSpans: [span("audio", "video"), span("picture", "tone", 8)] }),
+      key({
+        sourceSpans: [span("audio", "video"), span("picture", "tone", 8)],
+      }),
       withoutAudio,
     );
 
