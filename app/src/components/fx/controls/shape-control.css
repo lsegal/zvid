@@ -72,3 +72,50 @@
 .fx-shape__option[aria-selected="true"] {
   border-color: var(--amber);
 }
+
+/* Shape ▸ Custom: the SVG's opaque area in black, stretched over the
+   preview, and the list of SVG media to pick it from. */
+.fx-shape__custom {
+  position: relative;
+  background: #fff;
+}
+
+.fx-shape__custom-mask {
+  position: absolute;
+  inset: 8%;
+  background: #000;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+}
+
+.fx-shape__custom-list {
+  display: grid;
+  grid-template-columns: repeat(4, 64px);
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.fx-shape__custom-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-shape__custom-offline {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.fx-shape__custom-empty {
+  max-width: 274px;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+}

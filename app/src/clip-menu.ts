@@ -1,6 +1,5 @@
 // Where the clip menus' clipboard actions put clips, and helpers the menus
 // in menus/ share. The menus themselves are built in menus/.
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { DropClip, DropLane, SourceClipDrop } from "./source-clip-drop.ts";
 
 // Clips that only touch the playhead are not split by it.
@@ -46,7 +45,7 @@ export type CopyToLayerTarget =
  * Adds `clip` on a specific layer, even when it overlaps clips there, with
  * `resolveOverlaps` trimming the clips it covers; or on a new layer. (Auto is
  * `dropClipOnFreeLane`, the same as Ctrl/Cmd-click.) Returns `null`, adding
- * nothing, when the layers are full or the layer no longer exists.
+ * nothing, when the layer no longer exists.
  */
 export function copyClipToLayer<Lane extends DropLane, Clip extends DropClip>(
   target: Exclude<CopyToLayerTarget, { kind: "auto" }>,
@@ -57,10 +56,6 @@ export function copyClipToLayer<Lane extends DropLane, Clip extends DropClip>(
   resolveOverlaps: (clips: Clip[], placed: Clip) => Clip[],
 ): SourceClipDrop<Lane, Clip> | null {
   if (target.kind === "new") {
-    if (lanes.length >= MAX_LAYERS) {
-      return null;
-    }
-
     const lane = createLane();
     const placed = { ...clip, laneId: lane.id };
     return {

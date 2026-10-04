@@ -24,10 +24,13 @@ import * as distortion from "./distortion/definition.ts";
 import { pass as distortionPass } from "./distortion/pass.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as gaussianBlur from "./gaussian-blur/definition.ts";
+import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
 import * as highCut from "./high-cut/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as limiter from "./limiter/definition.ts";
 import * as lowCut from "./low-cut/definition.ts";
+import * as mask from "./mask/definition.ts";
 import * as mono from "./mono/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
@@ -70,10 +73,12 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   distortion,
   eq,
   gain,
+  gaussianBlur,
   highCut,
   layout,
   limiter,
   lowCut,
+  mask,
   mono,
   move,
   negativeSplit,
@@ -103,6 +108,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   colorizePass,
   digitalGlitchPass,
   distortionPass,
+  gaussianBlurPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,

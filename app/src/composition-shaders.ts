@@ -1,7 +1,18 @@
 // Shaders the compositor draws layers and FX clip results with.
 
-export const COMPOSITE_FRAGMENT_SOURCE = `
+// The layer shader, with or without a Mask: a masked layer's alpha is
+// multiplied by the alpha its Target drew at the same framebuffer pixel, in
+// the `uMaskSize` corner of `uMask` (see TextureRegion), or by 1 minus it
+// when `uMaskInvert` is 1 (Subtractive).
+function compositeFragmentSource(masked: boolean) {
+  return `
+  ${masked ? "#define LAYER_MASK" : ""}
   precision mediump float;
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  #define MASK_PRECISION highp
+  #else
+  #define MASK_PRECISION mediump
+  #endif
 
   varying vec2 vUv;
   uniform sampler2D uTexture;
@@ -12,6 +23,13 @@ export const COMPOSITE_FRAGMENT_SOURCE = `
   // The part of the texture the picture fills (see TextureRegion).
   uniform vec2 uUvScale;
   uniform vec2 uUvMax;
+  #ifdef LAYER_MASK
+  uniform sampler2D uMask;
+  uniform MASK_PRECISION vec2 uMaskSize;
+  uniform MASK_PRECISION vec2 uMaskUvScale;
+  uniform MASK_PRECISION vec2 uMaskUvMax;
+  uniform float uMaskInvert;
+  #endif
 
   void main() {
     vec4 color = texture2D(
@@ -23,9 +41,22 @@ export const COMPOSITE_FRAGMENT_SOURCE = `
     float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
     color.rgb = mix(vec3(luma), color.rgb, uSaturation);
     color.a *= uOpacity;
+    #ifdef LAYER_MASK
+    MASK_PRECISION vec2 maskUv = gl_FragCoord.xy / uMaskSize;
+    float coverage = texture2D(
+      uMask,
+      min(maskUv * uMaskUvScale, uMaskUvMax)
+    ).a;
+    color.a *= mix(coverage, 1.0 - coverage, uMaskInvert);
+    #endif
     gl_FragColor = color;
   }
 `;
+}
+
+export const COMPOSITE_FRAGMENT_SOURCE = compositeFragmentSource(false);
+
+export const MASKED_COMPOSITE_FRAGMENT_SOURCE = compositeFragmentSource(true);
 
 export const COMPOSITE_VERTEX_SOURCE = `
   attribute vec2 aPosition;

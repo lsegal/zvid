@@ -23,7 +23,6 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 type Lane = { id: string; name: string; colorIndex: number };
 type Clip = { id: string; laneId: string; startQ: number };
@@ -91,14 +90,14 @@ describe("insertLane", () => {
     assert.equal(insertLane(project, 99, lane("9")).lanes[3].id, "9");
   });
 
-  it("does nothing at the layer limit", () => {
+  it("adds a 10th layer", () => {
     const project = {
       ...makeProject(),
-      lanes: Array.from({ length: MAX_LAYERS }, (_, index) =>
-        lane(`${index + 1}`),
-      ),
+      lanes: Array.from({ length: 9 }, (_, index) => lane(`${index + 1}`)),
     };
-    assert.equal(insertLane(project, 0, lane("99")), project);
+    const next = insertLane(project, 0, lane("99"));
+    assert.equal(next.lanes.length, 10);
+    assert.equal(next.lanes[0].id, "99");
   });
 });
 
@@ -142,16 +141,19 @@ describe("duplicateLane", () => {
     assert.deepEqual(copiedStack[1].parameters, sourceStack[1].parameters);
   });
 
-  it("does nothing for a missing layer or at the layer limit", () => {
+  it("does nothing for a missing layer", () => {
     const project = makeProject();
     assert.equal(duplicateLane(project, "x", "4", counter()), project);
-    const full = {
-      ...project,
-      lanes: Array.from({ length: MAX_LAYERS }, (_, index) =>
-        lane(`${index + 1}`),
-      ),
+  });
+
+  it("adds a 10th layer", () => {
+    const project = {
+      ...makeProject(),
+      lanes: Array.from({ length: 9 }, (_, index) => lane(`${index + 1}`)),
     };
-    assert.equal(duplicateLane(full, "1", "99", counter()), full);
+    const next = duplicateLane(project, "1", "99", counter());
+    assert.equal(next.lanes.length, 10);
+    assert.equal(next.lanes[1].id, "99");
   });
 });
 
@@ -166,6 +168,30 @@ describe("deleteLane", () => {
     );
     assert.ok(next.effects.every((effect) => effect.trackId !== "2"));
     assert.ok(next.effects.some((effect) => effect.id === "blur-1"));
+  });
+
+  it("clears the Target of Masks the layer was the Target of", () => {
+    const project = makeProject();
+    const masks = [
+      { ...createEffect("1", "Mask", "mask-2"), parameters: [] },
+      { ...createEffect("3", "Mask", "mask-1"), parameters: [] },
+    ].map((effect, index) => ({
+      ...effect,
+      parameters: [
+        { key: "Target", value: index === 0 ? "2" : "1" },
+        { key: "Mode", value: "Subtractive" },
+      ],
+    }));
+    const next = deleteLane(
+      { ...project, effects: [...project.effects, ...masks] },
+      "2",
+    );
+    const target = (id: string) =>
+      next.effects
+        .find((effect) => effect.id === id)
+        ?.parameters.find((parameter) => parameter.key === "Target")?.value;
+    assert.equal(target("mask-2"), "");
+    assert.equal(target("mask-1"), "1");
   });
 
   it("keeps the only layer", () => {

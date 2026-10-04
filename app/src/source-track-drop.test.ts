@@ -39,7 +39,12 @@ describe("isMediaFile", () => {
     assert.equal(isMediaFile(file("mix.flac")), true);
   });
 
-  it("rejects images and text", () => {
+  it("accepts SVG images by MIME type or extension", () => {
+    assert.equal(isMediaFile(file("logo", "image/svg+xml")), true);
+    assert.equal(isMediaFile(file("Logo.SVG")), true);
+  });
+
+  it("rejects other images and text", () => {
     assert.equal(isMediaFile(file("still.png", "image/png")), false);
     assert.equal(isMediaFile(file("notes.txt", "text/plain")), false);
   });
@@ -54,6 +59,17 @@ describe("getSourceTrackDragState", () => {
         items: [item("video/mp4"), item("audio/mpeg")],
       }),
       { kind: "accept", fileCount: 2 },
+    );
+  });
+
+  it("accepts SVG file items during dragover", () => {
+    assert.deepEqual(
+      getSourceTrackDragState({
+        types: ["Files"],
+        files: [],
+        items: [item("image/svg+xml"), item("image/png")],
+      }),
+      { kind: "accept", fileCount: 1 },
     );
   });
 

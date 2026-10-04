@@ -14,6 +14,23 @@ import type { LayerDrawStep } from "./composition-layout.ts";
 import { quadAxes } from "./composition-transform.ts";
 import type { PreparedEffectStep, TextureRegion } from "./fx-shaders/chain.ts";
 
+// The pooled surface a Transition at nesting `depth` draws comp `index` 0
+// or 1, or its blend (2), into. They come from the arrangement pools under
+// keys below 0, which no arrangement's depth uses.
+function compTarget(
+  resources: WebGlResources,
+  depth: number,
+  index: number,
+  width: number,
+  height: number,
+) {
+  return resources.effectChain.getArrangementTarget(
+    -1 - (depth * 3 + index),
+    width,
+    height,
+  );
+}
+
 // A surface a stack of layers is drawn into (see composition-draw.ts).
 type StackTarget = {
   framebuffer: WebGLFramebuffer | null;
@@ -44,7 +61,7 @@ export function drawTransition(
 
   const { width, height } = parent;
   const [a, b] = [step.outgoing, step.incoming].map((steps, index) => {
-    const target = effectChain.getCompTarget(depth, index, width, height);
+    const target = compTarget(resources, depth, index, width, height);
     bindCompositeState(resources, target.framebuffer, width, height);
     // An empty comp is the canvas with nothing on it: a Transition from or
     // to nothing blends from or to that.
@@ -54,7 +71,7 @@ export function drawTransition(
     gl.disable(gl.SCISSOR_TEST);
     return target.region;
   });
-  const blend = effectChain.getCompTarget(depth, 2, width, height);
+  const blend = compTarget(resources, depth, 2, width, height);
   resources.transitions.draw(blend.framebuffer, width, height, a, b, settings);
 
   // The FX clip's other effects run on the blend.

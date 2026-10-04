@@ -64,8 +64,9 @@ export type FxFlagOption = { value: string; label: string; title: string };
 // linear/radial gradient (`gradient`) with a color picker, free text
 // (`text`) in a text area, a font (`font`) from the font list, a set of
 // toggles (`flags`) stored comma-separated, a set of layers (`layers`)
-// stored as comma-separated layer ids, and a shape (`shape`) by name, from
-// the Shape effect's shapes.
+// stored as comma-separated layer ids, one layer (`layer`) stored as its id,
+// empty for none, and a shape (`shape`) by name, from the Shape effect's
+// shapes.
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -83,6 +84,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "text" })
   | (FxStringParameterFields & { kind: "font" })
   | (FxStringParameterFields & { kind: "layers" })
+  | (FxStringParameterFields & { kind: "layer" })
   | (FxStringParameterFields & { kind: "shape" })
   | (FxStringParameterFields & {
       kind: "flags";

@@ -237,6 +237,30 @@ describe("buildStandaloneProject", () => {
     );
     assert.equal(project.sourceTracks[1].name, "b");
   });
+
+  it("makes no clips of images, which only feed effects", () => {
+    const project = buildStandaloneProject([
+      media({
+        id: "logo",
+        name: "logo.svg",
+        kind: "image",
+        hasAudio: false,
+        hasVideo: false,
+        width: 64,
+        height: 64,
+      }),
+      media({ id: "b", name: "b.mov", width: 640, height: 360 }),
+    ]);
+    assert.deepEqual(
+      project.sourceTracks.map((track) => track.name),
+      ["b"],
+    );
+    assert.deepEqual(
+      project.arrangementClips.map((clip) => clip.mediaId),
+      ["b"],
+    );
+    assert.equal(project.canvasWidth, 640);
+  });
 });
 
 describe("a start-trimmed warped source clip", () => {

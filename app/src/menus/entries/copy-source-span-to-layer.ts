@@ -1,6 +1,5 @@
 import { formatShortcut } from "../../clip-menu.ts";
 import type { ContextMenuEntry } from "../../context-menu.ts";
-import { MAX_LAYERS } from "../../selection-overlaps.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 import type { SourceSpanMenuContext } from "../source-span-menu.ts";
 
@@ -37,7 +36,6 @@ export const copySourceSpanToLayerEntry: MenuEntryProvider<SourceSpanMenuContext
               type: "item",
               id: "new",
               label: "New layer",
-              disabled: lanes.length >= MAX_LAYERS,
               onSelect: () => copyToLayer({ kind: "new" }),
             },
           ],

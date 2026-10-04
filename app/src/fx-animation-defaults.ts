@@ -1,7 +1,7 @@
 // The Animation modifier an effect can carry: its settings, and each
-// effect's defaults for them. Effects that aren't listed here, Layout among
-// them, don't support animation. Kept apart from the registry so the
-// animation work doesn't collide with registry edits.
+// effect's defaults for them. Effects that aren't listed here, Layout, Mask
+// and Shape among them, don't support animation. Kept apart from the
+// registry so the animation work doesn't collide with registry edits.
 
 import { ORDER_EFFECT_NAME } from "./composition-order.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
@@ -299,6 +299,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     "Bloom",
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Intensity"]),
+  ],
+  [
+    "GaussianBlur",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Radius"]),
   ],
   [
     COLOR_EFFECT_NAME,
@@ -625,6 +629,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   ],
   // Intensity 0 adds no glow.
   ["Bloom", { _Intensity: { neutral: 0 } }],
+  // Radius 0 leaves the picture sharp.
+  ["GaussianBlur", { _Radius: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],

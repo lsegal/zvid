@@ -464,6 +464,45 @@ describe("fill clips", () => {
     assert.deepEqual(active, []);
   });
 
+  it("is masked by its layer's or its own Mask", () => {
+    const maskEffect = (trackId: string, target: string, mode: string) => ({
+      id: `mask-${trackId}`,
+      trackId,
+      effectName: "Mask",
+      parameters: [
+        { key: "Target", value: target },
+        { key: "Mode", value: mode },
+      ],
+    });
+    const clips = [fill("fill-1", "6", 60, 60), fill("fill-2", "5", 60, 60)];
+    const active = (effects: SessionEffect[]) =>
+      computeActiveClips(clips, new Map(), PLAYHEAD_Q, BPM, LANE_PRIORITY, [
+        color,
+        ...effects,
+      ]).map((entry) => [entry.clip.id, entry.mask]);
+    assert.deepEqual(active([maskEffect("6", "5", "Subtractive")]), [
+      ["fill-2", undefined],
+      ["fill-1", { targetLaneId: "5", mode: "subtractive" }],
+    ]);
+    assert.deepEqual(
+      active([
+        maskEffect("6", "5", "Subtractive"),
+        maskEffect("clip:fill-1", "1", "Additive"),
+      ])[1],
+      ["fill-1", { targetLaneId: "1", mode: "additive" }],
+    );
+    // Without a Target it masks nothing, and its Target isn't read as a
+    // visual parameter.
+    assert.deepEqual(active([maskEffect("6", "", "Additive")])[1], [
+      "fill-1",
+      undefined,
+    ]);
+    assert.deepEqual(
+      resolveVisualState([maskEffect("6", "2", "Additive")], "6"),
+      resolveVisualState([], "6"),
+    );
+  });
+
   it("keeps the Color effect's opacity out of the layer's visual state", () => {
     assert.equal(resolveVisualState([color], "6").opacity, 1);
   });

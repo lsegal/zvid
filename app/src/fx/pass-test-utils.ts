@@ -41,6 +41,7 @@ export function uniformValues(
     };
   const gl = {
     uniform1f: record(),
+    uniform1i: record(),
     uniform2f: record(),
     uniform3f: record(),
   } as unknown as WebGLRenderingContext;

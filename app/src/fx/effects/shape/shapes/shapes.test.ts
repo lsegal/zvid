@@ -31,17 +31,17 @@ function assertEdge(
 }
 
 describe("Shape registry", () => {
-  it("lists Rectangle, Oval, Star and Arrow", () => {
+  it("lists Rectangle, Oval, Star, Arrow and Custom", () => {
     assert.deepEqual(
       SHAPES.map((shape) => shape.name),
-      ["Rectangle", "Oval", "Star", "Arrow"],
+      ["Rectangle", "Oval", "Star", "Arrow", "Custom"],
     );
   });
 
   it("finds shapes by name, falling back to the default", () => {
     assert.equal(findShape("oval").name, "Oval");
     assert.equal(findShape(" Star ").name, "Star");
-    assert.equal(findShape("Custom"), DEFAULT_SHAPE);
+    assert.equal(findShape("Hexagon"), DEFAULT_SHAPE);
     assert.equal(findShape(undefined), DEFAULT_SHAPE);
     assert.equal(shapeIndex("Arrow"), 3);
   });
