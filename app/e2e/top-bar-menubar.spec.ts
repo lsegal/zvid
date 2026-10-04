@@ -102,9 +102,7 @@ test("arrow keys move between the triggers and open menus", async ({
   await expect(file).toHaveAttribute("data-state", "open");
   await expect(help).toHaveAttribute("data-state", "closed");
   await expect(
-    page
-      .getByRole("menu")
-      .getByRole("menuitem", { name: "Open", exact: true }),
+    page.getByRole("menu").getByRole("menuitem", { name: "Open", exact: true }),
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
@@ -117,9 +115,7 @@ test("hovering a neighbor while a menu is open switches menus", async ({
 }) => {
   await trigger(page, "File").click();
   await expect(
-    page
-      .getByRole("menu")
-      .getByRole("menuitem", { name: "Open", exact: true }),
+    page.getByRole("menu").getByRole("menuitem", { name: "Open", exact: true }),
   ).toBeVisible();
 
   await trigger(page, "Help").hover();

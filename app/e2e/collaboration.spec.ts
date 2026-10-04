@@ -436,9 +436,7 @@ test("Retry in the media sync modal requests unavailable media again", async ({
   await expect(offlineLabel(guest)).toHaveCount(0);
 });
 
-test("New Session is off while sharing", async ({
-  browser,
-}) => {
+test("New Session is off while sharing", async ({ browser }) => {
   const host = await openApp(browser);
   await renameLayer(host, "5", "Host layer");
   await startSharing(host);
