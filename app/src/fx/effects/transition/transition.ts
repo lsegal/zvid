@@ -23,6 +23,9 @@ export type TransitionDirection = (typeof TRANSITION_DIRECTIONS)[number];
 export const DEFAULT_DIRECTION: TransitionDirection = "Left";
 export const DEFAULT_SOFTNESS = 0.2;
 
+// Frames the blend takes at the Slow, Normal and Fast Timings.
+export const TRANSITION_FRAMES = [30, 20, 10] as const;
+
 // Out opens an iris out of the center onto B; In closes A into it.
 export const TRANSITION_IRISES = ["Out", "In"] as const;
 export type TransitionIris = (typeof TRANSITION_IRISES)[number];

@@ -1,6 +1,7 @@
 // Helpers for the tests of the types in types/: draw a type off the GPU
-// with comp A solid red and comp B solid blue.
-import assert from "node:assert/strict";
+// with comp A solid red and comp B solid blue. It is compiled with the app,
+// which has no Node types, so it throws its own errors rather than using
+// node:assert.
 import {
   type Rgba,
   TRANSPARENT,
@@ -42,10 +43,11 @@ export function colorAt(
 
 export function assertColor(actual: Rgba, expected: Rgba, message?: string) {
   for (let channel = 0; channel < 4; channel++) {
-    assert.ok(
-      Math.abs(actual[channel] - expected[channel]) < 1e-6,
-      `${message ?? "color"}: expected [${expected}], got [${actual}]`,
-    );
+    if (!(Math.abs(actual[channel] - expected[channel]) < 1e-6)) {
+      throw new Error(
+        `${message ?? "color"}: expected [${expected}], got [${actual}]`,
+      );
+    }
   }
 }
 
