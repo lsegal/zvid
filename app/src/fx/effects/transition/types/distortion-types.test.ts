@@ -26,7 +26,17 @@ function input(
   softness = 0.2,
   a = compA,
 ): TransitionInput {
-  return { a, b: compB, direction, softness, resolution: RESOLUTION };
+  return {
+    a,
+    b: compB,
+    direction,
+    softness,
+    irisIn: false,
+    vertical: false,
+    count: 8,
+    origin: [0.5, 0.5],
+    resolution: RESOLUTION,
+  };
 }
 
 function render(name: string, uv: Vec2, p: number, settings = input()) {

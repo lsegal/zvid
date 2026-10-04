@@ -69,7 +69,16 @@ describe("Transition settings", () => {
         ],
         0.25,
       ),
-      { type: "Wipe", direction: [0, -1], softness: 0.5, progress: 0.25 },
+      {
+        type: "Wipe",
+        direction: [0, -1],
+        softness: 0.5,
+        irisIn: false,
+        vertical: false,
+        count: 8,
+        origin: [0.5, 0.5],
+        progress: 0.25,
+      },
     );
   });
 
@@ -78,6 +87,10 @@ describe("Transition settings", () => {
       type: DEFAULT_TRANSITION_TYPE.name,
       direction: [-1, 0],
       softness: 0.2,
+      irisIn: false,
+      vertical: false,
+      count: 8,
+      origin: [0.5, 0.5],
       progress: 1,
     });
     assert.equal(parseTransitionDirection("sideways"), "Left");
@@ -103,6 +116,17 @@ describe("Transition definition", () => {
         "Cover",
         "Wipe",
         "Zoom",
+        "Iris",
+        "Iris (Box)",
+        "Diamond",
+        "Star",
+        "Heart",
+        "Blinds",
+        "Barn Door",
+        "Clock Wipe",
+        "Checkerboard",
+        "Split",
+        "Radial Wipe",
         "Flip",
         "Cube",
         "Page Curl",
@@ -139,7 +163,19 @@ describe("Transition definition", () => {
       key: "Type",
       values: typesUsing("softness"),
     });
-    assert.deepEqual(typesUsing("softness"), ["Wipe", "Burn"]);
+    assert.deepEqual(typesUsing("softness"), [
+      "Wipe",
+      "Iris",
+      "Iris (Box)",
+      "Diamond",
+      "Star",
+      "Heart",
+      "Blinds",
+      "Barn Door",
+      "Clock Wipe",
+      "Radial Wipe",
+      "Burn",
+    ]);
   });
 
   it("builds a shader for every type", () => {

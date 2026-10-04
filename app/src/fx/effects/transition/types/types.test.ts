@@ -19,6 +19,10 @@ function input(direction: Vec2 = [-1, 0], softness = 0): TransitionInput {
     b: (uv) => (inside(uv) ? BLUE : TRANSPARENT),
     direction,
     softness,
+    irisIn: false,
+    vertical: false,
+    count: 8,
+    origin: [0.5, 0.5],
     resolution: [320, 180],
   };
 }

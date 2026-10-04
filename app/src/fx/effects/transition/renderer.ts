@@ -29,6 +29,10 @@ export function transitionFragmentSource(type: TransitionTypeDefinition) {
     uniform vec2 uCompBMax;
     uniform vec2 uDirection;
     uniform float uSoftness;
+    uniform float uIrisIn;
+    uniform float uVertical;
+    uniform float uCount;
+    uniform vec2 uOrigin;
     uniform vec2 uResolution;
     uniform float uProgress;
     varying vec2 vUv;
@@ -79,6 +83,10 @@ const UNIFORMS = [
   "uCompBMax",
   "uDirection",
   "uSoftness",
+  "uIrisIn",
+  "uVertical",
+  "uCount",
+  "uOrigin",
   "uResolution",
   "uProgress",
 ] as const;
@@ -140,6 +148,10 @@ export class TransitionRenderer {
     gl.uniform2f(locations.uCompBMax, ...b.uvMax);
     gl.uniform2f(locations.uDirection, ...settings.direction);
     gl.uniform1f(locations.uSoftness, settings.softness);
+    gl.uniform1f(locations.uIrisIn, settings.irisIn ? 1 : 0);
+    gl.uniform1f(locations.uVertical, settings.vertical ? 1 : 0);
+    gl.uniform1f(locations.uCount, settings.count);
+    gl.uniform2f(locations.uOrigin, ...settings.origin);
     gl.uniform2f(locations.uResolution, width, height);
     gl.uniform1f(locations.uProgress, settings.progress);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
