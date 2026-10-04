@@ -42,6 +42,7 @@ import {
   type Matrix2D,
   matrixQuadAxes,
   type QuadAxes,
+  quadAxes,
   resolveVisualTextBox,
   visualTransformChain,
   visualTransformMatrix,
@@ -108,8 +109,7 @@ export type WebGlResources = SourceTextures & {
   program: WebGLProgram;
   positionBuffer: WebGLBuffer;
   effectChain: EffectChainRenderer;
-  // Each frame's FX clip chains and the layers it draws, reused across
-  // frames rather than allocated for each.
+  // A frame's FX clip chains and the layers it draws, reused each frame.
   fxSteps: Map<CompositeLayer, PreparedEffectStep[]>;
   drawnLayers: CompositeLayer[];
   // Copies an FX clip's adjusted composite back into its box.
@@ -274,22 +274,6 @@ function drawQuad(
   gl.uniform1f(uniforms.contrast, values.contrast);
   gl.uniform1f(uniforms.saturation, values.saturation);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-// Quad axes for a quad scaled by `scale`, turned clockwise by `radians` in
-// clip space and centered on `translate`.
-function quadAxes(
-  scale: [number, number],
-  translate: [number, number],
-  radians: number,
-): QuadAxes {
-  const s = Math.sin(radians);
-  const c = Math.cos(radians);
-  return {
-    axisX: [c * scale[0], -s * scale[0]],
-    axisY: [s * scale[1], c * scale[1]],
-    offset: translate,
-  };
 }
 
 // A layer's uniforms: `axes` with its color adjustments at `opacity`, built
@@ -778,9 +762,6 @@ export function drawComposition(
     }
   }
   drawSteps(planLayerDraws(drawnLayers, order), sceneTarget, 0);
-  // Not kept past the frame, so removed clips can be collected.
-  fxSteps.clear();
-  drawnLayers.length = 0;
 
   gl.disable(gl.SCISSOR_TEST);
   if (scene && !groupSteps.length) {

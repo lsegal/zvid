@@ -1028,18 +1028,28 @@ describe("drawComposition text layers", () => {
     assert.equal(canvases.size, 1);
     // Its storage is allocated once and written into after.
     assert.equal(recording.subUploads.length, 2);
-    assert.equal((recording.uploads[2].at(-1) as FakeTextCanvas).fills[0].text, "Hi");
+    assert.equal(
+      (recording.uploads[2].at(-1) as FakeTextCanvas).fills[0].text,
+      "Hi",
+    );
 
     // A smaller box resizes the canvas and reallocates the storage.
-    drawFrame(resources, [textLayer({ ...HELLO, text: "Hi" }), textLayer(HELLO, 1)], {
-      arrangement: "horizontal",
-      gridSize: 2,
-      spacing: 0,
-    });
+    drawFrame(
+      resources,
+      [textLayer({ ...HELLO, text: "Hi" }), textLayer(HELLO, 1)],
+      {
+        arrangement: "horizontal",
+        gridSize: 2,
+        spacing: 0,
+      },
+    );
     const last = recording.uploads.at(-1) as unknown[];
     assert.equal(recording.subUploads.includes(last), false);
     assert.deepEqual(
-      [(last.at(-1) as FakeTextCanvas).width, (last.at(-1) as FakeTextCanvas).height],
+      [
+        (last.at(-1) as FakeTextCanvas).width,
+        (last.at(-1) as FakeTextCanvas).height,
+      ],
       [WIDTH / 2, HEIGHT],
     );
   });

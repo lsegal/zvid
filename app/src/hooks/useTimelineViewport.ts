@@ -26,8 +26,8 @@ import {
   divisionQuarters,
   type GridDivision,
   getBarStep,
-  getRulerBars,
   getGridLayers,
+  getRulerBars,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "../timeline-grid";

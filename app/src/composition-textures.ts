@@ -171,7 +171,10 @@ function watchPresentedFrames(element: HTMLVideoElement) {
 // time when paused or without callbacks. The count also catches a frame
 // presented late after a seek. These are compared field by field, so no
 // name is built each draw.
-function presentedFrameTime(element: HTMLVideoElement, watched: PresentedFrames) {
+function presentedFrameTime(
+  element: HTMLVideoElement,
+  watched: PresentedFrames,
+) {
   return !element.paused &&
     performance.now() - watched.at < FRAME_CALLBACK_STALE_MS
     ? -1
