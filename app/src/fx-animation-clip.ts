@@ -215,10 +215,11 @@ export function resolveClipAnimatedParameters(
   return applyClipAnimationWeight(effect, weight);
 }
 
-// How a clip eases into and out of an Order's arrangement.
+// How a clip eases into and out of an Order's arrangement: the same both
+// ways, so leaving is entering played backwards.
 const ORDER_SLIDE_MOTION = {
-  motionIn: "Ease Out",
-  motionOut: "Ease In",
+  motionIn: "Ease In Out",
+  motionOut: "Ease In Out",
 } as const satisfies Pick<ClipAnimation, "motionIn" | "motionOut">;
 
 // The slide an Order with this animation gives its layers, at `fps`, or

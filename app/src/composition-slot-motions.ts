@@ -15,10 +15,10 @@ export const TRANSITION_EPSILON = 1e-6;
  * The side of `order`'s arrangement a layer enters and leaves from. In a
  * Horizontal or Vertical Order that is its place among the `others` that
  * stay, `before` of them ahead of it: the start edge (left or top) first,
- * the end edge (right or bottom) last, and the middle between them or with
- * no others. A Grid goes by the layer's own cell, slot `index`: the left or
- * right edge in the first or last column, else the top or bottom edge in
- * the first or last row, else the middle.
+ * the end edge (right or bottom) last, and the middle between them. A Grid
+ * goes by the layer's own cell, slot `index`: the left or right edge in the
+ * first or last column, else the top or bottom edge in the first or last
+ * row, else the middle. A layer with no others enters in the middle.
  */
 export function resolveSlotEntry(
   order: CompositionOrder,
@@ -31,9 +31,15 @@ export function resolveSlotEntry(
       order.arrangement === "horizontal"
         ? (["left", "right"] as const)
         : (["top", "bottom"] as const);
-    return others <= 0 ? "middle" : before <= 0 ? start : before >= others ? end : "middle";
+    return others <= 0
+      ? "middle"
+      : before <= 0
+        ? start
+        : before >= others
+          ? end
+          : "middle";
   }
-  if (order.arrangement !== "grid") {
+  if (order.arrangement !== "grid" || others <= 0) {
     return "middle";
   }
   const last = order.gridSize - 1;
@@ -81,19 +87,24 @@ export function resolveSlotMotions<T extends StackedLayer>(
         );
   });
   // Moving layers, grouped by weight, so clips entering or exiting together
-  // move as one.
-  const groups: { weight: number; members: Set<number> }[] = [];
+  // move as one. A clip entering and one exiting are never together, even
+  // at the same weight.
+  const groups: { weight: number; exiting: boolean; members: Set<number> }[] =
+    [];
   weights.forEach((weight, index) => {
     if (weight >= 1) {
       return;
     }
+    const exiting = (stacked[index].clipProgress ?? 0) >= 0.5;
     const group = groups.find(
-      (candidate) => Math.abs(candidate.weight - weight) < TRANSITION_EPSILON,
+      (candidate) =>
+        candidate.exiting === exiting &&
+        Math.abs(candidate.weight - weight) < TRANSITION_EPSILON,
     );
     if (group) {
       group.members.add(index);
     } else if (groups.length < MAX_SLOT_TRANSITIONS) {
-      groups.push({ weight, members: new Set([index]) });
+      groups.push({ weight, exiting, members: new Set([index]) });
     }
   });
   const motions = new Map<T, SlotMotion>();
