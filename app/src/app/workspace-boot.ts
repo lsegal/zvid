@@ -131,6 +131,10 @@ function normalizeRestoredView(value: unknown): WorkspaceView {
     selectedSourceSpanId: text(view.selectedSourceSpanId),
     scrollLeft: finite(view.scrollLeft),
     scrollTop: finite(view.scrollTop),
+    hasUnsavedChanges:
+      typeof view.hasUnsavedChanges === "boolean"
+        ? view.hasUnsavedChanges
+        : undefined,
   };
 }
 
