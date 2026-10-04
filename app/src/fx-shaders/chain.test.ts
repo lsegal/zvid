@@ -12,6 +12,7 @@ import {
   wholeTexture,
 } from "./chain.ts";
 import { resolveEffectChain } from "./registry.ts";
+import type { EffectPass } from "./types.ts";
 
 type Handle = { kind: string; id: number };
 
@@ -27,6 +28,7 @@ function createCountingGl() {
   const textureSizes: Array<[number, number]> = [];
   const uniforms: Record<string, number[]> = {};
   const draws: Array<Record<string, number[]>> = [];
+  const viewports: Array<[number, number]> = [];
   const create = (kind: "texture" | "framebuffer") => () => {
     const handle = { kind, id: nextId++ };
     created[kind]++;
@@ -58,6 +60,9 @@ function createCountingGl() {
     uniform2f: (location: { name: string }, x: number, y: number) => {
       uniforms[location.name] = [x, y];
     },
+    viewport: (_x: number, _y: number, width: number, height: number) => {
+      viewports.push([width, height]);
+    },
     drawArrays: () => {
       draws.push({ ...uniforms });
     },
@@ -80,6 +85,7 @@ function createCountingGl() {
     shaderSources,
     textureSizes,
     draws,
+    viewports,
   };
 }
 
@@ -331,17 +337,23 @@ describe("EffectChainRenderer neutral effects", () => {
 });
 
 describe("EffectChainRenderer precompile", () => {
+  // A main program per pass, and one per stage.
+  const PROGRAMS = EFFECT_PASSES.reduce(
+    (count, pass) => count + 1 + (pass.stages?.length ?? 0),
+    0,
+  );
+
   it("compiles every pass up front and none on first use", () => {
     const recording = createCountingGl();
     const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
     renderer.precompile(EFFECT_PASSES);
-    // A vertex and a fragment shader per pass.
-    assert.equal(recording.shaderSources.length, EFFECT_PASSES.length * 2);
+    // A vertex and a fragment shader per program.
+    assert.equal(recording.shaderSources.length, PROGRAMS * 2);
     renderer.precompile(EFFECT_PASSES);
     renderer.settlePrecompiled();
     const steps = colorizeChain(renderer);
     assert.equal(steps.length, 1);
-    assert.equal(recording.shaderSources.length, EFFECT_PASSES.length * 2);
+    assert.equal(recording.shaderSources.length, PROGRAMS * 2);
   });
 
   it("checks finished programs early when the driver can say", () => {
@@ -367,7 +379,7 @@ describe("EffectChainRenderer precompile", () => {
     renderer.settlePrecompiled();
     assert.equal(
       checked.filter((name) => name === "LINK_STATUS").length,
-      EFFECT_PASSES.length,
+      PROGRAMS,
     );
     checked.length = 0;
     renderer.settlePrecompiled();
@@ -411,5 +423,99 @@ describe("EffectChainRenderer Order targets", () => {
     renderer.syncSurface(1280, 720);
     assert.equal(recording.liveCount("texture"), 0);
     assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+});
+
+describe("EffectChainRenderer stages", () => {
+  // A pass that draws two stages at `scale` before its main shader: the
+  // second reads the first, and the main shader reads both.
+  function stagedPass(scale: number): EffectPass {
+    const stage = (name: string, source: string) => ({
+      name,
+      fragmentSource: source,
+      uniforms: ["uSize"],
+      setUniforms(
+        gl: WebGLRenderingContext,
+        loc: Record<string, WebGLUniformLocation | null>,
+        _params: unknown,
+        ctx: { resolution: [number, number] },
+      ) {
+        gl.uniform2f(loc.uSize, ...ctx.resolution);
+      },
+    });
+    return {
+      effectName: "Staged",
+      stages: [
+        stage("uFirst", "void main() { gl_FragColor = texture2D(uTex, vUv); }"),
+        stage(
+          "uSecond",
+          "void main() { gl_FragColor = texture2D(uFirst, vUv) + texture2D(uTex, vUv); }",
+        ),
+      ],
+      stageScale: () => scale,
+      fragmentSource:
+        "void main() { gl_FragColor = texture2D(uSecond, vUv) + texture2D( uFirst, vUv) + texture2D(uTex, vUv); }",
+      uniforms: [],
+      setUniforms() {},
+    };
+  }
+
+  it("reads the input as usual and the earlier stages through their own mapping", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.prepare([{ pass: stagedPass(0.5), parameters: [] }]);
+    const [first, second, main] = recording.shaderSources.filter((source) =>
+      source.includes("uFxUvScale"),
+    );
+    assert.doesNotMatch(first, /fxStageTexture2D/);
+    assert.match(first, /fxTexture2D\(uTex, vUv\)/);
+    assert.match(second, /fxStageTexture2D\(uFirst, vUv\)/);
+    assert.match(main, /fxStageTexture2D\(uSecond, vUv\)/);
+    assert.match(main, /fxStageTexture2D\(uFirst, vUv\)/);
+    assert.match(main, /fxTexture2D\(uTex, vUv\)/);
+  });
+
+  it("draws the stages at their scale before the pass, in pooled targets", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = renderer.prepare([
+      { pass: stagedPass(0.25), parameters: [] },
+    ]);
+    const layer = renderer.getLayerTarget(200, 100);
+    for (let frame = 0; frame < 3; frame++) {
+      renderer.run(layer.region, 200, 100, steps, CONTEXT);
+    }
+    // Two 50×25 stages, then the 200×100 pass, every frame.
+    assert.deepEqual(recording.viewports.slice(0, 3), [
+      [50, 25],
+      [50, 25],
+      [200, 100],
+    ]);
+    assert.deepEqual(
+      recording.draws.slice(0, 2).map((draw) => draw.uSize),
+      [
+        [50, 25],
+        [50, 25],
+      ],
+    );
+    // In the corner of a 64×64 stage target.
+    assert.deepEqual(recording.draws[2].uFxStageUvScale, [50 / 64, 25 / 64]);
+    assert.deepEqual(recording.draws[2].uFxStageUvMax, [49.5 / 64, 24.5 / 64]);
+    // The layer target, two ping-pong targets and two stage targets,
+    // allocated once.
+    assert.equal(recording.created.texture, 5);
+
+    renderer.dispose();
+    assert.equal(recording.liveCount("texture"), 0);
+    assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+
+  it("skips the stages at a scale of 0", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = renderer.prepare([{ pass: stagedPass(0), parameters: [] }]);
+    renderer.run(wholeTexture({} as WebGLTexture), 200, 100, steps, CONTEXT);
+    assert.deepEqual(recording.viewports, [[200, 100]]);
+    assert.equal(recording.created.texture, 2);
   });
 });

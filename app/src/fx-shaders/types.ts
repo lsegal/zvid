@@ -25,6 +25,25 @@ export type EffectUniformLocations = Record<
   WebGLUniformLocation | null
 >;
 
+// A picture a pass draws before its main shader, at a fraction of the
+// picture's size, such as a blurred copy to build a glow from. The stages
+// after it and the main shader read it through a sampler uniform named
+// `name`.
+export type EffectStage = {
+  name: string;
+  // Fragment shader body, as for EffectPass. It may sample `uTex` and the
+  // earlier stages' samplers, all at `vUv`.
+  fragmentSource: string;
+  uniforms: string[];
+  // `ctx.resolution` is the stage's own size.
+  setUniforms(
+    gl: WebGLRenderingContext,
+    loc: EffectUniformLocations,
+    params: EffectParameter[],
+    ctx: EffectContext,
+  ): void;
+};
+
 export type EffectPass = {
   effectName: string;
   // Fragment shader body. It samples `uTex` at `vUv`; the shared precision
@@ -40,7 +59,17 @@ export type EffectPass = {
   // True when `params` leave the picture as it is, so the chain can skip
   // the pass. Passes without it always run.
   isIdentity?(params: EffectParameter[]): boolean;
+  // Drawn in order before the main shader, each `stageScale` of the
+  // picture's size on each side (see `stageSize`). A scale of 0 skips them,
+  // and the main shader must then not read them.
+  stages?: EffectStage[];
+  stageScale?(params: EffectParameter[], ctx: EffectContext): number;
 };
+
+// A stage's side, for a picture side `size` pixels long.
+export function stageSize(size: number, scale: number) {
+  return Math.max(1, Math.round(size * scale));
+}
 
 export function normalizeEffectKey(key: string) {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");

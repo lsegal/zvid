@@ -22,10 +22,10 @@ export function params(values: Record<string, number>): EffectParameter[] {
   }));
 }
 
-// Runs a pass's setUniforms against a stand-in context and returns the values
-// it sent, keyed by uniform name.
+// Runs a pass's or stage's setUniforms against a stand-in context and
+// returns the values it sent, keyed by uniform name.
 export function uniformValues(
-  pass: EffectPass,
+  pass: Pick<EffectPass, "uniforms" | "setUniforms">,
   parameters: EffectParameter[],
   ctx = CONTEXT,
 ) {
