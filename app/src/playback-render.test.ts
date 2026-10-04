@@ -108,6 +108,16 @@ describe("playback rendering", () => {
     assert.doesNotMatch(rule, /^\s*backdrop-filter:/m);
   });
 
+  it("gives the ruler's scrub area a lighter surface than the lanes", () => {
+    const background = (rule: string) =>
+      rule.match(/\n\s*background-color: ([^;]+);/)?.[1];
+    const ruler = cssRule(timelineCss("ruler"), "ruler-row__content");
+    const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+    const lane = cssRule(appCss, "track-row__content");
+    assert.equal(background(ruler), "var(--bg-soft)");
+    assert.equal(background(lane), "rgba(20, 21, 32, 0.3)");
+  });
+
   it("anchors the playhead diamond below the timecodes of a short ruler", () => {
     const css = timelineCss("ruler");
     const ruler = cssRule(css, "ruler-row__content");

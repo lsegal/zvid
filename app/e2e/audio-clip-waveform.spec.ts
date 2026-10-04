@@ -3,8 +3,8 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Audio-only clips, on layers and in source tracks, draw their waveform like
 // the Audio lane instead of a filmstrip, behind a quiet border that turns to
-// the full accent border, with the trim handles, on hover. The fixture is a
-// three-second tone.
+// the full accent border on hover; a trim handle shows when it is hovered.
+// The fixture is a three-second tone.
 const AUDIO = new URL("./fixtures/tone.wav", import.meta.url);
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -108,8 +108,11 @@ test("audio-only clips draw a waveform with a quiet border", async ({
   await expectOpacity(spanEnd, "0");
   await span.hover();
   await expect.poll(() => borderAlpha(span)).toBe(1);
+  await expectOpacity(spanStart, "0");
+  await expectOpacity(spanEnd, "0");
+  await spanStart.hover();
   await expectOpacity(spanStart, "1");
-  await expectOpacity(spanEnd, "1");
+  await expectOpacity(spanEnd, "0");
 
   // The layer clip.
   await copySpanToLayer(span, "Layer 1");
@@ -132,11 +135,14 @@ test("audio-only clips draw a waveform with a quiet border", async ({
   await expectOpacity(start, "0");
   await expectOpacity(end, "0");
 
-  // Hover: the full border and both handles.
+  // Hover: the full border, and only the hovered handle.
   await clip.hover();
   await expect.poll(() => borderAlpha(clip)).toBe(1);
+  await expectOpacity(start, "0");
+  await expectOpacity(end, "0");
+  await start.hover();
   await expectOpacity(start, "1");
-  await expectOpacity(end, "1");
+  await expectOpacity(end, "0");
 
   // Trimming the start redraws the waveform for the shorter range.
   const widthBefore = await waveform.evaluate(

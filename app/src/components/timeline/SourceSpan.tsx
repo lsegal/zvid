@@ -142,10 +142,12 @@ export function SourceSpan({
     !mediaSync && waveformKind === "audio" && audioPeaks.status !== "none";
   const waveformOverlay =
     !mediaSync && waveformKind === "overlay" && audioPeaks.status === "ready";
-  // Keeps the trim handles shown while the pointer strays off the span
+  // Keeps the trimmed edge's handle shown while the pointer strays off it
   // mid-drag.
   const trimming =
     sourceSpanDrag?.spanId === clip.id && sourceSpanDrag.kind !== "move";
+  const trimmingStart = trimming && sourceSpanDrag?.kind === "resize-start";
+  const trimmingEnd = trimming && sourceSpanDrag?.kind === "resize-end";
 
   function startDrag(
     event: ReactPointerEvent,
@@ -303,14 +305,14 @@ export function SourceSpan({
         <>
           <button
             aria-label={`Trim the start of ${clip.label}`}
-            className="source-span__handle source-span__handle--start"
+            className={`source-span__handle source-span__handle--start${trimmingStart ? " source-span__handle--trimming" : ""}`}
             onPointerDown={(event) => startDrag(event, "resize-start")}
             tabIndex={-1}
             type="button"
           />
           <button
             aria-label={`Trim the end of ${clip.label}`}
-            className="source-span__handle source-span__handle--end"
+            className={`source-span__handle source-span__handle--end${trimmingEnd ? " source-span__handle--trimming" : ""}`}
             onPointerDown={(event) => startDrag(event, "resize-end")}
             tabIndex={-1}
             type="button"

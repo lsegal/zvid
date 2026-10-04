@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// Arrangement clip trim handles stay hidden until the clip is hovered,
-// focused or trimmed, but keep their hit area. Selection alone shows only the
+// Arrangement clip trim handles stay hidden until one is hovered or trimmed,
+// which shows that handle only, or the clip is focused, but keep their hit
+// area. Selection alone shows only the
 // outline, and only a clip the user selected looks or acts selected. A four-second test pattern at
 // 120 BPM spans eight quarters.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
@@ -56,7 +57,7 @@ async function copySpanToLayer(page: Page, layer: string) {
 // in; the default session's layers no longer all fit without scrolling.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
-test("trim handles appear on hover and trim, and grab while hidden", async ({
+test("only the hovered or trimmed handle appears, and grabs while hidden", async ({
   page,
 }) => {
   await page.goto("/");
@@ -96,19 +97,29 @@ test("trim handles appear on hover and trim, and grab while hidden", async ({
     ),
   ).toBe("clip-card__handle clip-card__handle--end");
 
-  await clip.hover();
+  // Hovering the clip's middle shows neither handle; hovering an edge shows
+  // that edge's handle only (#925).
+  await body.hover();
+  await expectOpacity(start, "0");
+  await expectOpacity(end, "0");
+  await start.hover();
   await expectOpacity(start, "1");
+  await expectOpacity(end, "0");
+  await end.hover();
   await expectOpacity(end, "1");
+  await expectOpacity(start, "0");
   await page.mouse.move(5, 5);
   await expectOpacity(end, "0");
 
-  // Trimming keeps them shown even with the pointer off the clip.
+  // Trimming keeps the trimmed edge's handle shown, alone, even with the
+  // pointer off the clip.
   const widthBefore = clipBox?.width ?? 0;
   await page.mouse.move(endCenter.x, endCenter.y);
   await page.mouse.down();
   await page.mouse.move(endCenter.x - 60, endCenter.y + 200, { steps: 6 });
   await expect(clip).toHaveClass(/clip-card--trimming/);
   await expectOpacity(end, "1");
+  await expectOpacity(start, "0");
   await page.mouse.up();
   await expect(clip).not.toHaveClass(/clip-card--trimming/);
   await expect
