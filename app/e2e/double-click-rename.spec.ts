@@ -99,9 +99,7 @@ test("double-clicking a layer name renames it inline", async ({ page }) => {
   await layerName(page, "5").dblclick();
   await expect(input).toHaveValue("Layer 2");
   await expectFocusedAndSelected(input);
-  await expect(page.locator(".fx-panel__toggle")).toHaveText(
-    "Layer 2 Effects",
-  );
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
 
   // Escape cancels.
   await input.fill("Ignored");
@@ -124,9 +122,7 @@ test("double-clicking a layer name renames it inline", async ({ page }) => {
 
   // A single click only selects.
   await layerName(page, "1").click();
-  await expect(page.locator(".fx-panel__toggle")).toHaveText(
-    "Layer 1 Effects",
-  );
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 1 Effects");
   await expect(input).toHaveCount(0);
 });
 
@@ -139,9 +135,9 @@ test("double-clicking a source track name renames it inline", async ({
   await sourceTrackName(page).dblclick();
   await expect(input).toHaveValue("test-pattern");
   await expectFocusedAndSelected(input);
-  await expect(page.locator(".track-row--source")).toHaveClass(
-    /track-row--selected/,
-  );
+  await expect(
+    page.locator(".track-row--source[data-source-track-id]"),
+  ).toHaveClass(/track-row--selected/);
 
   // Escape cancels and puts focus back on the name.
   await input.fill("Ignored");
