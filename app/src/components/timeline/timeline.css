@@ -58,6 +58,9 @@
 /* At least as tall as the panel, so the playhead line and drops reach the
    footer under it. */
 .timeline-canvas {
+  /* The ruler content's height (ruler.css). The playhead line starts here,
+     where the ruler's playhead marker ends. */
+  --ruler-height: 40px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -66,7 +69,7 @@
 
 .timeline-playhead {
   position: absolute;
-  top: 59px;
+  top: var(--ruler-height);
   bottom: 0;
   width: 2px;
   left: 0;
