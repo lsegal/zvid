@@ -5,7 +5,8 @@
 // pixel (by 1 minus it when Subtractive). The Target still draws as usual on
 // its own. A masked Target is drawn with its own mask, except inside a
 // cycle (A masks B and B masks A), where the layer that closes it is drawn
-// unmasked.
+// unmasked. A Target on a hidden layer is drawn only into the masks that
+// target it, over the whole canvas, since it takes no slot.
 
 import type { LayerDrawStep } from "./composition-layout.ts";
 import {

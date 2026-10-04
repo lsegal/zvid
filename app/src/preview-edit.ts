@@ -105,6 +105,7 @@ type StackableLayer = {
     laneId: string;
     startQ: number;
     durationSeconds?: number;
+    hidden?: boolean;
   };
   // With the clip's duration, times an animated Order's slides.
   clipProgress?: number;
@@ -249,13 +250,16 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // them. They, and the FX clips beneath it, are measured on that box's own
 // surface, which its Transforms move, resize and turn.
 // Layers an Order excludes cover its whole box, in z-order with the layers
-// it arranges.
+// it arranges. Hidden layers are left out.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): PreviewLayer[] {
-  const inBounds = activeClips.filter((entry) => entry.isInBounds);
+  // Hidden layers draw nothing, so there is nothing to pick.
+  const inBounds = activeClips.filter(
+    (entry) => entry.isInBounds && !entry.clip.hidden,
+  );
   const fxLayers = orderStackedLayers(
     inBounds.filter((entry) => entry.fx),
     order,

@@ -152,6 +152,10 @@ export type ArrangementClip = {
   // whole clip's timing, which its animations run over.
   layerClipStartQ?: number;
   layerClipDurationSeconds?: number;
+  // Set when the clip's layer is hidden (see render-clips.ts): it draws
+  // nothing and takes no Order slot, but still draws into the mask of a
+  // layer whose Mask targets its layer.
+  hidden?: boolean;
 };
 
 export type SessionEffect = {

@@ -558,6 +558,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     focusLaneLabel: selection.focusLaneLabel,
                     commitLayerRename: editing.commitLayerRename,
                     setLayerFxEnabled: fxEditing.setLayerFxEnabled,
+                    setLayerHidden: fxEditing.setLayerHidden,
                   }}
                   row={{
                     openLaneMenu: editing.openLaneMenu,
@@ -632,6 +633,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     commitRename: editing.commitSourceTrackRename,
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
+                    setHidden: fxEditing.setSourceTrackHidden,
                   }}
                   openLaneMenu={editing.openSourceLaneMenu}
                   span={{

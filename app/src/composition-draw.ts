@@ -24,6 +24,7 @@ import {
   type LayerDrawStep,
   type LayerPlacement,
   type LayerVisual,
+  planHiddenLayerDraws,
   planLayerDraws,
   resolveLayerPlacement,
   resolveSlotBounds,
@@ -555,7 +556,8 @@ export function drawComposition(
 
   // FX clips and the layers the Order excludes take no slot, and a Grid has
   // one cell per arranged layer, so arranged layers past the last cell are
-  // not drawn.
+  // not drawn. Clips on hidden layers are drawn only into the masks that
+  // target them.
   drawnLayers.length = 0;
   for (const entry of activeClips) {
     if (
@@ -593,6 +595,10 @@ export function drawComposition(
   };
   let settled = true;
   const planned = planLayerDraws(drawnLayers, order);
+  // What a Mask finds its Target among: the planned steps, and the hidden
+  // layers' clips, which only masks draw, on the canvas.
+  const hiddenSteps = planHiddenLayerDraws(drawnLayers);
+  const maskable = hiddenSteps.length ? [...planned, ...hiddenSteps] : planned;
   // The layers whose masks are being drawn, so a cycle of masks ends.
   const masking = new Set<CompositeLayer>();
   // A layer step's mask from mask target `slot` on: undefined when it has
@@ -609,7 +615,7 @@ export function drawComposition(
     masking.add(step.entry);
     const drawn = drawLayerMask(
       maskDrawing,
-      findMaskTargets(planned, step, mask),
+      findMaskTargets(maskable, step, mask),
       mask,
       surface,
       slot,

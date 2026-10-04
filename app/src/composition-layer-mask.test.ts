@@ -9,6 +9,7 @@ import {
 } from "./composition-layer-mask.ts";
 import {
   type LayerDrawStep,
+  planHiddenLayerDraws,
   planLayerDraws,
   type StackedLayer,
   type TransitionComps,
@@ -27,11 +28,17 @@ type Layer = StackedLayer & {
   transition?: TransitionComps;
 };
 
-function layer(id: string, laneId: string, laneRank: number, fx?: boolean) {
+function layer(
+  id: string,
+  laneId: string,
+  laneRank: number,
+  fx?: boolean,
+  hidden?: boolean,
+) {
   return {
     id,
     laneRank,
-    clip: { startQ: 0, laneId },
+    clip: { startQ: 0, laneId, ...(hidden ? { hidden } : {}) },
     ...(fx ? { fx } : {}),
   } satisfies Layer;
 }
@@ -173,6 +180,32 @@ describe("findMaskTargets", () => {
     );
     const found = findMaskTargets(
       steps,
+      layerSteps(steps).get("masked") as LayerStep,
+      additive,
+    );
+    assert.deepEqual(pathIds(found.maskedPath), ["fx"]);
+    assert.deepEqual(
+      found.groups.map((group) => [pathIds(group.path), ids(group.steps)]),
+      [[[], ["t"]]],
+    );
+  });
+
+  it("finds a hidden Target, which draws nowhere else, on the canvas", () => {
+    const masked = layer("masked", "3", 2);
+    const layers = [
+      layer("t", "4", 3, false, true),
+      arranger("fx", "2", 1),
+      masked,
+    ];
+    const steps = planLayerDraws<Layer>(layers, Z_ORDER_COMPOSITION);
+    assert.equal(layerSteps(steps).has("t"), false);
+    const hidden = planHiddenLayerDraws<Layer>(layers);
+    assert.deepEqual(
+      hidden.map((step) => [step.entry.id, step.slot, step.slotCount]),
+      [["t", 0, 1]],
+    );
+    const found = findMaskTargets(
+      [...steps, ...hidden],
       layerSteps(steps).get("masked") as LayerStep,
       additive,
     );
