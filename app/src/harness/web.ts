@@ -9,10 +9,13 @@ import {
   withFormatNotes,
 } from "../als-import";
 import {
-  collectSessionMediaPaths,
-  type LvpSession,
-  type ServerMediaRef,
-  type SessionOpenResponse,
+  isProjectArchiveFilename,
+  openProjectArchive,
+} from "../project-archive-open";
+import type {
+  LvpSession,
+  ServerMediaRef,
+  SessionOpenResponse,
 } from "../session";
 import { detectOpenedSessionFormat } from "../session-format";
 import type {
@@ -31,6 +34,14 @@ import {
   generateThumbnailFromUrlAtTime,
   probeRecordingFrames,
 } from "./web-media";
+import {
+  basename,
+  buildFileOpenPayload,
+  buildWorkspaceOpenPayload,
+  createPathId,
+  createWorkspaceResolver,
+  normalizeWorkspacePath,
+} from "./workspace-open";
 
 type SaveFilePickerWindow = Window & {
   showSaveFilePicker?: (options?: {
@@ -135,28 +146,6 @@ async function pickMediaFolder(): Promise<MediaSelection | null> {
   return { kind: "files", files };
 }
 
-function basename(rawPath: string) {
-  return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
-}
-
-function normalizeWorkspacePath(rawPath: string) {
-  return rawPath
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/^[a-z]:\//i, "")
-    .replace(/^\/+/, "")
-    .replace(/\/+/g, "/")
-    .toLowerCase();
-}
-
-function createPathId(rawPath: string) {
-  let hash = 0;
-  for (let index = 0; index < rawPath.length; index += 1) {
-    hash = (hash * 31 + rawPath.charCodeAt(index)) >>> 0;
-  }
-  return `${hash.toString(16)}-${basename(rawPath)}`;
-}
-
 async function pickWorkspaceSession(): Promise<SessionSelection | null> {
   const files = await pickDirectoryFiles();
   if (!files) {
@@ -206,33 +195,6 @@ function chooseWorkspaceSession(files: WorkspaceFileRef[]) {
 
   const index = Number.parseInt(rawChoice, 10) - 1;
   return sessionCandidates[index] ?? null;
-}
-
-function createWorkspaceResolver(rootName: string, files: WorkspaceFileRef[]) {
-  const byPath = new Map<string, WorkspaceFileRef>();
-  const byBasename = new Map<string, WorkspaceFileRef | null>();
-
-  for (const entry of files) {
-    byPath.set(normalizeWorkspacePath(entry.path), entry);
-    const name = basename(entry.path).toLowerCase();
-    byBasename.set(name, byBasename.has(name) ? null : entry);
-  }
-
-  return (rawPath: string) => {
-    const normalized = normalizeWorkspacePath(rawPath);
-    const rootIndex = normalized.lastIndexOf(`/${rootName.toLowerCase()}/`);
-    const rootedPath =
-      rootIndex >= 0
-        ? normalized.slice(rootIndex + rootName.length + 2)
-        : normalized;
-
-    return (
-      byPath.get(normalized) ??
-      byPath.get(rootedPath) ??
-      byBasename.get(basename(rawPath).toLowerCase()) ??
-      null
-    );
-  };
 }
 
 function workspaceDir(rawPath: string) {
@@ -389,54 +351,6 @@ async function postSessionOpen(
   return finishSessionOpen(payload);
 }
 
-function buildWorkspaceOpenPayload(
-  session: LvpSession,
-  selection: Extract<SessionSelection, { kind: "workspace" }>,
-): SessionOpenResponse {
-  const resolveFile = createWorkspaceResolver(
-    selection.rootName,
-    selection.files,
-  );
-  const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
-    (rawPath) => {
-      const entry = resolveFile(rawPath);
-      return {
-        id: createPathId(rawPath),
-        path: rawPath,
-        name: basename(rawPath),
-        url: entry ? URL.createObjectURL(entry.file) : "",
-        exists: Boolean(entry),
-      };
-    },
-  );
-
-  return {
-    session,
-    sessionName: selection.sessionFile.name,
-    sessionPath: `${selection.rootName}/${selection.sessionPath}`,
-    mediaRefs,
-  };
-}
-
-function buildFileOpenPayload(
-  session: LvpSession,
-  sessionName: string,
-): SessionOpenResponse {
-  // A lone session file carries no media, so every reference opens as missing.
-  const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
-    (rawPath) => ({
-      id: createPathId(rawPath),
-      path: rawPath,
-      name: basename(rawPath),
-      url: "",
-      exists: false,
-    }),
-  );
-
-  return { session, sessionName, mediaRefs };
-}
-
-async function prepareSave(
   filename: string,
   options?: SaveOptions,
 ): Promise<SaveTarget> {
@@ -544,6 +458,17 @@ export function createWebHarness(): Harness {
     async openSession(selection): Promise<SessionOpenResponse> {
       if (selection.kind === "workspace") {
         const bytes = new Uint8Array(await selection.sessionFile.arrayBuffer());
+        // An archive is gzip too, so it is checked before a Live set.
+        if (isProjectArchiveFilename(selection.sessionFile.name)) {
+          return finishSessionOpen(
+            await openProjectArchive(
+              bytes,
+              selection.sessionFile.name,
+              selection,
+            ),
+          );
+        }
+
         if (isAlsSession(bytes, selection.sessionFile.name)) {
           return openWorkspaceAls(bytes, selection);
         }
@@ -569,6 +494,14 @@ export function createWebHarness(): Harness {
       }
 
       const bytes = new Uint8Array(await selection.file.arrayBuffer());
+      // The dev server reads only JSON and Live sets, so an archive is
+      // unpacked here.
+      if (isProjectArchiveFilename(selection.file.name)) {
+        return finishSessionOpen(
+          await openProjectArchive(bytes, selection.file.name),
+        );
+      }
+
       const isAls = isAlsSession(bytes, selection.file.name);
 
       // The deployed Worker has no session endpoints, so only the dev server
