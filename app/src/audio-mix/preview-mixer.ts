@@ -113,6 +113,9 @@ const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
 // loaded by then, and released this long after it ends, or after its
 // chain's tail when that is longer.
 const PRELOAD_SECONDS = 1.5;
+// A clip read other than forwards decodes its media and renders its span
+// before it can play, so its voice is made this much earlier.
+const DECODED_PRELOAD_SECONDS = 8;
 const RELEASE_SECONDS = 3;
 // The playback rates every browser accepts; a media element throws outside
 // them.
@@ -252,7 +255,10 @@ export class PreviewAudioMixer {
     for (const clip of this.mix.clips) {
       const start = clip.startSeconds;
       const end = clip.startSeconds + clip.durationSeconds;
-      const nearby = now >= start - PRELOAD_SECONDS && now < end + linger;
+      const preload = this.needsDecoded(clip)
+        ? DECODED_PRELOAD_SECONDS
+        : PRELOAD_SECONDS;
+      const nearby = now >= start - preload && now < end + linger;
       if (!nearby) {
         this.release(clip.id);
         continue;
