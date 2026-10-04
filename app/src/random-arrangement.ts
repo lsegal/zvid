@@ -1,7 +1,8 @@
 // The arrangement wand fills the main layers with windows onto the source
 // tracks. A window only shows footage where its source track really has a
 // clip, so every window starts inside a source span on its own track and ends
-// no later than that span does.
+// no later than that span does. Video layers only take video spans; audio-only
+// spans go on a separate audio layer.
 
 const EPSILON = 0.0001;
 
@@ -11,8 +12,16 @@ export interface CoverageSpan {
 }
 
 export interface RandomArrangementOptions<S extends CoverageSpan> {
-  /** Main layers, bottom first. The first layer is filled without gaps. */
+  /** Video layers, bottom first. The first layer is filled without gaps. */
   laneIds: readonly string[];
+  /**
+   * The layer audio-only spans go on. It is filled without gaps wherever an
+   * audio-only span has sound, or holds one uncut window when a single span
+   * covers the whole timeline.
+   */
+  audioLaneId?: string;
+  /** Whether a span has sound but no picture. Defaults to none. */
+  isAudioOnly?: (span: S) => boolean;
   sourceTrackIds: readonly string[];
   spans: readonly S[];
   spanEndQ: (span: S) => number;
@@ -74,15 +83,18 @@ function pick<T>(items: readonly T[], random: () => number) {
 }
 
 /**
- * Builds a random arrangement. The first layer covers every stretch where at
- * least one source has a clip; each upper layer is half as likely as the one
- * below it to start a window on each grid step.
+ * Builds a random arrangement. The first video layer covers every stretch
+ * where at least one video source has a clip; each upper layer is half as
+ * likely as the one below it to start a window on each grid step. The audio
+ * layer is filled like the first layer from the audio-only sources.
  */
 export function buildRandomArrangement<S extends CoverageSpan>(
   options: RandomArrangementOptions<S>,
 ): RandomArrangementWindow<S>[] {
   const {
     laneIds,
+    audioLaneId,
+    isAudioOnly = () => false,
     sourceTrackIds,
     spans,
     spanEndQ,
@@ -93,9 +105,12 @@ export function buildRandomArrangement<S extends CoverageSpan>(
   } = options;
   const windows: RandomArrangementWindow<S>[] = [];
 
-  const coveringSpans = (startQ: number) =>
+  const videoSpans = spans.filter((span) => !isAudioOnly(span));
+  const audioSpans = spans.filter(isAudioOnly);
+
+  const coveringSpans = (candidates: readonly S[], startQ: number) =>
     sourceTrackIds.flatMap((trackId) => {
-      const span = sourceSpanCovering(spans, spanEndQ, trackId, startQ);
+      const span = sourceSpanCovering(candidates, spanEndQ, trackId, startQ);
       return span ? [span] : [];
     });
 
@@ -123,24 +138,19 @@ export function buildRandomArrangement<S extends CoverageSpan>(
       (durationQ) => startQ + durationQ <= timelineEndQ + EPSILON,
     );
 
-  const [baseLaneId, ...upperLaneIds] = laneIds;
-  if (baseLaneId !== undefined) {
+  // Covers every stretch where one of `candidates` has a clip.
+  const fillLane = (laneId: string, candidates: readonly S[]) => {
     let startQ = 0;
     while (startQ < timelineEndQ - EPSILON) {
-      const candidates = coveringSpans(startQ);
-      if (candidates.length) {
+      const covering = coveringSpans(candidates, startQ);
+      if (covering.length) {
         // Near the end, a window shorter than every step still closes the gap.
-        startQ = placeWindow(
-          baseLaneId,
-          startQ,
-          candidates,
-          durationsFrom(startQ),
-        );
+        startQ = placeWindow(laneId, startQ, covering, durationsFrom(startQ));
         continue;
       }
 
       // No source has footage here, so skip to where the next clip begins.
-      const nextStartQ = spans.reduce(
+      const nextStartQ = candidates.reduce(
         (nearest, span) =>
           span.startQ > startQ + EPSILON && span.startQ < nearest
             ? span.startQ
@@ -152,6 +162,11 @@ export function buildRandomArrangement<S extends CoverageSpan>(
       }
       startQ = nextStartQ;
     }
+  };
+
+  const [baseLaneId, ...upperLaneIds] = laneIds;
+  if (baseLaneId !== undefined) {
+    fillLane(baseLaneId, videoSpans);
   }
 
   const stepCount = Math.max(1, Math.ceil(timelineEndQ / stepQ));
@@ -170,12 +185,32 @@ export function buildRandomArrangement<S extends CoverageSpan>(
         continue;
       }
 
-      const candidates = coveringSpans(startQ);
+      const candidates = coveringSpans(videoSpans, startQ);
       const validDurations = durationsFrom(startQ);
       if (!candidates.length || !validDurations.length) {
         continue;
       }
       nextAvailableQ = placeWindow(laneId, startQ, candidates, validDurations);
+    }
+  }
+
+  if (audioLaneId !== undefined) {
+    // One audio clip that runs the whole timeline is used without cuts.
+    const fullLengthSpan = sourceTrackIds
+      .map((trackId) => sourceSpanCovering(audioSpans, spanEndQ, trackId, 0))
+      .find(
+        (span) =>
+          span !== undefined && spanEndQ(span) >= timelineEndQ - EPSILON,
+      );
+    if (fullLengthSpan && timelineEndQ > EPSILON) {
+      windows.push({
+        laneId: audioLaneId,
+        startQ: 0,
+        durationQ: timelineEndQ,
+        span: fullLengthSpan,
+      });
+    } else {
+      fillLane(audioLaneId, audioSpans);
     }
   }
 

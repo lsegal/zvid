@@ -189,6 +189,113 @@ describe("buildRandomArrangement", () => {
   });
 });
 
+describe("buildRandomArrangement with audio-only sources", () => {
+  const isAudioOnly = (entry: Span) => entry.sourceTrackId.startsWith("audio");
+
+  function arrangeWithAudio(spans: readonly Span[], seed: number) {
+    return buildRandomArrangement({
+      laneIds: ["1", "2", "3"],
+      audioLaneId: "audio-lane",
+      isAudioOnly,
+      sourceTrackIds: trackIds(spans),
+      spans,
+      spanEndQ: (entry) => entry.endQ,
+      timelineEndQ: 48,
+      stepQ: 1,
+      durationSteps: [1, 2, 3, 4, 5, 6, 7, 8],
+      random: seededRandom(seed),
+    });
+  }
+
+  function audioLane(windows: readonly RandomArrangementWindow<Span>[]) {
+    return windows
+      .filter((window) => window.laneId === "audio-lane")
+      .sort((left, right) => left.startQ - right.startQ);
+  }
+
+  it("never puts an audio-only span on a video layer", () => {
+    const spans = [
+      ...referenceSpans,
+      span("audio-a", "audio-a", 0, 600),
+      span("audio-b", "audio-b", 600, 1200),
+    ];
+    for (let seed = 1; seed <= 100; seed += 1) {
+      for (const window of arrangeWithAudio(spans, seed)) {
+        assert.equal(
+          isAudioOnly(window.span),
+          window.laneId === "audio-lane",
+          `seed ${seed}: ${window.span.id} on ${window.laneId}`,
+        );
+      }
+    }
+  });
+
+  it("fills the audio layer without gaps when audio covers the timeline", () => {
+    const spans = [
+      ...referenceSpans,
+      span("audio-a", "audio-a", 0, 600),
+      span("audio-b", "audio-b", 500, 1200),
+    ];
+    for (let seed = 1; seed <= 100; seed += 1) {
+      let cursorQ = 0;
+      const windows = audioLane(arrangeWithAudio(spans, seed));
+      assert.ok(windows.length > 1);
+      for (const window of windows) {
+        assert.ok(Math.abs(window.startQ - cursorQ) < EPSILON);
+        cursorQ = window.startQ + window.durationQ;
+      }
+      assert.ok(Math.abs(cursorQ - 48) < EPSILON, `seed ${seed}`);
+    }
+  });
+
+  it("uses one full-length audio span as a single uncut clip", () => {
+    const spans = [
+      ...referenceSpans,
+      span("audio-short", "audio-short", 0, 300),
+      span("audio-song", "audio-song", 0, 1500),
+      span("audio-song-2", "audio-song-2", 0, 1500),
+    ];
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const windows = audioLane(arrangeWithAudio(spans, seed));
+      assert.equal(windows.length, 1);
+      assert.equal(windows[0].span.id, "audio-song");
+      assert.equal(windows[0].startQ, 0);
+      assert.equal(windows[0].durationQ, 48);
+    }
+  });
+
+  it("leaves audio-layer gaps only where no audio source has sound", () => {
+    const spans = [
+      ...referenceSpans,
+      span("audio-a", "audio-a", 0, 200),
+      span("audio-b", "audio-b", 500, 1200),
+    ];
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const windows = audioLane(arrangeWithAudio(spans, seed));
+      const beforeGap = windows.filter((window) => window.startQ < frames(200));
+      const afterGap = windows.filter((window) => window.startQ >= frames(200));
+      const lastBefore = beforeGap.at(-1);
+      assert.ok(lastBefore);
+      assert.ok(
+        Math.abs(lastBefore.startQ + lastBefore.durationQ - frames(200)) <
+          EPSILON,
+      );
+      assert.ok(Math.abs((afterGap[0]?.startQ ?? -1) - frames(500)) < EPSILON);
+      const last = windows.at(-1);
+      assert.ok(last);
+      assert.ok(Math.abs(last.startQ + last.durationQ - 48) < EPSILON);
+    }
+  });
+
+  it("leaves the audio layer empty with no audio sources", () => {
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const windows = arrangeWithAudio(referenceSpans, seed);
+      assert.ok(windows.length > 0);
+      assert.equal(audioLane(windows).length, 0);
+    }
+  });
+});
+
 describe("sourceTrackHasFootage", () => {
   const spans = [
     { id: "x", sourceTrackId: "a", startQ: 4, endQ: 8 },

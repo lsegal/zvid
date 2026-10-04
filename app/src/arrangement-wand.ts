@@ -1,5 +1,6 @@
 // The arrangement wand's layers and extent: it rebuilds the arrangement on a
-// fresh set of layers named `Layer 1` onward and stops at the session end.
+// fresh set of layers named `Layer 1` onward, plus an `Audio` layer after
+// them, and stops at the session end.
 // `random-arrangement.ts` picks the windows themselves.
 import { ensureLayerLayouts, type SessionEffect } from "./fx-stack.ts";
 
@@ -14,6 +15,8 @@ export type WandSourceSpan = {
   startQ: number;
   durationSeconds: number;
 };
+
+export const WAND_AUDIO_LANE_NAME = "Audio";
 
 function secondsToQuarters(seconds: number, bpm: number) {
   return (seconds * bpm) / 60;
@@ -49,8 +52,9 @@ export function getWandEndQ<Span extends WandSourceSpan>(options: {
   return Math.max(barLength, spanEndQ);
 }
 
-// `Layer 1` to `Layer <count>`, with ids no existing layer uses so nothing
-// still keyed to an old layer attaches to them.
+// `Layer 1` to `Layer <count>` for video, then an `Audio` layer that does not
+// count toward `count`, with ids no existing layer uses so nothing still
+// keyed to an old layer attaches to them.
 export function createWandLanes(
   existingLanes: readonly { id: string }[],
   count: number,
@@ -59,7 +63,7 @@ export function createWandLanes(
     .map((lane) => Number.parseInt(lane.id, 10))
     .filter((value) => Number.isInteger(value));
   const firstId = Math.max(0, ...numericIds) + 1;
-  return Array.from(
+  const videoLanes = Array.from(
     { length: count },
     (_, index): WandLane => ({
       id: `${firstId + index}`,
@@ -67,6 +71,12 @@ export function createWandLanes(
       colorIndex: -1,
     }),
   );
+  const audioLane: WandLane = {
+    id: `${firstId + count}`,
+    name: WAND_AUDIO_LANE_NAME,
+    colorIndex: -1,
+  };
+  return { videoLanes, audioLane, lanes: [...videoLanes, audioLane] };
 }
 
 // Swaps the wand's layers and windows into the project: the old layers, their
