@@ -39,6 +39,10 @@ The index is committed, so a fresh checkout type-checks without running anything
 
 You don't need to edit any shared registry file.
 
+## Per-type registries
+
+An effect whose types are one file each lists the folder in `TYPE_REGISTRIES` in `scripts/gen-fx-index.mjs`, which writes the folder's `index.generated.ts` with every `*.ts` file in it but tests. The Transition effect's types (`effects/transition/types/`) work this way: each file exports `transitionType`, a `TransitionTypeDefinition` (`effects/transition/type.ts`) with its name, menu order, the options it uses (Direction, Softness), a GLSL snippet and the same function in TypeScript for tests. A new type adds its file, runs `pnpm --dir app run gen:fx-index`, and edits nothing else.
+
 ## Audio processors
 
 An audio effect's `processor` is plain TypeScript, written once: the preview runs it in the chain worklet (`src/audio-mix/chain-worklet.ts`) and export runs it in the offline render (`src/audio-mix/mix.ts`), both through `AudioChain` (`src/audio-mix/chain.ts`), so the two hear the same DSP. It must not touch the DOM or any main-thread API.
