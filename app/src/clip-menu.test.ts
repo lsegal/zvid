@@ -295,7 +295,7 @@ describe("buildSourceSpanMenuEntries", () => {
       items(submenu).map((entry) => entry.label),
       ["Auto (last free layer)", "Layer 1", "Layer 2", "Layer 3", "New layer"],
     );
-    assert.equal(find(submenu, "new").disabled, false);
+    assert.ok(!find(submenu, "new").disabled);
     // Ctrl/Cmd-click on a source clip is the same as Auto.
     assert.equal(find(submenu, "auto").shortcut, "Ctrl+click");
   });
@@ -316,7 +316,7 @@ describe("buildSourceSpanMenuEntries", () => {
   it("keeps New layer enabled past nine layers", () => {
     const { entries } = build(lanesUpTo(10));
     const submenu = find(entries, "copy-to-layer").submenu ?? [];
-    assert.notEqual(find(submenu, "new").disabled, true);
+    assert.ok(!find(submenu, "new").disabled);
     assert.equal(items(submenu).length, 12);
   });
 });
