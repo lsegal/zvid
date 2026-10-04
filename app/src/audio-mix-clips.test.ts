@@ -1,155 +1,189 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { type AudioMixInputs, resolveAudioClips } from "./audio-mix/resolve.ts";
-import { getAudioMixContributions } from "./audio-mix-clips.ts";
-import { mixPeakLevel, mixWaveformPeaks } from "./audio-mix-peaks.ts";
-import { gainToAmplitude } from "./fx/effects/gain/gain.ts";
-import {
-  GLOBAL_EFFECT_TRACK_ID,
-  sourceClipEffectTrackId,
-} from "./fx/stack/clip-stacks.ts";
-import type { WaveformPeaks } from "./waveform-peaks.ts";
+import { audioMixPeaksKey } from "./audio-mix-clips.ts";
+import type { MediaItem } from "./media.ts";
 
-// The Audio row's waveform for the resolved mix of some edits: each change
-// that affects the audio must change what it draws.
+const MEDIA = new Map([
+  ["tone", { hasAudio: true, durationSeconds: 8 }],
+  ["drums", { hasAudio: true, durationSeconds: 8 }],
+  ["video", { hasAudio: false, durationSeconds: 8 }],
+]);
 
-const BPS = 10;
-// At 120 BPM one quarter is half a second.
-const BPM = 120;
+function mediaItem(id: string): MediaItem {
+  return {
+    id,
+    availability: "ready",
+    previewUrl: `blob:${id}`,
+  } as MediaItem;
+}
 
-// 10 seconds of media, loud (±0.8) only over its first second.
-const TONE: WaveformPeaks = {
-  bucketsPerSecond: BPS,
-  durationSeconds: 10,
-  min: new Float32Array(100).fill(-0.8, 0, BPS),
-  max: new Float32Array(100).fill(0.8, 0, BPS),
-};
+const MEDIA_ITEMS = new Map(
+  [...MEDIA.keys()].map((id) => [id, mediaItem(id)] as const),
+);
 
-function gain(trackId: string, db = 0, enabled = true) {
+function gain(trackId: string) {
   return {
     id: `gain-${trackId}`,
     trackId,
     effectName: "Gain",
-    ...(enabled ? {} : { enabled: false }),
-    parameters: [{ key: "Gain", value: String(db), numericValue: db }],
+    parameters: [
+      { key: "Gain", value: "0", numericValue: 0 },
+      { key: "Mute", value: "0", numericValue: 0 },
+    ],
+  };
+}
+
+function span(id: string, mediaId: string, startQ = 0, durationSeconds = 2) {
+  return {
+    id,
+    sourceTrackId: "track-1",
+    mediaId,
+    startQ,
+    durationSeconds,
+    trimStartSeconds: 0,
+  };
+}
+
+function layerClip(
+  id: string,
+  mediaId: string | undefined,
+  startQ = 0,
+  kind?: "fill" | "text" | "fx",
+) {
+  return {
+    id,
+    laneId: "lane-1",
+    mediaId,
+    startQ,
+    durationSeconds: 2,
+    sourceOffsetSeconds: -startQ / 2,
+    sourceWindowStartSeconds: 0,
+    sourceWindowEndSeconds: 2,
+    ...(kind ? { kind } : {}),
   };
 }
 
 function inputs(overrides: Partial<AudioMixInputs> = {}): AudioMixInputs {
   return {
     clips: [],
-    lanes: [],
-    sourceTracks: [{ id: "track" }],
-    sourceSpans: [
-      {
-        id: "span",
-        sourceTrackId: "track",
-        mediaId: "tone",
-        startQ: 0,
-        durationSeconds: 4,
-        trimStartSeconds: 0,
-      },
-    ],
-    mediaById: new Map([["tone", { hasAudio: true, durationSeconds: 10 }]]),
-    effects: [gain(sourceClipEffectTrackId("span"))],
-    bpm: BPM,
+    lanes: [{ id: "lane-1" }],
+    sourceTracks: [{ id: "track-1" }],
+    sourceSpans: [span("audio", "tone"), span("picture", "video", 8)],
+    mediaById: MEDIA,
+    effects: [gain("source-track:track-1"), gain("lane-1")],
+    bpm: 120,
     ...overrides,
   };
 }
 
-function drawn(mixInputs: AudioMixInputs) {
-  const clips = getAudioMixContributions(resolveAudioClips(mixInputs)).map(
-    (contribution) => ({ ...contribution, peaks: TONE }),
-  );
-  return mixWaveformPeaks(clips, BPS);
+function key(overrides: Partial<AudioMixInputs> = {}, media = MEDIA_ITEMS) {
+  return audioMixPeaksKey(resolveAudioClips(inputs(overrides)), media);
 }
 
-// The song seconds the drawn waveform is loud over.
-function loudSeconds(peaks: WaveformPeaks | null) {
-  assert.ok(peaks);
-  const loud = [...peaks.max.keys()].filter((bucket) => peaks.max[bucket] > 0);
-  return loud.length
-    ? [loud[0] / BPS, (loud[loud.length - 1] + 1) / BPS]
-    : null;
-}
+describe("audioMixPeaksKey", () => {
+  const base = inputs();
 
-function approx(actual: number, expected: number) {
-  assert.ok(
-    Math.abs(actual - expected) < 1e-6,
-    `expected ${expected}, got ${actual}`,
-  );
-}
-
-function withSpan(
-  change: Partial<AudioMixInputs["sourceSpans"][number]>,
-): Partial<AudioMixInputs> {
-  return { sourceSpans: [{ ...inputs().sourceSpans[0], ...change }] };
-}
-
-describe("the Audio row's waveform", () => {
-  it("draws the clip at its Gain", () => {
-    const peaks = drawn(inputs());
-    assert.deepEqual(loudSeconds(peaks), [0, 1]);
-    assert.ok(peaks);
-    approx(mixPeakLevel(peaks), 0.8);
+  it("ignores edits to source clips without audio", () => {
+    const before = key();
+    // Moved, resized, inserted and deleted.
+    assert.equal(
+      key({ sourceSpans: [base.sourceSpans[0], span("picture", "video", 12)] }),
+      before,
+    );
+    assert.equal(
+      key({
+        sourceSpans: [base.sourceSpans[0], span("picture", "video", 8, 5)],
+      }),
+      before,
+    );
+    assert.equal(
+      key({ sourceSpans: [...base.sourceSpans, span("more", "video", 16)] }),
+      before,
+    );
+    assert.equal(key({ sourceSpans: [base.sourceSpans[0]] }), before);
   });
 
-  it("follows a Gain change, the Global Gain included", () => {
-    const quieter = drawn(
-      inputs({ effects: [gain(sourceClipEffectTrackId("span"), -6)] }),
+  it("ignores edits to layer clips without audio", () => {
+    const before = key({ clips: [layerClip("fill", undefined, 0, "fill")] });
+    assert.equal(key(), before);
+    assert.equal(
+      key({ clips: [layerClip("fill", undefined, 4, "fill")] }),
+      before,
     );
-    assert.ok(quieter);
-    approx(mixPeakLevel(quieter), 0.8 * gainToAmplitude(-6, false));
-
-    const master = drawn(
-      inputs({
-        effects: [
-          gain(sourceClipEffectTrackId("span")),
-          gain(GLOBAL_EFFECT_TRACK_ID, -6),
+    assert.equal(key({ clips: [layerClip("over-video", "video", 4)] }), before);
+    assert.equal(
+      key({
+        clips: [
+          layerClip("fill", undefined, 0, "fill"),
+          layerClip("over-video", "video", 8),
         ],
       }),
-    );
-    assert.ok(master);
-    approx(mixPeakLevel(master), 0.8 * gainToAmplitude(-6, false));
-  });
-
-  it("follows a clip moved along the timeline", () => {
-    assert.deepEqual(
-      loudSeconds(drawn(inputs(withSpan({ startQ: 4 })))),
-      [2, 3],
+      before,
     );
   });
 
-  it("follows a clip trimmed at its start", () => {
-    assert.deepEqual(
-      loudSeconds(drawn(inputs(withSpan({ trimStartSeconds: 0.5 })))),
-      [0, 0.5],
-    );
+  it("ignores media changes outside the mix", () => {
+    const media = new Map(MEDIA_ITEMS);
+    media.set("video", { ...mediaItem("video"), previewUrl: "blob:other" });
+    media.set("new", mediaItem("new"));
+    assert.equal(key({}, media), key());
   });
 
-  it("follows a tempo change", () => {
-    assert.deepEqual(
-      loudSeconds(drawn(inputs({ ...withSpan({ startQ: 4 }), bpm: 60 }))),
-      [4, 5],
+  it("changes on edits to source clips with audio", () => {
+    const before = key();
+    assert.notEqual(
+      key({ sourceSpans: [span("audio", "tone", 2), base.sourceSpans[1]] }),
+      before,
     );
+    assert.notEqual(
+      key({ sourceSpans: [span("audio", "tone", 0, 3), base.sourceSpans[1]] }),
+      before,
+    );
+    assert.notEqual(
+      key({ sourceSpans: [...base.sourceSpans, span("more", "drums", 16)] }),
+      before,
+    );
+    assert.notEqual(key({ sourceSpans: [base.sourceSpans[1]] }), before);
   });
 
-  it("flattens when the Gain is bypassed or its track's FX are off", () => {
-    const bypassed = drawn(
-      inputs({ effects: [gain(sourceClipEffectTrackId("span"), 0, false)] }),
+  it("changes on edits to layer clips with audio", () => {
+    const before = key({ clips: [layerClip("voice", "tone")] });
+    assert.notEqual(key({ clips: [layerClip("voice", "tone", 2)] }), before);
+    assert.notEqual(
+      key({
+        clips: [layerClip("voice", "tone"), layerClip("kit", "drums", 8)],
+      }),
+      before,
     );
-    assert.equal(loudSeconds(bypassed), null);
-
-    const trackOff = drawn(
-      inputs({ sourceTracks: [{ id: "track", fxEnabled: false }] }),
-    );
-    assert.equal(loudSeconds(trackOff), null);
+    assert.notEqual(key(), before);
   });
 
-  it("drops a clip whose media has no audio", () => {
-    assert.equal(
-      drawn(inputs({ mediaById: new Map([["tone", { hasAudio: false }]]) })),
-      null,
+  it("changes when a clip gains or loses audio", () => {
+    // A source clip re-pointed from audio to video-only media and back.
+    const withAudio = key();
+    const withoutAudio = key({
+      sourceSpans: [span("audio", "video"), base.sourceSpans[1]],
+    });
+    assert.notEqual(withoutAudio, withAudio);
+    assert.notEqual(
+      key({
+        sourceSpans: [span("audio", "video"), span("picture", "tone", 8)],
+      }),
+      withoutAudio,
     );
+
+    // A layer clip moved from audio media onto video-only media.
+    const layered = key({ clips: [layerClip("voice", "tone")] });
+    assert.notEqual(key({ clips: [layerClip("voice", "video")] }), layered);
+  });
+
+  it("changes when a mixed clip's media becomes playable", () => {
+    const media = new Map(MEDIA_ITEMS);
+    media.set("tone", {
+      ...mediaItem("tone"),
+      availability: "hydrating",
+    } as MediaItem);
+    assert.notEqual(key({}, media), key());
   });
 });

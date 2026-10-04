@@ -2,9 +2,9 @@
 // mapped onto song time, scaled by its Gain and summed per bucket. It draws
 // the same mix playback and export play, without decoding it again.
 //
-// It is rebuilt whenever the resolved mix is (see useAudioMix and
-// usePreview): any edit to clips, source tracks, effects, media, tempo or
-// time signature, undo and redo included. It models level only through the
+// It is rebuilt whenever what it draws changes (see audioMixPeaksKey): an
+// edit to a clip with audio, its source track, its Gain, its media, or the
+// tempo, undo and redo included. It models level only through the
 // enabled Gains' stored settings, Mute included, and a stack whose FX switch
 // is off. Other audio effects (Compressor, EQ, Distortion, Limiter and so
 // on), the Gains' Modulation and Animation, and panning are not drawn: the
