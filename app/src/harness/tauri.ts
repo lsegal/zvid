@@ -12,6 +12,10 @@ import {
 } from "../als-import";
 import { siblingAudioFilename } from "../import/als/convert";
 import {
+  isProjectArchiveFilename,
+  openProjectArchive,
+} from "../project-archive-open";
+import {
   collectSessionMediaPaths,
   type ServerMediaRef,
   type SessionOpenResponse,
@@ -123,6 +127,35 @@ export async function maybeCreateTauriHarness(
       };
     };
 
+    // Opens a project archive with its bundled media. Media it doesn't
+    // bundle is looked up on disk, as an `.lvp`'s is.
+    const openArchiveSession = async (
+      bytes: Uint8Array,
+      sessionPath: string,
+    ): Promise<SessionOpenResponse> => {
+      const payload = await openProjectArchive(bytes, basename(sessionPath));
+      const missing = payload.mediaRefs
+        .filter((ref) => !ref.exists)
+        .map((ref) => ref.path);
+      const exists = missing.length
+        ? await invoke<boolean[]>("files_exist", { paths: missing })
+        : [];
+      const found = new Set(missing.filter((_, index) => exists[index]));
+      const mediaRefs = payload.mediaRefs.map((ref) =>
+        found.has(ref.path) ? toMediaRef(ref.path) : ref,
+      );
+      return {
+        ...payload,
+        sessionPath,
+        session: await detectOpenedSessionFormat(
+          payload.session,
+          mediaRefs,
+          probeRecordingFrames,
+        ),
+        mediaRefs,
+      };
+    };
+
     return {
       ...base,
       id: "tauri",
@@ -218,6 +251,14 @@ export async function maybeCreateTauriHarness(
           return base.openSession(selection);
         }
 
+        // An archive is gzip too, so it is checked before a Live set.
+        if (isProjectArchiveFilename(selection.path)) {
+          const bytes = await invoke<number[]>("read_file_bytes", {
+            path: selection.path,
+          });
+          return openArchiveSession(new Uint8Array(bytes), selection.path);
+        }
+
         const prefix = new Uint8Array(
           await invoke<number[]>("read_file_prefix", {
             path: selection.path,
@@ -265,7 +306,8 @@ export async function maybeCreateTauriHarness(
         }));
       },
       async readMediaBlob(target) {
-        if (target.sourcePath) {
+        // Media unpacked from a project archive has no file on disk.
+        if (target.sourcePath && !target.previewUrl.startsWith("blob:")) {
           const bytes = await invoke<number[]>("read_file_bytes", {
             path: target.sourcePath,
           });

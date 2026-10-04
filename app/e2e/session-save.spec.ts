@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { writeProjectArchive } from "../src/project-archive.ts";
 
 // File ▸ Export Project… in the browser build prompts for a location, which is
 // a download where the save picker is missing.
@@ -104,10 +105,13 @@ test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen"
     .getByRole("menuitem", { name: "Open Session", exact: true })
     .click();
   const chooser = await chooserPromise;
+  // Export still writes plain JSON, which a .zvd no longer opens as, so the
+  // session is reopened from a project archive holding it.
+  const archive = await writeProjectArchive({ project: session, media: [] });
   await chooser.setFiles({
     name: "saved.zvd",
-    mimeType: "application/json",
-    buffer: Buffer.from(saved),
+    mimeType: "application/gzip",
+    buffer: Buffer.from(await archive.arrayBuffer()),
   });
 
   await expect(page.getByText("saved.zvd").first()).toBeVisible();
