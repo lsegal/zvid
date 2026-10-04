@@ -85,3 +85,24 @@ test("File → New Session on a blank project doesn't ask", async ({ page }) => 
   await expectBlankSession(page);
   await expect(page.getByText("Started a new session.")).toBeVisible();
 });
+
+test("Save in the New Session prompt saves before starting over", async ({
+  page,
+}) => {
+  // Saving downloads instead of asking where to save.
+  await page.addInitScript(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  await openSample(page);
+
+  await chooseNewSession(page);
+  const downloading = page.waitForEvent("download");
+  await page
+    .getByRole("dialog", { name: "Save changes to this session?" })
+    .getByRole("button", { name: "Save", exact: true })
+    .click();
+  expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
+
+  await expectBlankSession(page);
+  await expect(page.getByText("Started a new session.")).toBeVisible();
+});
