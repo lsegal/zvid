@@ -121,10 +121,7 @@ describe("isSourceClipMediaOffline", () => {
   it("is false for ready media, even before its length is known", () => {
     assert.equal(isSourceClipMediaOffline(span("a", 0, 4), media()), false);
     assert.equal(
-      isSourceClipMediaOffline(
-        span("a", 0, 4),
-        media({ durationSeconds: 0 }),
-      ),
+      isSourceClipMediaOffline(span("a", 0, 4), media({ durationSeconds: 0 })),
       false,
     );
   });
@@ -151,7 +148,11 @@ describe("isSourceClipMediaOffline", () => {
   });
 
   it("is false for a placeholder clip with no media file", () => {
-    const placeholder = { ...span("a", 0, 4), mediaId: undefined, mediaPath: "" };
+    const placeholder = {
+      ...span("a", 0, 4),
+      mediaId: undefined,
+      mediaPath: "",
+    };
     assert.equal(isSourceClipMediaOffline(placeholder, undefined), false);
   });
 });

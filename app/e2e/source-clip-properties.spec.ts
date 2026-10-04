@@ -374,7 +374,10 @@ async function rewriteSavedMedia(page: Page, durationSeconds: number) {
                       return;
                     }
                     const record = value as Record<string, unknown>;
-                    if ("availability" in record && "durationSeconds" in record) {
+                    if (
+                      "availability" in record &&
+                      "durationSeconds" in record
+                    ) {
                       record.durationSeconds = durationSeconds;
                       rewritten = true;
                     }
