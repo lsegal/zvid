@@ -172,6 +172,15 @@ test("Export opens the dialog pre-filled with Session Settings, and overrides le
   ).toHaveCount(0);
 });
 
+test("File ▸ Export ▸ Video… opens the export dialog", async ({ page }) => {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Video…", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("File name")).toHaveValue(/\.mp4$/);
+});
+
 test("dragging In and Out exports only that span", async ({ page }) => {
   const dialog = await openExportDialog(page);
   // Small output, so the export is quick.
