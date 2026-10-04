@@ -46,15 +46,30 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Unit tests and build
+      # The spec reporter ends the log with a recap of the failing tests;
+      # app/scripts/github-test-reporter.mjs annotates each one and lists
+      # them in the job summary. Local `pnpm test` keeps its usual output.
+      - name: Unit tests
         if: ${{ !cancelled() }}
-        run: pnpm --dir app run test
+        env:
+          NODE_OPTIONS: --test-reporter=spec --test-reporter-destination=stdout --test-reporter=${{ github.workspace }}/app/scripts/github-test-reporter.mjs --test-reporter-destination=stdout
+          TEST_SUMMARY_TITLE: App unit tests
+        run: pnpm --dir app run test:unit
 
-      - name: Plugin UI unit tests and build
+      - name: Build
         if: ${{ !cancelled() }}
-        run: |
-          pnpm --dir daw/ui run test
-          pnpm --dir daw/ui run build
+        run: pnpm --dir app run build
+
+      - name: Plugin UI unit tests
+        if: ${{ !cancelled() }}
+        env:
+          NODE_OPTIONS: --test-reporter=spec --test-reporter-destination=stdout --test-reporter=${{ github.workspace }}/app/scripts/github-test-reporter.mjs --test-reporter-destination=stdout
+          TEST_SUMMARY_TITLE: Plugin UI unit tests
+        run: pnpm --dir daw/ui run test
+
+      - name: Plugin UI build
+        if: ${{ !cancelled() }}
+        run: pnpm --dir daw/ui run build
 
   # The browser tests are slow, so they run on pushes to main and when a
   # pull request is marked ready for review; other pull request events skip
