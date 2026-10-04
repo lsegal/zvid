@@ -8,6 +8,7 @@ import {
   BITCRUSH_EFFECT_NAME,
   BITCRUSH_RANGES,
   BITS_KEY,
+  type BitcrushBlock,
   BitcrushDsp,
   type BitcrushNumberKey,
   DOWNSAMPLE_KEY,
@@ -25,29 +26,61 @@ function inRange(key: BitcrushNumberKey, value: number) {
 }
 
 // A parameter as a per-frame reader: the ramp while it moves, else its
-// settled value.
-function reader(params: AudioParameterBlock, key: BitcrushNumberKey) {
-  if (params.changing(key)) {
-    const values = params.number(key);
-    return (index: number) => inRange(key, values[index]);
+// settled value. Each processor keeps one per parameter and updates it
+// every block, so reading allocates nothing.
+class ParameterReader {
+  private ramp: Float32Array | null = null;
+  private settled = 0;
+  private readonly key: BitcrushNumberKey;
+
+  constructor(key: BitcrushNumberKey) {
+    this.key = key;
   }
-  const value = inRange(key, params.value(key));
-  return () => value;
+
+  update(params: AudioParameterBlock) {
+    this.ramp = params.changing(this.key) ? params.number(this.key) : null;
+    this.settled = inRange(this.key, params.value(this.key));
+  }
+
+  at(index: number) {
+    return this.ramp ? inRange(this.key, this.ramp[index]) : this.settled;
+  }
+
+  reset() {
+    this.ramp = null;
+    this.settled = 0;
+  }
 }
 
 export const processor: AudioEffectDsp = {
   effectName: BITCRUSH_EFFECT_NAME,
   createProcessor(_sampleRate, channels) {
     const dsp = new BitcrushDsp(channels);
+    const bits = new ParameterReader(BITS_KEY);
+    const downsample = new ParameterReader(DOWNSAMPLE_KEY);
+    const mix = new ParameterReader(MIX_KEY);
+    // One block description, rewritten every block.
+    const block: BitcrushBlock = {
+      frames: 0,
+      startFrame: 0,
+      bits,
+      downsample,
+      mix,
+    };
     return {
       process(input, output, frames, params, time) {
-        dsp.process(input, output, {
-          frames,
-          startFrame: Math.round(time.timeSeconds * time.sampleRate),
-          bits: reader(params, BITS_KEY),
-          downsample: reader(params, DOWNSAMPLE_KEY),
-          mix: reader(params, MIX_KEY),
-        });
+        bits.update(params);
+        downsample.update(params);
+        mix.update(params);
+        block.frames = frames;
+        block.startFrame = Math.round(time.timeSeconds * time.sampleRate);
+        dsp.process(input, output, block);
+      },
+      reset() {
+        dsp.reset();
+        bits.reset();
+        downsample.reset();
+        mix.reset();
       },
     };
   },

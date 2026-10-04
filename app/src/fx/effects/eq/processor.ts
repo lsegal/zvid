@@ -32,7 +32,9 @@ const KEYS: Readonly<Record<keyof EqSettings, EqParameterKey>> = {
   highGain: HIGH_GAIN_KEY,
 };
 
-const ENTRIES = Object.entries(KEYS) as [keyof EqSettings, EqParameterKey][];
+// Parallel lists, walked by index so the audio thread makes no iterators.
+const FIELDS = Object.keys(KEYS) as (keyof EqSettings)[];
+const PARAMETER_KEYS = FIELDS.map((field) => KEYS[field]);
 
 // A parameter's value clamped to its range. The host reads an unset one as
 // 0, which only the gains may be, so a frequency or Q of 0 is its default.
@@ -44,33 +46,59 @@ function inRange(key: EqParameterKey, value: number) {
   return Math.min(range.max, Math.max(range.min, value));
 }
 
-// The settings at frame `index` of the block, or settled when undefined.
-function readSettings(params: AudioParameterBlock, index?: number) {
-  const settings = {} as EqSettings;
-  for (const [field, key] of ENTRIES) {
-    const value =
-      index === undefined ? params.value(key) : params.number(key)[index];
-    settings[field] = inRange(key, value);
+// Reads the settings at frame `index` of the block, or settled when -1,
+// into `settings`, which each processor reuses.
+function readSettings(
+  params: AudioParameterBlock,
+  index: number,
+  settings: EqSettings,
+) {
+  for (let at = 0; at < FIELDS.length; at++) {
+    const key = PARAMETER_KEYS[at];
+    const value = index < 0 ? params.value(key) : params.number(key)[index];
+    settings[FIELDS[at]] = inRange(key, value);
   }
-  return settings;
+}
+
+function anyChanging(params: AudioParameterBlock) {
+  for (let at = 0; at < PARAMETER_KEYS.length; at++) {
+    if (params.changing(PARAMETER_KEYS[at])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export const processor: AudioEffectDsp = {
   effectName: EQ_EFFECT_NAME,
   createProcessor(sampleRate, channels) {
     const filter = new EqFilter(sampleRate, channels);
+    const settings: EqSettings = {
+      lowFreq: 0,
+      lowGain: 0,
+      midFreq: 0,
+      midGain: 0,
+      midQ: 0,
+      highFreq: 0,
+      highGain: 0,
+    };
     return {
       process(input, output, frames, params) {
-        if (!ENTRIES.some(([, key]) => params.changing(key))) {
-          filter.setSettings(readSettings(params));
+        if (!anyChanging(params)) {
+          readSettings(params, -1, settings);
+          filter.setSettings(settings);
           filter.process(input, output, 0, frames);
           return;
         }
         for (let start = 0; start < frames; start += EQ_COEFFICIENT_FRAMES) {
-          filter.setSettings(readSettings(params, start));
+          readSettings(params, start, settings);
+          filter.setSettings(settings);
           const end = Math.min(frames, start + EQ_COEFFICIENT_FRAMES);
           filter.process(input, output, start, end);
         }
+      },
+      reset() {
+        filter.reset();
       },
     };
   },

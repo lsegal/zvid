@@ -8,6 +8,7 @@ import type {
   AudioParameterBlock,
 } from "../../../audio-mix/processor.ts";
 import {
+  DEFAULT_LOW_CUT_SLOPE,
   FREQUENCY_KEY,
   LOW_CUT_EFFECT_NAME,
   LOW_CUT_RANGES,
@@ -31,34 +32,51 @@ function inRange(key: LowCutNumberKey, value: number) {
   return Math.min(range.max, Math.max(range.min, value));
 }
 
-// The settings at frame `index` of the block, or settled when undefined.
+// Reads Frequency and Resonance at frame `index` of the block, or settled
+// when -1, into `settings`, which each processor reuses.
 function readSettings(
   params: AudioParameterBlock,
-  index?: number,
-): LowCutSettings {
-  const read = (key: LowCutNumberKey) =>
-    inRange(
-      key,
-      index === undefined ? params.value(key) : params.number(key)[index],
-    );
-  return {
-    frequency: read(FREQUENCY_KEY),
-    resonance: read(RESONANCE_KEY),
-    slope: lowCutSlope(params.switch(SLOPE_KEY)),
-  };
+  index: number,
+  settings: LowCutSettings,
+) {
+  settings.frequency = inRange(
+    FREQUENCY_KEY,
+    index < 0
+      ? params.value(FREQUENCY_KEY)
+      : params.number(FREQUENCY_KEY)[index],
+  );
+  settings.resonance = inRange(
+    RESONANCE_KEY,
+    index < 0
+      ? params.value(RESONANCE_KEY)
+      : params.number(RESONANCE_KEY)[index],
+  );
 }
 
 export const processor: AudioEffectDsp = {
   effectName: LOW_CUT_EFFECT_NAME,
   createProcessor(sampleRate, channels) {
     const filter = new LowCutFilter(sampleRate, channels);
+    const settings: LowCutSettings = {
+      frequency: 0,
+      resonance: 0,
+      slope: DEFAULT_LOW_CUT_SLOPE,
+    };
+    // lowCutSlope trims and lowercases, so it runs only when Slope changes.
+    let slopeValue: string | null = null;
     return {
       process(input, output, frames, params) {
+        const slope = params.switch(SLOPE_KEY);
+        if (slope !== slopeValue) {
+          slopeValue = slope;
+          settings.slope = lowCutSlope(slope);
+        }
         if (
           !params.changing(FREQUENCY_KEY) &&
           !params.changing(RESONANCE_KEY)
         ) {
-          filter.setSettings(readSettings(params));
+          readSettings(params, -1, settings);
+          filter.setSettings(settings);
           filter.process(input, output, 0, frames);
           return;
         }
@@ -67,10 +85,16 @@ export const processor: AudioEffectDsp = {
           start < frames;
           start += LOW_CUT_COEFFICIENT_FRAMES
         ) {
-          filter.setSettings(readSettings(params, start));
+          readSettings(params, start, settings);
+          filter.setSettings(settings);
           const end = Math.min(frames, start + LOW_CUT_COEFFICIENT_FRAMES);
           filter.process(input, output, start, end);
         }
+      },
+      reset() {
+        filter.reset();
+        slopeValue = null;
+        settings.slope = DEFAULT_LOW_CUT_SLOPE;
       },
     };
   },

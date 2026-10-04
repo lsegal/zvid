@@ -4,6 +4,7 @@
 import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
 import {
   DELAY_EFFECT_NAME,
+  type DelayBlock,
   DelayDsp,
   delayPingPong,
   delaySyncedSeconds,
@@ -21,26 +22,66 @@ import {
   TIME_KEY,
 } from "./delay.ts";
 
+const EMPTY = new Float32Array(0);
+
 export const processor: AudioEffectDsp = {
   effectName: DELAY_EFFECT_NAME,
   createProcessor(sampleRate, channels) {
     const dsp = new DelayDsp(sampleRate, channels);
+    // Filled in again every block, so processing allocates nothing.
+    const block: DelayBlock = {
+      frames: 0,
+      sampleRate,
+      syncedSeconds: undefined,
+      pingPong: false,
+      timeMs: EMPTY,
+      feedback: EMPTY,
+      highCut: EMPTY,
+      mix: EMPTY,
+    };
+    // What the switches and tempo last read, so their derived values are
+    // worked out again only when one of them changes.
+    let sync = "";
+    let note = "";
+    let pingPong = "";
+    let bpm = Number.NaN;
+    let numerator = Number.NaN;
+    let denominator = Number.NaN;
     return {
       process(input, output, frames, params, time) {
-        dsp.process(input, output, {
-          frames,
-          sampleRate,
-          syncedSeconds: delaySyncedSeconds(
-            params.switch(SYNC_KEY),
-            params.switch(NOTE_KEY),
-            time,
-          ),
-          pingPong: delayPingPong(params.switch(PING_PONG_KEY)),
-          timeMs: params.number(TIME_KEY),
-          feedback: params.number(FEEDBACK_KEY),
-          highCut: params.number(HIGH_CUT_KEY),
-          mix: params.number(MIX_KEY),
-        });
+        const nextSync = params.switch(SYNC_KEY);
+        const nextNote = params.switch(NOTE_KEY);
+        const { signature } = time;
+        if (
+          nextSync !== sync ||
+          nextNote !== note ||
+          time.bpm !== bpm ||
+          signature.numerator !== numerator ||
+          signature.denominator !== denominator
+        ) {
+          sync = nextSync;
+          note = nextNote;
+          bpm = time.bpm;
+          numerator = signature.numerator;
+          denominator = signature.denominator;
+          block.syncedSeconds = delaySyncedSeconds(sync, note, time);
+        }
+        const nextPingPong = params.switch(PING_PONG_KEY);
+        if (nextPingPong !== pingPong) {
+          pingPong = nextPingPong;
+          block.pingPong = delayPingPong(pingPong);
+        }
+        block.frames = frames;
+        block.timeMs = params.number(TIME_KEY);
+        block.feedback = params.number(FEEDBACK_KEY);
+        block.highCut = params.number(HIGH_CUT_KEY);
+        block.mix = params.number(MIX_KEY);
+        dsp.process(input, output, block);
+      },
+      // The switch values above depend only on what they were read from,
+      // so they stay.
+      reset() {
+        dsp.reset();
       },
     };
   },

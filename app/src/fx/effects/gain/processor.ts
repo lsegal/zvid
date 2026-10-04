@@ -63,5 +63,7 @@ export const processor: AudioEffectDsp = {
         }
       }
     },
+    // Stateless: nothing carries from one block to the next.
+    reset() {},
   }),
 };

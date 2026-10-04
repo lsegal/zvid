@@ -1,7 +1,10 @@
 // Mono as a chain stage: both channels blend toward the folded signal by
 // Amount, which the host ramps. Source is a switch, so the chain crossfades
 // it. A one-channel input has nothing to fold and passes through.
-import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
+import {
+  type AudioEffectDsp,
+  copyFrames,
+} from "../../../audio-mix/processor.ts";
 import {
   AMOUNT_KEY,
   blendToMono,
@@ -15,7 +18,7 @@ export const processor: AudioEffectDsp = {
   createProcessor: () => ({
     process(input, output, frames, params) {
       for (let channel = 0; channel < output.length; channel++) {
-        output[channel].set(input[channel].subarray(0, frames));
+        copyFrames(input[channel], output[channel], frames);
       }
       if (output.length < 2) {
         return;
@@ -33,5 +36,7 @@ export const processor: AudioEffectDsp = {
         output[1][index] = blendToMono(right[index], mono, amount);
       }
     },
+    // Stateless: nothing carries from one block to the next.
+    reset() {},
   }),
 };

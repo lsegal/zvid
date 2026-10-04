@@ -40,14 +40,32 @@ function inRange(key: DeEssNumberKey, value: number) {
 }
 
 // A parameter as a per-frame reader: the ramp while it moves, else its
-// settled value.
-function reader(params: AudioParameterBlock, key: DeEssNumberKey) {
-  if (params.changing(key)) {
-    const values = params.number(key);
-    return (index: number) => inRange(key, values[index]);
+// settled value. Each processor keeps one per parameter and updates it
+// every block, so reading allocates nothing.
+class ParameterReader {
+  // The block's ramp while the parameter moves, else null.
+  ramp: Float32Array | null = null;
+  // Its settled value, in range.
+  settled = 0;
+  private readonly key: DeEssNumberKey;
+
+  constructor(key: DeEssNumberKey) {
+    this.key = key;
   }
-  const value = inRange(key, params.value(key));
-  return () => value;
+
+  update(params: AudioParameterBlock) {
+    this.ramp = params.changing(this.key) ? params.number(this.key) : null;
+    this.settled = inRange(this.key, params.value(this.key));
+  }
+
+  at(index: number) {
+    return this.ramp ? inRange(this.key, this.ramp[index]) : this.settled;
+  }
+
+  reset() {
+    this.ramp = null;
+    this.settled = 0;
+  }
 }
 
 // One channel's detector and crossover filters.
@@ -55,7 +73,17 @@ class DeEssChannel {
   readonly detector = new Svf();
   readonly split1 = new Svf();
   readonly split2 = new Svf();
+
+  reset() {
+    this.detector.reset();
+    this.split1.reset();
+    this.split2.reset();
+  }
 }
+
+// Below Threshold's amplitude by this margin, an envelope's level is
+// surely under Threshold whatever log10 rounds to, so its log is skipped.
+const UNDER_THRESHOLD = 1 - 1e-6;
 
 export const processor: AudioEffectDsp = {
   effectName: DE_ESS_EFFECT_NAME,
@@ -64,14 +92,35 @@ export const processor: AudioEffectDsp = {
     const detector = new SvfCoefficients(sampleRate, DETECTOR_Q);
     const split = new SvfCoefficients(sampleRate, Math.SQRT1_2);
     const follower = createEnvelopeFollower(sampleRate);
+    const frequency = new ParameterReader(FREQUENCY_KEY);
+    const threshold = new ParameterReader(THRESHOLD_KEY);
+    const amount = new ParameterReader(AMOUNT_KEY);
+    // isListening trims and lowercases, so it runs only when Listen changes.
+    let listenValue: string | null = null;
+    let listen = false;
+    // The last reduction and its cut, since a clamped reduction repeats.
+    let lastReduction = Number.NaN;
+    let lastCut = 0;
     return {
       process(input, output, frames, params) {
-        const listen = isListening(params.switch(LISTEN_KEY));
-        const frequency = reader(params, FREQUENCY_KEY);
-        const threshold = reader(params, THRESHOLD_KEY);
-        const amount = reader(params, AMOUNT_KEY);
+        const listenSwitch = params.switch(LISTEN_KEY);
+        if (listenSwitch !== listenValue) {
+          listenValue = listenSwitch;
+          listen = isListening(listenSwitch);
+        }
+        frequency.update(params);
+        threshold.update(params);
+        amount.update(params);
+        // An envelope at or below this can't reach a settled Threshold, or
+        // anything when a settled Amount is 0, so it needs no reduction.
+        let floor = 0;
+        if (!amount.ramp && amount.settled <= 0) {
+          floor = Number.POSITIVE_INFINITY;
+        } else if (!threshold.ramp) {
+          floor = 10 ** (threshold.settled / 20) * UNDER_THRESHOLD;
+        }
         for (let index = 0; index < frames; index++) {
-          const hz = frequency(index);
+          const hz = frequency.at(index);
           detector.set(hz);
           split.set(hz * SPLIT_RATIO);
           let level = 0;
@@ -94,11 +143,11 @@ export const processor: AudioEffectDsp = {
             continue;
           }
           const reduction =
-            envelope > 0
+            envelope > 0 && envelope > floor
               ? reductionDb(
                   20 * Math.log10(envelope),
-                  threshold(index),
-                  amount(index),
+                  threshold.at(index),
+                  amount.at(index),
                 )
               : 0;
           if (reduction === 0) {
@@ -108,13 +157,32 @@ export const processor: AudioEffectDsp = {
             continue;
           }
           // The share of the high band to take away.
-          const cut = 1 - 10 ** (-reduction / 20);
+          if (reduction !== lastReduction) {
+            lastReduction = reduction;
+            lastCut = 1 - 10 ** (-reduction / 20);
+          }
+          const cut = lastCut;
           for (let channel = 0; channel < output.length; channel++) {
             const sample = input[channel][index];
             const high = sample - states[channel].split2.low;
             output[channel][index] = sample - cut * high;
           }
         }
+      },
+      reset() {
+        for (let channel = 0; channel < states.length; channel++) {
+          states[channel].reset();
+        }
+        detector.reset();
+        split.reset();
+        follower.reset();
+        frequency.reset();
+        threshold.reset();
+        amount.reset();
+        listenValue = null;
+        listen = false;
+        lastReduction = Number.NaN;
+        lastCut = 0;
       },
     };
   },

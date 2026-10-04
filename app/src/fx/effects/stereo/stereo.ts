@@ -43,17 +43,27 @@ export function sideScale(width: number) {
 // from 0 (hard left) to π/2 (hard right), so both are 1 at center and
 // left² + right² is always 2.
 export function panAmplitudes(pan: number): [number, number] {
+  const out: [number, number] = [0, 0];
+  writePanAmplitudes(pan, out);
+  return out;
+}
+
+// panAmplitudes written into `out`, so the audio thread need not allocate.
+export function writePanAmplitudes(pan: number, out: [number, number]) {
   const theta =
     ((clamp(pan, PAN_MIN, PAN_MAX) - PAN_MIN) / 200) * (Math.PI / 2);
   // Exact at the ends and the center, where cos and sin round.
   if (theta === 0) {
-    return [Math.SQRT2, 0];
+    out[0] = Math.SQRT2;
+    out[1] = 0;
+  } else if (theta === Math.PI / 2) {
+    out[0] = 0;
+    out[1] = Math.SQRT2;
+  } else if (theta === Math.PI / 4) {
+    out[0] = 1;
+    out[1] = 1;
+  } else {
+    out[0] = Math.SQRT2 * Math.cos(theta);
+    out[1] = Math.SQRT2 * Math.sin(theta);
   }
-  if (theta === Math.PI / 2) {
-    return [0, Math.SQRT2];
-  }
-  if (theta === Math.PI / 4) {
-    return [1, 1];
-  }
-  return [Math.SQRT2 * Math.cos(theta), Math.SQRT2 * Math.sin(theta)];
 }

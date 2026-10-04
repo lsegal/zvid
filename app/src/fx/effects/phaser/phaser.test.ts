@@ -26,13 +26,22 @@ function constant(value: number, frames: number) {
   return new Float32Array(frames).fill(value);
 }
 
-// Runs `input` through a fresh PhaserDsp in blocks of `blockFrames`.
+type Numbers = {
+  rate: number;
+  depth: number;
+  center: number;
+  feedback: number;
+  mix: number;
+};
+
+// Runs `input` through `dsp`, a fresh PhaserDsp unless given, in blocks of
+// `blockFrames`.
 function run(
   input: Float32Array[],
   blockFrames: number,
-  numbers = { rate: 2, depth: 80, center: 800, feedback: 50, mix: 60 },
+  numbers: Numbers = { rate: 2, depth: 80, center: 800, feedback: 50, mix: 60 },
+  dsp = new PhaserDsp(RATE, input.length),
 ) {
-  const dsp = new PhaserDsp(RATE, input.length);
   const output = input.map((channel) => new Float32Array(channel.length));
   for (let start = 0; start < input[0].length; start += blockFrames) {
     const frames = Math.min(blockFrames, input[0].length - start);
@@ -50,6 +59,42 @@ function run(
         mix: constant(numbers.mix, frames),
       },
     );
+  }
+  return output;
+}
+
+// The phaser as it was before it glided its coefficient: the LFO, a
+// tangent and two powers worked out every frame. Six stages, as `run`.
+function perFrame(input: Float32Array, numbers: Numbers) {
+  const stages = 6;
+  const z = new Float64Array(stages);
+  const output = new Float32Array(input.length);
+  const rate = Math.fround(numbers.rate);
+  const fb = Math.fround(numbers.feedback) / 100;
+  const mix = Math.fround(numbers.mix) / 100;
+  for (let index = 0; index < input.length; index++) {
+    const c = allPassCoefficient(
+      breakFrequency(
+        Math.fround(numbers.center),
+        Math.fround(numbers.depth),
+        (index / RATE) * rate,
+      ),
+      RATE,
+    );
+    const instant = c ** stages;
+    const dry = input[index];
+    let held = 0;
+    for (let stage = 0; stage < stages; stage++) {
+      held = c * held + z[stage];
+    }
+    const wet = (instant * dry + held) / (1 - fb * instant);
+    let x = dry + fb * wet;
+    for (let stage = 0; stage < stages; stage++) {
+      const y = c * x + z[stage];
+      z[stage] = x - c * y;
+      x = y;
+    }
+    output[index] = (1 - mix) * dry + mix * (1 + fb) * x;
   }
   return output;
 }
@@ -131,6 +176,35 @@ describe("PhaserDsp", () => {
     const [stereo] = run([left, new Float32Array(left.length)], 128);
     const [mono] = run([left], 128);
     assert.deepEqual(stereo, mono);
+  });
+
+  it("follows the per-frame sweep within a few millionths", () => {
+    const input = noise(RATE, 4);
+    for (const numbers of [
+      { rate: 2, depth: 80, center: 800, feedback: 50, mix: 60 },
+      // The fastest, widest sweep, up near Nyquist, ringing the most.
+      { rate: 10, depth: 100, center: 5000, feedback: 90, mix: 100 },
+    ]) {
+      // A whole second in one block, so only the glide can differ.
+      const [output] = run([input], RATE, numbers);
+      const expected = perFrame(input, numbers);
+      let error = 0;
+      let peak = 0;
+      for (let index = 0; index < input.length; index++) {
+        error = Math.max(error, Math.abs(output[index] - expected[index]));
+        peak = Math.max(peak, Math.abs(expected[index]));
+      }
+      assert.ok(error <= 5e-6 * peak, `${error} of ${peak}`);
+    }
+  });
+
+  it("sounds exactly like a fresh one after a reset", () => {
+    const numbers = { rate: 3, depth: 90, center: 1200, feedback: 70, mix: 70 };
+    const dsp = new PhaserDsp(RATE, 2);
+    run([noise(RATE / 4, 5), noise(RATE / 4, 6)], 128, numbers, dsp);
+    dsp.reset();
+    const input = [noise(RATE / 4, 7), noise(RATE / 4, 8)];
+    assert.deepEqual(run(input, 128, numbers, dsp), run(input, 128, numbers));
   });
 
   it("stays bounded at the most feedback", () => {

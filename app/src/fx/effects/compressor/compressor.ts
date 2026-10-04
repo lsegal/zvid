@@ -40,7 +40,17 @@ export const COMPRESSOR_RANGES: Record<CompressorParameterKey, Range> = {
 };
 
 // A silent frame's level, so its log stays finite.
-const SILENCE_DB = -200;
+export const SILENCE_DB = -200;
+
+// The quiet level sits a hair below Threshold less half the Knee, so
+// rounding in its 10^x never skips a frame the gain computer would have
+// changed.
+const QUIET_MARGIN = 1 - 1e-9;
+
+// Gain reduction this small changes a sample by far less than a 32-bit
+// float can show; counting it as none lets the gain settle back to the
+// makeup alone.
+const NO_REDUCTION_DB = 1e-9;
 
 const MINUS = "−";
 
@@ -97,6 +107,7 @@ export function smoothingCoefficient(ms: number, sampleRate: number) {
   return Math.exp(-1000 / (Math.max(ms, 1e-3) * sampleRate));
 }
 
+// One block's settings, which each processor fills in again every block.
 export type CompressorBlock = {
   frames: number;
   sampleRate: number;
@@ -120,6 +131,31 @@ export class CompressorDsp {
   private releaseMs = Number.NaN;
   private attack = 0;
   private release = 0;
+  // The peak below which the gain computer leaves a frame as it is, for
+  // the Threshold and Knee it was worked out for, so a quiet frame skips
+  // its log.
+  private quietThresholdDb = Number.NaN;
+  private quietKneeDb = Number.NaN;
+  private quietPeak = 0;
+  // The makeup gain for the Makeup it was worked out for, the whole gain
+  // while nothing is reduced.
+  private makeupDb = Number.NaN;
+  private makeup = 1;
+
+  // Back to no gain reduction, as constructed.
+  reset() {
+    this.held = 0;
+    this.reduction = 0;
+    this.attackMs = Number.NaN;
+    this.releaseMs = Number.NaN;
+    this.attack = 0;
+    this.release = 0;
+    this.quietThresholdDb = Number.NaN;
+    this.quietKneeDb = Number.NaN;
+    this.quietPeak = 0;
+    this.makeupDb = Number.NaN;
+    this.makeup = 1;
+  }
 
   process(
     input: readonly Float32Array[],
@@ -146,23 +182,42 @@ export class CompressorDsp {
       for (let channel = 0; channel < channels; channel++) {
         peak = Math.max(peak, Math.abs(input[channel][index]));
       }
-      const levelDb = peak > 0 ? 20 * Math.log10(peak) : SILENCE_DB;
-      const target =
-        levelDb -
-        compressedLevelDb(
-          levelDb,
-          block.thresholdDb[index],
-          block.ratio[index],
-          block.kneeDb[index],
-        );
+      const thresholdDb = block.thresholdDb[index];
+      const kneeDb = block.kneeDb[index];
+      if (
+        thresholdDb !== this.quietThresholdDb ||
+        kneeDb !== this.quietKneeDb
+      ) {
+        this.quietThresholdDb = thresholdDb;
+        this.quietKneeDb = kneeDb;
+        this.quietPeak = 10 ** ((thresholdDb - kneeDb / 2) / 20) * QUIET_MARGIN;
+      }
+      // Below the knee the gain computer reduces nothing.
+      let target = 0;
+      if (peak >= this.quietPeak) {
+        const levelDb = peak > 0 ? 20 * Math.log10(peak) : SILENCE_DB;
+        target =
+          levelDb -
+          compressedLevelDb(levelDb, thresholdDb, block.ratio[index], kneeDb);
+      }
       held = Math.max(
         target,
         this.release * held + (1 - this.release) * target,
       );
       reduction = this.attack * reduction + (1 - this.attack) * held;
+      if (reduction < NO_REDUCTION_DB) {
+        reduction = 0;
+      }
 
       const mix = block.mix[index];
-      const wet = 10 ** ((block.makeupDb[index] - reduction) / 20) * mix;
+      const makeupDb = block.makeupDb[index];
+      if (makeupDb !== this.makeupDb) {
+        this.makeupDb = makeupDb;
+        this.makeup = 10 ** (makeupDb / 20);
+      }
+      const wet =
+        (reduction === 0 ? this.makeup : 10 ** ((makeupDb - reduction) / 20)) *
+        mix;
       for (let channel = 0; channel < channels; channel++) {
         const dry = input[channel][index];
         output[channel][index] = dry * (1 - mix) + dry * wet;

@@ -118,6 +118,7 @@ function wrapCycles(cycles: number) {
   return cycles - Math.round(cycles);
 }
 
+// One block's settings, which each processor fills in again every block.
 export type TremoloBlock = {
   frames: number;
   sampleRate: number;
@@ -140,6 +141,12 @@ export class TremoloDsp {
 
   constructor(channels: number) {
     this.channels = channels;
+  }
+
+  // Back in step with the timeline, as constructed.
+  reset() {
+    this.phaseOffset = 0;
+    this.lastRate = null;
   }
 
   // The free-running LFO's phase in cycles at timeline second `seconds`.
