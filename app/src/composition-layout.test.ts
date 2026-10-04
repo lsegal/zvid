@@ -4,6 +4,7 @@ import {
   type LayerDrawStep,
   type LayoutAnchor,
   orderStackedLayers,
+  planHiddenLayerDraws,
   planLayerDraws,
   resolveBandScissor,
   resolveCoverHalfExtents,
@@ -836,10 +837,10 @@ describe("resolveLayerPlacement with an Order", () => {
 });
 
 describe("planLayerDraws", () => {
-  const layer = (laneRank: number, fx = false) => ({
+  const layer = (laneRank: number, fx = false, hidden = false) => ({
     id: `${fx ? "fx" : "layer"}-${laneRank}`,
     laneRank,
-    clip: { startQ: 0 },
+    clip: hidden ? { startQ: 0, hidden } : { startQ: 0 },
     fx,
   });
   const describeSteps = (
@@ -868,6 +869,41 @@ describe("planLayerDraws", () => {
         planLayerDraws([layer(0), layer(1), layer(2)], Z_ORDER_COMPOSITION),
       ),
       ["layer-2@0/3", "layer-1@1/3", "layer-0@2/3"],
+    );
+  });
+
+  it("leaves hidden layers out, closing their Order slots", () => {
+    const vertical: CompositionOrder = {
+      arrangement: "vertical",
+      gridSize: 2,
+      spacing: 0,
+    };
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws(
+          [layer(0), layer(1, false, true), layer(2), layer(3, true, true)],
+          vertical,
+        ),
+      ),
+      ["layer-0@0/2", "layer-2@1/2"],
+    );
+    assert.deepEqual(
+      describeSteps(planLayerDraws([layer(0), layer(1, false, true)], grid2)),
+      ["layer-0@0/1"],
+    );
+  });
+
+  it("plans hidden layers, but not hidden FX clips, over the whole canvas for masks", () => {
+    assert.deepEqual(
+      describeSteps(
+        planHiddenLayerDraws([
+          layer(0),
+          layer(1, false, true),
+          layer(2, true, true),
+          layer(3, false, true),
+        ]),
+      ),
+      ["layer-3@0/1", "layer-1@0/1"],
     );
   });
 

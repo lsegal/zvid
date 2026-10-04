@@ -673,6 +673,53 @@ describe("source track FX switch", () => {
   });
 });
 
+describe("Hide switches", () => {
+  const session: LvpSession = {
+    mainTracks: [
+      { id: "main-1", name: "Layer 1", hidden: true },
+      { id: "main-2", name: "Layer 2" },
+    ],
+    tracks: [
+      { id: "t1", name: "Cam A" },
+      { id: "t2", name: "Cam B", hidden: true },
+    ],
+    timeline: { bpm: 120, fps: 30 },
+  };
+
+  it("survives a save and reopen", () => {
+    const project = sessionToProject(session, []);
+    const saved = projectToLvpSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        clips: project.arrangementClips,
+        timelineMode: "musical",
+        snapEnabled: true,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    const reopened = sessionToProject(
+      JSON.parse(JSON.stringify(saved)) as LvpSession,
+      [],
+    );
+    assert.deepEqual(
+      reopened.lanes.map((lane) => [lane.id, lane.hidden]),
+      [
+        ["main-1", true],
+        ["main-2", undefined],
+      ],
+    );
+    assert.deepEqual(
+      reopened.sourceTracks.map((track) => [track.id, track.hidden]),
+      [
+        ["t1", undefined],
+        ["t2", true],
+      ],
+    );
+  });
+});
+
 describe("layer clips after their source clip changes", () => {
   const bpm = 120;
   const fps = 30;

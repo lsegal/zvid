@@ -105,6 +105,7 @@ type StackableLayer = {
     laneId: string;
     startQ: number;
     durationSeconds?: number;
+    hidden?: boolean;
   };
   // With the clip's duration, times an animated Order's slides.
   clipProgress?: number;

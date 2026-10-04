@@ -6,6 +6,7 @@ import {
 } from "./composition-layer-mask.ts";
 import {
   type LayerDrawStep,
+  planHiddenLayerDraws,
   planLayerDraws,
   type StackedLayer,
 } from "./composition-layout.ts";
@@ -14,11 +15,17 @@ import type { EffectChainRenderer } from "./fx-shaders/chain.ts";
 
 type Layer = StackedLayer & { id: string; fx?: boolean };
 
-function layer(id: string, laneId: string, laneRank: number, fx?: boolean) {
+function layer(
+  id: string,
+  laneId: string,
+  laneRank: number,
+  fx?: boolean,
+  hidden?: boolean,
+) {
   return {
     id,
     laneRank,
-    clip: { startQ: 0, laneId },
+    clip: { startQ: 0, laneId, ...(hidden ? { hidden } : {}) },
     ...(fx ? { fx } : {}),
   } satisfies Layer;
 }
@@ -47,6 +54,17 @@ describe("findMaskTargetSteps", () => {
       Z_ORDER_COMPOSITION,
     );
     assert.deepEqual(findMaskTargetSteps(steps, masked, additive), []);
+  });
+
+  it("finds a hidden target layer's clips, which draw nowhere else", () => {
+    const layers = [masked, layer("shape", "2", 1, false, true)];
+    const steps = planLayerDraws<Layer>(layers, Z_ORDER_COMPOSITION);
+    assert.deepEqual(ids(steps), ["masked"]);
+    const hiddenSteps = planHiddenLayerDraws<Layer>(layers);
+    assert.deepEqual(
+      ids(findMaskTargetSteps([...steps, ...hiddenSteps], masked, additive)),
+      ["shape"],
+    );
   });
 
   it("skips FX clips and the masked clip itself", () => {
@@ -105,6 +123,31 @@ describe("drawLayerMask", () => {
     );
     assert.equal(drawn, null);
     assert.deepEqual(calls, []);
+  });
+
+  it("draws a hidden target layer into the mask", () => {
+    const { calls, region, resources } = fakeResources();
+    const masked = layer("masked", "1", 0);
+    const mask = { targetLaneId: "2", mode: "additive" } as const;
+    const layers = [masked, layer("shape", "2", 1, false, true)];
+    const drawn = drawLayerMask(
+      resources,
+      findMaskTargetSteps(
+        [
+          ...planLayerDraws<Layer>(layers, Z_ORDER_COMPOSITION),
+          ...planHiddenLayerDraws<Layer>(layers),
+        ],
+        masked,
+        mask,
+      ),
+      mask,
+      surface,
+      () => calls.push("bind"),
+      (_target, step) => calls.push(`draw ${step.entry.id} ${step.slotCount}`),
+    );
+    assert.deepEqual(drawn, { region, mode: "additive" });
+    // The hidden layer takes no slot, so it covers the whole surface.
+    assert.ok(calls.includes("draw shape 1"));
   });
 
   it("draws the target's clips into a cleared mask the surface's size", () => {
