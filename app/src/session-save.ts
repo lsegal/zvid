@@ -1,7 +1,7 @@
 // File ▸ Export Project…: the `.zvd` filename it suggests, and the session
-// it writes. A `.zvd` holds the same JSON as an `.lvp`, so older builds read a
-// renamed file. Exporting always asks where to write, even for a session
-// opened from a path.
+// it writes. The session goes into a `.zvd` project archive as its
+// `project.json` (see project-archive-export.ts). Exporting always asks where
+// to write, even for a session opened from a path.
 
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";

@@ -5,13 +5,13 @@ import {
   isAlsFilename,
 } from "../als-import";
 import { DEFAULT_LANES, PALETTE } from "../app/constants.ts";
+import { readHydratableMedia } from "../app/media-hydration.ts";
 import {
   buildStandaloneProject,
   hydrateProjectMedia,
   patchProjectState,
   sessionToProject,
 } from "../app/session-project.ts";
-import { readHydratableMedia } from "../app/media-hydration.ts";
 import { secondsToQuarters } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
