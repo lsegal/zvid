@@ -323,7 +323,15 @@ test("the transform handles step aside while editing text", async ({
         return { x: corner.x + 12, y: corner.y - 8 };
       },
     ],
-    ["resize handle", () => centerOf(page, "preview-transform-handle-e")],
+    [
+      "resize handle",
+      async () => {
+        // The handle straddles the box's edge; press its outer half so the
+        // press lands beside the text box, not inside the editor.
+        const handle = await centerOf(page, "preview-transform-handle-e");
+        return { x: handle.x + 3, y: handle.y };
+      },
+    ],
   ];
   for (const [name, pressPoint] of pressPoints) {
     await test.step(`nothing from the ${name} while editing`, async () => {

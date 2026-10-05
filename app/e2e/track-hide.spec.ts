@@ -267,8 +267,11 @@ async function insertFillAtStart(page: Page, laneId: string) {
   await expect(fill).toHaveClass(/clip-card--selected/);
 }
 
-// The preview's color a quarter of the way in from its top-left corner, read
-// from a screenshot so the WebGL canvas needn't keep its drawing buffer.
+// The preview's color a third of the way across and a quarter of the way down,
+// inside the source test pattern's magenta bar at any monitor height (a
+// quarter of the way across falls in the letterbox beside it on a short
+// monitor). Read from a screenshot so the WebGL canvas needn't keep its
+// drawing buffer.
 async function previewColor(page: Page) {
   const png = await page
     .locator(".composition-player__canvas")
@@ -284,7 +287,7 @@ async function previewColor(page: Page) {
     if (!context) throw new Error("No 2D context");
     context.drawImage(image, 0, 0);
     const pixel = context.getImageData(
-      Math.floor(image.width / 4),
+      Math.floor(image.width / 3),
       Math.floor(image.height / 4),
       1,
       1,
