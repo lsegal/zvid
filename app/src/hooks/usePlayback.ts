@@ -395,7 +395,9 @@ export function usePlayback({
     let nextEdgeQ = findNextEdgeQ(originQ);
 
     const step = (timestamp: number) => {
-      const elapsed = (timestamp - startedAt) / 1000;
+      // A frame's timestamp can predate `startedAt`, which would step back
+      // into a loop from playback started at its out marker.
+      const elapsed = Math.max(0, timestamp - startedAt) / 1000;
       let nextQ = originQ + secondsToQuarters(elapsed, bpm);
       const stopQ = playbackStopRef.current || totalQuartersRef.current;
       const loop = playbackOpenRef.current ? null : loopRegionRef.current;
