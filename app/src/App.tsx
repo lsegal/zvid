@@ -232,6 +232,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     projectMediaItems: project.mediaItems,
     bpm,
     barLength: timeline.barLength,
+    snap: { unit: timeline.snapUnit, enabled: project.snapEnabled },
     quarterPx,
     totalQuarters,
     loopRegion: timeline.loopRegion,
@@ -706,6 +707,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               getMeterTap={getMeterTap}
               isPlaying={isPlaying}
               jumpPlayhead={playback.jumpPlayhead}
+              jumpHalfBar={playback.jumpHalfBar}
               onTransportToggle={playback.handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
               canRecord={recording.canRecord}
