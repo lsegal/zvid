@@ -104,7 +104,15 @@ export const SIGNATURE_OPTIONS = SIGNATURES.map(({ id }) => ({
   label: id,
 }));
 
+// A new, empty session starts with a single layer.
 export const DEFAULT_LANES: Lane[] = [
+  { id: "1", name: "Layer 1", colorIndex: -1 },
+];
+
+// The three layers new sessions used to start with. Sessions saved without
+// layers of their own still open with them, since their clips may sit on
+// layers "5" and "6", and media opened on its own is spread across them.
+export const LEGACY_DEFAULT_LANES: Lane[] = [
   { id: "1", name: "Layer 1", colorIndex: -1 },
   { id: "5", name: "Layer 2", colorIndex: -1 },
   { id: "6", name: "Layer 3", colorIndex: -1 },
