@@ -1,7 +1,7 @@
 .source-span {
   position: absolute;
-  top: 12px;
-  height: 56px;
+  top: var(--source-clip-inset);
+  height: var(--source-clip-height);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   display: grid;

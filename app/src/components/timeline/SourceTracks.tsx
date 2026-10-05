@@ -14,6 +14,7 @@ import type { LiveTake } from "../../hooks/useRecording.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { pruneArmedTracks } from "../../recording/record-arm.ts";
+import { getRowHeight, type RowHeights } from "../../row-heights.ts";
 import { nextSourceTrackColorIndex } from "../../source-track-color.ts";
 import {
   formatSourceTracksSummary,
@@ -36,6 +37,7 @@ const NO_SPANS: SourceSpanClip[] = [];
 type SourceTracksProps = {
   sourceTracks: SourceTrack[];
   sourceSpansByTrack: ReadonlyMap<string, SourceSpanClip[]>;
+  rowHeights: RowHeights;
   isSourceTracksCollapsed: boolean;
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   sourceTracksLocked: boolean;
@@ -68,6 +70,7 @@ type SourceTracksProps = {
 export function SourceTracks({
   sourceTracks,
   sourceSpansByTrack,
+  rowHeights,
   isSourceTracksCollapsed,
   setSourceTracksCollapsed,
   sourceTracksLocked,
@@ -195,6 +198,7 @@ export function SourceTracks({
               track={track}
               index={index}
               spans={sourceSpansByTrack.get(track.id) ?? NO_SPANS}
+              height={getRowHeight(rowHeights, "source", track.id)}
               drop={drop}
               sourceSelection={sourceSelection}
               selectSource={selectSource}

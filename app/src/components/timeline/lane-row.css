@@ -9,3 +9,59 @@
 .track-row__content--arrangement {
   cursor: crosshair;
 }
+
+/* A collapsed layer or source track (#1057): a 20px row whose handle keeps
+   its grip, index and name on one line and hides the rest. */
+.track-row--collapsed .track-label {
+  height: var(--lane-height);
+  padding-block: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.track-row--collapsed .track-label small,
+.track-row--collapsed .track-label__hide,
+.track-row--collapsed .track-label__fx,
+.track-row--collapsed .track-label__arm {
+  display: none;
+}
+
+.track-row--collapsed .track-label__grip {
+  height: 16px;
+}
+
+.track-row--collapsed .track-label__grip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.track-row--collapsed .track-label__index {
+  width: 22px;
+  height: 16px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+}
+
+.track-row--collapsed .track-label__rename {
+  padding-block: 0;
+}
+
+/* Collapsed clips are plain bars with their name, when it fits. */
+.track-row--collapsed .clip-card {
+  border-radius: 5px;
+}
+
+.track-row--collapsed .clip-card__thumb,
+.track-row--collapsed .clip-card__glyph,
+.track-row--collapsed .clip-card__meta {
+  display: none;
+}
+
+.track-row--collapsed .clip-card__text,
+.track-row--collapsed .source-span__body {
+  justify-content: center;
+  padding-block: 0;
+  font-size: 0.68rem;
+  line-height: 1;
+}
