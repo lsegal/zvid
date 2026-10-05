@@ -5,6 +5,7 @@ import {
   inferMediaKind,
   isImageMedia,
   SVG_MIME_TYPE,
+  mediaBlobSource,
   withMediaType,
 } from "./media.ts";
 
@@ -39,6 +40,7 @@ describe("image media", () => {
     const typed = withMediaType(untyped, "image");
     assert.equal(typed.type, SVG_MIME_TYPE);
     assert.equal(await typed.text(), "<svg/>");
+    assert.equal(mediaBlobSource(typed), untyped);
     const already = new Blob(["<svg/>"], { type: SVG_MIME_TYPE });
     assert.equal(withMediaType(already, "image"), already);
     assert.equal(withMediaType(untyped, "video"), untyped);

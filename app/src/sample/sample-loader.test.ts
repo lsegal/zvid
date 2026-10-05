@@ -173,6 +173,20 @@ describe("loadSampleAssets", () => {
     );
   });
 
+  it("downloads an asset again when its cached copy has the right size but other bytes", async () => {
+    const { deps, cache, fetched } = harness();
+    await deps.cache("zvid-sample:test:one", new Blob(["\0".repeat(11)]));
+    await loadSampleAssets(MANIFEST.assets, deps, { concurrency: 1 });
+    assert.deepEqual(fetched, [
+      "/samples/test/one.mp4",
+      "/samples/test/two.mp4",
+    ]);
+    assert.equal(
+      await cache.get("zvid-sample:test:one")?.text(),
+      "first asset",
+    );
+  });
+
   it("reports a failed asset without stopping the others, and a retry only downloads it", async () => {
     const flaky = harness({ failing: new Set(["/samples/test/one.mp4"]) });
     const failures: string[] = [];

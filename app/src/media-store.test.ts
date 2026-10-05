@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { withMediaType } from "./media.ts";
 import {
   createMediaStore,
   type MediaBlobBackend,
@@ -195,6 +196,16 @@ describe("media store with OPFS", () => {
     const before = test.opfsFiles().get("a");
     await test.store.put("a", cached);
     assert.equal(test.opfsFiles().get("a"), before);
+  });
+
+  it("doesn't rewrite the file it handed out when it comes back typed as an SVG", async () => {
+    const test = setup();
+    await test.store.put("svg", blobOf("<svg/>"));
+    const cached = await test.store.get("svg");
+    assert.ok(cached);
+    const before = test.opfsFiles().get("svg");
+    await test.store.put("svg", withMediaType(cached, "image"));
+    assert.equal(test.opfsFiles().get("svg"), before);
   });
 
   it("moves blobs cached in IndexedDB into OPFS and cleans up", async () => {
