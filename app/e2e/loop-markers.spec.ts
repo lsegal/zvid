@@ -123,6 +123,8 @@ test("the loop strip menu places markers, locks a selection and deletes the loop
   const menuItem = (name: string) =>
     page.getByRole("menuitem", { name: new RegExp(`^${name}( |$)`) });
   const { view, y } = await stripGeometry(page);
+  const timecode = page.locator(".timeline-toolbar__display > span").nth(1);
+  const timecodeBefore = await timecode.textContent();
 
   await page.mouse.click(view.x + view.width * 0.6, y, { button: "right" });
   await expect(page.getByRole("menu", { name: "Loop actions" })).toBeVisible();
@@ -163,4 +165,6 @@ test("the loop strip menu places markers, locks a selection and deletes the loop
   await page.mouse.click(view.x + view.width * 0.2, y, { button: "right" });
   await menuItem("Delete loop").click();
   await expect(region).toHaveCount(0);
+  // Choosing items never scrubs the ruler under them.
+  await expect(timecode).toHaveText(timecodeBefore ?? "");
 });

@@ -1,4 +1,10 @@
-import { type PointerEvent, type RefObject, useRef, useState } from "react";
+import {
+  type PointerEvent,
+  type RefObject,
+  type SyntheticEvent,
+  useRef,
+  useState,
+} from "react";
 import {
   type LoopMarker,
   type LoopRegion,
@@ -22,6 +28,8 @@ import { LoopRegionBar } from "./LoopRegionBar";
 // How far the pointer moves before a press in the strip counts as a drag
 // rather than a click that clears the selection.
 const LOOP_STRIP_DRAG_THRESHOLD_PX = 3;
+
+const stopMenuEvent = (event: SyntheticEvent) => event.stopPropagation();
 
 // Opens the loop menu at a right-click's position, if it's in the strip.
 export type OpenLoopMenu = (point: {
@@ -263,12 +271,24 @@ export function LoopStrip({
           />
         ) : null}
       </div>
-      <ContextMenu
-        anchor={menu?.anchor ?? null}
-        entries={menu ? menuEntries(menu.atQ) : []}
-        label="Loop actions"
-        onClose={() => setMenu(null)}
-      />
+      {/* The menu is portaled out of the ruler, but React still bubbles its
+          events here; stop them before the ruler scrubs or pans on them. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops the menu's events from reaching the ruler */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the menu handles its own keys */}
+      <div
+        className="ruler-loop-strip__menu"
+        onPointerDown={stopMenuEvent}
+        onClick={stopMenuEvent}
+        onDoubleClick={stopMenuEvent}
+        onContextMenu={stopMenuEvent}
+      >
+        <ContextMenu
+          anchor={menu?.anchor ?? null}
+          entries={menu ? menuEntries(menu.atQ) : []}
+          label="Loop actions"
+          onClose={() => setMenu(null)}
+        />
+      </div>
     </>
   );
 }

@@ -158,6 +158,11 @@
   }
 }
 
+/* Holds only the portaled loop menu. */
+.ruler-loop-strip__menu {
+  display: contents;
+}
+
 /* The playback selection's faint highlight down the ruler above the strip. */
 .ruler-playback-selection {
   position: absolute;
