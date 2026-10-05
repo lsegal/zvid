@@ -688,6 +688,20 @@ describe("zvid opening sample", () => {
     assert.doesNotMatch(credits, /movie-camera|game-icons|Attribution 3\.0/);
   });
 
+  // The mask's Color effect paints the logo, so its own fill only shows in
+  // thumbnails, where the dark logo stands out on the light checkerboard.
+  it("ships the dark zvid logo", () => {
+    const logo = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "zvid-logo.svg",
+    );
+    const svg = readFileSync(
+      new URL(`../../public${logo?.url}`, import.meta.url),
+      "utf8",
+    );
+    const root = svg.match(/^<svg\b[^>]*>/)?.[0] ?? "";
+    assert.match(root, /\sfill="#171F33"/);
+  });
+
   it("opens with every clip on its stable media and the Audio layer in the mix", () => {
     const { media, project } = openSample();
     const ids = new Set(

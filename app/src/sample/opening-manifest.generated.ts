@@ -54,7 +54,7 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "name": "zvid-logo.svg",
       "mediaType": "image/svg+xml",
       "bytes": 990,
-      "sha256": "a3a2ce53cd78904b535f70d7e8dda7997e0a2cfadd2cad78b6aa9965da7e4eba",
+      "sha256": "648a9bc458b73c7e70274e98f9f49dbc5707ed9b993590640240c4d72f789021",
       "credit": "The zvid logo, zvid's own artwork."
     }
   ]
