@@ -40,11 +40,9 @@ describe("the top bar's brand mark", () => {
 
   it("is the brand purple, at full opacity", () => {
     const root = appCss.match(/:root \{([^}]*)\}/)?.[1] ?? "";
-    assert.match(root, /--brand-purple: #863bff;/);
-    assert.match(
-      appCss,
-      /@supports \(color: color\(display-p3 0 0 0\)\) \{\s*:root \{\s*--brand-purple: color\(display-p3 0\.5252 0\.23 1\);/,
-    );
+    assert.match(root, /--brand-purple: #b282ff;/);
+    // A wide-gamut override must not darken it below the contrast floor.
+    assert.doesNotMatch(appCss, /--brand-purple: color\(/);
     const mark = brandMarkCss.match(/\.brand-mark \{([^}]*)\}/)?.[1] ?? "";
     assert.match(mark, /color: var\(--brand-purple\);/);
     const name =
@@ -52,6 +50,41 @@ describe("the top bar's brand mark", () => {
     assert.doesNotMatch(name, /color:/);
     const rule = brandMarkCss.match(/\.brand-mark svg \{([^}]*)\}/)?.[1] ?? "";
     assert.doesNotMatch(rule, /opacity/);
+  });
+});
+
+// WCAG 2 contrast ratio of two sRGB hex colors.
+const luminance = (hex: string) => {
+  const channel = (offset: number) => {
+    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+};
+const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+};
+// The body, --bg, the top of the .app-shell gradient, and that under its 4%
+// white highlight.
+const TOP_BAR_BACKGROUNDS = ["#232535", "#262839", "#2b2d41", "#2f3145"];
+const passesTopBar = (color: string) =>
+  TOP_BAR_BACKGROUNDS.every((background) => contrast(color, background) >= 4.5);
+
+describe("the brand purple's contrast (#1087)", () => {
+  it("passes 4.5:1 for the wordmark on every top bar background", () => {
+    const color = appCss.match(/--brand-purple: (#[0-9a-f]{6});/)?.[1] ?? "";
+    assert.equal(passesTopBar(color), true);
+    // The favicon's darker purple would fail there.
+    assert.equal(passesTopBar("#863bff"), false);
+  });
+
+  it("passes 3:1 for the favicon against a white tab bar", () => {
+    const fill = faviconSvg.match(/<svg\b[^>]*\bfill="(#[0-9a-f]{6})"/)?.[1];
+    assert.equal(fill, "#863bff");
+    assert.ok(contrast(fill ?? "", "#ffffff") >= 3);
+    // The lighter top bar purple would fail there.
+    assert.ok(contrast("#b282ff", "#ffffff") < 3);
   });
 });
 

@@ -10,14 +10,9 @@
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
-  /* The brand purple of the zvid logo and favicon. */
-  --brand-purple: #863bff;
-}
-
-@supports (color: color(display-p3 0 0 0)) {
-  :root {
-    --brand-purple: color(display-p3 0.5252 0.23 1);
-  }
+  /* The top bar's brand purple: the favicon's #863bff lightened to pass
+     4.5:1 on the top bar (#1087). No darker Display-P3 override. */
+  --brand-purple: #b282ff;
 }
 
 .app-shell {

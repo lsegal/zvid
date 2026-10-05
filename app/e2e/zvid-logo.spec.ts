@@ -33,9 +33,8 @@ test("the top bar shows the zvid logo beside the wordmark", async ({
   ).toBeLessThan(3);
 });
 
-// The favicon bolt's purple (#1085), as sRGB or its Display-P3 equivalent.
-const BRAND_PURPLE =
-  /^(rgb\(134, 59, 255\)|color\(display-p3 0\.5252 0\.23 1\))$/;
+// The top bar's brand purple, #b282ff (#1087).
+const BRAND_PURPLE = "rgb(178, 130, 255)";
 
 test("the top bar's logo and wordmark are the brand purple", async ({
   page,
@@ -48,13 +47,13 @@ test("the top bar's logo and wordmark are the brand purple", async ({
       (element, property) => getComputedStyle(element)[property],
       property,
     );
-  expect(await style("fill")).toMatch(BRAND_PURPLE);
+  expect(await style("fill")).toBe(BRAND_PURPLE);
   expect(await style("opacity")).toBe("1");
   expect(
     await mark
       .locator(".brand-mark__name")
       .evaluate((element) => getComputedStyle(element).color),
-  ).toMatch(BRAND_PURPLE);
+  ).toBe(BRAND_PURPLE);
 });
 
 test("the favicon is the zvid logo in the brand purple", async ({
