@@ -1,7 +1,6 @@
-/** A loop region's in and out markers, in quarters. */
-export type LoopRange = { startQ: number; endQ: number };
+import type { LoopRegion } from "./loop-region.ts";
 
-function isLoop(loop: LoopRange | null | undefined): loop is LoopRange {
+function isLoop(loop: LoopRegion | null | undefined): loop is LoopRegion {
   return Boolean(loop && loop.endQ > loop.startQ);
 }
 
@@ -12,7 +11,7 @@ function isLoop(loop: LoopRange | null | undefined): loop is LoopRange {
  */
 export function loopPlaybackStartQ(
   playheadQ: number,
-  loop: LoopRange | null | undefined,
+  loop: LoopRegion | null | undefined,
 ) {
   return isLoop(loop) && playheadQ >= loop.endQ ? loop.startQ : playheadQ;
 }
@@ -23,8 +22,8 @@ export function loopPlaybackStartQ(
  */
 export function isBeforeLoopEnd(
   playheadQ: number,
-  loop: LoopRange | null | undefined,
-): loop is LoopRange {
+  loop: LoopRegion | null | undefined,
+): loop is LoopRegion {
   return isLoop(loop) && playheadQ < loop.endQ;
 }
 
@@ -37,7 +36,7 @@ export function isBeforeLoopEnd(
 export function wrapLoopPlaybackQ(
   previousQ: number,
   nextQ: number,
-  loop: LoopRange | null | undefined,
+  loop: LoopRegion | null | undefined,
 ) {
   if (!isBeforeLoopEnd(previousQ, loop) || nextQ < loop.endQ) {
     return undefined;

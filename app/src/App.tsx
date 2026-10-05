@@ -234,6 +234,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     barLength: timeline.barLength,
     quarterPx,
     totalQuarters,
+    loopRegion: timeline.loopRegion,
     labelWidth,
     timelineScrollRef,
     isPlaying,

@@ -15,10 +15,10 @@ import {
 } from "../app/constants.ts";
 import {
   isBeforeLoopEnd,
-  type LoopRange,
   loopPlaybackStartQ,
   wrapLoopPlaybackQ,
 } from "../app/loop-playback.ts";
+import type { LoopRegion } from "../app/loop-region.ts";
 import {
   getClipEndQ,
   getPlaybackRange,
@@ -53,7 +53,7 @@ export type PlaybackInputs = {
   quarterPx: number;
   totalQuarters: number;
   // Playback loops between its in and out markers.
-  loopRegion: LoopRange | null;
+  loopRegion: LoopRegion | null;
   labelWidth: number;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   isPlaying: boolean;
