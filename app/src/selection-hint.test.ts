@@ -97,11 +97,12 @@ describe("timeline selection stacking", () => {
     const rule = cssRule(selectionCss, "timeline-selection");
     assert.match(rule, /z-index: var\(--z-timeline-selection\);/);
     assert.ok(zToken("z-timeline-selection") > 0);
-    // Clip cards are their own stacking context at z-index auto, so their
-    // handles and filmstrips cannot rise above a positive z-index.
+    // Clip cards are their own stacking context at the loop overlay's
+    // depth, so their handles and filmstrips cannot rise above the selection.
     const clip = cssRule(clipCardCss, "clip-card");
     assert.match(clip, /isolation: isolate;/);
-    assert.doesNotMatch(clip, /z-index/);
+    assert.match(clip, /z-index: var\(--z-timeline-loop\);/);
+    assert.ok(zToken("z-timeline-loop") < zToken("z-timeline-selection"));
   });
 
   it("stays below the playhead", () => {

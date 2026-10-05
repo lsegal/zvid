@@ -26,6 +26,10 @@
   scroll-padding-top: 60px;
 }
 
+.timeline-footer__canvas {
+  position: relative;
+}
+
 .timeline-footer {
   flex: none;
   overflow: hidden;

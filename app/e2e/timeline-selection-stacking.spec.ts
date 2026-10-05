@@ -92,7 +92,8 @@ test("a range selection paints over the clips it overlaps", async ({
   }
   expect(selectionBox.x).toBeLessThan(clipBox.x + clipBox.width);
 
-  // The selection stacks above the clip card, which is isolated at auto.
+  // The selection stacks above the clip card, which is isolated at the loop
+  // overlay's depth.
   const [selectionZ, clipZ, playheadZ] = await Promise.all([
     selection.evaluate((element) => getComputedStyle(element).zIndex),
     clip.evaluate((element) => getComputedStyle(element).zIndex),
@@ -100,11 +101,11 @@ test("a range selection paints over the clips it overlaps", async ({
       .locator(".timeline-playhead")
       .evaluate((element) => getComputedStyle(element).zIndex),
   ]);
-  expect(clipZ).toBe("auto");
-  expect(Number(selectionZ)).toBeGreaterThan(0);
+  expect(Number(clipZ)).toBeGreaterThan(0);
+  expect(Number(clipZ)).toBeLessThan(Number(selectionZ));
   expect(Number(selectionZ)).toBeLessThan(Number(playheadZ));
   // The selected clip rises above its neighbors but stays under the range.
-  expect(Number(otherRing.zIndex)).toBeGreaterThan(0);
+  expect(Number(otherRing.zIndex)).toBeGreaterThan(Number(clipZ));
   expect(Number(otherRing.zIndex)).toBeLessThan(Number(selectionZ));
 
   // A click inside the selection keeps it rather than reaching the clip

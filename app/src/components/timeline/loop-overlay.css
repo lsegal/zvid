@@ -1,0 +1,46 @@
+:root {
+  /* The loop region's color: softer than the playhead's amber, so the loop's
+     dotted lines aren't mistaken for the playhead. */
+  --loop-yellow: #f2d15c;
+  --loop-yellow-strong: #f8e08a;
+}
+
+/* At the bottom of the lane stacking (App.css): over the rows' backgrounds
+   and grid, at z-index auto, and under the clips, which share its depth but
+   come after it in the DOM. */
+.loop-overlay {
+  position: absolute;
+  bottom: 0;
+  background: color-mix(in srgb, var(--loop-yellow) 5%, transparent);
+  pointer-events: none;
+  z-index: var(--z-timeline-loop);
+}
+
+.loop-overlay__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted var(--loop-yellow);
+}
+
+.loop-overlay__line--start {
+  left: 0;
+}
+
+.loop-overlay__line--end {
+  right: 0;
+}
+
+/* The rows' overlay starts where the ruler ends, like the playhead line. */
+.timeline-loop {
+  top: var(--ruler-height);
+}
+
+/* The Audio row's, under the mix waveform, which shares its depth. */
+.timeline-footer__loop {
+  top: 0;
+}
+
+.timeline-footer .waveform__canvas {
+  z-index: var(--z-timeline-loop);
+}

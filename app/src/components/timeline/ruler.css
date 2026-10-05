@@ -83,7 +83,9 @@
 /* The loop region: a bar from the in marker to the out marker, with a flag
    at each end rising into the ruler, as in Ableton's loop brace. It edits
    like a layer clip: the middle moves it and the edge handles resize it,
-   shown only on the hovered or dragged handle. */
+   shown only on the hovered or dragged handle. It is yellow like the loop
+   overlay that carries it down the timeline (loop-overlay.css), while the
+   strip's pending selection stays blue. */
 .ruler-loop-region {
   --loop-handle-width: 8px;
   --loop-flag-size: 7px;
@@ -91,7 +93,11 @@
   top: 0;
   bottom: 0;
   min-width: 2px;
-  background: color-mix(in srgb, var(--ink) 55%, transparent);
+  background: color-mix(in srgb, var(--loop-yellow) 85%, transparent);
+}
+
+.ruler-loop-region--moving {
+  background: color-mix(in srgb, var(--loop-yellow-strong) 90%, transparent);
 }
 
 .ruler-loop-region__body {
@@ -110,7 +116,7 @@
   bottom: 100%;
   width: var(--loop-flag-size);
   height: var(--loop-flag-size);
-  background: var(--ink);
+  background: var(--loop-yellow);
   pointer-events: none;
 }
 
@@ -129,7 +135,7 @@
   top: calc(-1 * var(--loop-flag-size));
   bottom: 0;
   width: var(--loop-handle-width);
-  background: var(--ink);
+  background: var(--loop-yellow-strong);
   cursor: ew-resize;
   opacity: 0;
   transition: opacity 100ms ease;

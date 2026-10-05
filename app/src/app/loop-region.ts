@@ -74,3 +74,14 @@ export function editLoopRegion(
   );
   return { startQ, endQ: startQ + durationQ };
 }
+
+/**
+ * The loop's in and out marker positions in timeline pixels, from the
+ * timeline start, at `quarterPx` pixels per quarter.
+ */
+export function loopRegionPx(
+  { startQ, endQ }: LoopRegion,
+  quarterPx: number,
+): { startPx: number; endPx: number } {
+  return { startPx: startQ * quarterPx, endPx: endQ * quarterPx };
+}
