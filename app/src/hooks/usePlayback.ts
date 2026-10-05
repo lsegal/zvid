@@ -14,6 +14,7 @@ import {
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
   TIMELINE_SCRUB_AUDIO_TAIL_MS,
 } from "../app/constants.ts";
+import { halfBarTarget } from "../app/half-bar-jump.ts";
 import {
   isBeforeLoopEnd,
   loopPlaybackStartQ,
@@ -52,6 +53,8 @@ export type PlaybackInputs = {
   projectMediaItems: MediaItem[];
   bpm: number;
   barLength: number;
+  // The half-bar jumps land on this grid while snapping is enabled.
+  snap: { unit: number; enabled: boolean };
   quarterPx: number;
   totalQuarters: number;
   // Playback loops between its in and out markers.
@@ -81,6 +84,7 @@ export function usePlayback({
   projectMediaItems,
   bpm,
   barLength,
+  snap,
   quarterPx,
   totalQuarters,
   loopRegion,
@@ -469,16 +473,6 @@ export function usePlayback({
     startPlayback();
   }
 
-  function jumpPlayhead(deltaBars: number) {
-    const next = clamp(
-      playheadQRef.current + deltaBars * barLength,
-      0,
-      totalQuarters,
-    );
-    setPlayheadQ(next);
-    playbackOriginRef.current = next;
-  }
-
   // Where playback from the start stops: the end the skip-forward button
   // jumps to.
   const playbackEndQ = useMemo(
@@ -497,6 +491,19 @@ export function usePlayback({
     jumpPlayheadTo(targetQ);
   }
 
+  // The transport's inner buttons: half a bar, onto the snap grid when
+  // snapping is on.
+  function jumpHalfBar(direction: -1 | 1) {
+    jumpPlayheadTo(
+      halfBarTarget(direction, playheadQRef.current, {
+        barLength,
+        snapUnit: snap.unit,
+        snap: snap.enabled,
+        totalQuarters,
+      }),
+    );
+  }
+
   return {
     // How many clips playback can play; Space does nothing without any.
     playableClipCount: clips.length,
@@ -508,8 +515,8 @@ export function usePlayback({
     stopTimelineAudibleScrub,
     pulseTimelineAudibleScrub,
     handleTransportToggle,
-    jumpPlayhead,
     playbackEndQ,
     skipToEdge,
+    jumpHalfBar,
   };
 }

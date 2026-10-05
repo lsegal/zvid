@@ -40,7 +40,8 @@ type TransportBarProps = {
   updateZoomDraft: (nextZoom: number | null) => void;
   flushZoomDraft: (label?: string) => void;
   isPlaying: boolean;
-  jumpPlayhead: (bars: number) => void;
+  // Half a bar, onto the snap grid when snapping is on.
+  jumpHalfBar: (direction: -1 | 1) => void;
   // The outer skip buttons jump to the loop's markers or the timeline's ends.
   skipToEdge: (direction: SkipDirection) => void;
   playheadSignal: PlayheadSignal;
@@ -55,7 +56,7 @@ type TransportBarProps = {
   // Record is enabled while recording or with a source track armed.
   canRecord: boolean;
   isRecording: boolean;
-  onRecordToggle: () => void;
+  toggleRecording: () => void;
 };
 
 // Slider steps of 1%.
@@ -104,7 +105,7 @@ export function TransportBar({
   updateZoomDraft,
   flushZoomDraft,
   isPlaying,
-  jumpPlayhead,
+  jumpHalfBar,
   onTransportToggle,
   onRandomize,
   previewVolume,
@@ -113,7 +114,7 @@ export function TransportBar({
   getMeterTap,
   canRecord,
   isRecording,
-  onRecordToggle,
+  toggleRecording,
   skipToEdge,
   playheadSignal,
   loopRegion,
@@ -182,7 +183,7 @@ export function TransportBar({
         <button
           aria-label="Jump back half a bar"
           className="transport-button"
-          onClick={() => jumpPlayhead(-0.5)}
+          onClick={() => jumpHalfBar(-1)}
           title="Jump back half a bar"
           type="button"
         >
@@ -204,7 +205,7 @@ export function TransportBar({
         <button
           aria-label="Jump forward half a bar"
           className="transport-button"
-          onClick={() => jumpPlayhead(0.5)}
+          onClick={() => jumpHalfBar(1)}
           title="Jump forward half a bar"
           type="button"
         >
@@ -225,7 +226,7 @@ export function TransportBar({
           aria-pressed={isRecording}
           className={`transport-button transport-button--record${isRecording ? " transport-button--recording" : ""}`}
           disabled={!canRecord}
-          onClick={onRecordToggle}
+          onClick={toggleRecording}
           title={
             isRecording
               ? "Stop recording and keep playing"

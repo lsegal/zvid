@@ -10,6 +10,11 @@ import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TempoPill } from "../TempoPill";
 import { Select } from "../ui/select";
+import {
+  getStatusLightClassName,
+  getStatusLightState,
+  STATUS_LIGHT_LABELS,
+} from "./status-light.ts";
 import "./timeline-toolbar.css";
 
 const MEDIA_DRAWER_SEGMENTS = [
@@ -34,6 +39,8 @@ type TimelineToolbarProps = {
   isMediaDrawerOpen: boolean;
   mediaDrawerTab: MediaDrawerTab;
   onSelectMediaDrawerTab: (tab: MediaDrawerTab) => void;
+  isPlaying: boolean;
+  isRecording: boolean;
 };
 
 // The Media drawer's Sessions | Media | Record switch, the playhead readout and the
@@ -52,7 +59,11 @@ export function TimelineToolbar({
   isMediaDrawerOpen,
   mediaDrawerTab,
   onSelectMediaDrawerTab,
+  isPlaying,
+  isRecording,
 }: TimelineToolbarProps) {
+  const lightState = getStatusLightState(isPlaying, isRecording);
+  const lightLabel = STATUS_LIGHT_LABELS[lightState];
   return (
     <div className="timeline-toolbar">
       <div className="timeline-toolbar__display">
@@ -78,7 +89,13 @@ export function TimelineToolbar({
             );
           })}
         </fieldset>
-        <span className="status-light" />
+        {/* No live region: the transport buttons already announce state. */}
+        <span
+          aria-label={lightLabel}
+          className={getStatusLightClassName(lightState)}
+          role="img"
+          title={lightLabel}
+        />
         <TransportPlayheadReadout
           signal={playheadSignal}
           bpm={bpm}
