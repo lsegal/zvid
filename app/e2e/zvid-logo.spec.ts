@@ -33,6 +33,32 @@ test("the top bar shows the zvid logo beside the wordmark", async ({
   ).toBeLessThan(3);
 });
 
+test("the top bar's logo and wordmark are the brand purple", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const mark = page.locator(".brand-mark");
+  const purple = "rgb(178, 130, 255)";
+  await expect(mark.locator("svg")).toHaveCSS("fill", purple);
+  await expect(mark.locator("svg")).toHaveCSS("opacity", "1");
+  await expect(mark.locator(".brand-mark__name")).toHaveCSS("color", purple);
+});
+
+test("the favicon is the zvid logo", async ({ page, request }) => {
+  await page.goto("/");
+  const href = await page
+    .locator('link[rel="icon"]')
+    .evaluate((link) => (link as HTMLLinkElement).href);
+  const response = await request.get(href);
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toContain("image/svg+xml");
+  const svg = await response.text();
+  expect(svg).toContain('viewBox="-8 -8 258 212"');
+  expect(svg).toContain('fill="#863bff"');
+  expect(svg.match(/<path\b/g)).toHaveLength(3);
+  expect(svg).not.toContain("<ellipse");
+});
+
 const WIDTH = 960;
 const HEIGHT = 540;
 

@@ -10,6 +10,8 @@
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
+  /* The zvid purple, light enough for 4.5:1 on the app's dark background. */
+  --brand-purple: #b282ff;
 }
 
 .app-shell {
@@ -762,14 +764,13 @@
   align-items: center;
   gap: 8px;
   margin-right: 4px;
-  color: #f4f6fd;
+  color: var(--brand-purple);
 }
 
 .brand-mark svg {
   width: auto;
   height: 20px;
   fill: currentColor;
-  opacity: 0.92;
 }
 
 .brand-mark__name {
