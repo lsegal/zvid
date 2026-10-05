@@ -21,12 +21,13 @@ export const DEFAULT_ROW_METRICS: Readonly<Record<RowKind, RowMetrics>> = {
   source: { height: 82, clipHeight: 56, clipInset: 12 },
 };
 
-// A collapsed row: one line of handle text over a 16px clip. No row is
-// shorter.
+// A collapsed row: one line of handle text, its index badge at full size,
+// over a 28px clip as tall as the badge, with 8px of padding above and below
+// both (#1077). No row is shorter.
 export const COLLAPSED_ROW_METRICS: Readonly<RowMetrics> = {
-  height: 20,
-  clipHeight: 16,
-  clipInset: 2,
+  height: 44,
+  clipHeight: 28,
+  clipInset: 8,
 };
 
 type RowHeight = {
@@ -166,12 +167,10 @@ export function getRowMetrics(kind: RowKind, height: number): RowMetrics {
   return { height: clamped, clipHeight: clamped - chrome, clipInset };
 }
 
-// Rows shorter than this keep their handle to one line.
-const TWO_LINE_ROW_HEIGHT = 44;
-
 // The classes that fit a row's handle to its height (lane-row.css): the
 // collapsed form at the minimum, and between that and the row's default
-// height, a handle no taller than the row, on one line when it's short.
+// height, a handle no taller than the row. Any row taller than a collapsed
+// one has room for the handle's two lines (#1077).
 export function getRowSizeClassName(height: number, defaultHeight: number) {
   if (height <= COLLAPSED_ROW_METRICS.height) {
     return "track-row--collapsed";
@@ -179,9 +178,7 @@ export function getRowSizeClassName(height: number, defaultHeight: number) {
   if (height >= defaultHeight) {
     return "";
   }
-  return height < TWO_LINE_ROW_HEIGHT
-    ? "track-row--short track-row--one-line"
-    : "track-row--short";
+  return "track-row--short";
 }
 
 // The CSS variables that size a row other than its default height: the
