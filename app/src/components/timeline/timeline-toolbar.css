@@ -25,6 +25,16 @@
   box-shadow: 0 0 0 4px rgba(246, 183, 60, 0.14);
 }
 
+.status-light--playing {
+  background: linear-gradient(180deg, #8ef0a8, #3fc66b);
+  box-shadow: 0 0 0 4px rgba(63, 198, 107, 0.16);
+}
+
+.status-light--recording {
+  background: linear-gradient(180deg, #ff7b7b, #ef4444);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18);
+}
+
 .timeline-toolbar__controls {
   display: flex;
   align-items: center;
