@@ -43,7 +43,8 @@ type TimelineProps = {
 // resize rail, the loop overlay, the playhead line and the buttons that bring an off-screen
 // playhead into view, and under it a footer that stays at the panel's bottom.
 // Only the rows above the footer scroll vertically; the footer follows their
-// horizontal scroll and zoom, so its waveform and playhead line up with them.
+// horizontal scroll and zoom, so its waveform, loop and playhead line up with
+// them.
 export function Timeline({
   timelineScrollRef,
   timelineDragScroll,
@@ -195,6 +196,12 @@ export function Timeline({
             width: `calc(${labelWidth + timelineWidth}px + var(--timeline-scrollbar-width, 0px))`,
           }}
         >
+          <LoopOverlay
+            className="timeline-footer__loop"
+            loopRegion={loopRegion}
+            quarterPx={quarterPx}
+            offsetPx={labelWidth + 1}
+          />
           {footer}
         </div>
       </div>

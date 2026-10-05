@@ -144,7 +144,7 @@ test("the loop is yellow in the ruler and runs down the timeline behind clips", 
   // The Audio row carries the loop too, lined up with the rows.
   const audioStart = await box(
     page,
-    ".audio-row__loop .loop-overlay__line--start",
+    ".timeline-footer__loop .loop-overlay__line--start",
   );
   expect(Math.abs(audioStart.x - start.x)).toBeLessThanOrEqual(1);
 

@@ -36,6 +36,11 @@
   top: var(--ruler-height);
 }
 
-.audio-row__loop {
+/* The Audio row's, under the mix waveform, which shares its depth. */
+.timeline-footer__loop {
   top: 0;
+}
+
+.timeline-footer .waveform__canvas {
+  z-index: var(--z-timeline-loop);
 }

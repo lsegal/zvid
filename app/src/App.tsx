@@ -38,6 +38,7 @@ import { useCollaborationState } from "./hooks/useCollaboration.ts";
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
+import { useMasterMeterTap } from "./hooks/useMasterMeterTap.ts";
 import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
 import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
@@ -110,10 +111,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const playbackOriginRef = useRef(store.initialPlayheadQ);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const previewVolume = usePreviewVolume(compositionPlayerRef);
-  const getMeterTap = useCallback(
-    () => compositionPlayerRef.current?.getMasterMeterTap() ?? null,
-    [],
-  );
+  const getMeterTap = useMasterMeterTap(compositionPlayerRef);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
@@ -496,7 +494,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     prefersReducedMotion={prefersReducedMotion}
                     bpm={bpm}
                     quarterPx={quarterPx}
-                    loopRegion={timeline.loopRegion}
                     visibleTimelineStartPx={visibleTimelineStartPx}
                     visibleTimelineWidthPx={visibleTimelineWidthPx}
                     gridStyle={gridStyle}
