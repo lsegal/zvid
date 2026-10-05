@@ -2,8 +2,10 @@
   cursor: pointer;
 }
 
+/* As wide as the name, so double-clicking the rest of the label collapses
+   the row instead of renaming it (#1057). */
 .track-label__select {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   padding: 0;
   border: 0;

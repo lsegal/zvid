@@ -10,6 +10,7 @@ export function getShortcutLabels() {
       newSession: "Ctrl+N",
       sourceClipDrop: "Ctrl+click",
       clipJump: formatClipJumpShortcut(false),
+      lockLoop: "L",
     };
   }
 
@@ -31,5 +32,6 @@ export function getShortcutLabels() {
     newSession: isMac ? "Cmd+N" : "Ctrl+N",
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
     clipJump: formatClipJumpShortcut(isMac),
+    lockLoop: "L",
   };
 }

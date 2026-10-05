@@ -80,7 +80,12 @@ export type ClipCardContext = {
   setDragState: Dispatch<SetStateAction<DragState | null>>;
 };
 
-type ClipCardProps = { clip: ArrangementClip } & ClipCardContext;
+type ClipCardProps = {
+  clip: ArrangementClip;
+  // In a collapsed lane: a plain bar with its name, without frames or
+  // waveforms.
+  collapsed?: boolean;
+} & ClipCardContext;
 
 // An arrangement clip: its body, which selects, moves or Ctrl/Cmd-drags a
 // duplicate, the trim handles either side, and its fill, text or FX badge,
@@ -89,6 +94,7 @@ type ClipCardProps = { clip: ArrangementClip } & ClipCardContext;
 // clip.
 export const ClipCard = memo(function ClipCard({
   clip,
+  collapsed = false,
   selectedClipId,
   dragState,
   bpm,
@@ -133,6 +139,7 @@ export const ClipCard = memo(function ClipCard({
     ? mediaItemsById.get(firstPiece.mediaId)
     : undefined;
   const thumbnailUrl =
+    !collapsed &&
     firstPiece &&
     firstPiece.startQ === clip.startQ &&
     firstPieceMedia?.hasVideo &&
@@ -162,9 +169,10 @@ export const ClipCard = memo(function ClipCard({
   // its peaks are ready, decoding only while the clip is in view. Each piece
   // draws its own (ClipPieceMedia); the card takes its look from its first
   // source clip's.
-  const waveformKind = pieces.length
-    ? getClipWaveformKind(clip, media, mediaState)
-    : "none";
+  const waveformKind =
+    pieces.length && !collapsed
+      ? getClipWaveformKind(clip, media, mediaState)
+      : "none";
   const inView = getVisibleClipSlice(
     clip.startQ * quarterPx,
     durationQ * quarterPx,
@@ -226,7 +234,7 @@ export const ClipCard = memo(function ClipCard({
           style={{ background: fillBackground }}
         />
       ) : null}
-      {pieces.map((piece, index) => (
+      {(collapsed ? [] : pieces).map((piece, index) => (
         <ClipPieceMedia
           key={getClipPieceKey(clip.id, index)}
           piece={piece}

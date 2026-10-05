@@ -1,5 +1,11 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useRef,
+} from "react";
 import { TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS } from "../../app/constants.ts";
+import type { LoopRegion } from "../../app/loop-region.ts";
 import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
@@ -15,7 +21,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { formatTimecode } from "../../timeline-format.ts";
 import { PlayheadLine } from "../LivePlayhead";
-import { LoopStrip } from "./LoopStrip";
+import { LoopStrip, type OpenLoopMenu } from "./LoopStrip";
 import "./ruler.css";
 
 type TimelineViewportModel = ReturnType<typeof useTimelineViewport>;
@@ -55,6 +61,10 @@ type RulerProps = {
   snapEnabled: boolean;
   playbackSelection: PlaybackSelection | null;
   setPlaybackSelection: (selection: PlaybackSelection | null) => void;
+  loopRegion: LoopRegion | null;
+  setLoopRegion: (region: LoopRegion | null) => void;
+  lockPlaybackSelection: () => void;
+  timelineContentEndQ: number;
 };
 
 // The ruler row: the session's media status in its label, and the bars and
@@ -95,7 +105,12 @@ export function Ruler({
   snapEnabled,
   playbackSelection,
   setPlaybackSelection,
+  loopRegion,
+  setLoopRegion,
+  lockPlaybackSelection,
+  timelineContentEndQ,
 }: RulerProps) {
+  const openLoopMenuRef = useRef<OpenLoopMenu | null>(null);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual
     <section
@@ -104,10 +119,13 @@ export function Ruler({
       }`}
       {...rulerDragScroll.handlers}
       onContextMenu={(event) => {
-        // The ruler has no menu of its own, so the browser's
-        // never shows, with or without a pan.
+        // The ruler has no menu of its own, so the browser's never shows,
+        // with or without a pan. A right-click in the loop strip opens the
+        // loop menu.
         event.preventDefault();
-        rulerDragScroll.onContextMenu(event);
+        if (!rulerDragScroll.onContextMenu(event)) {
+          openLoopMenuRef.current?.(event);
+        }
       }}
     >
       <div className="track-label track-label--header">
@@ -230,6 +248,12 @@ export function Ruler({
           snapEnabled={snapEnabled}
           playbackSelection={playbackSelection}
           setPlaybackSelection={setPlaybackSelection}
+          loopRegion={loopRegion}
+          setLoopRegion={setLoopRegion}
+          lockPlaybackSelection={lockPlaybackSelection}
+          lockLoopShortcut={shortcutLabels.lockLoop}
+          timelineContentEndQ={timelineContentEndQ}
+          openMenuRef={openLoopMenuRef}
         />
       </div>
     </section>

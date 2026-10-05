@@ -58,10 +58,12 @@
   text-overflow: ellipsis;
 }
 
-/* Collapsed: a compact row with the toggle and a scaled-down waveform. */
+/* Collapsed: a 20px row (row-heights.ts) with the toggle and a scaled-down
+   waveform. */
 .track-row--bus-collapsed .track-label {
+  height: 20px;
   min-height: 0;
-  padding-block: 6px;
+  padding-block: 0;
 }
 
 .track-row--bus-collapsed .track-label__index,
@@ -74,12 +76,12 @@
 }
 
 .track-row--bus-collapsed .waveform__canvas {
-  top: 6px;
-  height: calc(100% - 12px);
+  top: 2px;
+  height: calc(100% - 4px);
 }
 
 .track-row--bus-collapsed .media-sync--waveform {
-  inset-block: 6px;
+  inset-block: 2px;
 }
 
 .audio-row__playhead {

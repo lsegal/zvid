@@ -20,6 +20,7 @@ import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 import { useLayerActions } from "./useLayerActions.ts";
+import type { useLoopRegion } from "./useLoopRegion.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {
@@ -79,7 +80,11 @@ export type TimelineEditingInputs = {
   viewport: Pick<
     ReturnType<typeof useTimelineViewport>,
     "barLength" | "beatUnit" | "snapUnit" | "quarterPx" | "totalQuarters"
-  >;
+  > &
+    Pick<
+      ReturnType<typeof useLoopRegion>,
+      "playbackSelection" | "lockPlaybackSelection"
+    >;
   layout: Pick<
     AppLayout,
     | "labelWidth"
@@ -450,8 +455,10 @@ export function useTimelineEditing({
     handleRedo,
     handleUndo,
     lanes,
+    lockPlaybackSelection: viewport.lockPlaybackSelection,
     pendingSelection,
     playbackOriginRef,
+    playbackSelection: viewport.playbackSelection,
     playheadQRef,
     selectedClip,
     selectedSourceSpan,
@@ -545,5 +552,6 @@ export function useTimelineEditing({
     createEmptySourceTrack,
     getClipMenuEntries,
     getEditMenuEntries,
+    timelineContentEndQ,
   };
 }

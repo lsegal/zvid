@@ -69,7 +69,12 @@ export type SourceSpanContext = {
   locked: boolean;
 };
 
-type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
+type SourceSpanProps = {
+  clip: SourceSpanClip;
+  // In a collapsed source track: a plain bar with its name, without frames
+  // or waveforms.
+  collapsed?: boolean;
+} & SourceSpanContext;
 
 // A span of a source track's media: its filmstrip, thumbnail or waveform and
 // name. A click selects it, dragging it moves it in its track and dragging an
@@ -78,6 +83,7 @@ type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
 // selects it and opens its menu.
 export const SourceSpan = memo(function SourceSpan({
   clip,
+  collapsed = false,
   bpm,
   quarterPx,
   visibleTimelineStartPx,
@@ -100,19 +106,20 @@ export const SourceSpan = memo(function SourceSpan({
 }: SourceSpanProps) {
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
   const mediaState = describeClipMediaState(clip, media?.availability);
-  const thumbnailUrl =
-    (media &&
-      thumbnails.get(
-        getThumbnailCacheKey(
-          media.id,
-          clip.trimStartSeconds,
-          spanFilmstrips.get(clip.id)?.size,
-        ),
-        `span:${clip.id}`,
-      )) ??
-    media?.thumbnailUrl;
+  const thumbnailUrl = collapsed
+    ? undefined
+    : ((media &&
+        thumbnails.get(
+          getThumbnailCacheKey(
+            media.id,
+            clip.trimStartSeconds,
+            spanFilmstrips.get(clip.id)?.size,
+          ),
+          `span:${clip.id}`,
+        )) ??
+      media?.thumbnailUrl);
   const filmstrip =
-    media?.hasVideo && mediaState === "online"
+    !collapsed && media?.hasVideo && mediaState === "online"
       ? spanFilmstrips.get(clip.id)
       : undefined;
   const mediaSync = media
@@ -128,7 +135,9 @@ export const SourceSpan = memo(function SourceSpan({
   // Audio-only media draws its waveform, like the Audio lane, until its peaks
   // turn out to be missing. Video with audio overlays it on the frames once
   // its peaks are ready, decoding only while the span is in view.
-  const waveformKind = getClipWaveformKind(clip, media, mediaState);
+  const waveformKind = collapsed
+    ? "none"
+    : getClipWaveformKind(clip, media, mediaState);
   const inView = getVisibleClipSlice(
     clip.startQ * quarterPx,
     widthPx,
@@ -184,7 +193,7 @@ export const SourceSpan = memo(function SourceSpan({
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
     // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
-      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
+      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""} ${collapsed ? "source-span--collapsed" : ""}`}
       data-source-span-id={clip.id}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
@@ -257,7 +266,7 @@ export const SourceSpan = memo(function SourceSpan({
             );
           })}
         </span>
-      ) : (
+      ) : collapsed ? null : (
         <div
           className="source-span__thumb"
           style={
@@ -282,7 +291,7 @@ export const SourceSpan = memo(function SourceSpan({
           visibleWidthPx={visibleTimelineWidthPx}
         />
       ) : null}
-      {!mediaSync && mediaState === "online" ? (
+      {!collapsed && !mediaSync && mediaState === "online" ? (
         <MediaLoopMarkers
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={widthPx}

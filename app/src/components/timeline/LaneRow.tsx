@@ -51,6 +51,8 @@ type LaneRowProps = {
   lane: Lane;
   // The layer's clips, in timeline order.
   clips: ArrangementClip[];
+  // A collapsed lane's clips are plain bars, without frames or waveforms.
+  collapsed: boolean;
 } & LaneRowContext;
 
 // A layer's lane: its clips and range selection. Pressing empty lane space
@@ -59,6 +61,7 @@ type LaneRowProps = {
 export const LaneRow = memo(function LaneRow({
   lane,
   clips,
+  collapsed,
   openLaneMenu,
   shortcutLabels,
   timelineScrollRef,
@@ -160,7 +163,12 @@ export const LaneRow = memo(function LaneRow({
         />
       ) : null}
       {clips.map((clip) => (
-        <ClipCard key={clip.id} clip={clip} {...clipCard} />
+        <ClipCard
+          key={clip.id}
+          clip={clip}
+          collapsed={collapsed}
+          {...clipCard}
+        />
       ))}
     </div>
   );
