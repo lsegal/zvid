@@ -178,6 +178,29 @@ describe("playback rendering", () => {
     );
   });
 
+  it("makes the loop strip as tall as the playhead diamond, below the timecodes", () => {
+    const css = timelineCss("ruler");
+    const strip = cssRule(css, "ruler-loop-strip");
+    const diamond = cssRule(css, "timeline-playhead-marker::before");
+    const timecode = cssRule(css, "ruler-marker span");
+    const canvas = cssRule(timelineCss("timeline"), "timeline-canvas");
+    const px = (rule: string, property: string) =>
+      Number(rule.match(new RegExp(`\\n\\s*${property}: (\\d+)px;`))?.[1]);
+    const stripHeight = px(strip, "--loop-strip-height");
+    const diamondExtent =
+      px(diamond, "bottom") + px(diamond, "height") * Math.SQRT2;
+    assert.ok(
+      Math.abs(stripHeight - diamondExtent) <= 2,
+      `strip ${stripHeight}px vs diamond ${diamondExtent}px`,
+    );
+    const timecodeBottom = px(timecode, "top") + 16 * 0.78 * 1.4;
+    assert.ok(
+      px(canvas, "--ruler-height") - stripHeight > timecodeBottom,
+      "the strip stays clear of the timecodes",
+    );
+    assert.match(strip, /\n\s*cursor: crosshair;/);
+  });
+
   it("starts the playhead line where the ruler's playhead marker ends", () => {
     const line = cssRule(timelineCss("timeline"), "timeline-playhead");
     assert.match(line, /\n\s*top: var\(--ruler-height\);/);
