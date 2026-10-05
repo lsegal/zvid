@@ -766,8 +766,8 @@
 }
 
 .brand-mark svg {
-  width: 44px;
-  height: 10px;
+  width: auto;
+  height: 20px;
   fill: currentColor;
   opacity: 0.92;
 }

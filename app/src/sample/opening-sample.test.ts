@@ -303,7 +303,7 @@ describe("zvid opening sample", () => {
     assert.equal(glitch.parameters?.Direction, undefined);
   });
 
-  it("opens the 1.5 s orbit shot out of a movie camera on a hidden layer", () => {
+  it("opens the 1.5 s orbit shot out of the zvid logo on a hidden layer", () => {
     const iconLayer = session.mainTracks?.find(
       (layer) => layer.id === "icon-mask",
     );
@@ -323,8 +323,8 @@ describe("zvid opening sample", () => {
     assert.deepEqual(
       icons.map((clip) => [clip.id, clip.frameStart, clip.frameEnd]),
       [
-        ["fill-camera-reveal", 45, 68],
-        ["fill-camera-hold", 68, 90],
+        ["fill-logo-reveal", 45, 68],
+        ["fill-logo-hold", 68, 90],
       ],
     );
     const [revealEffects, holdEffects] = icons.map((clip) =>
@@ -338,14 +338,20 @@ describe("zvid opening sample", () => {
       holdEffects.map((effect) => effect.effectName),
       ["Color", "Shape", "Transform"],
     );
-    const camera = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "movie-camera.svg",
+    const logo = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "zvid-logo.svg",
     );
-    assert.equal(camera?.mediaType, "image/svg+xml");
+    assert.equal(logo?.mediaType, "image/svg+xml");
+    assert.equal(
+      OPENING_SAMPLE_MANIFEST.assets.some((asset) =>
+        asset.name.includes("movie-camera"),
+      ),
+      false,
+    );
     for (const effects of [revealEffects, holdEffects]) {
       assert.equal(
         stringParameter(effects[1], "Shape"),
-        `Custom:${camera?.path}`,
+        `Custom:${logo?.path}`,
       );
     }
     // The reveal pops open fast, and the hold stays where it ends.
@@ -358,37 +364,41 @@ describe("zvid opening sample", () => {
         numberParameter(move, `End${key}`),
       );
     }
-    // The icon grows from small, square on the 16:9 canvas, until the
-    // camera's body (x 99–337, y 211.727–321.729 of its 512-unit box,
-    // centered by the Move's X and Y) covers the whole frame.
+    // The logo grows from small, in its 258 × 212 aspect on the 16:9
+    // canvas (the Custom shape stretches its viewBox over the box), until
+    // the whole logo nearly fills the frame, centered and uncropped.
     for (const end of ["Start", "End"]) {
       assert.equal(
-        Math.round(
+        (
           ((numberParameter(move, `${end}ScaleX`) ?? 0) * 1920) /
-            ((numberParameter(move, `${end}ScaleY`) ?? 1) * 1080),
-        ),
-        1,
+          ((numberParameter(move, `${end}ScaleY`) ?? 1) * 1080)
+        ).toFixed(3),
+        (258 / 212).toFixed(3),
       );
     }
     assert.ok((numberParameter(move, "StartScaleY") ?? 1) < 0.5);
-    const box = (numberParameter(move, "EndScaleY") ?? 0) * 1080;
-    const centerX = 960 + (numberParameter(move, "EndPositionX") ?? 0) * 1920;
-    const centerY = 540 + (numberParameter(move, "EndPositionY") ?? 0) * 1080;
-    const unit = box / 512;
-    const bodyLeft = centerX - box / 2 + 99 * unit;
-    const bodyRight = centerX - box / 2 + 337 * unit;
-    const bodyTop = centerY - box / 2 + 211.727 * unit;
-    const bodyBottom = centerY - box / 2 + 321.729 * unit;
-    assert.ok(bodyLeft < 0 && bodyRight > 1920);
-    assert.ok(bodyTop < 0 && bodyBottom > 1080);
-    // The art is the detailed illustration, not a single silhouette: its
-    // reels are cut through by spokes and hubs.
+    const boxWidth = (numberParameter(move, "EndScaleX") ?? 0) * 1920;
+    const boxHeight = (numberParameter(move, "EndScaleY") ?? 0) * 1080;
+    assert.equal(numberParameter(move, "EndPositionX") ?? 0, 0);
+    assert.equal(numberParameter(move, "EndPositionY") ?? 0, 0);
+    // The logo's shapes span x 2–241 and y 2–194 of its viewBox
+    // (-8 -8 258 212).
+    const logoLeft = 960 - boxWidth / 2 + (10 / 258) * boxWidth;
+    const logoRight = 960 - boxWidth / 2 + (249 / 258) * boxWidth;
+    const logoTop = 540 - boxHeight / 2 + (10 / 212) * boxHeight;
+    const logoBottom = 540 - boxHeight / 2 + (202 / 212) * boxHeight;
+    assert.ok(logoLeft > 0 && logoRight < 1920);
+    assert.ok(logoTop > 0 && logoBottom < 1080);
+    assert.ok(logoBottom - logoTop > 0.75 * 1080);
+    // The art is the zvid logo: the film ribbon Z, with its sprocket holes
+    // cut out of the top and bottom strips.
     const art = readFileSync(
-      new URL(`../../public${camera?.url}`, import.meta.url),
+      new URL(`../../public${logo?.url}`, import.meta.url),
       "utf8",
     );
-    assert.ok((art.match(/M/g) ?? []).length > 10);
-    assert.doesNotMatch(art, /M0 0h512v512H0z/);
+    assert.match(art, /viewBox="-8 -8 258 212"/);
+    assert.equal((art.match(/<path/g) ?? []).length, 3);
+    assert.equal((art.match(/fill-rule="evenodd"/g) ?? []).length, 2);
 
     // The full-frame orbit shot under "capture", with no three-up, is
     // masked by it; the title above it is not.
@@ -662,14 +672,11 @@ describe("zvid opening sample", () => {
     assert.match(credits, /^`just-nasty-30s\.m4a` is the excerpt/m);
   });
 
-  it("credits its icon in the manifest and CREDITS.md", () => {
-    const camera = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "movie-camera.svg",
+  it("credits its mask as zvid's own logo in the manifest and CREDITS.md", () => {
+    const logo = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "zvid-logo.svg",
     );
-    assert.match(
-      camera?.credit ?? "",
-      /Delapouite.*game-icons\.net.*CC BY 3\.0/,
-    );
+    assert.equal(logo?.credit, "The zvid logo, zvid's own artwork.");
     const credits = readFileSync(
       new URL(
         `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
@@ -677,11 +684,8 @@ describe("zvid opening sample", () => {
       ),
       "utf8",
     );
-    assert.match(
-      credits,
-      /^`movie-camera\.svg` is a "Movie camera" illustration/m,
-    );
-    assert.match(credits, /By Attribution 3\.0 License/);
+    assert.match(credits, /^`zvid-logo\.svg` is the zvid logo/m);
+    assert.doesNotMatch(credits, /movie-camera|game-icons|Attribution 3\.0/);
   });
 
   it("opens with every clip on its stable media and the Audio layer in the mix", () => {

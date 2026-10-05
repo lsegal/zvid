@@ -50,12 +50,16 @@ export function BrandMark({ onStatus }: BrandMarkProps) {
       onClick={(event) => void handleClick(event)}
       type="button"
     >
-      <svg viewBox="0 0 120 24" aria-hidden="true">
-        <circle cx="14" cy="12" r="8" />
-        <circle cx="36" cy="12" r="8" />
-        <circle cx="60" cy="12" r="10" />
-        <circle cx="84" cy="12" r="8" />
-        <circle cx="106" cy="12" r="8" />
+      <svg viewBox="-8 -8 258 212" aria-hidden="true">
+        <path
+          fillRule="evenodd"
+          d="M 2,48 C 6,26 22,2 46,2 H 204 C 219,2 230,11 230,25 V 40 C 230,48 225,54 217,58 C 220,52 213,50 202,50 H 5 Q 1,50 2,48 Z M 51,26 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z M 91,26 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 133,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 175,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z"
+        />
+        <path d="M 119,57 H 213 L 109,137 H 17 Q 9,137 5,142 Z" />
+        <path
+          fillRule="evenodd"
+          d="M 4,144 C 8,140 15,145 26,145 H 236 Q 241,145 240,149 C 234,171 221,194 198,194 H 25 C 10,194 2,185 2,173 V 157 Q 2,149 4,144 Z M 78,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 121,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 163,169 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 203,169 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z"
+        />
       </svg>
       <span className="brand-mark__name" aria-hidden="true">
         zvid

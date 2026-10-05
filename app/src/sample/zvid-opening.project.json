@@ -22,7 +22,7 @@
     },
     {
       "id": "icon-mask",
-      "name": "Mask · movie camera",
+      "name": "Mask · zvid logo",
       "colorIndex": 4,
       "hidden": true
     },
@@ -690,13 +690,13 @@
   ],
   "fills": [
     {
-      "id": "fill-camera-reveal",
+      "id": "fill-logo-reveal",
       "mainTrackId": "icon-mask",
       "frameStart": 45,
       "frameEnd": 68
     },
     {
-      "id": "fill-camera-hold",
+      "id": "fill-logo-hold",
       "mainTrackId": "icon-mask",
       "frameStart": 68,
       "frameEnd": 90
@@ -3297,7 +3297,7 @@
     },
     {
       "id": "sample-fx-095",
-      "trackId": "clip:fill-camera-reveal",
+      "trackId": "clip:fill-logo-reveal",
       "effectName": "Color",
       "parameters": {
         "Mode": {
@@ -3313,17 +3313,17 @@
     },
     {
       "id": "sample-fx-096",
-      "trackId": "clip:fill-camera-reveal",
+      "trackId": "clip:fill-logo-reveal",
       "effectName": "Shape",
       "parameters": {
         "Shape": {
-          "stringValue": "Custom:zvid-sample://opening-v2/movie-camera.svg"
+          "stringValue": "Custom:zvid-sample://opening-v2/zvid-logo.svg"
         }
       }
     },
     {
       "id": "sample-fx-097",
-      "trackId": "clip:fill-camera-reveal",
+      "trackId": "clip:fill-logo-reveal",
       "effectName": "Move",
       "parameters": {
         "Motion": {
@@ -3336,10 +3336,10 @@
           "floatValue": 0
         },
         "StartScaleX": {
-          "floatValue": 0.16875
+          "floatValue": 0.10268278301886793
         },
         "StartScaleY": {
-          "floatValue": 0.3
+          "floatValue": 0.15
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3351,16 +3351,16 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.25048828125
+          "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": -0.1257187500000001
+          "floatValue": 0
         },
         "EndScaleX": {
-          "floatValue": 3.375
+          "floatValue": 0.6160966981132076
         },
         "EndScaleY": {
-          "floatValue": 6
+          "floatValue": 0.9
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3375,7 +3375,7 @@
     },
     {
       "id": "sample-fx-098",
-      "trackId": "clip:fill-camera-hold",
+      "trackId": "clip:fill-logo-hold",
       "effectName": "Color",
       "parameters": {
         "Mode": {
@@ -3391,30 +3391,30 @@
     },
     {
       "id": "sample-fx-099",
-      "trackId": "clip:fill-camera-hold",
+      "trackId": "clip:fill-logo-hold",
       "effectName": "Shape",
       "parameters": {
         "Shape": {
-          "stringValue": "Custom:zvid-sample://opening-v2/movie-camera.svg"
+          "stringValue": "Custom:zvid-sample://opening-v2/zvid-logo.svg"
         }
       }
     },
     {
       "id": "sample-fx-100",
-      "trackId": "clip:fill-camera-hold",
+      "trackId": "clip:fill-logo-hold",
       "effectName": "Transform",
       "parameters": {
         "PositionX": {
-          "floatValue": 0.25048828125
+          "floatValue": 0
         },
         "PositionY": {
-          "floatValue": -0.1257187500000001
+          "floatValue": 0
         },
         "ScaleX": {
-          "floatValue": 3.375
+          "floatValue": 0.6160966981132076
         },
         "ScaleY": {
-          "floatValue": 6
+          "floatValue": 0.9
         },
         "OriginX": {
           "floatValue": 0
