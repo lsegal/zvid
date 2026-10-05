@@ -11,12 +11,12 @@ import {
 } from "@heroicons/react/24/solid";
 import { useMemo, useSyncExternalStore } from "react";
 import type { LoopRegion } from "../../app/loop-region";
-import { getShortcutLabels } from "../../app/shortcut-labels";
 import {
   formatPreviewVolume,
   isPreviewSilent,
   type PreviewVolume,
 } from "../../app/preview-volume";
+import { getShortcutLabels } from "../../app/shortcut-labels";
 import { type SkipDirection, skipTarget } from "../../app/transport-skip";
 import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import type { PlayheadSignal } from "../../playhead-signal";

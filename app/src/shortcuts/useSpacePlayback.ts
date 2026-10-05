@@ -60,10 +60,7 @@ export function useSpacePlayback({
         return;
       }
 
-      if (
-        event.altKey ||
-        classifySpaceTarget(event.target) !== "playback"
-      ) {
+      if (event.altKey || classifySpaceTarget(event.target) !== "playback") {
         spaceHold.cancel();
         setSpaceHeldClass(false);
         return;

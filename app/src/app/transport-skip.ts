@@ -57,7 +57,12 @@ export type PlayFromLoopStartActions = {
  */
 export function playFromLoopStart(
   loop: LoopRegion | null | undefined,
-  { isPlaying, togglePlayback, jumpPlayheadTo, startPlayback }: PlayFromLoopStartActions,
+  {
+    isPlaying,
+    togglePlayback,
+    jumpPlayheadTo,
+    startPlayback,
+  }: PlayFromLoopStartActions,
 ) {
   if (!loop || loop.endQ <= loop.startQ) {
     togglePlayback();

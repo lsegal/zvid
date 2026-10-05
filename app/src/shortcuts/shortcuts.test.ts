@@ -117,6 +117,7 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     setPlayheadQ: record("setPlayheadQ"),
     setSelectedClipId: record("setSelectedClipId"),
     setSelectedLaneId: record("setSelectedLaneId"),
+    skipToEdge: record("skipToEdge"),
     sourceClipActionsRef: {
       current: {
         jumpToStart: record("source.jumpToStart"),
@@ -165,6 +166,7 @@ describe("shortcut table", () => {
         "clips.duplicate: Mod+D",
         "selection.deselect-clip: Escape",
         "transport.step-frame: ArrowLeft, ArrowRight",
+        "transport.skip: Mod+ArrowLeft, Mod+ArrowRight",
         "transport.jump-to-edge: Home, End",
         "layers.step-selection: ArrowUp, ArrowDown",
         "loop.lock: L",
@@ -308,6 +310,26 @@ describe("dispatching shortcuts", () => {
       `setPlayheadQ(${8 + 1 / 15})`,
       `setPlayheadQ(${8 - 5 / 15})`,
     ]);
+  });
+
+  it("skips like the outer transport buttons with Ctrl/Cmd+arrows", () => {
+    const back = dispatch(press("ArrowLeft", { ctrlKey: true }));
+    dispatch(press("ArrowRight", { metaKey: true }));
+    dispatch(press("ArrowRight", { ctrlKey: true, shiftKey: true }));
+    assert.equal(back.defaultPrevented, true);
+    assert.deepEqual(calls, [
+      'skipToEdge("back")',
+      'skipToEdge("forward")',
+      'skipToEdge("forward")',
+    ]);
+  });
+
+  it("keeps Ctrl/Cmd+arrows for the text cursor while typing", () => {
+    const event = dispatch(
+      press("ArrowLeft", { metaKey: true, target: new FakeInput() }),
+    );
+    assert.equal(event.defaultPrevented, false);
+    assert.deepEqual(calls, []);
   });
 
   it("locks the playback selection into the loop with L", () => {

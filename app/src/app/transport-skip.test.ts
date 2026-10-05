@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { skipTarget } from "./transport-skip.ts";
+import { playFromLoopStart, skipTarget } from "./transport-skip.ts";
 
 const loop = { startQ: 4, endQ: 8 };
 const endQ = 20;
@@ -62,5 +62,35 @@ describe("skipTarget forward", () => {
 
   it("goes to the timeline end without a loop", () => {
     assert.deepEqual(skipTarget("forward", 2, null, endQ), timelineEnd);
+  });
+});
+
+describe("playFromLoopStart", () => {
+  function run(
+    region: { startQ: number; endQ: number } | null,
+    isPlaying: boolean,
+  ) {
+    const calls: string[] = [];
+    playFromLoopStart(region, {
+      isPlaying,
+      togglePlayback: () => calls.push("toggle"),
+      jumpPlayheadTo: (targetQ) => calls.push(`jump(${targetQ})`),
+      startPlayback: (fromQ) => calls.push(`start(${fromQ})`),
+    });
+    return calls;
+  }
+
+  it("moves to the loop start and plays while stopped", () => {
+    assert.deepEqual(run(loop, false), ["jump(4)", "start(4)"]);
+  });
+
+  it("restarts from the loop start while playing instead of pausing", () => {
+    assert.deepEqual(run(loop, true), ["jump(4)"]);
+  });
+
+  it("is plain Play without a loop", () => {
+    assert.deepEqual(run(null, false), ["toggle"]);
+    assert.deepEqual(run(null, true), ["toggle"]);
+    assert.deepEqual(run({ startQ: 4, endQ: 4 }, false), ["toggle"]);
   });
 });

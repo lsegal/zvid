@@ -1,7 +1,7 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
-import type { SkipDirection } from "../app/transport-skip.ts";
 import type { PlaybackSelection } from "../app/playback-selection.ts";
+import type { SkipDirection } from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
   DragState,
