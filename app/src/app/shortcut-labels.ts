@@ -11,6 +11,9 @@ export function getShortcutLabels() {
       sourceClipDrop: "Ctrl+click",
       clipJump: formatClipJumpShortcut(false),
       lockLoop: "L",
+      skipBack: "Ctrl+Left",
+      skipForward: "Ctrl+Right",
+      playFromLoopStart: "Ctrl+click",
     };
   }
 
@@ -33,5 +36,8 @@ export function getShortcutLabels() {
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
     clipJump: formatClipJumpShortcut(isMac),
     lockLoop: "L",
+    skipBack: isMac ? "Cmd+Left" : "Ctrl+Left",
+    skipForward: isMac ? "Cmd+Right" : "Ctrl+Right",
+    playFromLoopStart: isMac ? "Cmd+click" : "Ctrl+click",
   };
 }
