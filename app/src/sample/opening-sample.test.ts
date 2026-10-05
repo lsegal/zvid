@@ -6,6 +6,7 @@ import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { clipEffectTrackId } from "../fx/stack/clip-stacks.ts";
+import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
 import { FX_EFFECT_DEFINITIONS } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
 import { collectSessionMediaPaths, type ProjectSession } from "../session.ts";
@@ -332,11 +333,46 @@ describe("zvid opening sample", () => {
     );
     assert.deepEqual(
       revealEffects.map((effect) => effect.effectName),
-      ["Color", "Shape", "Move"],
+      ["Color", "Shape", "Move", "DigitalGlitch"],
     );
     assert.deepEqual(
       holdEffects.map((effect) => effect.effectName),
       ["Color", "Shape", "Transform"],
+    );
+    // The logo glitches as it pops open, a free-running 1 Hz Sine LFO on
+    // its Amount.
+    const glitch = revealEffects[3];
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.keys(glitch.parameters ?? {}).map((key) => [
+          key,
+          numberParameter(glitch, key),
+        ]),
+      ),
+      {
+        _Amount: 0.04,
+        _BlockSize: 0.1,
+        _Displace: 0.15,
+        _ChannelShift: 0.3,
+        _ColorCrush: 0,
+        _Rate: 8,
+      },
+    );
+    assert.equal(glitch.animation?.enabled, true);
+    assert.equal(glitch.animation?.mode, "lfo");
+    assert.deepEqual(glitch.animation?.lfo, {
+      shape: "Sine",
+      sync: false,
+      rate: 1,
+      syncRate: "1 Bar",
+      depth: 0.6,
+      phase: 0,
+      parameters: ["_Amount"],
+    });
+    // It loads exactly as saved.
+    assert.deepEqual(
+      normalizeEffectAnimation(glitch.animation, "DigitalGlitch"),
+      glitch.animation,
     );
     const logo = OPENING_SAMPLE_MANIFEST.assets.find(
       (asset) => asset.name === "zvid-logo.svg",
