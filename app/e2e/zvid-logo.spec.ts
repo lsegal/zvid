@@ -33,7 +33,7 @@ test("the top bar shows the zvid logo beside the wordmark", async ({
   ).toBeLessThan(3);
 });
 
-test("the top bar's logo and wordmark are the brand purple", async ({
+test("the top bar's logo is the brand purple and its wordmark is the primary text color", async ({
   page,
 }) => {
   await page.goto("/");
@@ -41,7 +41,10 @@ test("the top bar's logo and wordmark are the brand purple", async ({
   const purple = "rgb(178, 130, 255)";
   await expect(mark.locator("svg")).toHaveCSS("fill", purple);
   await expect(mark.locator("svg")).toHaveCSS("opacity", "1");
-  await expect(mark.locator(".brand-mark__name")).toHaveCSS("color", purple);
+  await expect(mark.locator(".brand-mark__name")).toHaveCSS(
+    "color",
+    "rgb(238, 242, 255)",
+  );
 });
 
 test("the favicon is the zvid logo", async ({ page, request }) => {

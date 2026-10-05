@@ -772,12 +772,6 @@
   fill: currentColor;
 }
 
-.brand-mark__name {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
 .workspace {
   flex: 1;
   min-height: 0;
