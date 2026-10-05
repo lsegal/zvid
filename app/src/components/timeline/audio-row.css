@@ -75,13 +75,15 @@
   min-height: 0;
 }
 
+/* 28px tall like a collapsed layer's clips, 8px from the row's top and
+   bottom, the content's bottom border counting toward the 8px under it. */
 .track-row--bus-collapsed .waveform__canvas {
   top: 8px;
-  height: calc(100% - 16px);
+  height: calc(100% - 15px);
 }
 
 .track-row--bus-collapsed .media-sync--waveform {
-  inset-block: 8px;
+  inset-block: 8px 7px;
 }
 
 .audio-row__playhead {
