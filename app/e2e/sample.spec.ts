@@ -140,8 +140,8 @@ async function expectSampleOpen(page: Page) {
     "data-timeline-lane-id",
     "transitions",
   );
-  // The hidden mask layer holds the movie camera's reveal and hold.
-  for (const id of ["fill-camera-reveal", "fill-camera-hold"]) {
+  // The hidden mask layer holds the zvid logo's reveal and hold.
+  for (const id of ["fill-logo-reveal", "fill-logo-hold"]) {
     await expect(
       lane(page, "icon-mask").locator(`[data-clip-id="${id}"]`),
     ).toHaveCount(1);

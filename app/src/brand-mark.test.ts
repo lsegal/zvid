@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { describe, it } from "node:test";
+
+const read = (path: string) =>
+  readFileSync(new URL(path, import.meta.url), "utf8");
+const brandMarkTsx = read("./components/BrandMark.tsx");
+const logoSvg = read("../public/samples/opening-v2/zvid-logo.svg");
+const appCss = read("./App.css");
+
+const pathData = (source: string) =>
+  [...source.matchAll(/<path\b[^>]*\bd="([^"]*)"/g)].map(([, d]) =>
+    d.split(/\s+/).join(" ").trim(),
+  );
+
+describe("the top bar's brand mark", () => {
+  it("draws the zvid logo, not the five dots", () => {
+    const svg = brandMarkTsx.match(/<svg\b[^>]*>[\s\S]*?<\/svg>/)?.[0] ?? "";
+    assert.match(svg, /viewBox="-8 -8 258 212"/);
+    assert.doesNotMatch(svg, /<circle/);
+    assert.deepEqual(pathData(svg), pathData(logoSvg));
+    assert.equal(pathData(svg).length, 3);
+    // The strips' sprocket holes are cut out of them.
+    assert.equal((svg.match(/fillRule="evenodd"/g) ?? []).length, 2);
+  });
+
+  it("stays decorative and follows the text color", () => {
+    const svg = brandMarkTsx.match(/<svg\b[^>]*>/)?.[0] ?? "";
+    assert.match(svg, /aria-hidden="true"/);
+    assert.doesNotMatch(brandMarkTsx, /<title|aria-labelledby|role="img"/);
+    assert.doesNotMatch(brandMarkTsx, /fill="#/);
+    const rule = appCss.match(/\.brand-mark svg \{([^}]*)\}/)?.[1] ?? "";
+    assert.match(rule, /fill: currentColor;/);
+    assert.match(rule, /height: 20px;/);
+    assert.match(rule, /width: auto;/);
+  });
+});
