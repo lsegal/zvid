@@ -6,6 +6,7 @@ import {
   pointerToTimelineQ,
   quartersToSeconds,
 } from "../../app/timeline-math.ts";
+import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import type { TimelineDragState, TimelineMode } from "../../app/types.ts";
 import { clamp, pluralize } from "../../app/util.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";
@@ -14,6 +15,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { formatTimecode } from "../../timeline-format.ts";
 import { PlayheadLine } from "../LivePlayhead";
+import { LoopStrip } from "./LoopStrip";
 import "./ruler.css";
 
 type TimelineViewportModel = ReturnType<typeof useTimelineViewport>;
@@ -49,10 +51,15 @@ type RulerProps = {
   timelineMode: TimelineMode;
   bpm: number;
   fps: number;
+  snapUnit: number;
+  snapEnabled: boolean;
+  playbackSelection: PlaybackSelection | null;
+  setPlaybackSelection: (selection: PlaybackSelection | null) => void;
 };
 
 // The ruler row: the session's media status in its label, and the bars and
-// playhead marker above the layers. Pressing the ruler scrubs the playhead.
+// playhead marker above the layers. Pressing the ruler scrubs the playhead;
+// dragging in the loop strip along its bottom selects a playback range.
 export function Ruler({
   rulerDragScroll,
   sessionName,
@@ -84,6 +91,10 @@ export function Ruler({
   timelineMode,
   bpm,
   fps,
+  snapUnit,
+  snapEnabled,
+  playbackSelection,
+  setPlaybackSelection,
 }: RulerProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual
@@ -209,6 +220,17 @@ export function Ruler({
             ) : null}
           </div>
         ))}
+        <LoopStrip
+          timelineScrollRef={timelineScrollRef}
+          mac={shortcutLabels.mac}
+          labelWidth={labelWidth}
+          quarterPx={quarterPx}
+          totalQuarters={totalQuarters}
+          snapUnit={snapUnit}
+          snapEnabled={snapEnabled}
+          playbackSelection={playbackSelection}
+          setPlaybackSelection={setPlaybackSelection}
+        />
       </div>
     </section>
   );

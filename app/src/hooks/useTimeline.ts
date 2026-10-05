@@ -6,6 +6,7 @@ import type { createSpaceHold } from "../space-shortcut";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useArrangementEmptyState } from "./useArrangementEmptyState.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
+import { useLoopRegion } from "./useLoopRegion.ts";
 import { useRulerGestures } from "./useRulerGestures.ts";
 import { useTimelineLanes } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
@@ -127,12 +128,15 @@ export function useTimeline({
     flushZoomDraft,
   });
 
+  const loopRegion = useLoopRegion();
+
   return {
     ...viewport,
     ...emptyState,
     ...timelineLanes,
     ...thumbnails,
     ...rulerGestures,
+    ...loopRegion,
   };
 }
 

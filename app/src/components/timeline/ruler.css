@@ -54,6 +54,39 @@
   cursor: grabbing;
 }
 
+/* The loop strip: the bottom fifth of the ruler, darker than the scrub area
+   above it, where a drag selects a playback range instead of scrubbing. */
+.ruler-loop-strip {
+  --loop-strip-height: calc(var(--ruler-height) / 5);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--loop-strip-height);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--line-strong);
+  box-sizing: border-box;
+  cursor: text;
+  touch-action: none;
+}
+
+.ruler-loop-strip__selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--blue) 70%, transparent);
+  pointer-events: none;
+}
+
+/* The playback selection's faint highlight down the ruler above the strip. */
+.ruler-playback-selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  pointer-events: none;
+}
+
 .ruler-marker {
   position: absolute;
   top: 0;

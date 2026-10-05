@@ -523,6 +523,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   timelineMode={timelineMode}
                   bpm={bpm}
                   fps={fps}
+                  snapEnabled={project.snapEnabled}
                 />
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}
