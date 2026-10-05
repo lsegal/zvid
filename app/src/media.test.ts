@@ -4,8 +4,8 @@ import {
   buildFallbackMediaItem,
   inferMediaKind,
   isImageMedia,
-  SVG_MIME_TYPE,
   mediaBlobSource,
+  SVG_MIME_TYPE,
   withMediaType,
 } from "./media.ts";
 
