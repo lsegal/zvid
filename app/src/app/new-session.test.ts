@@ -39,12 +39,16 @@ function key(
 }
 
 describe("createNewSessionHistory", () => {
-  it("is a blank project with the default layers and settings", () => {
+  it("is a blank project with one layer and the default settings", () => {
     const history = createNewSessionHistory();
     const project = history.present;
 
     assert.equal(project, INITIAL_PROJECT_STATE);
     assert.deepEqual(project.lanes, DEFAULT_LANES);
+    assert.deepEqual(
+      project.lanes.map((lane) => lane.name),
+      ["Layer 1"],
+    );
     assert.deepEqual(project.sourceTracks, []);
     assert.deepEqual(project.sourceSpans, []);
     assert.deepEqual(project.clips, []);

@@ -5,8 +5,8 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 // so an unsnapped scrub or selection lands right under the pointer (#696).
 
 // A taller viewport than the default: the docked Audio row footer (#809)
-// takes a fixed slice of the panel, so the default layers need more room to
-// all fit without scrolling.
+// takes a fixed slice of the panel, so the layers need more room to fit
+// without scrolling.
 test.use({ viewport: { width: 1280, height: 900 } });
 
 function lane(page: Page, id: string) {
@@ -31,7 +31,7 @@ async function box(locator: Locator) {
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(lane(page, "5")).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
 });
 
 test("clicking the ruler puts the playhead under the pointer", async ({
@@ -55,7 +55,7 @@ test("clicking the ruler puts the playhead under the pointer", async ({
 test("an unsnapped lane selection starts and ends under the pointer", async ({
   page,
 }) => {
-  const target = lane(page, "5");
+  const target = lane(page, "1");
   const origin = await originX(target);
   const y = (await box(target)).y + 20;
   const fromX = origin + 40.5;

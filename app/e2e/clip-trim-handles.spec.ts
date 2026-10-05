@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Arrangement clip trim handles stay hidden until one is hovered or trimmed,
 // which shows that handle only, or the clip is focused, but keep their hit
@@ -54,7 +55,7 @@ async function copySpanToLayer(page: Page, layer: string) {
 }
 
 // The docked Audio row footer (#809) leaves less room for layers to scroll
-// in; the default session's layers no longer all fit without scrolling.
+// in; a taller viewport keeps the layers clear of it.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
 test("only the hovered or trimmed handle appears, and grabs while hidden", async ({
@@ -62,6 +63,7 @@ test("only the hovered or trimmed handle appears, and grabs while hidden", async
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
 
   await copySpanToLayer(page, "Layer 1");
@@ -73,7 +75,7 @@ test("only the hovered or trimmed handle appears, and grabs while hidden", async
 
   // Select a second clip to leave this one idle.
   await copySpanToLayer(page, "Layer 2");
-  const other = lane(page, "5").locator(".clip-card");
+  const other = lane(page, "2").locator(".clip-card");
   await other.locator(".clip-card__body").click();
   await expect(other).toHaveClass(/clip-card--selected/);
   // Keep the clip clear of the sticky ruler.
@@ -138,13 +140,14 @@ test("no clip looks or acts selected unless the user selected it", async ({
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
   await copySpanToLayer(page, "Layer 1");
   await copySpanToLayer(page, "Layer 2");
   const clips = page.locator(".clip-card");
   await expect(clips).toHaveCount(2);
   const clip = lane(page, "1").locator(".clip-card");
-  const other = lane(page, "5").locator(".clip-card");
+  const other = lane(page, "2").locator(".clip-card");
 
   // Esc clears the selection, leaving no clip highlighted.
   await clip.locator(".clip-card__body").click();

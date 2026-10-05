@@ -6,6 +6,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 import { startSignalingServer } from "./signaling-server.ts";
 
 // Sharing between two browser contexts: separate storage, so no
@@ -281,7 +282,8 @@ test("a guest in another browser context joins, syncs both ways and receives med
 }) => {
   test.setTimeout(120_000);
   const host = await openApp(browser);
-  await renameLayer(host, "5", "Host layer");
+  await addLayers(host);
+  await renameLayer(host, "2", "Host layer");
   await dropVideo(host);
   const invitePath = await startSharing(host);
 
@@ -308,7 +310,7 @@ test("a guest in another browser context joins, syncs both ways and receives med
   await expect(guest.locator(".clip-card")).toHaveCount(1);
 
   // Edits sync both ways.
-  await renameLayer(guest, "6", "Guest layer");
+  await renameLayer(guest, "3", "Guest layer");
   await expect(layerNames(host)).toHaveText([
     "Layer 1",
     "Host layer",
@@ -438,7 +440,7 @@ test("Retry in the media sync modal requests unavailable media again", async ({
 
 test("New Session is off while sharing", async ({ browser }) => {
   const host = await openApp(browser);
-  await renameLayer(host, "5", "Host layer");
+  await renameLayer(host, "1", "Host layer");
   await startSharing(host);
 
   // Starting over would wipe the peers' project too.
@@ -485,7 +487,7 @@ test("a guest with no host waits, then says the host wasn't found", async ({
     "Host not found, check the invite and that the host is sharing",
   );
   // The guest never publishes its own project into the room.
-  await expect(layerNames(guest)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
+  await expect(layerNames(guest)).toHaveText(["Layer 1"]);
 });
 
 test("an unreachable signaling server is reported", async ({ browser }) => {

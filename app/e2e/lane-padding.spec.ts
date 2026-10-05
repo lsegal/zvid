@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Layer lanes leave 11px above and below their 44px clips (#917), and the
 // track labels and the selection box stay aligned with them.
@@ -47,6 +48,7 @@ test("layer lanes are compact, with clips, labels and selections aligned", async
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
@@ -76,7 +78,7 @@ test("layer lanes are compact, with clips, labels and selections aligned", async
   expect(labelBox.height).toBe(laneBox.height);
 
   // A pending selection is drawn 2px outside the clip's top and bottom.
-  const target = lane(page, "5");
+  const target = lane(page, "2");
   const bounds = await target.boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");

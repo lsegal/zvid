@@ -50,6 +50,7 @@ import {
   DEFAULT_LANES,
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
+  LEGACY_DEFAULT_LANES,
 } from "./constants.ts";
 import {
   chooseSourceSpanForWindow,
@@ -194,13 +195,15 @@ export function sessionToProject(
   const { session, ...overlaps } = resolveSessionOverlaps(loadedSession);
   const bpm = session.timeline?.bpm ?? 120;
   const fps = session.timeline?.fps ?? 30;
-  const lanes = (session.mainTracks ?? DEFAULT_LANES).map<Lane>((track) => ({
-    id: track.id,
-    name: track.name,
-    colorIndex: track.colorIndex ?? -1,
-    ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
-    ...(track.hidden === true ? { hidden: true } : {}),
-  }));
+  const lanes = (session.mainTracks ?? LEGACY_DEFAULT_LANES).map<Lane>(
+    (track) => ({
+      id: track.id,
+      name: track.name,
+      colorIndex: track.colorIndex ?? -1,
+      ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(track.hidden === true ? { hidden: true } : {}),
+    }),
+  );
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => ({
       id: track.id,
@@ -453,7 +456,7 @@ export function sessionToProject(
 export function buildStandaloneProject(allMediaItems: MediaItem[]) {
   // Images make no clips; they stay in the Media drawer for effects to use.
   const mediaItems = allMediaItems.filter((item) => !isImageMedia(item));
-  const lanes = DEFAULT_LANES;
+  const lanes = LEGACY_DEFAULT_LANES;
   const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
   const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;
   const fps = mediaFrameRate(mediaItems);

@@ -84,12 +84,12 @@ async function rightClickEmpty(page: Page, offsetX: number) {
   await expect(menu(page)).toBeVisible();
 }
 
-// A click on empty Layer 3 `offsetX` pixels past the span's right edge
+// A click on empty Layer 1 `offsetX` pixels past the span's right edge
 // seeks there.
 async function seekPast(page: Page, span: Locator, offsetX: number) {
   const [spanBox, laneBox] = await Promise.all([
     span.boundingBox(),
-    lane(page, "6").boundingBox(),
+    lane(page, "1").boundingBox(),
   ]);
   if (!spanBox || !laneBox) {
     throw new Error("timeline is not visible");

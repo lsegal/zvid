@@ -28,7 +28,12 @@ async function openSample(page: Page) {
   await expect(page.locator(".clip-card").first()).toBeVisible();
 }
 
+// A blank session has one layer, Layer 1.
 async function expectBlankSession(page: Page) {
+  const layers = page.locator("[data-layer-header-id]");
+  await expect(layers).toHaveCount(1);
+  await expect(layers).toHaveAttribute("data-layer-header-id", "1");
+  await expect(layers).toContainText("Layer 1");
   await expect(page.locator(".source-span")).toHaveCount(0);
   await expect(page.locator(".clip-card")).toHaveCount(0);
   await expect(page.getByText("No source media yet")).toBeVisible();
@@ -78,7 +83,7 @@ test("canceling the New Session prompt keeps the session", async ({ page }) => {
 
 test("File → New Session on a blank project doesn't ask", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("No source media yet")).toBeVisible();
+  await expectBlankSession(page);
 
   await chooseNewSession(page);
 

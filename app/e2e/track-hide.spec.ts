@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The Hide switch on each layer and source track header (#1026): a hidden
 // layer draws nothing and takes no Order slot, but can still be a Mask's
@@ -469,12 +470,13 @@ test.describe(() => {
     await page
       .getByRole("button", { name: "Turn Animation Off for Order" })
       .click();
-    await insertFillAtStart(page, "5");
+    await addLayers(page, 1);
+    await insertFillAtStart(page, "2");
     await insertFillAtStart(page, "1");
-    // Layer 2 (lane 5) is a Shape, a centered square, hidden; Layer 1 cuts it out.
-    await addLayerFx(page, "5", /^Shape/);
-    await header(page, "5").locator(".track-label__hide").click();
-    await expect(header(page, "5")).toContainText("Hidden");
+    // Layer 2 (lane 2) is a Shape, a centered square, hidden; Layer 1 cuts it out.
+    await addLayerFx(page, "2", /^Shape/);
+    await header(page, "2").locator(".track-label__hide").click();
+    await expect(header(page, "2")).toContainText("Hidden");
     await addLayerFx(page, "1", /^Mask/);
     const mask = page.locator('section[aria-label="Mask"]');
     await mask.getByRole("button", { name: "Target" }).click();
@@ -503,7 +505,7 @@ test.describe(() => {
 
     // Selecting the hidden layer's clip outlines its box.
     const outline = page.getByTestId("preview-transform-outline");
-    await lane(page, "5").locator(".clip-card--fill").click();
+    await lane(page, "2").locator(".clip-card--fill").click();
     await expect(outline).toHaveCount(1);
 
     // Dragging it, clear of the origin marker, moves the hole.

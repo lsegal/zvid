@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The top-bar Edit menu mirrors the clip, layer and Audio row right-click
 // menus under Edit ▸ Clip, Edit ▸ Layer and Edit ▸ Audio.
@@ -43,7 +44,7 @@ async function openSubmenu(page: Page, name: string | RegExp) {
   return submenu;
 }
 
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
@@ -72,7 +73,9 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
 
+  // Inserting a layer selects it, so Layers 2 and 3 are only added now.
   // Clicking a layer header selects the layer.
+  await addLayers(page);
   await page
     .locator(".track-label--lane")
     .filter({ hasText: "Layer 2" })
@@ -105,6 +108,7 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
 test("Edit ▸ Clip runs the clip actions on the selected clip", async ({
   page,
 }) => {
+  await addLayers(page);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
   const clip = page.locator(".clip-card");
@@ -139,7 +143,7 @@ test("Edit ▸ Clip runs the clip actions on the selected clip", async ({
   await openEditMenu(page);
   await expect(page.getByRole("menuitem", { name: /^Clip: / })).toHaveCount(0);
   await page.getByRole("menuitem", { name: /^Paste/ }).click();
-  const pasted = lane(page, "5").locator(".clip-card");
+  const pasted = lane(page, "2").locator(".clip-card");
   await expect(pasted).toHaveCount(1);
   await expect(pasted).toHaveClass(/clip-card--selected/);
 

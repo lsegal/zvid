@@ -11,7 +11,7 @@ import {
   getClipPieceClips,
   syncClipsToSourceSpans,
 } from "../source-track-content.ts";
-import { DEFAULT_LANES, INITIAL_PROJECT_STATE } from "./constants.ts";
+import { INITIAL_PROJECT_STATE, LEGACY_DEFAULT_LANES } from "./constants.ts";
 import {
   buildStandaloneProject,
   hydrateProjectMedia,
@@ -206,6 +206,20 @@ describe("a session with a main audio", () => {
   });
 });
 
+describe("a session saved without layers", () => {
+  it("opens with the three layers new sessions used to start with", () => {
+    const project = sessionToProject(
+      { timeline: { bpm: 120, fps: 30 }, tracks: [], clips: [] },
+      [],
+    );
+    assert.deepEqual(
+      project.lanes.map((lane) => [lane.id, lane.name]),
+      LEGACY_DEFAULT_LANES.map((lane) => [lane.id, lane.name]),
+    );
+    assert.equal(project.lanes.length, 3);
+  });
+});
+
 describe("pickMediaByPath", () => {
   it("matches the source path first, then the file name", () => {
     const bySource = media({ id: "src", sourcePath: "C:\\clips\\take.mp4" });
@@ -225,14 +239,14 @@ describe("buildStandaloneProject", () => {
       media({ width: 640, height: 360 }),
       media({ id: "b", name: "b.mov" }),
     ]);
-    assert.equal(project.lanes, DEFAULT_LANES);
+    assert.equal(project.lanes, LEGACY_DEFAULT_LANES);
     assert.equal(project.canvasWidth, 640);
     assert.equal(project.canvasHeight, 360);
     assert.deepEqual(
       project.arrangementClips.map((clip) => [clip.laneId, clip.startQ]),
       [
-        [DEFAULT_LANES[0].id, 0],
-        [DEFAULT_LANES[1].id, 4],
+        [LEGACY_DEFAULT_LANES[0].id, 0],
+        [LEGACY_DEFAULT_LANES[1].id, 4],
       ],
     );
     assert.equal(project.sourceTracks[1].name, "b");

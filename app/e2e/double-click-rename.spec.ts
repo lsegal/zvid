@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Double-clicking a layer or source track name renames it inline, like
-// Rename… in its menu (#940). Default layers: "5" is Layer 2.
+// Rename… in its menu (#940). addLayers adds Layer 2 ("2") and Layer 3.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -92,11 +93,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("double-clicking a layer name renames it inline", async ({ page }) => {
+  await addLayers(page);
   const input = page.getByRole("textbox", { name: "Layer name" });
 
   // The double-click selects the layer too, and puts the selected name in
   // the field.
-  await layerName(page, "5").dblclick();
+  await layerName(page, "2").dblclick();
   await expect(input).toHaveValue("Layer 2");
   await expectFocusedAndSelected(input);
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
@@ -108,13 +110,13 @@ test("double-clicking a layer name renames it inline", async ({ page }) => {
   await expect(layerNames(page)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 
   // Enter saves.
-  await layerName(page, "5").dblclick();
+  await layerName(page, "2").dblclick();
   await input.fill("Drums");
   await input.press("Enter");
   await expect(layerNames(page)).toHaveText(["Layer 1", "Drums", "Layer 3"]);
 
   // Leaving the field saves.
-  await layerName(page, "5").dblclick();
+  await layerName(page, "2").dblclick();
   await input.fill("Bass");
   await page.locator(".fx-panel__toggle").click();
   await expect(input).toHaveCount(0);
@@ -181,7 +183,7 @@ test("a read-only tab ignores a double-click on a name", async ({
     .click();
   await expect(sourceTrackNames(second)).toHaveText(["test-pattern"]);
 
-  await layerName(second, "5").dblclick();
+  await layerName(second, "1").dblclick();
   await sourceTrackName(second).dblclick();
   await expect(second.getByRole("textbox", { name: "Layer name" })).toHaveCount(
     0,

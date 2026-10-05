@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The keyboard shortcuts work after loading the app, and after a press on the
 // timeline takes the focus off a text field or slider that had it. The
@@ -115,14 +116,16 @@ async function expectTransportShortcuts(page: Page) {
   await expect(playButton(page)).toBeVisible();
 }
 
-// The docked Audio row leaves less room for layers; the default session's
-// layers all fit at this size.
+// The docked Audio row leaves less room for layers; the three layers all
+// fit at this size.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(lane(page, "6")).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page);
+  await expect(lane(page, "3")).toBeVisible();
   await page.locator(".timeline-scroll").evaluate((element) => {
     element.scrollLeft = 0;
   });
@@ -134,7 +137,7 @@ test("shortcuts work after loading the app", async ({ page }) => {
   await expectTransportShortcuts(page);
 
   // Escape drops a drawn selection, then deselects the clip.
-  const selection = await drawSelection(lane(page, "5"), 40, 200);
+  const selection = await drawSelection(lane(page, "2"), 40, 200);
   await page.keyboard.press("Escape");
   await expect(selection).toHaveCount(0);
   await clip.click();
@@ -174,7 +177,7 @@ test("a press on a lane takes the focus off the zoom slider", async ({
   await expect(zoom).toBeFocused();
   const zoomValue = await zoom.inputValue();
 
-  const layer3 = await boxOf(lane(page, "6"));
+  const layer3 = await boxOf(lane(page, "3"));
   await page.mouse.click(layer3.x + 500, layer3.y + 20);
   await expect(zoom).not.toBeFocused();
   await expectTransportShortcuts(page);
@@ -189,9 +192,9 @@ test("a number key commits a selection drawn with the zoom slider focused", asyn
   await zoom.focus();
   await expect(zoom).toBeFocused();
 
-  const selection = await drawSelection(lane(page, "5"), 40, 200);
+  const selection = await drawSelection(lane(page, "2"), 40, 200);
   await expect(zoom).not.toBeFocused();
   await page.keyboard.press("1");
   await expect(selection).toHaveCount(0);
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(1);
 });

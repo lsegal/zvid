@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // A Transition on an FX clip blends from the comp beneath the clip at its
 // start to the comp at its end, an Order's arranged layers counting as one
@@ -231,11 +232,12 @@ async function transformMenu(page: Page, button: string) {
   return names;
 }
 
-// The default session's layers all fit at this size.
+// Layer 1 and the added Layer 2 both fit at this size.
 test.use({ viewport: { width: 1600, height: 1200 } });
 test("only an FX clip's add menu offers Transition", async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
 
   // An FX clip offers it.
   const bounds = await lane(page, "1").boundingBox();
@@ -274,7 +276,7 @@ test("only an FX clip's add menu offers Transition", async ({ page }) => {
   ).toHaveAttribute("aria-pressed", "true");
 
   // A layer and the Global stack don't offer it.
-  await page.locator('[data-layer-header-id="5"]').click();
+  await page.locator('[data-layer-header-id="2"]').click();
   for (const button of ["Add device to this layer", "Add device to Global"]) {
     const names = await transformMenu(page, button);
     expect(names.some((name) => name.startsWith("Zoom & Pan"))).toBe(true);
@@ -282,9 +284,9 @@ test("only an FX clip's add menu offers Transition", async ({ page }) => {
   }
 
   // Nor does a layer clip's own stack.
-  await page.locator('[data-layer-header-id="5"]').click({ button: "right" });
+  await page.locator('[data-layer-header-id="2"]').click({ button: "right" });
   await page.getByRole("menuitem", { name: "Insert text at playhead" }).click();
-  await expect(lane(page, "5").locator(".clip-card--selected")).toHaveCount(1);
+  await expect(lane(page, "2").locator(".clip-card--selected")).toHaveCount(1);
   const names = await transformMenu(page, "Add device to this clip");
   expect(names.some((name) => name.startsWith("Transform"))).toBe(true);
   expect(names.some((name) => name.startsWith("Transition"))).toBe(false);

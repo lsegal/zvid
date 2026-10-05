@@ -6,9 +6,9 @@ import { expect, type Page, test } from "@playwright/test";
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 
-// Seeks by clicking empty space in layer lane 5, 300px into it.
+// Seeks by clicking empty space in Layer 1's lane, 300px into it.
 async function seek(page: Page) {
-  const lane = page.locator('[data-timeline-lane-id="5"]');
+  const lane = page.locator('[data-timeline-lane-id="1"]');
   const bounds = await lane.boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");

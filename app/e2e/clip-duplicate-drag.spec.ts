@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // A clip Ctrl/Cmd-dragged to duplicate it is drawn with its source clip's
 // stack while it is dragged, as it is once dropped, instead of jumping to
@@ -81,6 +82,7 @@ test("a Ctrl/Cmd-drag duplicate keeps its clip Transform during the drag", async
 }) => {
   await page.goto("/");
   await holdOrderStill(page);
+  await addLayers(page, 1);
   const lanes = page.locator("[data-timeline-lane-id]");
   await expect(lanes.nth(1)).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);

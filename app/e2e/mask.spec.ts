@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // A Mask shows its layer only where its Target layer draws (Additive), or
 // everywhere but there (Subtractive), by the Target's drawn pixels rather
@@ -445,7 +446,8 @@ test.describe("a Mask on an FX clip", () => {
 // The Target menu offers every other layer, one at a time, and never the
 // layer the Mask is on.
 test("picks one other layer as the Target", async ({ page }) => {
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await addLayers(page);
+  const layerHeader = page.locator('[data-layer-header-id="3"]');
   await expect(layerHeader).toBeVisible();
   const layerName = (await layerHeader.textContent()) ?? "";
   await layerHeader.click({ button: "right" });
