@@ -7,7 +7,8 @@ import { addLayers } from "./layers.ts";
 // double-clicking it again expands it back (#1057). The name still renames.
 // Collapsing keeps the handle's and clips' font sizes and doesn't move the
 // index or name sideways (#1073), and the index badge keeps its expanded size
-// and style, 8px from the row's top and bottom (#1077).
+// and style, 8px from the row's top and bottom (#1077). The handle's Hide, FX
+// and arm switches and the clips' type glyphs show as expanded (#1083).
 
 const COLLAPSED_HEIGHT = 44;
 const COLLAPSED_CLIP_HEIGHT = 28;
@@ -163,6 +164,71 @@ async function expectSameLayout(
   ).toBe(true);
 }
 
+// The sizes and x positions of a handle's Hide, FX and arm switches.
+const SWITCHES = [
+  ".track-label__hide",
+  ".track-label__fx",
+  ".track-label__arm",
+];
+
+async function switchBoxes(label: Locator) {
+  const boxes: Record<string, { x: number; width: number; height: number }> =
+    {};
+  for (const selector of SWITCHES) {
+    const locator = label.locator(selector);
+    if ((await locator.count()) === 0) {
+      continue;
+    }
+    const box = await locator.boundingBox();
+    if (!box) {
+      throw new Error(`${selector} is not visible`);
+    }
+    boxes[selector] = { x: box.x, width: box.width, height: box.height };
+  }
+  return boxes;
+}
+
+// The collapsed handle shows its switches at their expanded size and x
+// position (to within half a pixel), vertically centered in the row, and
+// clicking each one toggles it without expanding the row.
+async function expectSwitchesAsExpanded(
+  row: Locator,
+  label: Locator,
+  expanded: Awaited<ReturnType<typeof switchBoxes>>,
+) {
+  const rowBox = await row.boundingBox();
+  if (!rowBox) {
+    throw new Error("Row is not visible");
+  }
+  const collapsed = await switchBoxes(label);
+  expect(Object.keys(collapsed)).toEqual(Object.keys(expanded));
+  for (const [selector, box] of Object.entries(expanded)) {
+    const locator = label.locator(selector);
+    await expect(locator).toBeVisible();
+    for (const key of ["x", "width", "height"] as const) {
+      expect(
+        Math.abs(collapsed[selector][key] - box[key]),
+        `${selector} ${key}`,
+      ).toBeLessThan(0.5);
+    }
+    const switchBox = await locator.boundingBox();
+    if (!switchBox) {
+      throw new Error(`${selector} is not visible`);
+    }
+    // Centered in the row, less its 1px bottom border.
+    const center = switchBox.y + switchBox.height / 2 - rowBox.y;
+    expect(Math.abs(center - (rowBox.height - 1) / 2), selector).toBeLessThan(
+      1,
+    );
+    const pressed = await locator.getAttribute("aria-pressed");
+    await locator.click();
+    await expect(locator).not.toHaveAttribute("aria-pressed", pressed ?? "");
+    await locator.click();
+    await expect(locator).toHaveAttribute("aria-pressed", pressed ?? "");
+    await expect(row).toHaveClass(/track-row--collapsed/);
+  }
+}
+
 // Images drawn in a row: its frames and thumbnails.
 function thumbnails(row: Locator) {
   return row.locator(
@@ -184,6 +250,11 @@ test("double-clicking a layer's header collapses and expands its lane", async ({
   const expandedHeight = await height(row);
   expect(expandedHeight).toBe(66);
   const expandedLayout = await labelLayout(label, clipText);
+  const expandedSwitches = await switchBoxes(label);
+  expect(Object.keys(expandedSwitches)).toEqual([
+    ".track-label__hide",
+    ".track-label__fx",
+  ]);
 
   await label.locator(".track-label__index").dblclick();
   await expect(row).toHaveClass(/track-row--collapsed/);
@@ -198,12 +269,12 @@ test("double-clicking a layer's header collapses and expands its lane", async ({
   );
   await expect(thumbnails(row)).toHaveCount(0);
   await expect(clip.locator(".clip-card__text strong")).toBeVisible();
-  // Grip, index and name stay; the summary and switches hide.
+  // Grip, index, name and switches stay; the summary hides.
   await expect(label.locator(".track-label__grip")).toBeVisible();
   await expect(label.locator(".track-label__index")).toBeVisible();
   await expect(label.locator(".track-label__select > span")).toBeVisible();
   await expect(label.locator("small")).toBeHidden();
-  await expect(label.locator(".track-label__fx")).toBeHidden();
+  await expectSwitchesAsExpanded(row, label, expandedSwitches);
   // Other rows keep their height and frames.
   expect(await height(page.locator('[data-layer-row-id="2"]'))).toBe(66);
   await expect(
@@ -232,6 +303,8 @@ test("double-clicking a source track's label collapses and expands it", async ({
   const clipText = row.locator(".source-span__body span");
   const expandedHeight = await height(row);
   const expandedLayout = await labelLayout(label, clipText);
+  const expandedSwitches = await switchBoxes(label);
+  expect(Object.keys(expandedSwitches)).toEqual(SWITCHES);
 
   await doubleClickBesideName(page, label);
   await expect(row).toHaveClass(/track-row--collapsed/);
@@ -244,7 +317,7 @@ test("double-clicking a source track's label collapses and expands it", async ({
   );
   await expect(thumbnails(row)).toHaveCount(0);
   await expect(label.locator("small")).toBeHidden();
-  await expect(label.locator(".track-label__arm")).toBeHidden();
+  await expectSwitchesAsExpanded(row, label, expandedSwitches);
   // The layer showing the same media keeps its frames.
   await expect(
     layerRow(page).locator(".clip-card__tile").first(),
@@ -264,6 +337,65 @@ test("double-clicking a source track's label collapses and expands it", async ({
     label.getByRole("textbox", { name: "Source track name" }),
   ).toBeFocused();
   expect(await height(row)).toBe(expandedHeight);
+});
+
+// Draws a selection across Layer 1's empty lane and inserts a clip there
+// from the selection's context menu.
+async function insertClip(page: Page, item: string, from: number) {
+  const bounds = await page
+    .locator('[data-timeline-lane-id="1"]')
+    .boundingBox();
+  if (!bounds) {
+    throw new Error("Lane is not visible");
+  }
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(bounds.x + from, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + from + 100, y);
+  await page.mouse.move(bounds.x + from + 220, y);
+  await page.mouse.up();
+  await page.mouse.click(bounds.x + from + 110, bounds.y + 20, {
+    button: "right",
+  });
+  await page
+    .getByRole("menu", { name: "Selection actions" })
+    .getByRole("menuitem", { name: item })
+    .click();
+}
+
+test("collapsed text and FX clips keep their type glyphs", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
+  await insertClip(page, "Insert Text Clip", 40);
+  await insertClip(page, "Insert FX Clip", 400);
+  const row = layerRow(page);
+  const glyphs = row.locator(".clip-card__glyph");
+  await expect(glyphs).toHaveText(["T", "FX"]);
+  const expandedWidths = await glyphs.evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().width),
+  );
+
+  await row.locator(".track-label__index").dblclick();
+  await expect(row).toHaveClass(/track-row--collapsed/);
+  await expect(glyphs).toHaveText(["T", "FX"]);
+  for (const [index, kind] of ["text", "fx"].entries()) {
+    const clip = row.locator(`.clip-card--${kind}`);
+    const glyph = clip.locator(".clip-card__glyph");
+    await expect(glyph).toBeVisible();
+    await expect(clip.locator(".clip-card__text strong")).toBeVisible();
+    const clipBox = await clip.boundingBox();
+    const glyphBox = await glyph.boundingBox();
+    if (!clipBox || !glyphBox) {
+      throw new Error(`${kind} clip or glyph is not visible`);
+    }
+    expect(clipBox.height).toBe(COLLAPSED_CLIP_HEIGHT);
+    expect(glyphBox.width, kind).toBe(expandedWidths[index]);
+    // Centered in the clip bar.
+    const above = glyphBox.y - clipBox.y;
+    const below = clipBox.y + clipBox.height - (glyphBox.y + glyphBox.height);
+    expect(Math.abs(above - below), kind).toBeLessThanOrEqual(0.5);
+  }
+  await expect(thumbnails(row)).toHaveCount(0);
 });
 
 test("double-clicking the Audio row's label collapses and expands it", async ({
