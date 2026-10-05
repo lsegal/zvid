@@ -74,8 +74,9 @@ describe("row heights", () => {
 
 describe("resizing rows", () => {
   it("clamps a height between a collapsed row's and 4x the default", () => {
-    assert.equal(clampRowHeight(-50, 66), 20);
-    assert.equal(clampRowHeight(19.6, 66), 20);
+    assert.equal(clampRowHeight(-50, 66), 44);
+    assert.equal(clampRowHeight(43.6, 66), 44);
+    assert.equal(clampRowHeight(44.6, 66), 45);
     assert.equal(clampRowHeight(90.4, 66), 90);
     assert.equal(clampRowHeight(264, 66), 264);
     assert.equal(clampRowHeight(1000, 66), 264);
@@ -98,7 +99,7 @@ describe("resizing rows", () => {
     const tall = resizeRow(NO_ROW_HEIGHTS, "lane", "1", 5000, 66);
     assert.equal(getRowHeight(tall, "lane", "1"), 264);
     const short = resizeRow(NO_ROW_HEIGHTS, "lane", "1", -40, 66);
-    assert.equal(getRowHeight(short, "lane", "1"), 20);
+    assert.equal(getRowHeight(short, "lane", "1"), 44);
   });
 
   it("collapses a row dragged to the minimum, keeping the height to restore", () => {
@@ -115,7 +116,7 @@ describe("resizing rows", () => {
     const dragged = resizeRow(NO_ROW_HEIGHTS, "lane", "1", 100, 66);
     assert.equal(getRowExpandedHeight(dragged, "lane", "1"), 100);
     const collapsed = toggleRowCollapsed(dragged, "lane", "1");
-    assert.equal(getRowHeight(collapsed, "lane", "1"), 20);
+    assert.equal(getRowHeight(collapsed, "lane", "1"), 44);
     const expanded = toggleRowCollapsed(collapsed, "lane", "1");
     assert.equal(getRowHeight(expanded, "lane", "1"), 100);
   });

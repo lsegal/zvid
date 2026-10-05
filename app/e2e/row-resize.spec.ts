@@ -2,11 +2,11 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Dragging the separator along the bottom of a layer, source track or Audio
-// row handle resizes that row alone, between the 20px collapsed form and 4x
+// row handle resizes that row alone, between the 44px collapsed form and 4x
 // its default height (#1058). Dragged to the minimum it collapses, and
 // double-clicking its handle then expands it to the dragged height.
 
-const COLLAPSED_HEIGHT = 20;
+const COLLAPSED_HEIGHT = 44;
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -115,9 +115,9 @@ test("dragging a layer's separator resizes only that lane", async ({
   expect(await height(row)).toBe(100);
 
   // Shorter than the default, the handle fits the row.
-  await dragSeparator(page, row, -60);
-  expect(await height(row)).toBe(40);
-  expect(await height(label)).toBe(40);
+  await dragSeparator(page, row, -50);
+  expect(await height(row)).toBe(50);
+  expect(await height(label)).toBe(50);
   await expect(row).toHaveClass(/track-row--short/);
   await expect(row).not.toHaveClass(/track-row--collapsed/);
 
@@ -132,11 +132,11 @@ test("dragging a layer's separator resizes only that lane", async ({
   // and collapses it again.
   await label.locator(".track-label__index").dblclick();
   await expect(row).not.toHaveClass(/track-row--collapsed/);
-  expect(await height(row)).toBe(40);
+  expect(await height(row)).toBe(50);
   await label.locator(".track-label__index").dblclick();
   expect(await height(row)).toBe(COLLAPSED_HEIGHT);
   await label.locator(".track-label__index").dblclick();
-  expect(await height(row)).toBe(40);
+  expect(await height(row)).toBe(50);
 });
 
 test("the separator leaves the grip, selection and rename alone", async ({
@@ -163,8 +163,8 @@ test("the separator leaves the grip, selection and rename alone", async ({
   // Resizing doesn't select the row; clicking its label still does.
   await layerRow(page).locator(".track-label__index").click();
   await expect(row).not.toHaveClass(/track-row--selected/);
-  await dragSeparator(page, row, 30);
-  expect(await height(row)).toBe(50);
+  await dragSeparator(page, row, 10);
+  expect(await height(row)).toBe(54);
   await expect(row).not.toHaveClass(/track-row--selected/);
   await label.locator(".track-label__index").click();
   await expect(row).toHaveClass(/track-row--selected/);
@@ -181,7 +181,7 @@ test("the separator leaves the grip, selection and rename alone", async ({
   await page.mouse.move(target.x + 20, target.y + 4, { steps: 10 });
   await page.mouse.up();
   await expect(firstRow).toHaveAttribute("data-layer-row-id", "5");
-  expect(await height(row)).toBe(50);
+  expect(await height(row)).toBe(54);
 
   // The name still renames.
   await label.locator(".track-label__select").dblclick();
@@ -247,5 +247,5 @@ test("dragging the Audio row's separator resizes and collapses it", async ({
   await toggle.click();
   await dragSeparator(page, row, 40);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  expect(await height(row)).toBe(60);
+  expect(await height(row)).toBe(84);
 });
