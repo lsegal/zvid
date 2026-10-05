@@ -454,6 +454,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               isMediaDrawerOpen={mediaDrawer.isOpen}
               mediaDrawerTab={mediaDrawer.tab}
               onSelectMediaDrawerTab={mediaDrawer.selectTab}
+              isPlaying={isPlaying}
+              isRecording={recording.isRecording}
             />
 
             <div
