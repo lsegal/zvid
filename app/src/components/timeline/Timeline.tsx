@@ -12,10 +12,12 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_NARROW,
 } from "../../app/constants.ts";
+import type { LoopRegion } from "../../app/loop-region.ts";
 import type { useLabelResize } from "../../hooks/useLabelResize.ts";
 import type { useRulerGestures } from "../../hooks/useRulerGestures.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { PlayheadLine } from "../LivePlayhead";
+import { LoopOverlay } from "./LoopOverlay";
 import "./timeline.css";
 
 type TimelineProps = {
@@ -24,6 +26,7 @@ type TimelineProps = {
   labelResize: ReturnType<typeof useLabelResize>;
   playheadSignal: PlayheadSignal;
   quarterPx: number;
+  loopRegion: LoopRegion | null;
   timelineWidth: number;
   visibleTimelineStartPx: number;
   visibleTimelineWidthPx: number;
@@ -37,7 +40,7 @@ type TimelineProps = {
 };
 
 // The timeline panel: its scroll container and grid, with the track label
-// resize rail, the playhead line and the buttons that bring an off-screen
+// resize rail, the loop overlay, the playhead line and the buttons that bring an off-screen
 // playhead into view, and under it a footer that stays at the panel's bottom.
 // Only the rows above the footer scroll vertically; the footer follows their
 // horizontal scroll and zoom, so its waveform and playhead line up with them.
@@ -47,6 +50,7 @@ export function Timeline({
   labelResize,
   playheadSignal,
   quarterPx,
+  loopRegion,
   timelineWidth,
   visibleTimelineStartPx,
   visibleTimelineWidthPx,
@@ -166,6 +170,12 @@ export function Timeline({
               onKeyDown={labelResize.handleLabelResizeKeyDown}
             />
           </div>
+          <LoopOverlay
+            className="timeline-loop"
+            loopRegion={loopRegion}
+            quarterPx={quarterPx}
+            offsetPx={labelWidth}
+          />
           <PlayheadLine
             className="timeline-playhead"
             signal={playheadSignal}

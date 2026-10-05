@@ -493,6 +493,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     prefersReducedMotion={prefersReducedMotion}
                     bpm={bpm}
                     quarterPx={quarterPx}
+                    loopRegion={timeline.loopRegion}
                     visibleTimelineStartPx={visibleTimelineStartPx}
                     visibleTimelineWidthPx={visibleTimelineWidthPx}
                     gridStyle={gridStyle}

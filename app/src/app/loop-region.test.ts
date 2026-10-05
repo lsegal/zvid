@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { editLoopRegion, placeLoopMarker } from "./loop-region.ts";
+import {
+  editLoopRegion,
+  loopRegionPx,
+  placeLoopMarker,
+} from "./loop-region.ts";
 
 const bounds = { minimumQ: 1, totalQuarters: 64 };
 const markerBounds = { ...bounds, contentEndQ: 16 };
@@ -115,5 +119,18 @@ describe("editLoopRegion", () => {
         endQ: 5,
       },
     );
+  });
+});
+
+describe("loopRegionPx", () => {
+  it("places the loop's ends at their quarters times the zoom", () => {
+    assert.deepEqual(loopRegionPx({ startQ: 4, endQ: 10 }, 24), {
+      startPx: 96,
+      endPx: 240,
+    });
+    assert.deepEqual(loopRegionPx({ startQ: 0.5, endQ: 2 }, 48), {
+      startPx: 24,
+      endPx: 96,
+    });
   });
 });

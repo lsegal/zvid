@@ -1,0 +1,42 @@
+:root {
+  /* The loop region's color: softer than the playhead's amber, so the loop's
+     dotted lines aren't mistaken for the playhead. */
+  --loop-yellow: #f2d15c;
+  --loop-yellow-strong: #f8e08a;
+  /* Below the lane stacking in App.css: at z-index 0 and ahead of the rows
+     in the DOM, the overlay paints over the lane backgrounds and grid but
+     under the clip cards, which are positioned at z-index auto after it. */
+  --z-timeline-loop: 0;
+}
+
+.loop-overlay {
+  position: absolute;
+  bottom: 0;
+  background: color-mix(in srgb, var(--loop-yellow) 5%, transparent);
+  pointer-events: none;
+  z-index: var(--z-timeline-loop);
+}
+
+.loop-overlay__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted var(--loop-yellow);
+}
+
+.loop-overlay__line--start {
+  left: 0;
+}
+
+.loop-overlay__line--end {
+  right: 0;
+}
+
+/* The rows' overlay starts where the ruler ends, like the playhead line. */
+.timeline-loop {
+  top: var(--ruler-height);
+}
+
+.audio-row__loop {
+  top: 0;
+}

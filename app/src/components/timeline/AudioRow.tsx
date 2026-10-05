@@ -5,6 +5,7 @@ import {
   AUDIO_ROW_HEIGHT,
   audioRowToggleLabel,
 } from "../../audio-row-section.ts";
+import type { LoopRegion } from "../../app/loop-region.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { MainWaveform } from "../../MainWaveform";
@@ -17,6 +18,7 @@ import {
 } from "../../row-heights.ts";
 import { PlayheadLine } from "../LivePlayhead";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import { LoopOverlay } from "./LoopOverlay";
 import { RowResizeHandle } from "./RowResizeHandle";
 import "./audio-row.css";
 
@@ -26,6 +28,7 @@ type AudioRowProps = {
   prefersReducedMotion: boolean;
   bpm: number;
   quarterPx: number;
+  loopRegion: LoopRegion | null;
   visibleTimelineStartPx: number;
   visibleTimelineWidthPx: number;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
@@ -41,7 +44,7 @@ type AudioRowProps = {
 // clips make, with a summary of where it comes from and a Refresh button.
 // It takes no files; a drop over it falls through to the timeline.
 // It is docked at the bottom of the timeline panel, under the rows (Timeline
-// footer), so it draws its own playhead line. Collapsed, it is a 44px row
+// footer), so it draws its own loop overlay and playhead line. Collapsed, it is a 44px row
 // (row-heights.ts) that still draws the waveform, scaled down. The toggle
 // collapses and expands it, as does a double-click anywhere on its label but
 // the Refresh button. Dragging the separator along the bottom of its label
@@ -52,6 +55,7 @@ export function AudioRow({
   prefersReducedMotion,
   bpm,
   quarterPx,
+  loopRegion,
   visibleTimelineStartPx,
   visibleTimelineWidthPx,
   gridStyle,
@@ -159,6 +163,13 @@ export function AudioRow({
         data-audio-mix-level={peakLevel}
         style={gridStyle}
       >
+        <LoopOverlay
+          className="audio-row__loop"
+          loopRegion={loopRegion}
+          quarterPx={quarterPx}
+          // Inside the content's left border, like the playhead line.
+          offsetPx={-1}
+        />
         {computing ? (
           <MediaSyncSkeleton style={skeletonStyle} variant="waveform" />
         ) : null}
