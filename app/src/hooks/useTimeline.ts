@@ -25,7 +25,7 @@ export type TimelineInputs = {
   >;
   layout: Pick<
     AppLayout,
-    "labelWidth" | "shortcutLabels" | "prefersReducedMotion"
+    "labelWidth" | "shortcutLabels" | "prefersReducedMotion" | "rowHeights"
   >;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -65,7 +65,8 @@ export function useTimeline({
   const { timelineClips, pendingSelection, selectedClipId } = selection;
   // A source clip being dragged draws where the drop would put it.
   const { timelineSourceSpans } = selection;
-  const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
+  const { labelWidth, shortcutLabels, prefersReducedMotion, rowHeights } =
+    layout;
 
   const viewport = useTimelineViewport({
     zoom,
@@ -114,6 +115,7 @@ export function useTimeline({
     mediaItemsById,
     filmstripRangeStartPx,
     filmstripRangeEndPx,
+    rowHeights,
   });
   const rulerGestures = useRulerGestures({
     shortcutLabels,

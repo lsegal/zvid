@@ -26,6 +26,12 @@ import {
 } from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
 import {
+  NO_ROW_HEIGHTS,
+  type RowHeights,
+  type RowKind,
+  toggleRowCollapsed,
+} from "../row-heights.ts";
+import {
   isSourceTracksSectionCollapsed,
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
@@ -37,7 +43,7 @@ export type AppLayoutInputs = {
 };
 
 // The editor's layout preferences: the FX panel's collapsed state, the
-// source tracks section, the Audio row, the track label width, and the preview width with
+// source tracks section, the Audio row, each row's height, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference.
 export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
@@ -55,6 +61,7 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
       typeof window === "undefined" ? undefined : window.localStorage,
     ),
   );
+  const [rowHeights, setRowHeights] = useState<RowHeights>(NO_ROW_HEIGHTS);
   const labelResize = useLabelResize();
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
@@ -79,6 +86,9 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const setAudioRowCollapsed = useCallback((collapsed: boolean) => {
     setAudioRowCollapsedPref(collapsed);
     writeAudioRowCollapsed(window.localStorage, collapsed);
+  }, []);
+  const toggleRowCollapsedById = useCallback((kind: RowKind, id: string) => {
+    setRowHeights((heights) => toggleRowCollapsed(heights, kind, id));
   }, []);
 
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
@@ -219,6 +229,8 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     setSourceTracksCollapsed,
     isAudioRowCollapsed,
     setAudioRowCollapsed,
+    rowHeights,
+    toggleRowCollapsed: toggleRowCollapsedById,
     labelResize,
     labelWidth,
     prefersReducedMotion,

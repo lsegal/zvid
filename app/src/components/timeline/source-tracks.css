@@ -1,3 +1,11 @@
+/* A source track's height, and its clips' height and the space above them.
+   A row of another height sets its own on its .track-row (row-heights.ts). */
+:root {
+  --source-row-height: 82px;
+  --source-clip-height: 56px;
+  --source-clip-inset: 12px;
+}
+
 .source-header__toggle {
   display: flex;
   flex: 1;
@@ -163,7 +171,7 @@
 }
 
 .track-row__content--source {
-  min-height: 82px;
+  min-height: var(--source-row-height);
 }
 
 .source-header__summary {
@@ -219,8 +227,8 @@
 
 .source-drop-preview {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
+  top: calc(var(--source-clip-inset) - 2px);
+  bottom: calc(var(--source-clip-inset) - 2px);
   z-index: 2;
   width: 280px;
   box-sizing: border-box;
@@ -303,9 +311,9 @@
 /* Media from the Media drawer previews as the source clips the drop will
    create, back to back, at the size and in the colors they will have. */
 .source-drop-preview--clips {
-  top: 12px;
+  top: var(--source-clip-inset);
   bottom: auto;
-  height: 56px;
+  height: var(--source-clip-height);
   min-width: 2px;
   display: block;
   padding: 0;
@@ -395,6 +403,48 @@
   font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* A collapsed source track's drop preview and spans keep only their names
+   (#1057; the rest of the collapsed row is in lane-row.css). */
+.track-row--collapsed .source-drop-preview {
+  padding-block: 0;
+  border-radius: 5px;
+}
+
+.track-row--collapsed .source-drop-preview__thumb,
+.track-row--collapsed .source-drop-preview__body span,
+.track-row--collapsed .source-drop-preview__count,
+.track-row--collapsed .source-drop-clip__thumb,
+.track-row--collapsed .source-drop-clip__glyph,
+.track-row--collapsed .source-drop-clip__body small {
+  display: none;
+}
+
+.track-row--collapsed .source-drop-clip {
+  border-radius: 5px;
+}
+
+.track-row--collapsed .source-drop-clip__body {
+  padding-block: 0;
+}
+
+.source-span--collapsed {
+  grid-template-columns: 1fr;
+  border-radius: 5px;
+}
+
+.source-span--collapsed .source-span__body {
+  justify-content: center;
+}
+
+.source-span--collapsed .source-span__body small,
+.source-span--collapsed .source-span__line {
+  display: none;
+}
+
+.source-span--collapsed .source-span__handle::before {
+  height: 10px;
 }
 
 @media (max-width: 560px) {

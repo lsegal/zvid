@@ -532,6 +532,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   fxLaneId={fxPanel.fxLaneId}
                   laneStatusById={timeline.laneStatusById}
                   clipsByLane={timeline.clipsByLane}
+                  rowHeights={layout.rowHeights}
                   emptyState={
                     timeline.showArrangementEmptyState ? (
                       <ArrangementEmptyState
@@ -559,6 +560,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     commitLayerRename: editing.commitLayerRename,
                     setLayerFxEnabled: fxEditing.setLayerFxEnabled,
                     setLayerHidden: fxEditing.setLayerHidden,
+                    toggleRowCollapsed: layout.toggleRowCollapsed,
                   }}
                   row={{
                     openLaneMenu: editing.openLaneMenu,
@@ -607,6 +609,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 <SourceTracks
                   sourceTracks={sourceTracks}
                   sourceSpansByTrack={timeline.sourceSpansByTrack}
+                  rowHeights={layout.rowHeights}
                   isSourceTracksCollapsed={layout.isSourceTracksCollapsed}
                   setSourceTracksCollapsed={layout.setSourceTracksCollapsed}
                   sourceTracksLocked={editing.sourceTracksLocked}
@@ -634,6 +637,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                     setHidden: fxEditing.setSourceTrackHidden,
+                    toggleRowCollapsed: layout.toggleRowCollapsed,
                   }}
                   openLaneMenu={editing.openSourceLaneMenu}
                   span={{

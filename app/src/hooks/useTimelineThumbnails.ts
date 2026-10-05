@@ -17,6 +17,7 @@ import {
 } from "../clip-filmstrip.ts";
 import { isPlaceholderClip } from "../clip-media-state";
 import type { MediaItem } from "../media";
+import { isRowCollapsed, type RowHeights } from "../row-heights.ts";
 import { getClipPieceClips } from "../source-track-content.ts";
 import {
   getClipThumbnailTimeSeconds,
@@ -34,6 +35,8 @@ export type TimelineThumbnailsInputs = {
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   filmstripRangeStartPx: number;
   filmstripRangeEndPx: number;
+  // Collapsed rows draw no frames, so theirs are not requested.
+  rowHeights: RowHeights;
 };
 
 // The filmstrips and thumbnails the timeline's clips and source spans show.
@@ -47,6 +50,7 @@ export function useTimelineThumbnails({
   mediaItemsById,
   filmstripRangeStartPx,
   filmstripRangeEndPx,
+  rowHeights,
 }: TimelineThumbnailsInputs) {
   const pixelRatio = window.devicePixelRatio || 1;
   // Each media clip's pieces, as its source clips stand now, a dragged one
@@ -62,15 +66,28 @@ export function useTimelineThumbnails({
       ),
     [bpm, sourceSpans, timelineClips],
   );
-  // Every clip piece, by its key.
-  const pieces = useMemo(
+  // Every clip piece outside a collapsed layer, by its key.
+  const pieces = useMemo(() => {
+    const collapsedClipIds = new Set(
+      timelineClips
+        .filter((clip) => isRowCollapsed(rowHeights, "lane", clip.laneId))
+        .map((clip) => clip.id),
+    );
+    return [...clipPieces].flatMap(([clipId, clipPieceClips]) =>
+      collapsedClipIds.has(clipId)
+        ? []
+        : clipPieceClips.map(
+            (clip, index) => [getClipPieceKey(clipId, index), clip] as const,
+          ),
+    );
+  }, [clipPieces, rowHeights, timelineClips]);
+  // The source spans outside a collapsed source track.
+  const shownSourceSpans = useMemo(
     () =>
-      [...clipPieces].flatMap(([clipId, clipPieceClips]) =>
-        clipPieceClips.map(
-          (clip, index) => [getClipPieceKey(clipId, index), clip] as const,
-        ),
+      sourceSpans.filter(
+        (span) => !isRowCollapsed(rowHeights, "source", span.sourceTrackId),
       ),
-    [clipPieces],
+    [rowHeights, sourceSpans],
   );
   // The filmstrip tiles of each online video clip piece near the visible
   // range.
@@ -127,7 +144,7 @@ export function useTimelineThumbnails({
   const spanFilmstrips = useMemo(() => {
     const filmstrips = new Map<string, Filmstrip>();
     const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
-    for (const span of sourceSpans) {
+    for (const span of shownSourceSpans) {
       const media = span.mediaId ? mediaItemsById.get(span.mediaId) : undefined;
       if (
         !media?.hasVideo ||
@@ -169,7 +186,7 @@ export function useTimelineThumbnails({
     mediaItemsById,
     pixelRatio,
     quarterPx,
-    sourceSpans,
+    shownSourceSpans,
   ]);
   // Source spans and layer clips share one thumbnail cache, so a frame both
   // show is decoded once. Spans show the frame at their start and clips the
@@ -203,7 +220,7 @@ export function useTimelineThumbnails({
       });
     };
 
-    for (const span of sourceSpans) {
+    for (const span of shownSourceSpans) {
       addRequest(
         `span:${span.id}`,
         span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
@@ -245,7 +262,7 @@ export function useTimelineThumbnails({
     clipFilmstrips,
     mediaItemsById,
     pieces,
-    sourceSpans,
+    shownSourceSpans,
     spanFilmstrips,
   ]);
   const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {

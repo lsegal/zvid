@@ -16,6 +16,12 @@ import type { LiveTake } from "../../hooks/useRecording.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import {
+  COLLAPSED_ROW_METRICS,
+  getRowHeightStyle,
+  isRowCollapseTarget,
+  type RowKind,
+} from "../../row-heights.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { isTrackHidden } from "../../track-visibility.ts";
 import { NameInput } from "../NameInput";
@@ -44,12 +50,15 @@ export type SourceTrackLabelContext = {
   cancelRename: SourceTrackActions["cancelSourceTrackRename"];
   setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
   setHidden: ReturnType<typeof useFxEditing>["setSourceTrackHidden"];
+  toggleRowCollapsed: (kind: RowKind, id: string) => void;
 };
 
 export type SourceTrackRowProps = {
   track: SourceTrack;
   index: number;
   spans: SourceSpanClip[];
+  // The row's height (row-heights.ts); collapsed, its spans are plain bars.
+  height: number;
   drop: ReturnType<typeof useSourceTrackDrop>;
   sourceSelection: SourceSelection | undefined;
   selectSource: (selection: SourceSelection) => void;
@@ -70,11 +79,13 @@ export type SourceTrackRowProps = {
 // label or empty space in the row selects the track; clicking a span selects
 // the span. Right-clicking empty space opens the layer lane menu's entries
 // for the track. Double-clicking the track name renames it, like Rename… in
-// its menu.
+// its menu, and double-clicking the rest of the label collapses or expands the
+// row.
 export const SourceTrackRow = memo(function SourceTrackRow({
   track,
   index,
   spans,
+  height,
   drop,
   sourceSelection,
   selectSource,
@@ -94,6 +105,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
   cancelRename,
   setFxEnabled,
   setHidden,
+  toggleRowCollapsed,
 }: SourceTrackRowProps) {
   const { sourceTrackDragTarget } = drop;
   const swatch = getSwatch(track.colorIndex);
@@ -101,13 +113,15 @@ export const SourceTrackRow = memo(function SourceTrackRow({
     sourceTrackDragTarget?.kind === "track" &&
     sourceTrackDragTarget.trackId === track.id;
   const selected = isSourceTrackSelected(sourceSelection, track.id);
+  const collapsed = height <= COLLAPSED_ROW_METRICS.height;
 
   return (
     <section
-      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""}`}
+      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""} ${collapsed ? "track-row--collapsed" : ""}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
       data-source-track-drop-at-pointer
+      style={getRowHeightStyle("source", height)}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the track name button is the keyboard equivalent */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: the track name button handles the keyboard */}
@@ -124,6 +138,11 @@ export const SourceTrackRow = memo(function SourceTrackRow({
             return;
           }
           selectSource(selectSourceTrack(track.id));
+        }}
+        onDoubleClick={(event) => {
+          if (isRowCollapseTarget(event.target)) {
+            toggleRowCollapsed("source", track.id);
+          }
         }}
       >
         <button
@@ -198,7 +217,12 @@ export const SourceTrackRow = memo(function SourceTrackRow({
         style={gridStyle}
       >
         {spans.map((clip) => (
-          <SourceSpan key={clip.id} clip={clip} {...span} />
+          <SourceSpan
+            key={clip.id}
+            clip={clip}
+            collapsed={collapsed}
+            {...span}
+          />
         ))}
         {liveTake ? (
           <LiveRecordingClip
