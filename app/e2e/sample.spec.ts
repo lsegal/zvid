@@ -360,6 +360,77 @@ test("an empty start opens the sample on its own", async ({ page }) => {
   await expectSampleOpen(page);
 });
 
+// The logo mask glitches as it pops open: its reveal clip carries a Digital
+// Glitch whose Amount a free-running 1 Hz Sine LFO swells.
+test("the logo reveal glitches under a 1 Hz LFO", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/?sample=1");
+  await expectSampleOpen(page);
+
+  await lane(page, "icon-mask")
+    .locator('[data-clip-id="fill-logo-reveal"]')
+    .click();
+  const device = page.locator('.fx-chain section[aria-label="Digital Glitch"]');
+  await expect(device).toHaveCount(1);
+  for (const [label, text] of [
+    ["Amount", "4%"],
+    ["Block Size", "10%"],
+    ["Displace", "15%"],
+    ["Channel Shift", "30%"],
+    ["Color Crush", "0%"],
+    ["Rate", "8 /s"],
+  ]) {
+    await expect(
+      device.getByRole("slider", { name: label, exact: true }),
+    ).toHaveAttribute("aria-valuetext", text);
+  }
+
+  const section = page.locator(
+    'section[aria-label="Digital Glitch animation"]',
+  );
+  await expect(
+    section.getByRole("group", { name: "Mode" }).getByRole("button", {
+      name: "LFO",
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(section.getByRole("combobox", { name: "Shape" })).toHaveText(
+    "Sine",
+  );
+  await expect(
+    section.getByRole("group", { name: "Sync" }).getByRole("button", {
+      name: "Off",
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+  for (const [label, text] of [
+    ["Rate", "1.00 Hz"],
+    ["Depth", "0.6"],
+    ["Phase", "0°"],
+  ]) {
+    await expect(
+      section.getByRole("slider", { name: label, exact: true }),
+    ).toHaveAttribute("aria-valuetext", text);
+  }
+  await expect(
+    section.getByRole("button", { name: "Parameters: 1 of 6" }),
+  ).toBeVisible();
+
+  // The second mask clip holds the logo still, unglitched.
+  await lane(page, "icon-mask")
+    .locator('[data-clip-id="fill-logo-hold"]')
+    .click();
+  await expect(
+    page.locator('.fx-chain section[aria-label="Transform"]'),
+  ).not.toHaveCount(0);
+  await expect(device).toHaveCount(0);
+
+  // The reveal renders without errors.
+  await page.getByRole("button", { name: "Play timeline" }).click();
+  await page.waitForTimeout(3_000);
+  await page.getByRole("button", { name: "Pause playback" }).click();
+  expect(errors).toEqual([]);
+});
+
 test("the sample opens at once and loads its media in place", async ({
   page,
 }) => {
