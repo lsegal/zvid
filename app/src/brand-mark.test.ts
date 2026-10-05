@@ -66,8 +66,7 @@ function brandMarkColor(css: string) {
   const token = value.match(/^var\((--[\w-]+)\)$/)?.[1];
   if (!token) return value;
   return (
-    css.match(new RegExp(`:root \\{[^}]*${token}: ([^;]+);`))?.[1].trim() ??
-    ""
+    css.match(new RegExp(`:root \\{[^}]*${token}: ([^;]+);`))?.[1].trim() ?? ""
   );
 }
 
@@ -87,13 +86,15 @@ describe("the brand purple", () => {
     // The logo shows the exact color, and the wordmark inherits it.
     const svgRule = appCss.match(/\.brand-mark svg \{([^}]*)\}/)?.[1] ?? "";
     assert.doesNotMatch(svgRule, /opacity/);
-    const nameRule =
-      appCss.match(/\.brand-mark__name \{([^}]*)\}/)?.[1] ?? "";
+    const nameRule = appCss.match(/\.brand-mark__name \{([^}]*)\}/)?.[1] ?? "";
     assert.doesNotMatch(nameRule, /(?:^|\s)color:/);
   });
 
   it("rejects the favicon's darker purple on the app background", () => {
-    const darker = appCss.replace(/--brand-purple: [^;]+;/, "--brand-purple: #863bff;");
+    const darker = appCss.replace(
+      /--brand-purple: [^;]+;/,
+      "--brand-purple: #863bff;",
+    );
     assert.equal(brandMarkColor(darker), "#863bff");
     assert.equal(passesOnBackgrounds(brandMarkColor(darker)), false);
   });
