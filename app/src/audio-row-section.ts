@@ -3,6 +3,10 @@
 // is kept in local UI prefs like the Source Tracks section's
 // (source-tracks-section.ts).
 
+// The expanded Audio row's default height, which dragging its separator
+// changes (#1058).
+export const AUDIO_ROW_HEIGHT = 78;
+
 export const AUDIO_ROW_COLLAPSED_STORAGE_KEY = "zvid-audio-row-collapsed";
 
 type PrefsStorage = Pick<Storage, "getItem" | "setItem">;

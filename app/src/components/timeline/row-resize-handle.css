@@ -1,0 +1,34 @@
+/* The separator along the bottom of a row's handle (#1058), inside the
+   handle so the next row's handle doesn't cover it. The reorder grip sits
+   above it (layer-header.css). */
+.row-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 5px;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.row-resize-handle::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.row-resize-handle:hover::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.row-resize-handle:active::before {
+  background: var(--amber);
+}
