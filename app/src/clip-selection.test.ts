@@ -84,7 +84,17 @@ describe("selected clip ring", () => {
 
   it("leaves unselected clips without a ring", () => {
     const base = ruleBody(clipCardCss, ".clip-card");
-    assert.doesNotMatch(base, /outline|box-shadow|z-index/);
+    assert.doesNotMatch(base, /outline|box-shadow/);
+  });
+
+  it("stacks unselected clips at the loop overlay's depth, under the selected clip", () => {
+    const base = ruleBody(clipCardCss, ".clip-card");
+    assert.match(base, /z-index: var\(--z-timeline-loop\);/);
+    assert.match(
+      ruleBody(sourceSpanCss, ".source-span"),
+      /z-index: var\(--z-timeline-loop\);/,
+    );
+    assert.ok(zToken("loop") < zToken("selected-clip"));
   });
 
   it("stacks the selected clip under the range selection and playhead", () => {

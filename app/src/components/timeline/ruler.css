@@ -93,11 +93,11 @@
   top: 0;
   bottom: 0;
   min-width: 2px;
-  background: color-mix(in srgb, var(--loop-yellow) 60%, transparent);
+  background: color-mix(in srgb, var(--loop-yellow) 85%, transparent);
 }
 
 .ruler-loop-region--moving {
-  background: color-mix(in srgb, var(--loop-yellow-strong) 75%, transparent);
+  background: color-mix(in srgb, var(--loop-yellow-strong) 90%, transparent);
 }
 
 .ruler-loop-region__body {

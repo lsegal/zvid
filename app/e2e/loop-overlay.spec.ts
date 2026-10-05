@@ -106,7 +106,7 @@ test("the loop is yellow in the ruler and runs down the timeline behind clips", 
   const bodyColor = await page.evaluate(() => {
     const probe = document.createElement("div");
     probe.style.background =
-      "color-mix(in srgb, var(--loop-yellow) 60%, transparent)";
+      "color-mix(in srgb, var(--loop-yellow) 85%, transparent)";
     document.body.append(probe);
     const color = getComputedStyle(probe).backgroundColor;
     probe.remove();
