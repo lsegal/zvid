@@ -4,6 +4,7 @@
 // storage UI. Storage is passed in so the logic can be tested without a
 // browser.
 
+import { mediaBlobSource } from "./media.ts";
 import {
   type CachedMediaRecord,
   type CacheWriteResult,
@@ -156,9 +157,10 @@ export function createMediaStore({
   }
 
   async function put(id: string, blob: Blob): Promise<CacheWriteResult> {
-    // The caller is re-caching the file it read from the cache: rewriting it
-    // would only invalidate the File it holds.
-    if (openFiles.get(id) === blob) {
+    // The caller is re-caching the file it read from the cache, perhaps
+    // typed as an SVG: rewriting it would only invalidate the File it holds,
+    // and reading that File into its own replacement can leave it empty.
+    if (openFiles.get(id) === mediaBlobSource(blob)) {
       await touch(id, blob, await index.get(id));
       return { status: "cached" };
     }

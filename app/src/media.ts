@@ -210,12 +210,24 @@ export function probeMediaUrlDuration(
 
 export const SVG_MIME_TYPE = "image/svg+xml";
 
+// The blob each typed copy made by withMediaType wraps.
+const typedMediaSources = new WeakMap<Blob, Blob>();
+
 // Browsers only render an SVG served with its MIME type, which blobs read
 // back from the media cache or a project archive lack.
 export function withMediaType(blob: Blob, kind: MediaKind): Blob {
-  return kind === "image" && blob.type !== SVG_MIME_TYPE
-    ? new Blob([blob], { type: SVG_MIME_TYPE })
-    : blob;
+  if (kind !== "image" || blob.type === SVG_MIME_TYPE) {
+    return blob;
+  }
+  const typed = new Blob([blob], { type: SVG_MIME_TYPE });
+  typedMediaSources.set(typed, mediaBlobSource(blob));
+  return typed;
+}
+
+// The blob `blob` was typed from by withMediaType, or `blob` itself. A typed
+// copy of a cached file still reads that file's bytes.
+export function mediaBlobSource(blob: Blob): Blob {
+  return typedMediaSources.get(blob) ?? blob;
 }
 
 export function isImageMedia(item: Pick<MediaItem, "kind">) {

@@ -102,12 +102,16 @@ export async function downloadSampleAsset(
   return blob;
 }
 
-// A cached copy of `asset`, when it has the manifest's size. The hash was
-// checked when it was downloaded.
+// A cached copy of `asset`, when it still has the manifest's size and hash.
+// A copy that was emptied or damaged in the cache is downloaded again.
 async function readCachedAsset(asset: SampleAsset, deps: SampleLoadDeps) {
   try {
     const blob = await deps.getCached(asset.id);
-    return blob && blob.size === asset.bytes ? blob : undefined;
+    return blob &&
+      blob.size === asset.bytes &&
+      (await deps.digest(blob)) === asset.sha256
+      ? blob
+      : undefined;
   } catch {
     return undefined;
   }
