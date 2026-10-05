@@ -39,6 +39,7 @@
 .track-row--collapsed .track-label__index {
   height: 18px;
   border-radius: 6px;
+  line-height: 1;
 }
 
 .track-row--collapsed .track-label__rename {

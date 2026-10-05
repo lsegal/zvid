@@ -73,42 +73,53 @@ async function doubleClickBesideName(page: Page, label: Locator) {
   await page.mouse.dblclick(name.x + name.width + 6, name.y + name.height / 2);
 }
 
-// Where a row's handle puts its index and name, and the font sizes of its
-// name and its clip's label.
+// Where a row's handle puts its grip, index (layers only) and name, and the
+// font sizes of its name, index and clip label.
 async function labelLayout(label: Locator, clipText: Locator) {
-  const left = async (locator: Locator) => {
-    const box = await locator.boundingBox();
-    if (!box) {
-      throw new Error("Not visible");
-    }
-    return box.x;
+  const parts = {
+    grip: label.locator(".track-label__grip"),
+    index: label.locator(".track-label__index"),
+    name: label.locator(".track-label__select > span"),
   };
-  const fontSize = (locator: Locator) =>
-    locator.evaluate((node) => getComputedStyle(node).fontSize);
-  const index = label.locator(".track-label__index");
-  const name = label.locator(".track-label__select > span");
-  return {
-    indexLeft: await left(index),
-    nameLeft: await left(name),
-    indexFontSize: await fontSize(index),
-    nameFontSize: await fontSize(name),
+  const layout: Record<string, number | string> = {
     clipFontSize: await fontSize(clipText),
   };
+  for (const [part, locator] of Object.entries(parts)) {
+    if ((await locator.count()) === 0) {
+      continue;
+    }
+    const box = await locator.boundingBox();
+    if (!box) {
+      throw new Error(`${part} is not visible`);
+    }
+    layout[`${part}Left`] = box.x;
+    if (part !== "grip") {
+      layout[`${part}FontSize`] = await fontSize(locator);
+    }
+  }
+  return layout;
 }
 
-// Collapsing kept the expanded font sizes and x positions, and the name fits
-// the 24px row.
+function fontSize(locator: Locator) {
+  return locator.evaluate((node) => getComputedStyle(node).fontSize);
+}
+
+// Collapsing kept the expanded font sizes and x positions (to within half a
+// pixel), and the name fits the 24px row.
 async function expectSameLayout(
   label: Locator,
   clipText: Locator,
   expanded: Awaited<ReturnType<typeof labelLayout>>,
 ) {
   const collapsed = await labelLayout(label, clipText);
-  expect(collapsed.indexFontSize).toBe(expanded.indexFontSize);
-  expect(collapsed.nameFontSize).toBe(expanded.nameFontSize);
-  expect(collapsed.clipFontSize).toBe(expanded.clipFontSize);
-  expect(Math.abs(collapsed.indexLeft - expanded.indexLeft)).toBeLessThan(0.5);
-  expect(Math.abs(collapsed.nameLeft - expanded.nameLeft)).toBeLessThan(0.5);
+  expect(Object.keys(collapsed)).toEqual(Object.keys(expanded));
+  for (const [key, value] of Object.entries(expanded)) {
+    if (typeof value === "number") {
+      expect(Math.abs(Number(collapsed[key]) - value), key).toBeLessThan(0.5);
+    } else {
+      expect(collapsed[key], key).toBe(value);
+    }
+  }
   const name = label.locator(".track-label__select > span");
   expect(
     await name.evaluate((node) => node.scrollHeight <= node.clientHeight),
