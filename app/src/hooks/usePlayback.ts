@@ -14,8 +14,15 @@ import {
   TIMELINE_SCRUB_AUDIO_TAIL_MS,
 } from "../app/constants.ts";
 import {
+  isBeforeLoopEnd,
+  loopPlaybackStartQ,
+  wrapLoopPlaybackQ,
+} from "../app/loop-playback.ts";
+import type { LoopRegion } from "../app/loop-region.ts";
+import {
   getClipEndQ,
   getPlaybackRange,
+  getPlaybackStopQ,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
 import type {
@@ -45,6 +52,8 @@ export type PlaybackInputs = {
   barLength: number;
   quarterPx: number;
   totalQuarters: number;
+  // Playback loops between its in and out markers.
+  loopRegion: LoopRegion | null;
   labelWidth: number;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   isPlaying: boolean;
@@ -72,6 +81,7 @@ export function usePlayback({
   barLength,
   quarterPx,
   totalQuarters,
+  loopRegion,
   labelWidth,
   timelineScrollRef,
   isPlaying,
@@ -89,6 +99,12 @@ export function usePlayback({
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const playbackStopRef = useRef(0);
+  // Open-ended playback, as while recording, ignores the loop.
+  const playbackOpenRef = useRef(false);
+  // Read by the playback loop, so editing or deleting the loop during
+  // playback takes effect right away.
+  const loopRegionRef = useRef(loopRegion);
+  loopRegionRef.current = loopRegion;
   // Read by the playback loop, so a timeline growing during playback (as a
   // recording does) doesn't restart it.
   const totalQuartersRef = useRef(totalQuarters);
@@ -102,10 +118,12 @@ export function usePlayback({
   // Playback stops after the last playable clip, or with `open`, as when
   // recording, only when stopped; `open` during playback lets it run on from
   // where it is. With nothing playable after `fromQ`, it starts over from the
-  // start.
+  // start. Play at or past a loop's out marker starts from its in marker.
   const startPlayback = useCallback(
-    (fromQ: number = playheadQRef.current, options?: { open?: boolean }) => {
+    (fromQ?: number, options?: { open?: boolean }) => {
+      playbackOpenRef.current = Boolean(options?.open);
       if (options?.open) {
+        fromQ ??= playheadQRef.current;
         playbackStopRef.current = Number.POSITIVE_INFINITY;
         if (!isPlaying) {
           playbackOriginRef.current = fromQ;
@@ -113,6 +131,8 @@ export function usePlayback({
         }
         return;
       }
+      const loop = loopRegionRef.current;
+      fromQ ??= loopPlaybackStartQ(playheadQRef.current, loop);
       const range = getPlaybackRange(
         timelineClips,
         projectMediaItems,
@@ -124,8 +144,19 @@ export function usePlayback({
         return;
       }
 
-      // Play at the end restarts from the start.
-      const { startQ, stopQ } = range;
+      // Play at the end restarts from the start, but playback headed for a
+      // loop's out marker starts where it is, even with nothing left to play.
+      const { startQ, stopQ } = isBeforeLoopEnd(fromQ, loop)
+        ? {
+            startQ: fromQ,
+            stopQ: getPlaybackStopQ(
+              timelineClips,
+              projectMediaItems,
+              fromQ,
+              bpm,
+            ),
+          }
+        : range;
       if (startQ !== fromQ) {
         setPlayheadQ(startQ);
       }
@@ -347,8 +378,10 @@ export function usePlayback({
     }
 
     let animationFrame = 0;
-    const startedAt = performance.now();
-    const originQ = playbackOriginRef.current;
+    // A loop wrap restarts the clock from the in marker.
+    let startedAt = performance.now();
+    let originQ = playbackOriginRef.current;
+    let previousQ = originQ;
     const findNextEdgeQ = (fromQ: number) =>
       findNextClipEdgeQ(
         renderClipsRef.current.map((clip) => ({
@@ -361,15 +394,30 @@ export function usePlayback({
 
     const step = (timestamp: number) => {
       const elapsed = (timestamp - startedAt) / 1000;
-      const nextQ = originQ + secondsToQuarters(elapsed, bpm);
+      let nextQ = originQ + secondsToQuarters(elapsed, bpm);
       const stopQ = playbackStopRef.current || totalQuartersRef.current;
+      const loop = playbackOpenRef.current ? null : loopRegionRef.current;
 
-      if (nextQ >= stopQ) {
-        setPlayheadQ(stopQ);
-        playbackOriginRef.current = stopQ;
+      // Reaching the out marker jumps back to the in marker. The player and
+      // the audio mix take a playhead that far off as a seek, as when the
+      // playhead is moved during playback.
+      const wrappedQ = wrapLoopPlaybackQ(previousQ, nextQ, loop);
+      if (wrappedQ !== undefined) {
+        nextQ = wrappedQ;
+        originQ = wrappedQ;
+        startedAt = timestamp;
+        playbackOriginRef.current = wrappedQ;
+        setPlayheadQ(wrappedQ);
+        nextEdgeQ = findNextEdgeQ(wrappedQ);
+      } else if (nextQ >= stopQ && !isBeforeLoopEnd(nextQ, loop)) {
+        // A loop deleted past the last clip stops where the playhead is.
+        const endQ = Math.max(stopQ, previousQ);
+        setPlayheadQ(endQ);
+        playbackOriginRef.current = endQ;
         setIsPlaying(false);
         return;
       }
+      previousQ = nextQ;
 
       // Everything drawn per frame follows the signal; state only has to
       // keep up with the clips under the playhead, so it is committed only
