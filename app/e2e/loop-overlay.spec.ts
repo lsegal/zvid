@@ -1,8 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The loop region (#1099): its brace in the ruler is yellow, and its in and
-// out markers run down the timeline as yellow dotted lines with a faint
-// yellow tint between them, behind the clips.
+// The loop region (#1099, #1103): its brace in the ruler is gray, and its in
+// and out markers run down the timeline as yellow dotted lines, 2px dots with
+// 4px gaps, with a faint yellow tint between them, behind the clips.
 
 const LOOP_YELLOW = "rgb(242, 209, 92)";
 
@@ -16,6 +16,54 @@ async function box(page: Page, selector: string) {
     throw new Error(`${selector} is not visible`);
   }
   return bounds;
+}
+
+// The computed color of a CSS color expression.
+async function cssColor(page: Page, value: string) {
+  return page.evaluate((value) => {
+    const probe = document.createElement("div");
+    probe.style.background = value;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  }, value);
+}
+
+// Whether each CSS pixel down a 1px-wide line is mostly yellow, sampled from
+// a screenshot.
+async function yellowPixels(
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number },
+) {
+  const png = await page.screenshot({ clip });
+  return page.evaluate(
+    async ({ data, height }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("No 2D context");
+      }
+      context.drawImage(image, 0, 0);
+      const scale = image.height / height;
+      const column = Math.floor(image.width / 2);
+      return Array.from({ length: height }, (_, y) => {
+        const [r, g, b] = context.getImageData(
+          column,
+          Math.floor((y + 0.5) * scale),
+          1,
+          1,
+        ).data;
+        return r - b > 80 && g - b > 60;
+      });
+    },
+    { data: png.toString("base64"), height: clip.height },
+  );
 }
 
 // Inserts a fill clip on Layer 1 and leaves it unselected, so it stacks at
@@ -76,7 +124,7 @@ test.beforeEach(async ({ page }) => {
   await expect(lane(page, "1")).toBeVisible();
 });
 
-test("the loop is yellow in the ruler and runs down the timeline behind clips", async ({
+test("the loop is gray in the ruler and runs down the timeline behind clips", async ({
   page,
 }) => {
   const fill = await insertFillClip(page);
@@ -96,25 +144,26 @@ test("the loop is yellow in the ruler and runs down the timeline behind clips", 
   await page.keyboard.press("l");
   await expect(page.locator(".ruler-loop-region")).toBeVisible();
 
-  // The ruler brace is the loop yellow.
+  // The ruler brace is gray: its bar, flags and handles.
   const background = (selector: string) =>
     page
       .locator(selector)
       .evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(await background(".ruler-loop-region__marker--in")).toBe(LOOP_YELLOW);
-  expect(await background(".ruler-loop-region__marker--out")).toBe(LOOP_YELLOW);
-  const bodyColor = await page.evaluate(() => {
-    const probe = document.createElement("div");
-    probe.style.background =
-      "color-mix(in srgb, var(--loop-yellow) 85%, transparent)";
-    document.body.append(probe);
-    const color = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return color;
-  });
-  expect(await background(".ruler-loop-region")).toBe(bodyColor);
+  const ink = await cssColor(page, "var(--ink)");
+  expect(ink).not.toBe(LOOP_YELLOW);
+  for (const part of [
+    "marker--in",
+    "marker--out",
+    "handle--start",
+    "handle--end",
+  ]) {
+    expect(await background(`.ruler-loop-region__${part}`)).toBe(ink);
+  }
+  expect(await background(".ruler-loop-region")).toBe(
+    await cssColor(page, "color-mix(in srgb, var(--ink) 55%, transparent)"),
+  );
 
-  // Dotted yellow lines at the loop's ends, from the ruler's bottom through
+  // Dotted yellow lines, 2px dots every 6px, at the loop's ends, from the ruler's bottom through
   // the layer rows, with a faint tint between them.
   const region = await box(page, ".ruler-loop-region");
   const start = await box(page, ".timeline-loop .loop-overlay__line--start");
@@ -135,10 +184,30 @@ test("the loop is yellow in the ruler and runs down the timeline behind clips", 
       .locator(`.timeline-loop .loop-overlay__line--${line}`)
       .evaluate((element) => {
         const computed = getComputedStyle(element);
-        return [computed.borderLeftStyle, computed.borderLeftColor];
+        return [computed.borderLeftStyle, computed.backgroundImage];
       });
-    expect(style).toEqual(["dotted", LOOP_YELLOW]);
+    expect(style[0]).toBe("none");
+    expect(style[1]).toBe(
+      `repeating-linear-gradient(${LOOP_YELLOW} 0px, ${LOOP_YELLOW} 2px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 6px)`,
+    );
   }
+  // In the empty stretch of Layer 1 before the clip, the dots start every
+  // 6px from the line's top and each is 2px long.
+  const sampleTop = Math.ceil(layer.y) + 2;
+  const pixels = await yellowPixels(page, {
+    x: Math.floor(start.x),
+    y: sampleTop,
+    width: 1,
+    height: 30,
+  });
+  const offset = sampleTop - start.y;
+  pixels.forEach((yellow, y) => {
+    const phase = (((y + offset) % 6) + 6) % 6;
+    if (phase < 0.75 || phase > 5.75 || Math.abs(phase - 2) < 0.75) {
+      return;
+    }
+    expect(yellow, `pixel ${y} (phase ${phase})`).toBe(phase < 2);
+  });
   expect(await background(".timeline-loop")).not.toBe("rgba(0, 0, 0, 0)");
 
   // The Audio row carries the loop too, lined up with the rows.

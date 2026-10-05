@@ -2,7 +2,6 @@
   /* The loop region's color: softer than the playhead's amber, so the loop's
      dotted lines aren't mistaken for the playhead. */
   --loop-yellow: #f2d15c;
-  --loop-yellow-strong: #f8e08a;
 }
 
 /* At the bottom of the lane stacking (App.css): over the rows' backgrounds
@@ -20,7 +19,13 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px dotted var(--loop-yellow);
+  width: 1px;
+  /* 2px dots with 4px gaps: a 1px dotted border packs them edge to edge. */
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--loop-yellow) 0 2px,
+    transparent 2px 6px
+  );
 }
 
 .loop-overlay__line--start {
