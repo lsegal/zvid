@@ -765,26 +765,6 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 4px;
-  color: var(--brand-purple);
-}
-
-.brand-mark svg {
-  width: auto;
-  height: 20px;
-  fill: currentColor;
-}
-
-.brand-mark__name {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
 .workspace {
   flex: 1;
   min-height: 0;
