@@ -106,10 +106,13 @@ export function getRowMetrics(kind: RowKind, height: number): RowMetrics {
   const scale = (from: number, to: number) =>
     Math.round(from + (to - from) * t);
   const clipInset = scale(min.clipInset, base.clipInset);
-  const chrome = scale(
-    min.height - min.clipHeight,
-    base.height - base.clipHeight,
-  );
+  // The space above and below the clip, and any more below it.
+  const chrome =
+    2 * clipInset +
+    scale(
+      min.height - min.clipHeight - 2 * min.clipInset,
+      base.height - base.clipHeight - 2 * base.clipInset,
+    );
   return { height: clamped, clipHeight: clamped - chrome, clipInset };
 }
 
