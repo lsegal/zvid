@@ -6,6 +6,7 @@ import {
   findSourceTrackIdAt,
   getClipEndQ,
   getDropStartQ,
+  getPlaybackRange,
   getPlaybackStopQ,
   getSelectionEndQ,
   getSourceTrackEndQ,
@@ -194,6 +195,32 @@ describe("getPlaybackStopQ", () => {
     const media = [{ id: "media" }] as Parameters<typeof getPlaybackStopQ>[1];
     assert.equal(getPlaybackStopQ(clips, media, 1, 120), 4);
     assert.equal(getPlaybackStopQ(clips, media, 5, 120), 5);
+  });
+});
+
+describe("getPlaybackRange", () => {
+  const clips = [
+    clip({ startQ: 0 }),
+    clip({ id: "offline", startQ: 8, mediaId: "missing" }),
+  ];
+  const media = [{ id: "media" }] as Parameters<typeof getPlaybackRange>[1];
+
+  it("plays from the playhead mid-timeline", () => {
+    assert.deepEqual(getPlaybackRange(clips, media, 1, 120), {
+      startQ: 1,
+      stopQ: 4,
+    });
+  });
+
+  it("restarts from the start at or past the end", () => {
+    const fromStart = { startQ: 0, stopQ: 4 };
+    assert.deepEqual(getPlaybackRange(clips, media, 4, 120), fromStart);
+    assert.deepEqual(getPlaybackRange(clips, media, 10, 120), fromStart);
+  });
+
+  it("has no range when nothing is playable", () => {
+    assert.equal(getPlaybackRange(clips, [], 0, 120), undefined);
+    assert.equal(getPlaybackRange(clips, [], 4, 120), undefined);
   });
 });
 

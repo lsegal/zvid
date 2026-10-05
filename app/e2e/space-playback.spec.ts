@@ -204,3 +204,38 @@ test("Enter picks up a grip and presses [ + Layer ]", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(headers(page)).toHaveCount(count + 1);
 });
+
+// The playhead marker's position within the lane, independent of scroll.
+function playheadX(page: Page) {
+  return page.evaluate(() => {
+    const marker = document.querySelector(
+      ".timeline-playhead-marker",
+    ) as HTMLElement;
+    const content = document.querySelector(
+      '[data-timeline-lane-id="1"]',
+    ) as HTMLElement;
+    return (
+      marker.getBoundingClientRect().left - content.getBoundingClientRect().left
+    );
+  });
+}
+
+test("Space after playback reaches the end restarts from the start", async ({
+  page,
+}) => {
+  const startX = await playheadX(page);
+  await page.keyboard.press("Space");
+  await expect(pauseButton(page)).toBeVisible();
+  // Playback stops by itself at the end of the clip.
+  await expect(playButton(page)).toBeVisible({ timeout: 30_000 });
+  const endX = await playheadX(page);
+  expect(endX).toBeGreaterThan(startX + 50);
+
+  await page.keyboard.press("Space");
+  await expect(pauseButton(page)).toBeVisible();
+  await expect
+    .poll(() => playheadX(page))
+    .toBeLessThan(startX + (endX - startX) / 2);
+  await page.keyboard.press("Space");
+  await expect(playButton(page)).toBeVisible();
+});
