@@ -54,10 +54,11 @@
   cursor: grabbing;
 }
 
-/* The loop strip: the bottom fifth of the ruler, darker than the scrub area
-   above it, where a drag selects a playback range instead of scrubbing. */
+/* The loop strip: the bottom of the ruler, as tall as the playhead diamond
+   and below the timecodes, darker than the scrub area above it, where a drag
+   selects a playback range instead of scrubbing. */
 .ruler-loop-strip {
-  --loop-strip-height: calc(var(--ruler-height) / 5);
+  --loop-strip-height: 16px;
   position: absolute;
   left: 0;
   right: 0;
@@ -66,7 +67,8 @@
   background: var(--bg-elevated);
   border-top: 1px solid var(--line-strong);
   box-sizing: border-box;
-  cursor: text;
+  /* The lanes' drag-to-select cursor. */
+  cursor: crosshair;
   touch-action: none;
 }
 

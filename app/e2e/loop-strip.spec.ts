@@ -40,8 +40,9 @@ test("the loop strip sits along the ruler's bottom with its own look", async ({
 }) => {
   const { ruler, strip } = await geometry(page);
   expect(strip.y + strip.height).toBeCloseTo(ruler.y + ruler.height, 0);
-  expect(strip.height).toBeGreaterThan(4);
-  expect(strip.height).toBeLessThanOrEqual(ruler.height * 0.25);
+  // About as tall as the playhead diamond, below the timecodes.
+  expect(strip.height).toBeGreaterThanOrEqual(14);
+  expect(strip.height).toBeLessThanOrEqual(ruler.height * 0.45);
   // The full width inside the ruler content's 1px left border.
   expect(strip.width).toBeGreaterThanOrEqual(ruler.width - 1);
 
@@ -57,6 +58,7 @@ test("the loop strip sits along the ruler's bottom with its own look", async ({
       stripBackground: loopStrip.backgroundColor,
     };
   });
+  expect(styles.stripCursor).toBe("crosshair");
   expect(styles.stripCursor).not.toBe(styles.contentCursor);
   expect(styles.stripBackground).not.toBe(styles.contentBackground);
 });
