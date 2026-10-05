@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Dragging the separator along the bottom of a layer, source track or Audio
 // row handle resizes that row alone, between the 20px collapsed form and 4x
@@ -90,10 +91,11 @@ test("dragging a layer's separator resizes only that lane", async ({
   page,
 }) => {
   await addVideoClips(page);
+  await addLayers(page, 1);
   const row = layerRow(page);
   const label = row.locator(".track-label");
   const separator = row.locator(".row-resize-handle");
-  const nextRow = page.locator('[data-layer-row-id="5"]');
+  const nextRow = page.locator('[data-layer-row-id="2"]');
   await expect(separator).toHaveCSS("cursor", "row-resize");
   expect(await height(row)).toBe(66);
   const clipHeight = await height(row.locator(".clip-card"));
@@ -143,7 +145,8 @@ test("the separator leaves the grip, selection and rename alone", async ({
   page,
 }) => {
   await page.goto("/");
-  const row = page.locator('[data-layer-row-id="5"]');
+  await addLayers(page, 1);
+  const row = page.locator('[data-layer-row-id="2"]');
   const label = row.locator(".track-label");
   await label.locator(".track-label__index").dblclick();
   await expect(row).toHaveClass(/track-row--collapsed/);
@@ -180,7 +183,7 @@ test("the separator leaves the grip, selection and rename alone", async ({
   await page.mouse.down();
   await page.mouse.move(target.x + 20, target.y + 4, { steps: 10 });
   await page.mouse.up();
-  await expect(firstRow).toHaveAttribute("data-layer-row-id", "5");
+  await expect(firstRow).toHaveAttribute("data-layer-row-id", "2");
   expect(await height(row)).toBe(50);
 
   // The name still renames.
