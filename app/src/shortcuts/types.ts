@@ -1,6 +1,7 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
 import type { PlaybackSelection } from "../app/playback-selection.ts";
+import type { SkipDirection } from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
   DragState,
@@ -46,6 +47,8 @@ export type ShortcutContext = {
   setPlayheadQ: (playheadQ: number) => void;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  // What the transport's outer skip buttons do.
+  skipToEdge: (direction: SkipDirection) => void;
   sourceClipActionsRef: ReturnType<
     typeof useSourceClipActions
   >["sourceClipActionsRef"];

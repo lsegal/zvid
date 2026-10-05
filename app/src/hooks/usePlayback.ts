@@ -27,7 +27,11 @@ import {
   getPlaybackStopQ,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
-import { type SkipDirection, skipTarget } from "../app/transport-skip.ts";
+import {
+  playFromLoopStart,
+  type SkipDirection,
+  skipTarget,
+} from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
   TimelineDragState,
@@ -473,6 +477,22 @@ export function usePlayback({
     startPlayback();
   }
 
+  // Ctrl/Cmd+Play: from the loop's in marker, or plain Play without a loop.
+  function playTimelineFromLoopStart() {
+    if (!clips.length) {
+      handleTransportToggle();
+      return;
+    }
+
+    cancelScrubPlaybackResume();
+    playFromLoopStart(loopRegionRef.current, {
+      isPlaying,
+      togglePlayback: handleTransportToggle,
+      jumpPlayheadTo,
+      startPlayback,
+    });
+  }
+
   // Where playback from the start stops: the end the skip-forward button
   // jumps to.
   const playbackEndQ = useMemo(
@@ -515,6 +535,7 @@ export function usePlayback({
     stopTimelineAudibleScrub,
     pulseTimelineAudibleScrub,
     handleTransportToggle,
+    playFromLoopStart: playTimelineFromLoopStart,
     playbackEndQ,
     skipToEdge,
     jumpHalfBar,

@@ -88,7 +88,11 @@ async function skip(
   expected: string,
 ) {
   await expect(button).toHaveAttribute("aria-label", label);
-  await expect(button).toHaveAttribute("title", label);
+  // The title adds the Ctrl/Cmd+arrow shortcut (#1107).
+  await expect(button).toHaveAttribute(
+    "title",
+    new RegExp(`^${label} \\((Ctrl|Cmd)\\+(Left|Right)\\)$`),
+  );
   await button.click();
   await expect.poll(() => playheadAt(page)).toBe(expected);
 }

@@ -99,6 +99,8 @@ export type TimelineEditingInputs = {
     | "jumpPlayheadTo"
     | "jumpToClipStart"
     | "playableClipCount"
+    | "playFromLoopStart"
+    | "skipToEdge"
   >;
   historyCommands: ReturnType<typeof useProjectHistoryCommands>;
   fxEditing: Pick<
@@ -211,6 +213,8 @@ export function useTimelineEditing({
     jumpPlayheadTo,
     jumpToClipStart,
     playableClipCount,
+    playFromLoopStart,
+    skipToEdge,
   } = playback;
   const { handleUndo, handleRedo } = historyCommands;
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
@@ -257,6 +261,7 @@ export function useTimelineEditing({
     isPlaying,
     isMediaTabActive: mediaPreview.previewTab === "media",
     toggleMediaPlayback: mediaPreview.toggleMediaPlayback,
+    playFromLoopStart,
     setIsPlaying,
     spaceHoldRef,
     startPlayback,
@@ -467,6 +472,7 @@ export function useTimelineEditing({
     setPlayheadQ,
     setSelectedClipId,
     setSelectedLaneId,
+    skipToEdge,
     sourceClipActionsRef,
     timelineContentEndQ,
     timelineDragState,

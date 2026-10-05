@@ -41,3 +41,37 @@ export function skipTarget(
   }
   return beforeEnd ? loopEnd : timelineEnd;
 }
+
+export type PlayFromLoopStartActions = {
+  isPlaying: boolean;
+  // Plain Play: starts playback, or pauses it while playing.
+  togglePlayback: () => void;
+  jumpPlayheadTo: (targetQ: number) => void;
+  startPlayback: (fromQ: number) => void;
+};
+
+/**
+ * Ctrl/Cmd+Play: moves the playhead to the loop's in marker and plays from
+ * there, restarting playback that is already running rather than pausing it.
+ * Without a loop it is plain Play.
+ */
+export function playFromLoopStart(
+  loop: LoopRegion | null | undefined,
+  {
+    isPlaying,
+    togglePlayback,
+    jumpPlayheadTo,
+    startPlayback,
+  }: PlayFromLoopStartActions,
+) {
+  if (!loop || loop.endQ <= loop.startQ) {
+    togglePlayback();
+    return;
+  }
+
+  // Playback already running restarts from the new playhead by itself.
+  jumpPlayheadTo(loop.startQ);
+  if (!isPlaying) {
+    startPlayback(loop.startQ);
+  }
+}

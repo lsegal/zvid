@@ -9,13 +9,14 @@ import {
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
 } from "@heroicons/react/24/solid";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { LoopRegion } from "../../app/loop-region";
 import {
   formatPreviewVolume,
   isPreviewSilent,
   type PreviewVolume,
 } from "../../app/preview-volume";
+import { getShortcutLabels } from "../../app/shortcut-labels";
 import { type SkipDirection, skipTarget } from "../../app/transport-skip";
 import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import type { PlayheadSignal } from "../../playhead-signal";
@@ -48,6 +49,8 @@ type TransportBarProps = {
   loopRegion: LoopRegion | null;
   playbackEndQ: number;
   onTransportToggle: () => void;
+  // Ctrl/Cmd-click on Play: play from the loop's in marker.
+  playFromLoopStart: () => void;
   onRandomize: () => void;
   previewVolume: PreviewVolume;
   setPreviewVolume: (volume: number) => void;
@@ -66,6 +69,7 @@ const VOLUME_SLIDER_STEP = 0.01;
 // playhead itself, so playback re-renders it only when its label changes.
 function SkipButton({
   direction,
+  shortcut,
   skipToEdge,
   playheadSignal,
   loopRegion,
@@ -73,7 +77,7 @@ function SkipButton({
 }: Pick<
   TransportBarProps,
   "skipToEdge" | "playheadSignal" | "loopRegion" | "playbackEndQ"
-> & { direction: SkipDirection }) {
+> & { direction: SkipDirection; shortcut: string }) {
   const label = useSyncExternalStore(
     playheadSignal.subscribe,
     () =>
@@ -85,7 +89,7 @@ function SkipButton({
       aria-label={label}
       className={`transport-button transport-button--skip-${direction === "back" ? "start" : "end"}`}
       onClick={() => skipToEdge(direction)}
-      title={label}
+      title={`${label} (${shortcut})`}
       type="button"
     >
       {direction === "back" ? (
@@ -107,6 +111,7 @@ export function TransportBar({
   isPlaying,
   jumpHalfBar,
   onTransportToggle,
+  playFromLoopStart,
   onRandomize,
   previewVolume,
   setPreviewVolume,
@@ -121,6 +126,7 @@ export function TransportBar({
   playbackEndQ,
 }: TransportBarProps) {
   const skip = { skipToEdge, playheadSignal, loopRegion, playbackEndQ };
+  const shortcutLabels = useMemo(() => getShortcutLabels(), []);
   const silent = isPreviewSilent(previewVolume);
   const volumeText = formatPreviewVolume(previewVolume.volume);
   return (
@@ -179,7 +185,11 @@ export function TransportBar({
       </div>
 
       <div className="transport-cluster">
-        <SkipButton direction="back" {...skip} />
+        <SkipButton
+          direction="back"
+          shortcut={shortcutLabels.skipBack}
+          {...skip}
+        />
         <button
           aria-label="Jump back half a bar"
           className="transport-button"
@@ -192,8 +202,12 @@ export function TransportBar({
         <button
           aria-label={isPlaying ? "Pause playback" : "Play timeline"}
           className="transport-button transport-button--primary"
-          onClick={onTransportToggle}
-          title={isPlaying ? "Pause playback" : "Play timeline"}
+          onClick={(event) =>
+            event.metaKey || event.ctrlKey
+              ? playFromLoopStart()
+              : onTransportToggle()
+          }
+          title={`${isPlaying ? "Pause playback" : "Play timeline"} (${shortcutLabels.playFromLoopStart}: play from loop start)`}
           type="button"
         >
           {isPlaying ? (
@@ -211,7 +225,11 @@ export function TransportBar({
         >
           <ForwardIcon aria-hidden="true" />
         </button>
-        <SkipButton direction="forward" {...skip} />
+        <SkipButton
+          direction="forward"
+          shortcut={shortcutLabels.skipForward}
+          {...skip}
+        />
         <button
           aria-label="Randomize arrangement"
           className="transport-button transport-button--wand"

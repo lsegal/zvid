@@ -30,6 +30,18 @@ export const stepFrameShortcut: Shortcut = {
   },
 };
 
+// Ctrl/Cmd+Left and Right do what the transport's outer skip buttons do:
+// jump to the loop's markers, then to the timeline's ends.
+export const skipShortcut: Shortcut = {
+  id: "transport.skip",
+  keys: ["Mod+ArrowLeft", "Mod+ArrowRight"],
+  when: canEditTimeline,
+  run: ({ skipToEdge }, event) => {
+    event.preventDefault();
+    skipToEdge(event.key === "ArrowLeft" ? "back" : "forward");
+  },
+};
+
 // Home and End go to the start and to the last frame of the content.
 export const jumpToEdgeShortcut: Shortcut = {
   id: "transport.jump-to-edge",

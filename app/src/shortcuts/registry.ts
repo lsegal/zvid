@@ -16,7 +16,11 @@ import {
   commitSelectionShortcut,
   deselectClipShortcut,
 } from "./selection.ts";
-import { jumpToEdgeShortcut, stepFrameShortcut } from "./transport.ts";
+import {
+  jumpToEdgeShortcut,
+  skipShortcut,
+  stepFrameShortcut,
+} from "./transport.ts";
 import type { Shortcut, ShortcutContext } from "./types.ts";
 
 export const shortcuts: readonly Shortcut[] = [
@@ -31,6 +35,7 @@ export const shortcuts: readonly Shortcut[] = [
   duplicateClipShortcut,
   deselectClipShortcut,
   stepFrameShortcut,
+  skipShortcut,
   jumpToEdgeShortcut,
   stepLayerShortcut,
   lockLoopShortcut,

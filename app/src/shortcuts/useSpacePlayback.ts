@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import type { DragState, TimelineDragState } from "../app/types.ts";
 import {
   classifySpaceTarget,
@@ -14,6 +14,8 @@ export type SpacePlaybackInputs = {
   // With the preview pane's Media tab open, Space plays the media instead.
   isMediaTabActive: boolean;
   toggleMediaPlayback: () => void;
+  // Ctrl/Cmd+Space: play from the loop's in marker.
+  playFromLoopStart: () => void;
   setIsPlaying: (isPlaying: boolean) => void;
   spaceHoldRef: { current: ReturnType<typeof createSpaceHold> };
   startPlayback: () => void;
@@ -26,7 +28,9 @@ export type SpacePlaybackInputs = {
 // sees the key and cannot also activate, and it closes an open menu, listbox
 // or popover first. Playback toggles on release, so holding Space to pan the
 // timeline never starts it. With the preview pane's Media tab open, it plays
-// the previewed media instead.
+// the previewed media instead. Ctrl/Cmd+Space plays from the loop's in
+// marker; macOS usually keeps Cmd+Space and Ctrl+Space for itself, so there
+// Cmd-click on Play does it.
 export function useSpacePlayback({
   cancelScrubPlaybackResume,
   clipCount,
@@ -34,12 +38,15 @@ export function useSpacePlayback({
   isPlaying,
   isMediaTabActive,
   toggleMediaPlayback,
+  playFromLoopStart,
   setIsPlaying,
   spaceHoldRef,
   startPlayback,
   timelineDragState,
   timelineScrollRef,
 }: SpacePlaybackInputs) {
+  // Whether Ctrl or Cmd was down when the held Space was pressed.
+  const fromLoopStartRef = useRef(false);
   useEffect(() => {
     const spaceHold = spaceHoldRef.current;
     const setSpaceHeldClass = (held: boolean) =>
@@ -53,12 +60,7 @@ export function useSpacePlayback({
         return;
       }
 
-      if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        classifySpaceTarget(event.target) !== "playback"
-      ) {
+      if (event.altKey || classifySpaceTarget(event.target) !== "playback") {
         spaceHold.cancel();
         setSpaceHeldClass(false);
         return;
@@ -78,18 +80,28 @@ export function useSpacePlayback({
           }),
         );
       }
+      if (!spaceHold.held) {
+        fromLoopStartRef.current = event.metaKey || event.ctrlKey;
+      }
       spaceHold.press();
       setSpaceHeldClass(true);
     };
 
     // Native buttons activate on Space keyup, so swallow the matching keyup.
+    // macOS sends no keyup for Space released while Cmd is down, so for
+    // Ctrl/Cmd+Space the modifier's own release counts too.
     const onSpaceKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || !spaceHold.held) {
+      const releasesModifier =
+        fromLoopStartRef.current &&
+        (event.key === "Meta" || event.key === "Control");
+      if ((event.code !== "Space" && !releasesModifier) || !spaceHold.held) {
         return;
       }
 
-      event.preventDefault();
-      event.stopPropagation();
+      if (!releasesModifier) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       setSpaceHeldClass(false);
       if (!spaceHold.release()) {
         return;
@@ -106,6 +118,11 @@ export function useSpacePlayback({
       }
 
       cancelScrubPlaybackResume();
+      if (fromLoopStartRef.current) {
+        playFromLoopStart();
+        return;
+      }
+
       if (isPlaying) {
         setIsPlaying(false);
         return;
@@ -133,6 +150,7 @@ export function useSpacePlayback({
     dragState,
     isMediaTabActive,
     isPlaying,
+    playFromLoopStart,
     setIsPlaying,
     spaceHoldRef,
     startPlayback,
