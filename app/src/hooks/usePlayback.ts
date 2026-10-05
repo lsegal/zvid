@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -25,6 +26,7 @@ import {
   getPlaybackStopQ,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
+import { type SkipDirection, skipTarget } from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
   TimelineDragState,
@@ -475,6 +477,24 @@ export function usePlayback({
     playbackOriginRef.current = next;
   }
 
+  // Where playback from the start stops: the end the skip-forward button
+  // jumps to.
+  const playbackEndQ = useMemo(
+    () => getPlaybackStopQ(timelineClips, projectMediaItems, 0, bpm),
+    [bpm, projectMediaItems, timelineClips],
+  );
+
+  // The outer skip buttons: to the loop's markers or the timeline's ends.
+  function skipToEdge(direction: SkipDirection) {
+    const { targetQ } = skipTarget(
+      direction,
+      playheadQRef.current,
+      loopRegionRef.current,
+      playbackEndQ,
+    );
+    jumpPlayheadTo(targetQ);
+  }
+
   return {
     // How many clips playback can play; Space does nothing without any.
     playableClipCount: clips.length,
@@ -487,5 +507,7 @@ export function usePlayback({
     pulseTimelineAudibleScrub,
     handleTransportToggle,
     jumpPlayhead,
+    playbackEndQ,
+    skipToEdge,
   };
 }

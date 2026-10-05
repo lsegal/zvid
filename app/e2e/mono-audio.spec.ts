@@ -95,9 +95,7 @@ async function addSourceAudio(page: Page, base64: string) {
 
 // The level while playing from the session start, once it settles.
 async function playingLevel(page: Page) {
-  for (let bar = 0; bar < 2; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   const play = page.getByRole("button", { name: "Play timeline" });
   if (await play.isVisible()) {
     await play.click();

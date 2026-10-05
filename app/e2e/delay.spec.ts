@@ -76,9 +76,7 @@ function mixLevel(page: Page) {
 // The mix's RMS level over four whole burst periods once playback is
 // under way: echoes fill the gaps between the bursts and raise it.
 async function averageLevel(page: Page) {
-  for (let bar = 0; bar < 2; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   await page.getByRole("button", { name: "Play timeline" }).click();
   await expect
     .poll(() => mixLevel(page), { timeout: 15_000 })
