@@ -1,10 +1,4 @@
-import {
-  type MouseEvent,
-  type PointerEvent,
-  type RefObject,
-  useRef,
-  useState,
-} from "react";
+import { type PointerEvent, type RefObject, useRef, useState } from "react";
 import {
   type LoopMarker,
   type LoopRegion,
@@ -29,6 +23,12 @@ import { LoopRegionBar } from "./LoopRegionBar";
 // rather than a click that clears the selection.
 const LOOP_STRIP_DRAG_THRESHOLD_PX = 3;
 
+// Opens the loop menu at a right-click's position, if it's in the strip.
+export type OpenLoopMenu = (point: {
+  clientX: number;
+  clientY: number;
+}) => void;
+
 type LoopStripProps = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   mac: boolean;
@@ -44,8 +44,9 @@ type LoopStripProps = {
   lockPlaybackSelection: () => void;
   lockLoopShortcut: string;
   timelineContentEndQ: number;
-  // Swallows the contextmenu a ruler pan ends with; returns whether it did.
-  consumePanContextMenu: (event: MouseEvent<HTMLElement>) => boolean;
+  // Set to open the loop menu for a right-click the ruler row receives:
+  // its pan captures the pointer, so the strip never sees the event.
+  openMenuRef: RefObject<OpenLoopMenu | null>;
 };
 
 // The loop strip along the ruler's bottom edge, the playback selection's
@@ -67,8 +68,9 @@ export function LoopStrip({
   lockPlaybackSelection,
   lockLoopShortcut,
   timelineContentEndQ,
-  consumePanContextMenu,
+  openMenuRef,
 }: LoopStripProps) {
+  const stripRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ anchor: MenuPoint; atQ: number } | null>(
     null,
   );
@@ -155,22 +157,23 @@ export function LoopStrip({
     }
   };
 
-  const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (consumePanContextMenu(event)) {
+  // Opens the loop menu when the right-click lands in the strip.
+  openMenuRef.current = (event) => {
+    const bounds = stripRef.current?.getBoundingClientRect();
+    const atQ = pointerQ(event.clientX);
+    if (
+      !bounds ||
+      atQ === null ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom
+    ) {
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const fromKeyboard = !event.clientX && !event.clientY;
-    const atQ = fromKeyboard ? null : pointerQ(event.clientX);
     setMenu({
-      anchor: fromKeyboard
-        ? { x: bounds.left, y: bounds.bottom }
-        : { x: event.clientX, y: event.clientY },
+      anchor: { x: event.clientX, y: event.clientY },
       atQ: clamp(
-        snapQuarterValue(atQ ?? 0, snapUnit, snapEnabled),
+        snapQuarterValue(atQ, snapUnit, snapEnabled),
         0,
         totalQuarters,
       ),
@@ -232,14 +235,13 @@ export function LoopStrip({
       {selectionStyle ? (
         <div className="ruler-playback-selection" style={selectionStyle} />
       ) : null}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: the strip's drag and menu are pointer shortcuts; L locks the selection from the keyboard */}
       <div
+        ref={stripRef}
         className="ruler-loop-strip"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onContextMenu={onContextMenu}
       >
         {playbackSelection && selectionStyle ? (
           <div
