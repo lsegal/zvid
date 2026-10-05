@@ -3,8 +3,8 @@ import type { LoopRegion } from "../app/loop-region.ts";
 import type { PlaybackSelection } from "../app/playback-selection.ts";
 
 // The playback selection dragged out in the ruler's loop strip, and the loop
-// region L locks it into. View state only for now: neither loops playback
-// nor is saved with the session.
+// region L locks it into, which playback loops between. View state only for
+// now: neither is saved with the session.
 export function useLoopRegion() {
   const [playbackSelection, setPlaybackSelection] =
     useState<PlaybackSelection | null>(null);
