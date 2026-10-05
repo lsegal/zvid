@@ -1,5 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS } from "../../app/constants.ts";
+import type { LoopRegion } from "../../app/loop-region.ts";
 import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
@@ -55,6 +56,10 @@ type RulerProps = {
   snapEnabled: boolean;
   playbackSelection: PlaybackSelection | null;
   setPlaybackSelection: (selection: PlaybackSelection | null) => void;
+  loopRegion: LoopRegion | null;
+  setLoopRegion: (region: LoopRegion | null) => void;
+  lockPlaybackSelection: () => void;
+  timelineContentEndQ: number;
 };
 
 // The ruler row: the session's media status in its label, and the bars and
@@ -95,6 +100,10 @@ export function Ruler({
   snapEnabled,
   playbackSelection,
   setPlaybackSelection,
+  loopRegion,
+  setLoopRegion,
+  lockPlaybackSelection,
+  timelineContentEndQ,
 }: RulerProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual
@@ -230,6 +239,12 @@ export function Ruler({
           snapEnabled={snapEnabled}
           playbackSelection={playbackSelection}
           setPlaybackSelection={setPlaybackSelection}
+          loopRegion={loopRegion}
+          setLoopRegion={setLoopRegion}
+          lockPlaybackSelection={lockPlaybackSelection}
+          lockLoopShortcut={shortcutLabels.lockLoop}
+          timelineContentEndQ={timelineContentEndQ}
+          consumePanContextMenu={rulerDragScroll.onContextMenu}
         />
       </div>
     </section>
