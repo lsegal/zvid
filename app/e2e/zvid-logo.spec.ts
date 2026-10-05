@@ -33,6 +33,47 @@ test("the top bar shows the zvid logo beside the wordmark", async ({
   ).toBeLessThan(3);
 });
 
+// The favicon bolt's purple (#1085), as sRGB or its Display-P3 equivalent.
+const BRAND_PURPLE =
+  /^(rgb\(134, 59, 255\)|color\(display-p3 0\.5252 0\.23 1\))$/;
+
+test("the top bar's logo and wordmark are the brand purple", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const mark = page.locator(".brand-mark");
+  const logo = mark.locator("svg");
+  const style = (property: "fill" | "color" | "opacity") =>
+    logo.evaluate(
+      (element, property) => getComputedStyle(element)[property],
+      property,
+    );
+  expect(await style("fill")).toMatch(BRAND_PURPLE);
+  expect(await style("opacity")).toBe("1");
+  expect(
+    await mark
+      .locator(".brand-mark__name")
+      .evaluate((element) => getComputedStyle(element).color),
+  ).toMatch(BRAND_PURPLE);
+});
+
+test("the favicon is the zvid logo in the brand purple", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  const href = await page
+    .locator('link[rel="icon"]')
+    .evaluate((element) => (element as HTMLLinkElement).href);
+  const response = await request.get(href);
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toContain("image/svg+xml");
+  const svg = await response.text();
+  expect(svg.match(/<svg\b[^>]*>/)?.[0]).toContain('fill="#863bff"');
+  expect(svg).toContain('viewBox="-8 -8 258 212"');
+  expect(svg.match(/<path\b/g)).toHaveLength(3);
+});
+
 const WIDTH = 960;
 const HEIGHT = 540;
 

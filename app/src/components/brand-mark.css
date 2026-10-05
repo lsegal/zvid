@@ -1,3 +1,23 @@
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+  color: var(--brand-purple);
+}
+
+.brand-mark svg {
+  width: auto;
+  height: 20px;
+  fill: currentColor;
+}
+
+.brand-mark__name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 button.brand-mark {
   position: relative;
   padding: 4px 6px;
