@@ -5,6 +5,7 @@ import type { useFxEditing } from "../../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../../hooks/useLayerActions.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
+import { isRowCollapseTarget, type RowKind } from "../../row-heights.ts";
 import { NameInput } from "../NameInput";
 import { TrackFxButton } from "./TrackFxButton";
 import { TrackHideButton } from "./TrackHideButton";
@@ -25,6 +26,7 @@ export type LayerHeaderContext = {
   commitLayerRename: LayerActions["commitLayerRename"];
   setLayerFxEnabled: ReturnType<typeof useFxEditing>["setLayerFxEnabled"];
   setLayerHidden: ReturnType<typeof useFxEditing>["setLayerHidden"];
+  toggleRowCollapsed: (kind: RowKind, id: string) => void;
 };
 
 type LayerHeaderProps = {
@@ -37,7 +39,8 @@ type LayerHeaderProps = {
 
 // A layer's header: the reorder grip, its number, its name (or the field
 // renaming it) with a summary, and the Hide and FX bypass switches. Double-clicking the
-// name renames the layer, like Rename… in its menu.
+// name renames the layer, like Rename… in its menu, and double-clicking the
+// rest of the header collapses or expands its row.
 export function LayerHeader({
   lane,
   laneIndex,
@@ -53,6 +56,7 @@ export function LayerHeader({
   commitLayerRename,
   setLayerFxEnabled,
   setLayerHidden,
+  toggleRowCollapsed,
 }: LayerHeaderProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent
@@ -71,6 +75,11 @@ export function LayerHeader({
           return;
         }
         selectLaneFromLabel(lane.id);
+      }}
+      onDoubleClick={(event) => {
+        if (isRowCollapseTarget(event.target)) {
+          toggleRowCollapsed("lane", lane.id);
+        }
       }}
     >
       <button

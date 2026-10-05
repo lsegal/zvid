@@ -5,6 +5,7 @@ import type { MediaItem } from "../media";
 import type { createSpaceHold } from "../space-shortcut";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useArrangementEmptyState } from "./useArrangementEmptyState.ts";
+import { useLoopRegion } from "./useLoopRegion.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
 import { useRulerGestures } from "./useRulerGestures.ts";
 import { useTimelineLanes } from "./useTimelineLanes.ts";
@@ -25,7 +26,7 @@ export type TimelineInputs = {
   >;
   layout: Pick<
     AppLayout,
-    "labelWidth" | "shortcutLabels" | "prefersReducedMotion"
+    "labelWidth" | "shortcutLabels" | "prefersReducedMotion" | "rowHeights"
   >;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -65,7 +66,8 @@ export function useTimeline({
   const { timelineClips, pendingSelection, selectedClipId } = selection;
   // A source clip being dragged draws where the drop would put it.
   const { timelineSourceSpans } = selection;
-  const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
+  const { labelWidth, shortcutLabels, prefersReducedMotion, rowHeights } =
+    layout;
 
   const viewport = useTimelineViewport({
     zoom,
@@ -114,6 +116,7 @@ export function useTimeline({
     mediaItemsById,
     filmstripRangeStartPx,
     filmstripRangeEndPx,
+    rowHeights,
   });
   const rulerGestures = useRulerGestures({
     shortcutLabels,
@@ -127,12 +130,15 @@ export function useTimeline({
     flushZoomDraft,
   });
 
+  const loopRegion = useLoopRegion();
+
   return {
     ...viewport,
     ...emptyState,
     ...timelineLanes,
     ...thumbnails,
     ...rulerGestures,
+    ...loopRegion,
   };
 }
 

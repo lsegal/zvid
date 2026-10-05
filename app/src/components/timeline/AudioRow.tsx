@@ -1,5 +1,5 @@
 import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { mixPeakLevel } from "../../audio-mix-peaks.ts";
 import { audioRowToggleLabel } from "../../audio-row-section.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
@@ -29,8 +29,10 @@ type AudioRowProps = {
 // clips make, with a summary of where it comes from and a Refresh button.
 // It takes no files; a drop over it falls through to the timeline.
 // It is docked at the bottom of the timeline panel, under the rows (Timeline
-// footer), so it draws its own playhead line. Collapsed, it is a slim row
-// that still draws the waveform, scaled down.
+// footer), so it draws its own playhead line. Collapsed, it is a 20px row
+// (row-heights.ts) that still draws the waveform, scaled down. The toggle
+// collapses and expands it, as does a double-click anywhere on its label but
+// the Refresh button.
 export function AudioRow({
   mix,
   openAudioMenu,
@@ -55,6 +57,11 @@ export function AudioRow({
     [peaks],
   );
 
+  // Whether the toggle's click already toggled the row in the current run of
+  // clicks, so a double-click toggles it once even when collapsing moves the
+  // docked row out from under the second click.
+  const toggledByClickRef = useRef(false);
+
   return (
     <section
       aria-label="Audio"
@@ -62,11 +69,36 @@ export function AudioRow({
       data-audio-row=""
       onContextMenu={openAudioMenu}
     >
-      <div className="track-label">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: double-clicking the label is a pointer shortcut for the toggle */}
+      <div
+        className="track-label"
+        onMouseDown={(event) => {
+          if (event.detail <= 1) {
+            toggledByClickRef.current = false;
+          }
+        }}
+        onDoubleClick={(event) => {
+          if (
+            !toggledByClickRef.current &&
+            !(
+              event.target instanceof Element &&
+              event.target.closest(".track-label__audio")
+            )
+          ) {
+            setCollapsed(!isCollapsed);
+          }
+        }}
+      >
         <button
           aria-expanded={!isCollapsed}
           className="audio-row__toggle"
-          onClick={() => setCollapsed(!isCollapsed)}
+          onClick={(event) => {
+            // The second click of a double-click leaves it to the first.
+            if (event.detail < 2) {
+              setCollapsed(!isCollapsed);
+              toggledByClickRef.current = true;
+            }
+          }}
           title={audioRowToggleLabel(isCollapsed)}
           type="button"
         >

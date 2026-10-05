@@ -15,7 +15,7 @@ import {
 } from "../app/constants.ts";
 import {
   getClipEndQ,
-  getPlaybackStopQ,
+  getPlaybackRange,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
 import type {
@@ -101,7 +101,8 @@ export function usePlayback({
 
   // Playback stops after the last playable clip, or with `open`, as when
   // recording, only when stopped; `open` during playback lets it run on from
-  // where it is.
+  // where it is. With nothing playable after `fromQ`, it starts over from the
+  // start.
   const startPlayback = useCallback(
     (fromQ: number = playheadQRef.current, options?: { open?: boolean }) => {
       if (options?.open) {
@@ -112,19 +113,23 @@ export function usePlayback({
         }
         return;
       }
-      const epsilon = 0.0001;
-      const stopQ = getPlaybackStopQ(
+      const range = getPlaybackRange(
         timelineClips,
         projectMediaItems,
         fromQ,
         bpm,
       );
-      if (stopQ <= fromQ + epsilon) {
-        setStatus("No more playable source clips after the playhead.");
+      if (!range) {
+        setStatus("No playable source clips on the timeline.");
         return;
       }
 
-      playbackOriginRef.current = fromQ;
+      // Play at the end restarts from the start.
+      const { startQ, stopQ } = range;
+      if (startQ !== fromQ) {
+        setPlayheadQ(startQ);
+      }
+      playbackOriginRef.current = startQ;
       playbackStopRef.current = stopQ;
       setIsPlaying(true);
     },
@@ -135,6 +140,7 @@ export function usePlayback({
       playheadQRef,
       projectMediaItems,
       setIsPlaying,
+      setPlayheadQ,
       setStatus,
       timelineClips,
     ],
