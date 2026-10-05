@@ -11,7 +11,7 @@
 }
 
 /* A collapsed layer or source track (#1057): a 44px row whose handle keeps
-   its grip, index and name on one line and hides the rest. They keep their
+   its grip, index, name and switches on one line. They keep their
    expanded sizes, fonts and x positions (#1073), and the 28px index badge
    gets 8px above and below it (#1077), the bottom border counting toward
    the 8px under it, as it does under the clips. */
@@ -21,10 +21,9 @@
   overflow: hidden;
 }
 
-.track-row--collapsed .track-label small,
-.track-row--collapsed .track-label__hide,
-.track-row--collapsed .track-label__fx,
-.track-row--collapsed .track-label__arm {
+/* The handle is one line: its summary hides, but its Hide, FX and arm
+   switches stay, as expanded, centered with the name (#1083). */
+.track-row--collapsed .track-label small {
   display: none;
 }
 
@@ -41,13 +40,13 @@
   overflow: hidden;
 }
 
-/* Collapsed clips are plain bars with their name, when it fits. */
+/* Collapsed clips are plain bars with their type glyph (#1083) and their
+   name, when it fits. */
 .track-row--collapsed .clip-card {
   border-radius: 5px;
 }
 
 .track-row--collapsed .clip-card__thumb,
-.track-row--collapsed .clip-card__glyph,
 .track-row--collapsed .clip-card__meta {
   display: none;
 }
