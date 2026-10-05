@@ -119,9 +119,7 @@ async function playFromStart(page: Page) {
   if (await pause.isVisible()) {
     await pause.click();
   }
-  for (let bar = 0; bar < 8; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   await page.getByRole("button", { name: "Play timeline" }).click();
 }
 

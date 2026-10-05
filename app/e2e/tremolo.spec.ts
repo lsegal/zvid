@@ -47,9 +47,7 @@ function mixLevel(page: Page) {
 // The mix's level averaged over several LFO cycles once playback is under
 // way: a tremolo lowers the average, though its peaks stay at full level.
 async function averageLevel(page: Page) {
-  for (let bar = 0; bar < 2; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   await page.getByRole("button", { name: "Play timeline" }).click();
   await expect
     .poll(() => mixLevel(page), { timeout: 15_000 })

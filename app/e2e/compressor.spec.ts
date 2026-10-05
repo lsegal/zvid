@@ -46,9 +46,7 @@ function mixLevel(page: Page) {
 
 // The level once playback is under way, as the steadiest of a few reads.
 async function playingLevel(page: Page) {
-  for (let bar = 0; bar < 2; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   await page.getByRole("button", { name: "Play timeline" }).click();
   let level = 0;
   await expect
