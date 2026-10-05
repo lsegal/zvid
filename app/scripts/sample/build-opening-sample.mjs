@@ -113,7 +113,9 @@ function addEffect(trackId, effectName, parameters, extra = {}) {
 const clipTrack = (clipId) => `clip:${clipId}`;
 const zoomUnit = (zoom) => Math.round((zoom - 1) * 100) / 300;
 
-function animation(mode, clip, reactive) {
+// `lfo`, when given, adds LFO settings over the effect defaults' free-running
+// Sine.
+function animation(mode, clip, reactive, lfo) {
   return {
     enabled: true,
     mode,
@@ -130,6 +132,20 @@ function animation(mode, clip, reactive) {
       parameters: [],
       ...reactive,
     },
+    ...(lfo
+      ? {
+          lfo: {
+            shape: "Sine",
+            sync: true,
+            rate: 1,
+            syncRate: "1 Bar",
+            depth: 0.5,
+            phase: 0,
+            parameters: [],
+            ...lfo,
+          },
+        }
+      : {}),
   };
 }
 
@@ -520,11 +536,28 @@ function iconClip(id, start) {
   });
   return id;
 }
-move(
-  clipTrack(iconClip("fill-logo-reveal", 1.5)),
-  "Ease Out",
-  iconBox(0.15),
-  ICON_FULL,
+const logoReveal = clipTrack(iconClip("fill-logo-reveal", 1.5));
+move(logoReveal, "Ease Out", iconBox(0.15), ICON_FULL);
+// The logo glitches as it pops open, a 1 Hz LFO swelling its Amount.
+addEffect(
+  logoReveal,
+  "DigitalGlitch",
+  {
+    _Amount: 0.04,
+    _BlockSize: 0.1,
+    _Displace: 0.15,
+    _ChannelShift: 0.3,
+    _ColorCrush: 0,
+    _Rate: 8,
+  },
+  {
+    animation: animation(
+      "lfo",
+      {},
+      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+      { sync: false, rate: 1, depth: 0.6, phase: 0, parameters: ["_Amount"] },
+    ),
+  },
 );
 addEffect(
   clipTrack(iconClip("fill-logo-hold", 2.25)),
