@@ -3,8 +3,8 @@ import session from "../src/sample/zvid-opening.project.json" with {
   type: "json",
 };
 
-// The zvid logo (#1070): the top bar's brand mark, and the mask the opening
-// sample cuts its 1.5 s shot to.
+// The zvid logo (#1070): the top bar's brand mark, the mask the opening
+// sample cuts its 1.5 s shot to, and the sample's dark logo thumbnail (#1079).
 
 type Rgba = [number, number, number, number];
 
@@ -193,5 +193,100 @@ test.describe("the opening sample's logo mask", () => {
         true,
       );
     });
+  });
+});
+
+// A point of the logo's viewBox as a fraction of an image box the logo is
+// contained in.
+function containedLogoPoint(
+  box: { width: number; height: number },
+  x: number,
+  y: number,
+): [number, number] {
+  const scale = Math.min(box.width / 258, box.height / 212);
+  const left = (box.width - 258 * scale) / 2;
+  const top = (box.height - 212 * scale) / 2;
+  return [
+    (left + (x + 8) * scale) / box.width,
+    (top + (y + 8) * scale) / box.height,
+  ];
+}
+
+// The pixels of a PNG screenshot at `points`, in fractions from the
+// top-left.
+async function screenshotPixels(
+  page: Page,
+  png: Buffer,
+  points: Array<[number, number]>,
+) {
+  return page.evaluate(
+    async ({ data, points }) => {
+      const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+      const bitmap = await createImageBitmap(
+        new Blob([bytes], { type: "image/png" }),
+      );
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("2D canvas is unavailable.");
+      context.drawImage(bitmap, 0, 0);
+      return points.map(([x, y]) =>
+        Array.from(
+          context.getImageData(
+            Math.floor(x * bitmap.width),
+            Math.floor(y * bitmap.height),
+            1,
+            1,
+          ).data,
+        ),
+      );
+    },
+    { data: png.toString("base64"), points },
+  ) as Promise<Rgba[]>;
+}
+
+test("the Media drawer's thumbnail of the sample logo stands out on its checkerboard", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto("/?sample=1");
+  await expect(page.getByText("Media linked")).toBeVisible({
+    timeout: 60_000,
+  });
+  await page.getByRole("button", { name: "Media", exact: true }).click();
+  const image = page
+    .getByRole("complementary", { name: "Media" })
+    .getByRole("option")
+    .filter({ hasText: "zvid-logo.svg" })
+    .locator(".media-thumb__image");
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  const box = await image.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  const inside = [
+    containedLogoPoint(box, 114, 97), // the Z's diagonal
+    containedLogoPoint(box, 120, 44), // the top strip
+    containedLogoPoint(box, 100, 152), // the bottom strip
+  ];
+  const outside = [containedLogoPoint(box, 30, 100)]; // between the strips
+  const pixels = await screenshotPixels(page, await image.screenshot(), [
+    ...inside,
+    ...outside,
+  ]);
+  const luma = ([red, green, blue]: Rgba) =>
+    0.299 * red + 0.587 * green + 0.114 * blue;
+  inside.forEach((point, index) => {
+    expect(luma(pixels[index]), `${point} inside`).toBeLessThan(80);
+  });
+  outside.forEach((point, index) => {
+    expect(
+      luma(pixels[inside.length + index]),
+      `${point} outside`,
+    ).toBeGreaterThan(200);
   });
 });
