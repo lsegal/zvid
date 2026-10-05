@@ -18,8 +18,11 @@ import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import {
   COLLAPSED_ROW_METRICS,
+  DEFAULT_ROW_METRICS,
   getRowHeightStyle,
+  getRowSizeClassName,
   isRowCollapseTarget,
+  MAX_ROW_HEIGHT_SCALE,
   type RowKind,
 } from "../../row-heights.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
@@ -27,6 +30,7 @@ import { isTrackHidden } from "../../track-visibility.ts";
 import { NameInput } from "../NameInput";
 import { LiveRecordingClip } from "./LiveRecordingClip";
 import { arePropsEqualWithContexts } from "./memo-props.ts";
+import { RowResizeHandle } from "./RowResizeHandle";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
@@ -51,6 +55,12 @@ export type SourceTrackLabelContext = {
   setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
   setHidden: ReturnType<typeof useFxEditing>["setSourceTrackHidden"];
   toggleRowCollapsed: (kind: RowKind, id: string) => void;
+  resizeRow: (
+    kind: RowKind,
+    id: string,
+    height: number,
+    expandedHeight: number,
+  ) => void;
 };
 
 export type SourceTrackRowProps = {
@@ -59,6 +69,8 @@ export type SourceTrackRowProps = {
   spans: SourceSpanClip[];
   // The row's height (row-heights.ts); collapsed, its spans are plain bars.
   height: number;
+  // What expanding the row restores.
+  expandedHeight: number;
   drop: ReturnType<typeof useSourceTrackDrop>;
   sourceSelection: SourceSelection | undefined;
   selectSource: (selection: SourceSelection) => void;
@@ -80,12 +92,13 @@ export type SourceTrackRowProps = {
 // the span. Right-clicking empty space opens the layer lane menu's entries
 // for the track. Double-clicking the track name renames it, like Rename… in
 // its menu, and double-clicking the rest of the label collapses or expands the
-// row.
+// row. Dragging the separator along the bottom of the label resizes the row.
 export const SourceTrackRow = memo(function SourceTrackRow({
   track,
   index,
   spans,
   height,
+  expandedHeight,
   drop,
   sourceSelection,
   selectSource,
@@ -106,6 +119,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
   setFxEnabled,
   setHidden,
   toggleRowCollapsed,
+  resizeRow,
 }: SourceTrackRowProps) {
   const { sourceTrackDragTarget } = drop;
   const swatch = getSwatch(track.colorIndex);
@@ -117,7 +131,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
 
   return (
     <section
-      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""} ${collapsed ? "track-row--collapsed" : ""}`}
+      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""} ${getRowSizeClassName(height, DEFAULT_ROW_METRICS.source.height)}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
       data-source-track-drop-at-pointer
@@ -201,6 +215,15 @@ export const SourceTrackRow = memo(function SourceTrackRow({
           setFxEnabled={(enabled) => setFxEnabled(track.id, enabled)}
         />
         <TrackRecordArmButton track={track} />
+        <RowResizeHandle
+          label={`Resize ${track.name}`}
+          height={height}
+          maxHeight={DEFAULT_ROW_METRICS.source.height * MAX_ROW_HEIGHT_SCALE}
+          expandedHeight={expandedHeight}
+          onResize={(nextHeight, nextExpandedHeight) =>
+            resizeRow("source", track.id, nextHeight, nextExpandedHeight)
+          }
+        />
       </div>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track name button selects the track from the keyboard */}
       <section

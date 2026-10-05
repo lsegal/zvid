@@ -134,7 +134,7 @@ test("FX Animation motion dropdowns are themed and commit a value", async ({
 }) => {
   await page.goto("/");
   // Order has no Motion In or Out, so add a device that does.
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  const layerHeader = page.locator('[data-layer-header-id="1"]');
   await expect(layerHeader).toBeVisible();
   await layerHeader.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The timeline range selection renders before a lane's clips but paints over
 // them, so a range on a layer that already has clips stays visible. Clicks
@@ -48,6 +49,7 @@ test("a range selection paints over the clips it overlaps", async ({
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
 
   await page.locator(".source-span").click({ button: "right" });
@@ -60,7 +62,7 @@ test("a range selection paints over the clips it overlaps", async ({
   await page.locator(".source-span").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
   await page.getByRole("menuitem", { name: "Layer 2" }).click();
-  const other = lane(page, "5").locator(".clip-card");
+  const other = lane(page, "2").locator(".clip-card");
   await expect(other).toHaveClass(/clip-card--selected/);
   const otherRing = await ringOf(other);
   expect(otherRing.outline).toBe(RING);

@@ -1,5 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import type { PlaybackSelection } from "../app/playback-selection.ts";
 import type {
   ArrangementClip,
   DragState,
@@ -29,8 +30,12 @@ export type ShortcutContext = {
   handleRedo: () => void;
   handleUndo: () => void;
   lanes: Lane[];
+  // Turns the playback selection into the loop region.
+  lockPlaybackSelection: () => void;
   pendingSelection: TimelineSelection | null;
   playbackOriginRef: RefObject<number>;
+  // The range dragged out in the ruler's loop strip.
+  playbackSelection: PlaybackSelection | null;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
   // The selected source clip, while no clip is selected.

@@ -1,18 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Double-clicking a text clip in the preview (or Enter on the selected one,
 // or a double-click on its timeline clip) types on it directly on the canvas.
 // The FX panel follows along, and leaving the editor is one undo step.
 
 // The docked Audio row footer (#809) leaves less room for layers to scroll
-// in; the default session's layers no longer all fit without scrolling.
+// in; these tests' layers fit without scrolling at this size.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
 function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
 }
 
+// Adds Layer 2 ("2") to seek from, then a text clip on Layer 1.
 async function insertTextClip(page: Page) {
+  await addLayers(page, 1);
   const bounds = await lane(page, "1").boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");
@@ -33,7 +36,7 @@ async function insertTextClip(page: Page) {
   // Seek onto the clip from an empty layer so the preview shows it, then
   // select it. Selecting alone leaves the playhead where it is.
   const clipBox = await clip.boundingBox();
-  const emptyLane = await lane(page, "5").boundingBox();
+  const emptyLane = await lane(page, "2").boundingBox();
   if (!clipBox || !emptyLane) {
     throw new Error("Text clip is not visible");
   }

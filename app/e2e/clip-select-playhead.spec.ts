@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Selecting a clip only selects it; the playhead stays where it was. A
 // four-second test pattern at 120 BPM spans eight quarters.
@@ -50,6 +51,7 @@ test.use({ viewport: { width: 1600, height: 1200 } });
 test("selecting a clip leaves the playhead where it was", async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
@@ -59,7 +61,7 @@ test("selecting a clip leaves the playhead where it was", async ({ page }) => {
   // Keep the lanes clear of the sticky ruler.
   await clip.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const clipBox = await clip.boundingBox();
-  const emptyLane = await lane(page, "5").boundingBox();
+  const emptyLane = await lane(page, "2").boundingBox();
   if (!clipBox || !emptyLane) {
     throw new Error("clip is not visible");
   }

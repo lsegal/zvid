@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Cut, Copy and Delete with a timeline selection act on exactly the selected
 // span on its layer, and Paste reproduces what was cut.
@@ -91,10 +92,11 @@ async function expectEdges(target: Locator, expected: number[][]) {
     .toBe(true);
 }
 
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page);
   await page.locator(".timeline-scroll").evaluate((element) => {
     element.scrollLeft = 0;
   });
@@ -102,7 +104,7 @@ test.beforeEach(async ({ page }) => {
 
   // A clip on Layer 1 and one on Layer 3, over the same span. Selections
   // start on empty lane space, then may extend over clips.
-  for (const id of ["1", "6"]) {
+  for (const id of ["1", "3"]) {
     await dragSelection(lane(page, id), 130, 330);
     await page.keyboard.press("1");
     await expect(lane(page, id).locator(".clip-card")).toHaveCount(1);
@@ -111,7 +113,7 @@ test.beforeEach(async ({ page }) => {
 
 test("Delete removes only the selected span on its layer", async ({ page }) => {
   const [clip] = await clipEdges(lane(page, "1"));
-  const otherLayer = await clipEdges(lane(page, "6"));
+  const otherLayer = await clipEdges(lane(page, "3"));
   // Over the clip's start, so Delete trims it to the part after the span.
   const selection = await dragSelection(lane(page, "1"), 30, 230);
 
@@ -119,7 +121,7 @@ test("Delete removes only the selected span on its layer", async ({ page }) => {
   await expectEdges(lane(page, "1"), [
     [selection.x + selection.width, clip[1]],
   ]);
-  await expectEdges(lane(page, "6"), otherLayer);
+  await expectEdges(lane(page, "3"), otherLayer);
   // The selection stays, showing what was removed.
   await expect(lane(page, "1").locator(".timeline-selection")).toBeVisible();
 
@@ -132,14 +134,14 @@ test("Cut then Paste reproduces the cut span on another layer", async ({
   page,
 }) => {
   const [clip] = await clipEdges(lane(page, "1"));
-  const otherLayer = await clipEdges(lane(page, "6"));
+  const otherLayer = await clipEdges(lane(page, "3"));
   // Dragged back over the clip's end, so the cut takes its end and some
   // empty space.
   const selection = await dragSelection(lane(page, "1"), 530, 230);
 
   await page.keyboard.press("ControlOrMeta+x");
   await expectEdges(lane(page, "1"), [[clip[0], selection.x]]);
-  await expectEdges(lane(page, "6"), otherLayer);
+  await expectEdges(lane(page, "3"), otherLayer);
 
   // Paste at the playhead on the selected layer: the cut piece, at the same
   // length.
@@ -150,11 +152,11 @@ test("Cut then Paste reproduces the cut span on another layer", async ({
     .locator(".track-label__index")
     .click();
   await page.keyboard.press("ControlOrMeta+v");
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
-  const [pasted] = await clipEdges(lane(page, "5"));
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(1);
+  const [pasted] = await clipEdges(lane(page, "2"));
   expect(pasted[1] - pasted[0]).toBeCloseTo(clip[1] - selection.x, 0);
   await expectEdges(lane(page, "1"), [[clip[0], selection.x]]);
-  await expectEdges(lane(page, "6"), otherLayer);
+  await expectEdges(lane(page, "3"), otherLayer);
 });
 
 test("Copy and Delete leave an empty selection alone", async ({ page }) => {

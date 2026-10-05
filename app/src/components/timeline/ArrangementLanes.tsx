@@ -2,8 +2,11 @@ import type { ReactNode, RefObject } from "react";
 import type { ArrangementClip, Lane } from "../../app/types.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import {
+  DEFAULT_ROW_METRICS,
+  getRowExpandedHeight,
   getRowHeight,
   getRowHeightStyle,
+  getRowSizeClassName,
   isRowCollapsed,
   type RowHeights,
 } from "../../row-heights.ts";
@@ -65,23 +68,23 @@ export function ArrangementLanes({
       </div>
       {lanes.map((lane, laneIndex) => {
         const collapsed = isRowCollapsed(rowHeights, "lane", lane.id);
+        const height = getRowHeight(rowHeights, "lane", lane.id);
         return (
           <section
             key={lane.id}
             className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""} ${
               lane.id === layerReorder.liftedLaneId ? "track-row--lifted" : ""
-            } ${collapsed ? "track-row--collapsed" : ""}`}
+            } ${getRowSizeClassName(height, DEFAULT_ROW_METRICS.lane.height)}`}
             data-layer-row-id={lane.id}
-            style={getRowHeightStyle(
-              "lane",
-              getRowHeight(rowHeights, "lane", lane.id),
-            )}
+            style={getRowHeightStyle("lane", height)}
           >
             <LayerHeader
               lane={lane}
               laneIndex={laneIndex}
               fxLaneId={fxLaneId}
               status={laneStatusById.get(lane.id)}
+              height={height}
+              expandedHeight={getRowExpandedHeight(rowHeights, "lane", lane.id)}
               {...header}
             />
             <LaneRow

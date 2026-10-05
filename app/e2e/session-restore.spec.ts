@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The open session, its undo history and view state are saved in IndexedDB,
 // so a refresh brings them back. Only one tab saves the session at a time.
@@ -99,18 +100,19 @@ test.beforeEach(async ({ page }) => {
 test("a refresh restores the session, its media and its undo history", async ({
   page,
 }) => {
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
   await copySpanToLayer(page, "Layer 1");
   await copySpanToLayer(page, "Layer 2");
   await expect(page.locator(".clip-card")).toHaveCount(2);
-  // The clip on Layer 2 ("5") is the last edit.
-  await waitForSave(page, '"laneId":"5"');
+  // The clip on Layer 2 ("2") is the last edit.
+  await waitForSave(page, '"laneId":"2"');
 
   await page.reload();
 
   await expect(page.locator(".source-span")).toHaveCount(1);
   await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(1);
   // The media comes back from the media cache without a re-import.
   await openFileMenu(page);
   await expect(
@@ -121,7 +123,7 @@ test("a refresh restores the session, its media and its undo history", async ({
   // Undo reverts the last action made before the refresh.
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Undo/ }).click();
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(0);
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(0);
   await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
 });
 
@@ -264,7 +266,7 @@ test("a read-only tab refuses edits until it takes the session over", async ({
   await expect(page.locator(".workspace-lock-banner")).toContainText(
     "taken over in another tab",
   );
-  await copySpanToLayer(page, "Layer 2");
+  await copySpanToLayer(page, "Layer 1");
   const takenOverPrompt = page.getByRole("dialog", {
     name: "This tab is read-only",
   });

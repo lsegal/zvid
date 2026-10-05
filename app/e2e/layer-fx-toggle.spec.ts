@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The FX button in each layer header (#693): always toggleable, lit while
 // the layer's FX are on, and turning it off turns off every effect on the
@@ -137,7 +138,8 @@ test("every layer's FX button is enabled and lit by default", async ({
   page,
 }) => {
   await page.goto("/");
-  for (const id of ["1", "5", "6"]) {
+  await addLayers(page);
+  for (const id of ["1", "2", "3"]) {
     const fx = header(page, id).locator(".track-label__fx");
     await expect(fx).toBeEnabled();
     await expect(fx).toHaveAttribute("aria-pressed", "true");

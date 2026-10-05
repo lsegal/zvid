@@ -115,7 +115,7 @@
 }
 
 .track-row--bus:not(.track-row--bus-collapsed) .track-row__content {
-  min-height: 78px;
+  min-height: var(--audio-row-height, 78px);
 }
 
 .track-row__content--waveform {

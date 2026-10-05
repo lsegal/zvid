@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Ctrl-click on an arrangement clip (Cmd-click on macOS) selects it and
 // moves the playhead to its start, seeking playback while it plays. Source
@@ -99,6 +100,8 @@ test("Ctrl/Cmd-click on a clip selects it and jumps the playhead to its start", 
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  // An empty layer to click in, apart from the clip's.
+  await addLayers(page, 1);
   const clip = await addVideoClip(page, "ControlOrMeta");
   const clipLane = clip.locator("xpath=ancestor::*[@data-timeline-lane-id]");
   const laneId = await clipLane.getAttribute("data-timeline-lane-id");
@@ -148,6 +151,8 @@ test("the clip menu's Jump to start moves the playhead to the clip start", async
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  // An empty layer to click in, apart from the clip's.
+  await addLayers(page, 1);
   const clip = await addVideoClip(page, "ControlOrMeta");
   const otherLane = page
     .locator("[data-timeline-lane-id]")
@@ -178,6 +183,8 @@ test("on macOS Cmd-click jumps and Ctrl-click opens the clip menu", async ({
   });
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  // An empty layer to click in, apart from the clip's.
+  await addLayers(page, 1);
   const clip = await addVideoClip(page, "Meta");
   const otherLane = page
     .locator("[data-timeline-lane-id]")

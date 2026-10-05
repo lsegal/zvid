@@ -23,14 +23,14 @@ function playheadX(page: Page, id: string) {
 }
 
 // The docked Audio row footer (#809) leaves less room for layers to scroll
-// in; the default session's layers no longer all fit without scrolling.
+// in; a taller viewport keeps the layers clear of it.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
 test("clicking empty lane space seeks without selecting, and dragging selects", async ({
   page,
 }) => {
   await page.goto("/");
-  const target = lane(page, "5");
+  const target = lane(page, "1");
   await expect(target).toBeVisible();
   const bounds = await target.boundingBox();
   if (!bounds) {
@@ -40,12 +40,12 @@ test("clicking empty lane space seeks without selecting, and dragging selects", 
   const selection = page.locator(".timeline-selection");
 
   // A plain click leaves no selection and moves the playhead there.
-  const before = await playheadX(page, "5");
+  const before = await playheadX(page, "1");
   await page.mouse.click(bounds.x + 200, y);
   await expect(selection).toHaveCount(0);
   await expect(target.locator("..")).toHaveClass(/track-row--selected/);
-  await expect.poll(() => playheadX(page, "5")).not.toBeCloseTo(before, 0);
-  expect(Math.abs((await playheadX(page, "5")) - 200)).toBeLessThan(40);
+  await expect.poll(() => playheadX(page, "1")).not.toBeCloseTo(before, 0);
+  expect(Math.abs((await playheadX(page, "1")) - 200)).toBeLessThan(40);
 
   // Jitter under the threshold is still a click.
   await page.mouse.move(bounds.x + 120, y);

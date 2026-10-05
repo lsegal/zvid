@@ -5,8 +5,14 @@ import type { useFxEditing } from "../../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../../hooks/useLayerActions.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
-import { isRowCollapseTarget, type RowKind } from "../../row-heights.ts";
+import {
+  DEFAULT_ROW_METRICS,
+  isRowCollapseTarget,
+  MAX_ROW_HEIGHT_SCALE,
+  type RowKind,
+} from "../../row-heights.ts";
 import { NameInput } from "../NameInput";
+import { RowResizeHandle } from "./RowResizeHandle";
 import { TrackFxButton } from "./TrackFxButton";
 import { TrackHideButton } from "./TrackHideButton";
 import "./layer-header.css";
@@ -27,6 +33,12 @@ export type LayerHeaderContext = {
   setLayerFxEnabled: ReturnType<typeof useFxEditing>["setLayerFxEnabled"];
   setLayerHidden: ReturnType<typeof useFxEditing>["setLayerHidden"];
   toggleRowCollapsed: (kind: RowKind, id: string) => void;
+  resizeRow: (
+    kind: RowKind,
+    id: string,
+    height: number,
+    expandedHeight: number,
+  ) => void;
 };
 
 type LayerHeaderProps = {
@@ -35,17 +47,23 @@ type LayerHeaderProps = {
   // The layer the FX chain edits.
   fxLaneId: string | undefined;
   status: LaneStatus | undefined;
+  // The row's height and what expanding it restores (row-heights.ts).
+  height: number;
+  expandedHeight: number;
 } & LayerHeaderContext;
 
 // A layer's header: the reorder grip, its number, its name (or the field
 // renaming it) with a summary, and the Hide and FX bypass switches. Double-clicking the
 // name renames the layer, like Rename… in its menu, and double-clicking the
-// rest of the header collapses or expands its row.
+// rest of the header collapses or expands its row. Dragging the separator
+// along its bottom resizes the row.
 export function LayerHeader({
   lane,
   laneIndex,
   fxLaneId,
   status,
+  height,
+  expandedHeight,
   layerReorder,
   renamingLaneId,
   setRenamingLaneId,
@@ -57,6 +75,7 @@ export function LayerHeader({
   setLayerFxEnabled,
   setLayerHidden,
   toggleRowCollapsed,
+  resizeRow,
 }: LayerHeaderProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent
@@ -130,6 +149,15 @@ export function LayerHeader({
       <TrackFxButton
         track={lane}
         setFxEnabled={(enabled) => setLayerFxEnabled(lane.id, enabled)}
+      />
+      <RowResizeHandle
+        label={`Resize ${lane.name}`}
+        height={height}
+        maxHeight={DEFAULT_ROW_METRICS.lane.height * MAX_ROW_HEIGHT_SCALE}
+        expandedHeight={expandedHeight}
+        onResize={(nextHeight, nextExpandedHeight) =>
+          resizeRow("lane", lane.id, nextHeight, nextExpandedHeight)
+        }
       />
     </div>
   );

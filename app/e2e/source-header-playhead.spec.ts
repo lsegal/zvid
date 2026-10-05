@@ -26,9 +26,9 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-// Seeks by clicking empty space in layer lane 5, `offset` px into it.
+// Seeks by clicking empty space in Layer 1's lane, `offset` px into it.
 async function seek(page: Page, offset: number) {
-  const lane = page.locator('[data-timeline-lane-id="5"]');
+  const lane = page.locator('[data-timeline-lane-id="1"]');
   await lane.scrollIntoViewIfNeeded();
   const bounds = await lane.boundingBox();
   if (!bounds) {

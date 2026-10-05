@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Reordering layers from the grip left of each header's number (#478).
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 
 function header(page: Page, id: string) {
   return page.locator(`[data-layer-header-id="${id}"]`);
@@ -47,7 +48,7 @@ async function center(locator: Locator) {
 
 // Adds Layer 4 below Layer 3, with a text clip and an effect of its own.
 async function addLayer4(page: Page) {
-  await openLayerMenu(page, "6");
+  await openLayerMenu(page, "3");
   await menuItem(page, "Insert layer below").click();
   await expect(names(page)).toHaveText([
     "Layer 1",
@@ -81,17 +82,18 @@ async function addLayer4(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(header(page, "1")).toBeVisible();
+  await addLayers(page);
 });
 
 test("each layer header has a grip left of its number", async ({ page }) => {
-  for (const id of ["1", "5", "6"]) {
+  for (const id of ["1", "2", "3"]) {
     const handle = await grip(page, id).boundingBox();
     const number = await header(page, id)
       .locator(".track-label__index")
       .boundingBox();
     expect(handle && number && handle.x + handle.width <= number.x).toBe(true);
   }
-  await expect(grip(page, "5")).toHaveAccessibleName("Reorder Layer 2");
+  await expect(grip(page, "2")).toHaveAccessibleName("Reorder Layer 2");
 });
 
 test("dragging Layer 4 above Layer 1 carries its clips and effects, in one undo step", async ({
@@ -146,7 +148,7 @@ test("holding a drag near the top edge scrolls, and Escape cancels it", async ({
   page,
 }) => {
   const scroller = page.locator(".timeline-scroll");
-  const from = await center(grip(page, "6"));
+  const from = await center(grip(page, "3"));
   expect(
     await scroller.evaluate((element) => element.scrollTop),
   ).toBeGreaterThan(0);
@@ -174,13 +176,13 @@ test("holding a drag near the top edge scrolls, and Escape cancels it", async ({
 test("the keyboard picks a layer up, moves it and drops it", async ({
   page,
 }) => {
-  await grip(page, "6").focus();
+  await grip(page, "3").focus();
   await page.keyboard.press("Enter");
   await expect(status(page)).toContainText(
     "Picked up Layer 3, position 3 of 3",
   );
-  await expect(grip(page, "6")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-layer-row-id="6"]')).toHaveClass(
+  await expect(grip(page, "3")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-layer-row-id="3"]')).toHaveClass(
     /track-row--lifted/,
   );
   await page.keyboard.press("ArrowUp");
@@ -192,8 +194,8 @@ test("the keyboard picks a layer up, moves it and drops it", async ({
   await page.keyboard.press("Enter");
   await expect(status(page)).toHaveText("Dropped Layer 3, position 1 of 3");
   await expect(names(page)).toHaveText(["Layer 3", "Layer 1", "Layer 2"]);
-  await expect(grip(page, "6")).toBeFocused();
-  await expect(grip(page, "6")).toHaveAttribute("aria-pressed", "false");
+  await expect(grip(page, "3")).toBeFocused();
+  await expect(grip(page, "3")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
 
   // Escape puts it back where it was.
@@ -210,10 +212,10 @@ test("the keyboard picks a layer up, moves it and drops it", async ({
 test("clicking the header outside the grip still selects the layer", async ({
   page,
 }) => {
-  await header(page, "6").locator(".track-label__index").click();
+  await header(page, "3").locator(".track-label__index").click();
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
   // A click on the grip without dragging selects too, and moves nothing.
-  await grip(page, "5").click();
+  await grip(page, "2").click();
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
   await expect(names(page)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
   await expect(page.locator(".track-row--lifted")).toHaveCount(0);
@@ -233,8 +235,8 @@ test.describe("on a touch screen", () => {
         type,
         touchPoints: type === "touchEnd" ? [] : [{ x, y }],
       });
-    const from = await center(grip(page, "5"));
-    const row = await page.locator('[data-layer-row-id="5"]').boundingBox();
+    const from = await center(grip(page, "2"));
+    const row = await page.locator('[data-layer-row-id="2"]').boundingBox();
     if (!row) {
       throw new Error("No row");
     }
@@ -246,7 +248,7 @@ test.describe("on a touch screen", () => {
     await expect(page.locator(".track-row--lifted")).toHaveCount(0);
 
     await touch("touchStart", from.x, from.y);
-    await expect(page.locator('[data-layer-row-id="5"]')).toHaveClass(
+    await expect(page.locator('[data-layer-row-id="2"]')).toHaveClass(
       /track-row--lifted/,
     );
     for (let step = 1; step <= 8; step += 1) {

@@ -234,6 +234,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     barLength: timeline.barLength,
     quarterPx,
     totalQuarters,
+    loopRegion: timeline.loopRegion,
     labelWidth,
     timelineScrollRef,
     isPlaying,
@@ -498,6 +499,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     playheadSignal={playheadSignal}
                     isCollapsed={layout.isAudioRowCollapsed}
                     setCollapsed={layout.setAudioRowCollapsed}
+                    expandedHeight={layout.audioRowHeight}
+                    onResize={layout.resizeAudioRow}
                   />
                 }
               >
@@ -524,6 +527,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   bpm={bpm}
                   fps={fps}
                   snapEnabled={project.snapEnabled}
+                  timelineContentEndQ={editing.timelineContentEndQ}
                 />
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}
@@ -562,6 +566,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setLayerFxEnabled: fxEditing.setLayerFxEnabled,
                     setLayerHidden: fxEditing.setLayerHidden,
                     toggleRowCollapsed: layout.toggleRowCollapsed,
+                    resizeRow: layout.resizeRow,
                   }}
                   row={{
                     openLaneMenu: editing.openLaneMenu,
@@ -639,6 +644,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                     setHidden: fxEditing.setSourceTrackHidden,
                     toggleRowCollapsed: layout.toggleRowCollapsed,
+                    resizeRow: layout.resizeRow,
                   }}
                   openLaneMenu={editing.openSourceLaneMenu}
                   span={{

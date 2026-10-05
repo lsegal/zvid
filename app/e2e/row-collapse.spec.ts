@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Double-clicking a layer, source track or Audio row handle outside its name
 // collapses the row to 24px, with a 16px clip 4px down and no frames, and
@@ -139,6 +140,8 @@ test("double-clicking a layer's header collapses and expands its lane", async ({
   page,
 }) => {
   await addVideoClips(page);
+  // Another layer, to check it keeps its height.
+  await addLayers(page, 1);
   const row = layerRow(page);
   const label = row.locator(".track-label");
   const clipText = row.locator(".clip-card__text strong");
@@ -165,7 +168,7 @@ test("double-clicking a layer's header collapses and expands its lane", async ({
   await expect(label.locator("small")).toBeHidden();
   await expect(label.locator(".track-label__fx")).toBeHidden();
   // Other rows keep their height and frames.
-  expect(await height(page.locator('[data-layer-row-id="5"]'))).toBe(66);
+  expect(await height(page.locator('[data-layer-row-id="2"]'))).toBe(66);
   await expect(
     sourceRow(page).locator(".source-span__tile").first(),
   ).toBeVisible();

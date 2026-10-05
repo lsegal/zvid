@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The source clip menu has the layer clip menu's Jump to start, Cut, Copy,
 // Paste, Duplicate, Split at playhead and Delete, acting within the source
@@ -83,7 +84,7 @@ async function playheadX(page: Page) {
   });
 }
 
-// A click on empty Layer 3 under `fraction` of the span seeks there.
+// A click on empty Layer 1 under `fraction` of the span seeks there.
 async function seekInto(page: Page, span: Locator, fraction: number) {
   // A paste scrolls the timeline, which can leave the span under the sticky
   // layer labels, so scroll back first.
@@ -92,7 +93,7 @@ async function seekInto(page: Page, span: Locator, fraction: number) {
   });
   const [spanBox, laneBox] = await Promise.all([
     span.boundingBox(),
-    lane(page, "6").boundingBox(),
+    lane(page, "1").boundingBox(),
   ]);
   if (!spanBox || !laneBox) {
     throw new Error("timeline is not visible");
@@ -235,8 +236,8 @@ test("Copy pastes into the source track but not onto a layer", async ({
   await menuItem(page, /^Copy(?! to)/).click();
 
   // A layer's menu, and the Edit menu with a layer selected, gray Paste out.
-  await lane(page, "5").scrollIntoViewIfNeeded();
-  await lane(page, "5").click({ button: "right", position: { x: 400, y: 20 } });
+  await lane(page, "1").scrollIntoViewIfNeeded();
+  await lane(page, "1").click({ button: "right", position: { x: 400, y: 20 } });
   await expect(menuItem(page, /^Paste/)).toHaveAttribute(
     "aria-disabled",
     "true",
@@ -265,6 +266,7 @@ test("Copy pastes into the source track but not onto a layer", async ({
 test("a copied layer clip pastes onto a layer but not into the source track", async ({
   page,
 }) => {
+  await addLayers(page, 1);
   const span = spans(page).first();
   await openMenu(page, span);
   await menuItem(page, "Copy to layer").hover();
@@ -290,10 +292,10 @@ test("a copied layer clip pastes onto a layer but not into the source track", as
   await expect(page.locator(".clip-card")).toHaveCount(1);
 
   // A layer still takes it.
-  await lane(page, "5").scrollIntoViewIfNeeded();
-  await lane(page, "5").click({ button: "right", position: { x: 400, y: 20 } });
+  await lane(page, "2").scrollIntoViewIfNeeded();
+  await lane(page, "2").click({ button: "right", position: { x: 400, y: 20 } });
   await menuItem(page, /^Paste/).click();
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(1);
 });
 
 test("Cut removes it, and Paste puts it back into the source track", async ({

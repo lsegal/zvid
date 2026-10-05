@@ -23,15 +23,7 @@ clips made for zvid (1920×1080, 30 fps, 16 seconds each) by
 `app/scripts/sample/render_sources.py`. They are clean sources: every cut,
 arrangement, effect and title in the sample is built in zvid itself.
 
-## Icon
+## Mask
 
-`movie-camera.svg` is a "Movie camera" illustration combined from the "Film
-projector" and "Film spool" icons by Delapouite from game-icons.net: the
-projector's body, lens and tripod, with its two plain reels replaced by the
-spool's spoked reel (without its trailing film) and the black background
-square removed. The sample masks the 1.5-second shot with it.
-Licensed under Creative Commons: By Attribution 3.0 License
-https://creativecommons.org/licenses/by/3.0/
-
-- Source: https://game-icons.net/1x1/delapouite/film-projector.html
-- Source: https://game-icons.net/1x1/delapouite/film-spool.html
+`zvid-logo.svg` is the zvid logo, zvid's own artwork. The sample masks the
+1.5-second shot with it.

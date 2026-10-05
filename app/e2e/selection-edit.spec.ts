@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // A drawn range selection moves when its body is dragged, onto another
 // layer too, and resizes from either edge handle. A click inside it keeps
@@ -43,14 +44,16 @@ async function drawSelection(target: Locator, fromX: number, toX: number) {
   return selection;
 }
 
-// The docked Audio row leaves less room for layers; the default session's
-// layers all fit at this size.
+// The docked Audio row leaves less room for layers; all three layers fit at
+// this size.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await expect(lane(page, "6")).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page);
+  await expect(lane(page, "3")).toBeVisible();
   await page.locator(".timeline-scroll").evaluate((element) => {
     element.scrollLeft = 0;
   });
@@ -59,7 +62,7 @@ test.beforeEach(async ({ page }) => {
 test("dragging a selection moves it in time and onto another layer", async ({
   page,
 }) => {
-  const selection = await drawSelection(lane(page, "5"), 40, 280);
+  const selection = await drawSelection(lane(page, "2"), 40, 280);
   const before = await boxOf(selection);
   await expect(selection).toContainText("Press 1-9 to commit");
 
@@ -72,11 +75,11 @@ test("dragging a selection moves it in time and onto another layer", async ({
   expect(moved.width).toBeCloseTo(before.width, 0);
 
   // Onto Layer 3.
-  const target = await boxOf(lane(page, "6"));
+  const target = await boxOf(lane(page, "3"));
   await dragBy(page, selection, 0, target.y + target.height / 2);
-  const onLayer3 = lane(page, "6").locator(".timeline-selection");
+  const onLayer3 = lane(page, "3").locator(".timeline-selection");
   await expect(onLayer3).toHaveCount(1);
-  await expect(lane(page, "5").locator(".timeline-selection")).toHaveCount(0);
+  await expect(lane(page, "2").locator(".timeline-selection")).toHaveCount(0);
   const landed = await boxOf(onLayer3);
   expect(landed.x).toBeCloseTo(moved.x, 0);
   expect(landed.width).toBeCloseTo(before.width, 0);
@@ -97,7 +100,7 @@ test("dragging a selection moves it in time and onto another layer", async ({
 test("dragging an edge handle resizes the selection from that edge", async ({
   page,
 }) => {
-  const selection = await drawSelection(lane(page, "5"), 200, 440);
+  const selection = await drawSelection(lane(page, "2"), 200, 440);
   const before = await boxOf(selection);
   const right = before.x + before.width;
 
@@ -141,7 +144,7 @@ test("dragging an edge handle resizes the selection from that edge", async ({
 test("a click inside the selection keeps it and a click outside clears it", async ({
   page,
 }) => {
-  const selection = await drawSelection(lane(page, "5"), 40, 280);
+  const selection = await drawSelection(lane(page, "2"), 40, 280);
   const before = await boxOf(selection);
 
   // A click, or a press with jitter under the drag threshold, keeps it in
@@ -158,24 +161,24 @@ test("a click inside the selection keeps it and a click outside clears it", asyn
   expect(after.width).toBeCloseTo(before.width, 0);
 
   // A click on the same layer outside it clears it.
-  const laneBox = await boxOf(lane(page, "5"));
+  const laneBox = await boxOf(lane(page, "2"));
   await page.mouse.click(laneBox.x + 500, laneBox.y + 20);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 
   // So does a click on another layer.
-  await drawSelection(lane(page, "5"), 40, 280);
-  const otherLane = await boxOf(lane(page, "6"));
+  await drawSelection(lane(page, "2"), 40, 280);
+  const otherLane = await boxOf(lane(page, "3"));
   await page.mouse.click(otherLane.x + 100, otherLane.y + 20);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 
   // And a click on the ruler.
-  await drawSelection(lane(page, "5"), 40, 280);
+  await drawSelection(lane(page, "2"), 40, 280);
   const ruler = await boxOf(page.locator(".ruler-row__content"));
   await page.mouse.click(ruler.x + 500, ruler.y + ruler.height / 2);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 
   // Escape still clears it.
-  await drawSelection(lane(page, "5"), 40, 280);
+  await drawSelection(lane(page, "2"), 40, 280);
   await page.keyboard.press("Escape");
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 });

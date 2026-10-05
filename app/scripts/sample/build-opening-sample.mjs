@@ -49,10 +49,7 @@ const MUSIC_CREDIT =
   "graphics.";
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
-const ICON_CREDIT =
-  '"Movie camera" combined from "Film projector" and "Film spool" by Delapouite ' +
-  "(https://game-icons.net), licensed under CC BY 3.0 " +
-  "(https://creativecommons.org/licenses/by/3.0/).";
+const ICON_CREDIT = "The zvid logo, zvid's own artwork.";
 
 const SOURCES = [
   { key: "orbit", name: "Orbit", file: "orbit.mp4" },
@@ -64,20 +61,20 @@ const MUSIC = {
   name: "Just Nasty",
   file: "just-nasty-30s.m4a",
 };
-const ICON = { key: "movie-camera", file: "movie-camera.svg" };
+const ICON = { key: "zvid-logo", file: "zvid-logo.svg" };
 
 // Layers, top first. The Transitions layer is layer 1, so each transition
 // renders above every other layer, titles and FX regions included. The
 // titles sit above the other FX and Order layers, so no other effect or
 // arrangement touches them. The hidden icon layer is never drawn itself: it
-// is the Mask Target that cuts the 1.5 s shot to a camera. The Audio layer
+// is the Mask Target that cuts the 1.5 s shot to the zvid logo. The Audio layer
 // holds only the music.
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
-  { id: "icon-mask", name: "Mask · movie camera", hidden: true },
+  { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -264,7 +261,7 @@ addEffect(
     ),
   },
 );
-// The orbit opens out of the movie camera on the hidden layer.
+// The orbit opens out of the zvid logo on the hidden layer.
 addEffect(captureShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
@@ -499,21 +496,18 @@ for (const [start, type] of [
   );
 }
 
-// The movie camera the 1.5 s shot is masked by: a Custom Shape on the hidden
-// layer, kept square on the 16:9 canvas. In one beat it pops open from a
-// small icon until the camera's body covers the frame, then holds there for
-// the next beat on a second clip, as a Move spans its whole clip. The body
-// (x 99–337, y 211.727–321.729 of the art's 512-unit box) sits left of and
-// below the box's center, so the icon drifts to keep the body centered.
-const ICON_SIZE = 6;
-const ICON_BODY_OFFSET_X = (256 - (99 + 337) / 2) / 512;
-const ICON_BODY_OFFSET_Y = (256 - (211.727 + 321.729) / 2) / 512;
-const ICON_FULL = {
-  x: (ICON_BODY_OFFSET_X * ICON_SIZE * HEIGHT) / WIDTH,
-  y: ICON_BODY_OFFSET_Y * ICON_SIZE,
-  scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
-  scaleY: ICON_SIZE,
-};
+// The zvid logo the 1.5 s shot is masked by: a Custom Shape on the hidden
+// layer. The shape stretches its viewBox over the box, so the box keeps the
+// logo's 258 × 212 aspect on the 16:9 canvas. In one beat it pops open from
+// a small logo until it nearly fills the frame's height, then holds there
+// for the next beat on a second clip, as a Move spans its whole clip. The
+// logo is centered in its viewBox, so the box stays centered too.
+const ICON_ASPECT = 258 / 212;
+const iconBox = (height) => ({
+  scaleX: (height * ICON_ASPECT * HEIGHT) / WIDTH,
+  scaleY: height,
+});
+const ICON_FULL = { x: 0, y: 0, ...iconBox(0.9) };
 function iconClip(id, start) {
   layerClip("fills", id, "icon-mask", start, 0.75);
   addEffect(clipTrack(id), "Color", {
@@ -527,13 +521,13 @@ function iconClip(id, start) {
   return id;
 }
 move(
-  clipTrack(iconClip("fill-camera-reveal", 1.5)),
+  clipTrack(iconClip("fill-logo-reveal", 1.5)),
   "Ease Out",
-  { scaleX: (0.3 * HEIGHT) / WIDTH, scaleY: 0.3 },
+  iconBox(0.15),
   ICON_FULL,
 );
 addEffect(
-  clipTrack(iconClip("fill-camera-hold", 2.25)),
+  clipTrack(iconClip("fill-logo-hold", 2.25)),
   "Transform",
   transformValues("", ICON_FULL),
 );
