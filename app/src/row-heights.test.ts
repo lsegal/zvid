@@ -74,8 +74,8 @@ describe("row heights", () => {
 
 describe("resizing rows", () => {
   it("clamps a height between a collapsed row's and 4x the default", () => {
-    assert.equal(clampRowHeight(-50, 66), 20);
-    assert.equal(clampRowHeight(19.6, 66), 20);
+    assert.equal(clampRowHeight(-50, 66), 24);
+    assert.equal(clampRowHeight(23.6, 66), 24);
     assert.equal(clampRowHeight(90.4, 66), 90);
     assert.equal(clampRowHeight(264, 66), 264);
     assert.equal(clampRowHeight(1000, 66), 264);
@@ -98,7 +98,7 @@ describe("resizing rows", () => {
     const tall = resizeRow(NO_ROW_HEIGHTS, "lane", "1", 5000, 66);
     assert.equal(getRowHeight(tall, "lane", "1"), 264);
     const short = resizeRow(NO_ROW_HEIGHTS, "lane", "1", -40, 66);
-    assert.equal(getRowHeight(short, "lane", "1"), 20);
+    assert.equal(getRowHeight(short, "lane", "1"), 24);
   });
 
   it("collapses a row dragged to the minimum, keeping the height to restore", () => {
@@ -115,7 +115,7 @@ describe("resizing rows", () => {
     const dragged = resizeRow(NO_ROW_HEIGHTS, "lane", "1", 100, 66);
     assert.equal(getRowExpandedHeight(dragged, "lane", "1"), 100);
     const collapsed = toggleRowCollapsed(dragged, "lane", "1");
-    assert.equal(getRowHeight(collapsed, "lane", "1"), 20);
+    assert.equal(getRowHeight(collapsed, "lane", "1"), 24);
     const expanded = toggleRowCollapsed(collapsed, "lane", "1");
     assert.equal(getRowHeight(expanded, "lane", "1"), 100);
   });
@@ -126,7 +126,7 @@ describe("resizing rows", () => {
   });
 
   it("fits the handle of a row shorter than its default", () => {
-    assert.equal(getRowSizeClassName(20, 66), "track-row--collapsed");
+    assert.equal(getRowSizeClassName(24, 66), "track-row--collapsed");
     assert.equal(
       getRowSizeClassName(30, 66),
       "track-row--short track-row--one-line",
