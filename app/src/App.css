@@ -10,6 +10,14 @@
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
+  /* The brand purple of the zvid logo and favicon. */
+  --brand-purple: #863bff;
+}
+
+@supports (color: color(display-p3 0 0 0)) {
+  :root {
+    --brand-purple: color(display-p3 0.5252 0.23 1);
+  }
 }
 
 .app-shell {
@@ -762,14 +770,13 @@
   align-items: center;
   gap: 8px;
   margin-right: 4px;
-  color: #f4f6fd;
+  color: var(--brand-purple);
 }
 
 .brand-mark svg {
   width: auto;
   height: 20px;
   fill: currentColor;
-  opacity: 0.92;
 }
 
 .brand-mark__name {
