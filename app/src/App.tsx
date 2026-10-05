@@ -498,6 +498,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     playheadSignal={playheadSignal}
                     isCollapsed={layout.isAudioRowCollapsed}
                     setCollapsed={layout.setAudioRowCollapsed}
+                    expandedHeight={layout.audioRowHeight}
+                    onResize={layout.resizeAudioRow}
                   />
                 }
               >
@@ -563,6 +565,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setLayerFxEnabled: fxEditing.setLayerFxEnabled,
                     setLayerHidden: fxEditing.setLayerHidden,
                     toggleRowCollapsed: layout.toggleRowCollapsed,
+                    resizeRow: layout.resizeRow,
                   }}
                   row={{
                     openLaneMenu: editing.openLaneMenu,
@@ -640,6 +643,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                     setHidden: fxEditing.setSourceTrackHidden,
                     toggleRowCollapsed: layout.toggleRowCollapsed,
+                    resizeRow: layout.resizeRow,
                   }}
                   openLaneMenu={editing.openSourceLaneMenu}
                   span={{

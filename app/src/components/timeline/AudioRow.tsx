@@ -1,14 +1,23 @@
 import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
-import { useMemo, useRef } from "react";
+import { type CSSProperties, useMemo, useRef } from "react";
 import { mixPeakLevel } from "../../audio-mix-peaks.ts";
-import { audioRowToggleLabel } from "../../audio-row-section.ts";
+import {
+  AUDIO_ROW_HEIGHT,
+  audioRowToggleLabel,
+} from "../../audio-row-section.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { MainWaveform } from "../../MainWaveform";
 import type { useMenus } from "../../menus/useMenus.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
+import {
+  COLLAPSED_ROW_METRICS,
+  getRowSizeClassName,
+  MAX_ROW_HEIGHT_SCALE,
+} from "../../row-heights.ts";
 import { PlayheadLine } from "../LivePlayhead";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import { RowResizeHandle } from "./RowResizeHandle";
 import "./audio-row.css";
 
 type AudioRowProps = {
@@ -23,6 +32,9 @@ type AudioRowProps = {
   playheadSignal: PlayheadSignal;
   isCollapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
+  // The row's height when expanded, which dragging its separator changes.
+  expandedHeight: number;
+  onResize: (height: number, expandedHeight: number) => void;
 };
 
 // The Audio row: a read-only waveform of the resolved audio mix, which only
@@ -32,7 +44,8 @@ type AudioRowProps = {
 // footer), so it draws its own playhead line. Collapsed, it is a 20px row
 // (row-heights.ts) that still draws the waveform, scaled down. The toggle
 // collapses and expands it, as does a double-click anywhere on its label but
-// the Refresh button.
+// the Refresh button. Dragging the separator along the bottom of its label
+// resizes it, collapsing it at the minimum.
 export function AudioRow({
   mix,
   openAudioMenu,
@@ -45,6 +58,8 @@ export function AudioRow({
   playheadSignal,
   isCollapsed,
   setCollapsed,
+  expandedHeight,
+  onResize,
 }: AudioRowProps) {
   const { summary, peaks, computing, durationSeconds, refresh } = mix;
   const skeletonStyle =
@@ -65,9 +80,21 @@ export function AudioRow({
   return (
     <section
       aria-label="Audio"
-      className={`track-row track-row--bus ${isCollapsed ? "track-row--bus-collapsed" : ""}`}
+      className={`track-row track-row--bus ${
+        isCollapsed
+          ? "track-row--bus-collapsed"
+          : getRowSizeClassName(expandedHeight, AUDIO_ROW_HEIGHT)
+      }`}
       data-audio-row=""
       onContextMenu={openAudioMenu}
+      style={
+        isCollapsed
+          ? undefined
+          : ({
+              "--audio-row-height": `${expandedHeight}px`,
+              "--lane-height": `${expandedHeight}px`,
+            } as CSSProperties)
+      }
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-clicking the label is a pointer shortcut for the toggle */}
       <div
@@ -118,6 +145,13 @@ export function AudioRow({
         >
           <ArrowPathIcon aria-hidden="true" />
         </button>
+        <RowResizeHandle
+          label="Resize audio row"
+          height={isCollapsed ? COLLAPSED_ROW_METRICS.height : expandedHeight}
+          maxHeight={AUDIO_ROW_HEIGHT * MAX_ROW_HEIGHT_SCALE}
+          expandedHeight={expandedHeight}
+          onResize={onResize}
+        />
       </div>
       <div
         className={`track-row__content track-row__content--waveform ${computing && !prefersReducedMotion ? "is-syncing is-syncing--animated" : ""}`}

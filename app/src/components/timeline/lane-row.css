@@ -47,6 +47,19 @@
   padding-block: 0;
 }
 
+/* A row dragged shorter than its default (#1058): its handle fits the row,
+   clipping what doesn't fit, and drops its summary when it's one line. */
+.track-row--short .track-label {
+  height: var(--lane-height);
+  min-height: 0;
+  padding-block: 0;
+  overflow: hidden;
+}
+
+.track-row--one-line .track-label small {
+  display: none;
+}
+
 /* Collapsed clips are plain bars with their name, when it fits. */
 .track-row--collapsed .clip-card {
   border-radius: 5px;

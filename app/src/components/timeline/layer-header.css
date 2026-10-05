@@ -37,6 +37,9 @@
 /* Drag handle for reordering layers (#478): faint until the header is
    hovered or focused, and the only part of the header that starts a drag. */
 .track-label__grip {
+  /* Above the row's resize separator (row-resize-handle.css). */
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: grid;
   place-items: center;

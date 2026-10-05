@@ -2,8 +2,9 @@ import type { CSSProperties } from "react";
 
 // Each timeline row's height (#1057). Layer lanes and source tracks default
 // to the heights lane-row.css and source-tracks.css give them, and either can
-// be collapsed to a one-line row by double-clicking its handle. The heights
-// are UI state, not part of the project.
+// be collapsed to a one-line row by double-clicking its handle, or resized by
+// dragging the separator under it (#1058). The heights are UI state, not part
+// of the project.
 
 export type RowKind = "lane" | "source";
 
@@ -34,6 +35,18 @@ type RowHeight = {
   expandedHeight: number;
 };
 
+// The tallest a row can be dragged, as a multiple of its default height.
+export const MAX_ROW_HEIGHT_SCALE = 4;
+
+// A row height between a collapsed row's and the tallest a row with this
+// default height can be.
+export function clampRowHeight(height: number, defaultHeight: number) {
+  return Math.min(
+    defaultHeight * MAX_ROW_HEIGHT_SCALE,
+    Math.max(COLLAPSED_ROW_METRICS.height, Math.round(height)),
+  );
+}
+
 // Rows at their default height have no entry.
 export type RowHeights = ReadonlyMap<string, RowHeight>;
 
@@ -49,11 +62,25 @@ export function getRowHeight(heights: RowHeights, kind: RowKind, id: string) {
   );
 }
 
+// What expanding the row restores: its height, or the height it had before
+// it collapsed.
+export function getRowExpandedHeight(
+  heights: RowHeights,
+  kind: RowKind,
+  id: string,
+) {
+  return (
+    heights.get(rowKey(kind, id))?.expandedHeight ??
+    DEFAULT_ROW_METRICS[kind].height
+  );
+}
+
 export function isRowCollapsed(heights: RowHeights, kind: RowKind, id: string) {
   return getRowHeight(heights, kind, id) <= COLLAPSED_ROW_METRICS.height;
 }
 
-// Sets a row's height, no lower than a collapsed row's.
+// Sets a row's height, no lower than a collapsed row's and no taller than
+// MAX_ROW_HEIGHT_SCALE times its default.
 export function setRowHeight(
   heights: RowHeights,
   kind: RowKind,
@@ -61,7 +88,7 @@ export function setRowHeight(
   height: number,
 ): RowHeights {
   const next = new Map(heights);
-  const clamped = Math.max(COLLAPSED_ROW_METRICS.height, Math.round(height));
+  const clamped = clampRowHeight(height, DEFAULT_ROW_METRICS[kind].height);
   if (clamped === DEFAULT_ROW_METRICS[kind].height) {
     next.delete(rowKey(kind, id));
   } else {
@@ -95,6 +122,29 @@ export function toggleRowCollapsed(
   return next;
 }
 
+// Resizes a row from its separator. Dragged down to the minimum it collapses,
+// and expanding it again restores expandedHeight, the height it had when the
+// drag started.
+export function resizeRow(
+  heights: RowHeights,
+  kind: RowKind,
+  id: string,
+  height: number,
+  expandedHeight: number,
+): RowHeights {
+  const clamped = clampRowHeight(height, DEFAULT_ROW_METRICS[kind].height);
+  if (clamped > COLLAPSED_ROW_METRICS.height) {
+    return setRowHeight(heights, kind, id, clamped);
+  }
+
+  const next = new Map(heights);
+  next.set(rowKey(kind, id), {
+    height: COLLAPSED_ROW_METRICS.height,
+    expandedHeight,
+  });
+  return next;
+}
+
 // The clip size and inset of a row this tall: a collapsed row's at the
 // minimum and the default's at the default height, scaling in between, with
 // taller rows growing their clips.
@@ -114,6 +164,24 @@ export function getRowMetrics(kind: RowKind, height: number): RowMetrics {
       base.height - base.clipHeight - 2 * base.clipInset,
     );
   return { height: clamped, clipHeight: clamped - chrome, clipInset };
+}
+
+// Rows shorter than this keep their handle to one line.
+const TWO_LINE_ROW_HEIGHT = 44;
+
+// The classes that fit a row's handle to its height (lane-row.css): the
+// collapsed form at the minimum, and between that and the row's default
+// height, a handle no taller than the row, on one line when it's short.
+export function getRowSizeClassName(height: number, defaultHeight: number) {
+  if (height <= COLLAPSED_ROW_METRICS.height) {
+    return "track-row--collapsed";
+  }
+  if (height >= defaultHeight) {
+    return "";
+  }
+  return height < TWO_LINE_ROW_HEIGHT
+    ? "track-row--short track-row--one-line"
+    : "track-row--short";
 }
 
 // The CSS variables that size a row other than its default height: the

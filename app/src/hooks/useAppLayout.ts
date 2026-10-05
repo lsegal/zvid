@@ -21,14 +21,18 @@ import {
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import { clamp } from "../app/util.ts";
 import {
+  AUDIO_ROW_HEIGHT,
   readAudioRowCollapsed,
   writeAudioRowCollapsed,
 } from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
 import {
+  COLLAPSED_ROW_METRICS,
+  clampRowHeight,
   NO_ROW_HEIGHTS,
   type RowHeights,
   type RowKind,
+  resizeRow,
   toggleRowCollapsed,
 } from "../row-heights.ts";
 import {
@@ -62,6 +66,8 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     ),
   );
   const [rowHeights, setRowHeights] = useState<RowHeights>(NO_ROW_HEIGHTS);
+  // The Audio row's expanded height; its collapse is the pref above.
+  const [audioRowHeight, setAudioRowHeight] = useState(AUDIO_ROW_HEIGHT);
   const labelResize = useLabelResize();
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
@@ -90,6 +96,27 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const toggleRowCollapsedById = useCallback((kind: RowKind, id: string) => {
     setRowHeights((heights) => toggleRowCollapsed(heights, kind, id));
   }, []);
+  const resizeRowById = useCallback(
+    (kind: RowKind, id: string, height: number, expandedHeight: number) => {
+      setRowHeights((heights) =>
+        resizeRow(heights, kind, id, height, expandedHeight),
+      );
+    },
+    [],
+  );
+  // Dragged to the minimum, the Audio row collapses like its toggle does,
+  // and expanding it restores expandedHeight.
+  const resizeAudioRow = useCallback(
+    (height: number, expandedHeight: number) => {
+      const clamped = clampRowHeight(height, AUDIO_ROW_HEIGHT);
+      const collapsed = clamped <= COLLAPSED_ROW_METRICS.height;
+      setAudioRowHeight(collapsed ? expandedHeight : clamped);
+      if (collapsed !== isAudioRowCollapsed) {
+        setAudioRowCollapsed(collapsed);
+      }
+    },
+    [isAudioRowCollapsed, setAudioRowCollapsed],
+  );
 
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
   // Until the grid is measured the saved width stands; after that it shrinks
@@ -229,8 +256,11 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     setSourceTracksCollapsed,
     isAudioRowCollapsed,
     setAudioRowCollapsed,
+    audioRowHeight,
+    resizeAudioRow,
     rowHeights,
     toggleRowCollapsed: toggleRowCollapsedById,
+    resizeRow: resizeRowById,
     labelResize,
     labelWidth,
     prefersReducedMotion,
