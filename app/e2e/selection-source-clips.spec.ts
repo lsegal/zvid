@@ -109,9 +109,7 @@ function drawnColumns(canvas: Locator) {
 // Plays from the session start and returns the loudest mix level heard
 // while the playhead was inside each [left, right] range, in page pixels.
 async function levelsWhilePlaying(page: Page, ranges: number[][]) {
-  for (let bar = 0; bar < 2; bar += 1) {
-    await page.getByRole("button", { name: "Jump back one bar" }).click();
-  }
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
   const sampling = page.evaluate(
     (ranges) =>
       new Promise<number[]>((resolve) => {

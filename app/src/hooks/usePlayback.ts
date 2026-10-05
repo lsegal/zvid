@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,6 +27,7 @@ import {
   getPlaybackStopQ,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
+import { type SkipDirection, skipTarget } from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
   TimelineDragState,
@@ -397,7 +399,9 @@ export function usePlayback({
     let nextEdgeQ = findNextEdgeQ(originQ);
 
     const step = (timestamp: number) => {
-      const elapsed = (timestamp - startedAt) / 1000;
+      // A frame's timestamp can predate `startedAt`, which would step back
+      // into a loop from playback started at its out marker.
+      const elapsed = Math.max(0, timestamp - startedAt) / 1000;
       let nextQ = originQ + secondsToQuarters(elapsed, bpm);
       const stopQ = playbackStopRef.current || totalQuartersRef.current;
       const loop = playbackOpenRef.current ? null : loopRegionRef.current;
@@ -469,14 +473,22 @@ export function usePlayback({
     startPlayback();
   }
 
-  function jumpPlayhead(deltaBars: number) {
-    const next = clamp(
-      playheadQRef.current + deltaBars * barLength,
-      0,
-      totalQuarters,
+  // Where playback from the start stops: the end the skip-forward button
+  // jumps to.
+  const playbackEndQ = useMemo(
+    () => getPlaybackStopQ(timelineClips, projectMediaItems, 0, bpm),
+    [bpm, projectMediaItems, timelineClips],
+  );
+
+  // The outer skip buttons: to the loop's markers or the timeline's ends.
+  function skipToEdge(direction: SkipDirection) {
+    const { targetQ } = skipTarget(
+      direction,
+      playheadQRef.current,
+      loopRegionRef.current,
+      playbackEndQ,
     );
-    setPlayheadQ(next);
-    playbackOriginRef.current = next;
+    jumpPlayheadTo(targetQ);
   }
 
   // The transport's inner buttons: half a bar, onto the snap grid when
@@ -503,7 +515,8 @@ export function usePlayback({
     stopTimelineAudibleScrub,
     pulseTimelineAudibleScrub,
     handleTransportToggle,
-    jumpPlayhead,
+    playbackEndQ,
+    skipToEdge,
     jumpHalfBar,
   };
 }

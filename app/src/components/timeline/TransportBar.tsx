@@ -9,12 +9,16 @@ import {
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
 } from "@heroicons/react/24/solid";
+import { useSyncExternalStore } from "react";
+import type { LoopRegion } from "../../app/loop-region";
 import {
   formatPreviewVolume,
   isPreviewSilent,
   type PreviewVolume,
 } from "../../app/preview-volume";
+import { type SkipDirection, skipTarget } from "../../app/transport-skip";
 import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
+import type { PlayheadSignal } from "../../playhead-signal";
 import {
   formatZoomFactor,
   sliderPositionToZoom,
@@ -36,9 +40,13 @@ type TransportBarProps = {
   updateZoomDraft: (nextZoom: number | null) => void;
   flushZoomDraft: (label?: string) => void;
   isPlaying: boolean;
-  jumpPlayhead: (bars: number) => void;
   // Half a bar, onto the snap grid when snapping is on.
   jumpHalfBar: (direction: -1 | 1) => void;
+  // The outer skip buttons jump to the loop's markers or the timeline's ends.
+  skipToEdge: (direction: SkipDirection) => void;
+  playheadSignal: PlayheadSignal;
+  loopRegion: LoopRegion | null;
+  playbackEndQ: number;
   onTransportToggle: () => void;
   onRandomize: () => void;
   previewVolume: PreviewVolume;
@@ -48,11 +56,46 @@ type TransportBarProps = {
   // Record is enabled while recording or with a source track armed.
   canRecord: boolean;
   isRecording: boolean;
-  onRecordToggle: () => void;
+  toggleRecording: () => void;
 };
 
 // Slider steps of 1%.
 const VOLUME_SLIDER_STEP = 0.01;
+
+// An outer skip button, labeled with where it jumps. It subscribes to the
+// playhead itself, so playback re-renders it only when its label changes.
+function SkipButton({
+  direction,
+  skipToEdge,
+  playheadSignal,
+  loopRegion,
+  playbackEndQ,
+}: Pick<
+  TransportBarProps,
+  "skipToEdge" | "playheadSignal" | "loopRegion" | "playbackEndQ"
+> & { direction: SkipDirection }) {
+  const label = useSyncExternalStore(
+    playheadSignal.subscribe,
+    () =>
+      skipTarget(direction, playheadSignal.get(), loopRegion, playbackEndQ)
+        .label,
+  );
+  return (
+    <button
+      aria-label={label}
+      className={`transport-button transport-button--skip-${direction === "back" ? "start" : "end"}`}
+      onClick={() => skipToEdge(direction)}
+      title={label}
+      type="button"
+    >
+      {direction === "back" ? (
+        <BackwardIcon aria-hidden="true" />
+      ) : (
+        <ForwardIcon aria-hidden="true" />
+      )}
+    </button>
+  );
+}
 
 // The zoom control, the transport buttons, and the VU meter and preview volume
 // below the timeline, with the transport buttons centered in the row.
@@ -62,7 +105,6 @@ export function TransportBar({
   updateZoomDraft,
   flushZoomDraft,
   isPlaying,
-  jumpPlayhead,
   jumpHalfBar,
   onTransportToggle,
   onRandomize,
@@ -72,8 +114,13 @@ export function TransportBar({
   getMeterTap,
   canRecord,
   isRecording,
-  onRecordToggle,
+  toggleRecording,
+  skipToEdge,
+  playheadSignal,
+  loopRegion,
+  playbackEndQ,
 }: TransportBarProps) {
+  const skip = { skipToEdge, playheadSignal, loopRegion, playbackEndQ };
   const silent = isPreviewSilent(previewVolume);
   const volumeText = formatPreviewVolume(previewVolume.volume);
   return (
@@ -132,15 +179,7 @@ export function TransportBar({
       </div>
 
       <div className="transport-cluster">
-        <button
-          aria-label="Jump back one bar"
-          className="transport-button transport-button--skip-start"
-          onClick={() => jumpPlayhead(-1)}
-          title="Jump back one bar"
-          type="button"
-        >
-          <BackwardIcon aria-hidden="true" />
-        </button>
+        <SkipButton direction="back" {...skip} />
         <button
           aria-label="Jump back half a bar"
           className="transport-button"
@@ -172,15 +211,7 @@ export function TransportBar({
         >
           <ForwardIcon aria-hidden="true" />
         </button>
-        <button
-          aria-label="Jump forward one bar"
-          className="transport-button transport-button--skip-end"
-          onClick={() => jumpPlayhead(1)}
-          title="Jump forward one bar"
-          type="button"
-        >
-          <ForwardIcon aria-hidden="true" />
-        </button>
+        <SkipButton direction="forward" {...skip} />
         <button
           aria-label="Randomize arrangement"
           className="transport-button transport-button--wand"
@@ -195,7 +226,7 @@ export function TransportBar({
           aria-pressed={isRecording}
           className={`transport-button transport-button--record${isRecording ? " transport-button--recording" : ""}`}
           disabled={!canRecord}
-          onClick={onRecordToggle}
+          onClick={toggleRecording}
           title={
             isRecording
               ? "Stop recording and keep playing"

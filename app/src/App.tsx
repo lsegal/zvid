@@ -708,13 +708,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               {...previewVolume}
               getMeterTap={getMeterTap}
               isPlaying={isPlaying}
-              jumpPlayhead={playback.jumpPlayhead}
-              jumpHalfBar={playback.jumpHalfBar}
+              {...playback}
+              playheadSignal={playheadSignal}
               onTransportToggle={playback.handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
-              canRecord={recording.canRecord}
-              isRecording={recording.isRecording}
-              onRecordToggle={recording.toggleRecording}
+              {...recording}
             />
           </section>
 
