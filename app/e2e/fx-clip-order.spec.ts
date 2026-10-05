@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // An Order on an FX clip arranges every layer beneath the clip, for the
 // clip's time range and inside its box, instead of the Global Order. The
@@ -557,16 +558,18 @@ test("an FX clip's add menu offers Order", async ({ page }) => {
 // menu lists only those; the Global Order's menu lists every layer.
 //
 // The docked Audio row footer (#809) leaves less room for layers to scroll
-// in; the default session's layers no longer all fit without scrolling.
+// in; three layers no longer all fit without scrolling.
 test.use({ viewport: { width: 1600, height: 1200 } });
 test("an FX clip's Order lists only the layers beneath it", async ({
   page,
 }) => {
   await page.goto("/");
-  // Layer 2 of the default session's three layers.
-  await expect(lane(page, "5")).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page);
+  // Layer 2 of the three layers.
+  await expect(lane(page, "2")).toBeVisible();
 
-  const bounds = await lane(page, "5").boundingBox();
+  const bounds = await lane(page, "2").boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");
   }
@@ -581,7 +584,7 @@ test("an FX clip's Order lists only the layers beneath it", async ({
     .getByRole("menu", { name: "Selection actions" })
     .getByRole("menuitem", { name: "Insert FX Clip" })
     .click();
-  await expect(lane(page, "5").locator(".clip-card--fx")).toHaveCount(1);
+  await expect(lane(page, "2").locator(".clip-card--fx")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page

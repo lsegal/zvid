@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Right-click menus on the editor's clips, lanes and source clips, driven in
 // the real app. A four-second test pattern at 120 BPM spans eight quarters.
@@ -50,7 +51,7 @@ function menuItem(page: Page, name: string) {
   return page.getByRole("menuitem", { name });
 }
 
-// Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
@@ -59,7 +60,8 @@ test.beforeEach(async ({ page }) => {
 test("right-clicking empty lane space selects the layer and offers only Paste", async ({
   page,
 }) => {
-  await rightClick(lane(page, "5"), { x: 400, y: 20 });
+  await addLayers(page);
+  await rightClick(lane(page, "2"), { x: 400, y: 20 });
 
   const menu = page.getByRole("menu", { name: "Layer actions" });
   await expect(menu).toBeVisible();
@@ -73,7 +75,7 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 
-  await rightClick(lane(page, "6"), { x: 400, y: 20 });
+  await rightClick(lane(page, "3"), { x: 400, y: 20 });
   await expect(menu).toBeVisible();
   await page.mouse.click(5, 5);
   await expect(menu).toBeHidden();
@@ -95,6 +97,7 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
 test("source clip menu copies to a chosen layer, and clip menu pastes at the playhead on the selected layer", async ({
   page,
 }) => {
+  await addLayers(page);
   await dropVideoIntoNewSourceTrack(page);
 
   // Copy to layer ▸ Layer 1 through the keyboard: → opens the submenu.
@@ -133,7 +136,7 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   await rightClick(page.locator(".source-span"));
   await menuItem(page, "Copy to layer").hover();
   await menuItem(page, "Auto (last free layer)").click();
-  await expect(lane(page, "6").locator(".clip-card")).toHaveCount(1);
+  await expect(lane(page, "3").locator(".clip-card")).toHaveCount(1);
 
   // Right-clicking a clip selects it; Copy, then Paste on another layer.
   const clip = lane(page, "1").locator(".clip-card");
@@ -148,13 +151,13 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   await menuItem(page, "Copy").click();
   await expect(clipMenu).toBeHidden();
 
-  await rightClick(lane(page, "5"), { x: 400, y: 20 });
+  await rightClick(lane(page, "2"), { x: 400, y: 20 });
   await expect(menuItem(page, "Paste")).not.toHaveAttribute(
     "aria-disabled",
     "true",
   );
   await menuItem(page, "Paste").click();
-  const pasted = lane(page, "5").locator(".clip-card");
+  const pasted = lane(page, "2").locator(".clip-card");
   await expect(pasted).toHaveCount(1);
   await expect(pasted).toHaveClass(/clip-card--selected/);
   // The playhead sits at the start, so the paste lands there too.
@@ -175,7 +178,7 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   );
   await page.keyboard.press("Enter");
   await expect(clipMenu).toBeHidden();
-  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(0);
+  await expect(lane(page, "2").locator(".clip-card")).toHaveCount(0);
 });
 
 test("the FX device menu runs on the shared context menu", async ({ page }) => {
@@ -247,9 +250,10 @@ function contextMenuOn(page: Page, selector: string) {
 test("right-clicks on clips, lanes and source clips, even on their thumbnails, never open the browser menu", async ({
   page,
 }) => {
+  await addLayers(page);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
-  const clip = lane(page, "6").locator(".clip-card");
+  const clip = lane(page, "3").locator(".clip-card");
   await expect(clip).toHaveCount(1);
   await expect(page.locator(".clip-card__tile").first()).toBeAttached();
   await expect(page.locator(".source-span__tile").first()).toBeAttached();
@@ -270,7 +274,7 @@ test("right-clicks on clips, lanes and source clips, even on their thumbnails, n
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
   }
-  await rightClick(lane(page, "5"), { x: 400, y: 20 });
+  await rightClick(lane(page, "2"), { x: 400, y: 20 });
   await expect(laneMenu).toBeVisible();
   expect(await lastEventShowedNativeMenu(page)).toBe(false);
   await page.keyboard.press("Escape");
@@ -332,6 +336,7 @@ test("Ctrl-click on macOS opens the menus without selecting, dragging or droppin
   });
   await page.reload();
   await expect(lane(page, "1")).toBeVisible();
+  await addLayers(page);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ modifiers: ["Meta"] });
   await expect(page.locator(".clip-card")).toHaveCount(1);
@@ -362,7 +367,7 @@ test("Ctrl-click on macOS opens the menus without selecting, dragging or droppin
     await page.keyboard.up("Control");
   }
 
-  await ctrlClick(lane(page, "5"), { x: 400, y: 20 });
+  await ctrlClick(lane(page, "2"), { x: 400, y: 20 });
   await expect(page.getByRole("menu", { name: "Layer actions" })).toBeVisible();
   expect(await lastEventShowedNativeMenu(page)).toBe(false);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
@@ -433,13 +438,14 @@ async function rightClickLaneAt(target: Locator, x: number) {
 test("right-clicking a selection keeps it and inserts a track like its number key", async ({
   page,
 }) => {
+  await addLayers(page);
   await dropVideoIntoNewSourceTrack(page);
   const trackName = "test-pattern";
 
   // The number key commits the same range on Layer 2, for comparison.
-  await dragSelection(lane(page, "5"), 30, 130);
+  await dragSelection(lane(page, "2"), 30, 130);
   await page.keyboard.press("1");
-  const keyed = lane(page, "5").locator(".clip-card");
+  const keyed = lane(page, "2").locator(".clip-card");
   await expect(keyed).toHaveCount(1);
 
   await dragSelection(lane(page, "1"), 30, 130);
@@ -478,14 +484,14 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   expect(insertedBox?.x).toBeCloseTo(selectionBox?.x ?? Number.NaN, 0);
 
   // Insert Fill Clip fills exactly the selected range and selects the fill.
-  await dragSelection(lane(page, "6"), 30, 130);
-  const fillSelection = lane(page, "6").locator(".timeline-selection");
+  await dragSelection(lane(page, "3"), 30, 130);
+  const fillSelection = lane(page, "3").locator(".timeline-selection");
   const fillSelectionBox = await fillSelection.boundingBox();
-  await rightClickLaneAt(lane(page, "6"), 80);
+  await rightClickLaneAt(lane(page, "3"), 80);
   await menuItem(page, "Insert Fill Clip").click();
   await expect(menu).toBeHidden();
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
-  const fill = lane(page, "6").locator(".clip-card--fill");
+  const fill = lane(page, "3").locator(".clip-card--fill");
   await expect(fill).toHaveCount(1);
   await expect(fill).toHaveClass(/clip-card--selected/);
   const fillBox = await fill.boundingBox();
@@ -493,8 +499,8 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   expect(fillBox?.width).toBeCloseTo(fillSelectionBox?.width ?? Number.NaN, 0);
 
   // Past the end of the footage, the track is disabled.
-  await dragSelection(lane(page, "6"), 600, 700);
-  await rightClickLaneAt(lane(page, "6"), 650);
+  await dragSelection(lane(page, "3"), 600, 700);
+  await rightClickLaneAt(lane(page, "3"), 650);
   await menuItem(page, "Insert Track").hover();
   const noFootage = page
     .getByRole("menu", { name: "Insert Track" })
@@ -508,18 +514,18 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 
   // Right-clicking outside the selection opens the lane menu and clears it.
-  await dragSelection(lane(page, "6"), 600, 700);
-  await rightClickLaneAt(lane(page, "6"), 300);
+  await dragSelection(lane(page, "3"), 600, 700);
+  await rightClickLaneAt(lane(page, "3"), 300);
   await expect(page.getByRole("menu", { name: "Layer actions" })).toBeVisible();
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   // With nothing focused, Shift+F10 opens the selection menu on it.
-  await dragSelection(lane(page, "6"), 600, 700);
+  await dragSelection(lane(page, "3"), 600, 700);
   await page.evaluate(() =>
     (document.activeElement as HTMLElement | null)?.blur(),
   );
   await page.keyboard.press("Shift+F10");
   await expect(menu).toBeVisible();
-  await expect(lane(page, "6").locator(".timeline-selection")).toBeVisible();
+  await expect(lane(page, "3").locator(".timeline-selection")).toBeVisible();
 });

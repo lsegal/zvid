@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Clicking a layer in the preview selects and outlines its clip, and dragging
 // it writes the clip's own Transform effect as one undo step; with only the
@@ -168,6 +169,7 @@ test("a clip's own Transform follows Duplicate and Paste", async ({ page }) => {
   await page.goto("/");
   await holdOrderStill(page);
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
+  await addLayers(page, 1);
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
@@ -217,7 +219,7 @@ test("a clip's own Transform follows Duplicate and Paste", async ({ page }) => {
   await expect(transform).toHaveCount(0);
   await editMenu();
   await page.getByRole("menuitem", { name: /^Paste/ }).click();
-  const pasted = page.locator('[data-timeline-lane-id="5"] .clip-card');
+  const pasted = page.locator('[data-timeline-lane-id="2"] .clip-card');
   await expect(pasted).toHaveClass(/clip-card--selected/);
   await expect(transform).toHaveCount(1);
 });

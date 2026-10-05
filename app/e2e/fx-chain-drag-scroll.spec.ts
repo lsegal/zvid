@@ -10,7 +10,7 @@ async function openLongChain(page: Page) {
   // Without momentum, the scroll lands exactly where the pointer left it.
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  const layerHeader = page.locator('[data-layer-header-id="1"]');
   await expect(layerHeader).toBeVisible();
 
   // Add every effect so the chain overflows its panel.

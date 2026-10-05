@@ -1,7 +1,9 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // Right-click menus on layer headers and the Audio row, driven in the real
-// app. Default layers: "1" is Layer 1, "5" is Layer 2 and "6" is Layer 3.
+// app. Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3"
+// (Layer 3).
 
 function header(page: Page, id: string) {
   return page.locator(`[data-layer-header-id="${id}"]`);
@@ -40,14 +42,15 @@ async function openLayerMenu(page: Page, id: string) {
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(header(page, "1")).toBeVisible();
+  await addLayers(page);
 });
 
 test("Insert text at playhead adds a text clip on the layer", async ({
   page,
 }) => {
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Insert text at playhead").click();
-  const text = page.locator('[data-timeline-lane-id="5"] .clip-card--text');
+  const text = page.locator('[data-timeline-lane-id="2"] .clip-card--text');
   await expect(text).toHaveCount(1);
   await expect(text).toHaveClass(/clip-card--selected/);
   await expect(page.locator('section[aria-label="Text"]')).toBeVisible();
@@ -56,7 +59,7 @@ test("Insert text at playhead adds a text clip on the layer", async ({
 test("right-clicking a layer header selects it and lists the layer actions", async ({
   page,
 }) => {
-  const menu = await openLayerMenu(page, "5");
+  const menu = await openLayerMenu(page, "2");
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
   await expect(menu.getByRole("menuitem")).toHaveText([
     "Rename…",
@@ -81,7 +84,7 @@ test("right-clicking a layer header selects it and lists the layer actions", asy
     "true",
   );
   await page.keyboard.press("Escape");
-  await openLayerMenu(page, "6");
+  await openLayerMenu(page, "3");
   await expect(menuItem(page, "Move down")).toHaveAttribute(
     "aria-disabled",
     "true",
@@ -89,7 +92,7 @@ test("right-clicking a layer header selects it and lists the layer actions", asy
   await page.keyboard.press("Escape");
 
   // Shift+F10 on the focused layer header opens the same menu.
-  await header(page, "6").locator(".track-label__select").focus();
+  await header(page, "3").locator(".track-label__select").focus();
   await page.keyboard.press("Shift+F10");
   await expect(
     page.getByRole("menu", { name: "Layer header actions" }),
@@ -105,20 +108,20 @@ test("layer actions reorder, insert, duplicate, rename and delete, each undoable
   await expect(names).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 
   // Move up: the numbers follow the new order.
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Move up").click();
   await expect(names).toHaveText(["Layer 2", "Layer 1", "Layer 3"]);
   await expect(numbers).toHaveText(["1", "2", "3"]);
   await undo();
   await expect(names).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Insert layer above").click();
   await expect(names).toHaveText(["Layer 1", "Layer 4", "Layer 2", "Layer 3"]);
   await undo();
   await expect(names).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Duplicate").click();
   await expect(names).toHaveText([
     "Layer 1",
@@ -130,14 +133,14 @@ test("layer actions reorder, insert, duplicate, rename and delete, each undoable
   await expect(names).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 
   // Rename: Escape cancels, Enter saves.
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Rename…").click();
   const input = page.getByRole("textbox", { name: "Layer name" });
   await expect(input).toBeFocused();
   await input.fill("Ignored");
   await input.press("Escape");
   await expect(names).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
-  await openLayerMenu(page, "5");
+  await openLayerMenu(page, "2");
   await menuItem(page, "Rename…").click();
   await expect(input).toBeFocused();
   await input.fill("Drums");
@@ -156,7 +159,7 @@ test("layer actions reorder, insert, duplicate, rename and delete, each undoable
 test("Add FX adds to the layer and the FX toggle follows it", async ({
   page,
 }) => {
-  await openLayerMenu(page, "6");
+  await openLayerMenu(page, "3");
   await menuItem(page, "Add FX").hover();
   const submenu = page.getByRole("menu", { name: "Add FX" });
   await expect(submenu).toBeVisible();
@@ -167,9 +170,9 @@ test("Add FX adds to the layer and the FX toggle follows it", async ({
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
   await expect(page.locator(".fx-panel")).toContainText(effectName);
 
-  await openLayerMenu(page, "6");
+  await openLayerMenu(page, "3");
   await menuItem(page, "Disable FX").click();
-  await openLayerMenu(page, "6");
+  await openLayerMenu(page, "3");
   await expect(menuItem(page, "Enable FX")).toBeVisible();
 });
 

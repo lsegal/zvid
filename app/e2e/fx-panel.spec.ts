@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // A tall device chain must not squeeze the arrangement on a short window:
 // the FX panel is capped and its device chain scrolls instead.
@@ -7,7 +8,8 @@ test.use({ viewport: { width: 1280, height: 720 } });
 
 test("a tall FX device keeps the arrangement usable", async ({ page }) => {
   await page.goto("/");
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await addLayers(page);
+  const layerHeader = page.locator('[data-layer-header-id="3"]');
   await expect(layerHeader).toBeVisible();
 
   // Add every effect so the chain holds its tallest device.
@@ -37,7 +39,8 @@ test("a tall FX device keeps the arrangement usable", async ({ page }) => {
 // Origin X Origin Y Rotation.
 test("Transform lays its knobs out in two rows", async ({ page }) => {
   await page.goto("/");
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await addLayers(page);
+  const layerHeader = page.locator('[data-layer-header-id="3"]');
   await layerHeader.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
   await page
@@ -69,7 +72,8 @@ test("Move lays out Motion, then labeled Start and End rows", async ({
   page,
 }) => {
   await page.goto("/");
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await addLayers(page);
+  const layerHeader = page.locator('[data-layer-header-id="3"]');
   await layerHeader.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
   await page
@@ -146,10 +150,11 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
   page,
 }) => {
   await page.goto("/");
+  await addLayers(page, 1);
   const title = page.locator(".fx-panel__toggle");
   const sections = page.locator(".fx-chain [data-fx-divider]");
 
-  await page.locator('[data-layer-header-id="5"]').click();
+  await page.locator('[data-layer-header-id="2"]').click();
   await expect(title).toHaveText("Layer 2 Effects");
   await expect(sections).toHaveText(["Global", "Layer"]);
   await expect(
@@ -159,10 +164,10 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
     page.getByRole("button", { name: "Add device to this clip" }),
   ).toHaveCount(0);
 
-  await page.locator('[data-layer-header-id="5"]').click({ button: "right" });
+  await page.locator('[data-layer-header-id="2"]').click({ button: "right" });
   await page.getByRole("menuitem", { name: "Insert text at playhead" }).click();
   await expect(
-    page.locator('[data-timeline-lane-id="5"] .clip-card--selected'),
+    page.locator('[data-timeline-lane-id="2"] .clip-card--selected'),
   ).toHaveCount(1);
   await expect(title).toHaveText("Clip Text Effects (Layer 2)");
   await expect(sections).toHaveText(["Global", "Layer", "Clip"]);
@@ -200,6 +205,7 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
 // undo step.
 test("the Order's Layers menu toggles layers in place", async ({ page }) => {
   await page.goto("/");
+  await addLayers(page);
   await page.locator('[data-layer-header-id="1"]').click();
 
   const order = page.locator('section[aria-label="Order"]');

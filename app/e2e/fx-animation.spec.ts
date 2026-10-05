@@ -5,7 +5,7 @@ import { expect, type Page, test } from "@playwright/test";
 // edge. A newly added device has it on.
 
 async function addLayerEffect(page: Page, name: RegExp) {
-  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  const layerHeader = page.locator('[data-layer-header-id="1"]');
   await expect(layerHeader).toBeVisible();
   await layerHeader.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
