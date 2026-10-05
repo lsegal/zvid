@@ -233,7 +233,7 @@ test("the collapsed Audio row stays docked and still draws the waveform", async 
   const collapsedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
   expect(collapsedHeight).toBeLessThan(expandedHeight / 2);
   // As short as a collapsed layer (#1057).
-  expect(collapsedHeight).toBe(20);
+  expect(collapsedHeight).toBe(24);
   await expect.poll(() => bottomGap(page)).toBeLessThan(1);
 
   // Compact, not hidden: the waveform is drawn at the slim height.

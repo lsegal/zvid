@@ -2,12 +2,14 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Double-clicking a layer, source track or Audio row handle outside its name
-// collapses the row to 20px, with a 16px clip 2px down and no frames, and
+// collapses the row to 24px, with a 16px clip 4px down and no frames, and
 // double-clicking it again expands it back (#1057). The name still renames.
+// Collapsing keeps the handle's and clips' font sizes and doesn't move the
+// index or name sideways (#1073).
 
-const COLLAPSED_HEIGHT = 20;
+const COLLAPSED_HEIGHT = 24;
 const COLLAPSED_CLIP_HEIGHT = 16;
-const COLLAPSED_CLIP_INSET = 2;
+const COLLAPSED_CLIP_INSET = 4;
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -71,6 +73,48 @@ async function doubleClickBesideName(page: Page, label: Locator) {
   await page.mouse.dblclick(name.x + name.width + 6, name.y + name.height / 2);
 }
 
+// Where a row's handle puts its index and name, and the font sizes of its
+// name and its clip's label.
+async function labelLayout(label: Locator, clipText: Locator) {
+  const left = async (locator: Locator) => {
+    const box = await locator.boundingBox();
+    if (!box) {
+      throw new Error("Not visible");
+    }
+    return box.x;
+  };
+  const fontSize = (locator: Locator) =>
+    locator.evaluate((node) => getComputedStyle(node).fontSize);
+  const index = label.locator(".track-label__index");
+  const name = label.locator(".track-label__select > span");
+  return {
+    indexLeft: await left(index),
+    nameLeft: await left(name),
+    indexFontSize: await fontSize(index),
+    nameFontSize: await fontSize(name),
+    clipFontSize: await fontSize(clipText),
+  };
+}
+
+// Collapsing kept the expanded font sizes and x positions, and the name fits
+// the 24px row.
+async function expectSameLayout(
+  label: Locator,
+  clipText: Locator,
+  expanded: Awaited<ReturnType<typeof labelLayout>>,
+) {
+  const collapsed = await labelLayout(label, clipText);
+  expect(collapsed.indexFontSize).toBe(expanded.indexFontSize);
+  expect(collapsed.nameFontSize).toBe(expanded.nameFontSize);
+  expect(collapsed.clipFontSize).toBe(expanded.clipFontSize);
+  expect(Math.abs(collapsed.indexLeft - expanded.indexLeft)).toBeLessThan(0.5);
+  expect(Math.abs(collapsed.nameLeft - expanded.nameLeft)).toBeLessThan(0.5);
+  const name = label.locator(".track-label__select > span");
+  expect(
+    await name.evaluate((node) => node.scrollHeight <= node.clientHeight),
+  ).toBe(true);
+}
+
 // Images drawn in a row: its frames and thumbnails.
 function thumbnails(row: Locator) {
   return row.locator(
@@ -86,11 +130,14 @@ test("double-clicking a layer's header collapses and expands its lane", async ({
   await addVideoClips(page);
   const row = layerRow(page);
   const label = row.locator(".track-label");
+  const clipText = row.locator(".clip-card__text strong");
   const expandedHeight = await height(row);
   expect(expandedHeight).toBe(66);
+  const expandedLayout = await labelLayout(label, clipText);
 
   await label.locator(".track-label__index").dblclick();
   await expect(row).toHaveClass(/track-row--collapsed/);
+  await expectSameLayout(label, clipText, expandedLayout);
   expect(await height(row)).toBe(COLLAPSED_HEIGHT);
   expect(await height(label)).toBe(COLLAPSED_HEIGHT);
   const clip = row.locator(".clip-card");
@@ -131,11 +178,14 @@ test("double-clicking a source track's label collapses and expands it", async ({
   await addVideoClips(page);
   const row = sourceRow(page);
   const label = row.locator(".track-label");
+  const clipText = row.locator(".source-span__body span");
   const expandedHeight = await height(row);
+  const expandedLayout = await labelLayout(label, clipText);
 
   await doubleClickBesideName(page, label);
   await expect(row).toHaveClass(/track-row--collapsed/);
   expect(await height(row)).toBe(COLLAPSED_HEIGHT);
+  await expectSameLayout(label, clipText, expandedLayout);
   const span = row.locator(".source-span");
   expect(await height(span)).toBe(COLLAPSED_CLIP_HEIGHT);
   expect(await span.evaluate((node) => (node as HTMLElement).offsetTop)).toBe(

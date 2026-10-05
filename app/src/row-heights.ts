@@ -20,12 +20,12 @@ export const DEFAULT_ROW_METRICS: Readonly<Record<RowKind, RowMetrics>> = {
   source: { height: 82, clipHeight: 56, clipInset: 12 },
 };
 
-// A collapsed row: one line of handle text over a 16px clip. No row is
-// shorter.
+// A collapsed row: one line of handle text over a 16px clip, with 4px of
+// padding above and below it. No row is shorter.
 export const COLLAPSED_ROW_METRICS: Readonly<RowMetrics> = {
-  height: 20,
+  height: 24,
   clipHeight: 16,
-  clipInset: 2,
+  clipInset: 4,
 };
 
 type RowHeight = {

@@ -28,7 +28,7 @@ describe("row heights", () => {
 
   it("never sets a row shorter than a collapsed one", () => {
     const heights = setRowHeight(NO_ROW_HEIGHTS, "lane", "1", 4);
-    assert.equal(getRowHeight(heights, "lane", "1"), 20);
+    assert.equal(getRowHeight(heights, "lane", "1"), 24);
     assert.equal(isRowCollapsed(heights, "lane", "1"), true);
   });
 
@@ -42,9 +42,9 @@ describe("row heights", () => {
     assert.equal(heights.size, 0);
   });
 
-  it("collapses a row to 20px and expands it back to its default", () => {
+  it("collapses a row to 24px and expands it back to its default", () => {
     const collapsed = toggleRowCollapsed(NO_ROW_HEIGHTS, "lane", "1");
-    assert.equal(getRowHeight(collapsed, "lane", "1"), 20);
+    assert.equal(getRowHeight(collapsed, "lane", "1"), 24);
     assert.equal(isRowCollapsed(collapsed, "lane", "1"), true);
     assert.equal(getRowHeight(collapsed, "lane", "2"), 66);
 
@@ -56,7 +56,7 @@ describe("row heights", () => {
   it("expands a collapsed row to the height it had before", () => {
     const tall = setRowHeight(NO_ROW_HEIGHTS, "source", "1", 120);
     const collapsed = toggleRowCollapsed(tall, "source", "1");
-    assert.equal(getRowHeight(collapsed, "source", "1"), 20);
+    assert.equal(getRowHeight(collapsed, "source", "1"), 24);
     const expanded = toggleRowCollapsed(collapsed, "source", "1");
     assert.equal(getRowHeight(expanded, "source", "1"), 120);
   });
@@ -74,33 +74,33 @@ describe("row metrics", () => {
     assert.deepEqual(getRowMetrics("source", 82), DEFAULT_ROW_METRICS.source);
   });
 
-  it("gives a collapsed row a 16px clip with a 2px inset", () => {
+  it("gives a collapsed row a 16px clip with a 4px inset", () => {
     for (const kind of ["lane", "source"] as const) {
-      assert.deepEqual(getRowMetrics(kind, 20), COLLAPSED_ROW_METRICS);
+      assert.deepEqual(getRowMetrics(kind, 24), COLLAPSED_ROW_METRICS);
     }
   });
 
   it("scales the clip between the collapsed and default sizes", () => {
     const { clipHeight, clipInset } = getRowMetrics("lane", 43);
     assert.ok(clipHeight > 16 && clipHeight < 44);
-    assert.ok(clipInset > 2 && clipInset < 11);
+    assert.ok(clipInset > 4 && clipInset < 11);
     assert.ok(clipHeight + 2 * clipInset <= 43);
   });
 
   it("styles only rows away from their default height", () => {
     assert.equal(getRowHeightStyle("lane", 66), undefined);
-    assert.deepEqual(getRowHeightStyle("lane", 20), {
-      "--lane-height": "20px",
+    assert.deepEqual(getRowHeightStyle("lane", 24), {
+      "--lane-height": "24px",
       "--lane-clip-height": "16px",
-      "--lane-clip-inset": "2px",
+      "--lane-clip-inset": "4px",
     });
-    assert.deepEqual(getRowHeightStyle("source", 20), {
-      "--lane-height": "20px",
+    assert.deepEqual(getRowHeightStyle("source", 24), {
+      "--lane-height": "24px",
       "--lane-clip-height": "16px",
-      "--lane-clip-inset": "2px",
-      "--source-row-height": "20px",
+      "--lane-clip-inset": "4px",
+      "--source-row-height": "24px",
       "--source-clip-height": "16px",
-      "--source-clip-inset": "2px",
+      "--source-clip-inset": "4px",
     });
   });
 });

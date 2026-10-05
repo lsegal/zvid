@@ -10,14 +10,14 @@
   cursor: crosshair;
 }
 
-/* A collapsed layer or source track (#1057): a 20px row whose handle keeps
-   its grip, index and name on one line and hides the rest. */
+/* A collapsed layer or source track (#1057): a 24px row whose handle keeps
+   its grip, index and name on one line and hides the rest. Only heights
+   shrink, so the grip, index and name keep their expanded font sizes and x
+   positions (#1073). */
 .track-row--collapsed .track-label {
   height: var(--lane-height);
   padding-block: 0;
   overflow: hidden;
-  font-size: 0.78rem;
-  line-height: 1;
 }
 
 .track-row--collapsed .track-label small,
@@ -37,10 +37,8 @@
 }
 
 .track-row--collapsed .track-label__index {
-  width: 22px;
-  height: 16px;
-  border-radius: 5px;
-  font-size: 0.68rem;
+  height: 18px;
+  border-radius: 6px;
 }
 
 .track-row--collapsed .track-label__rename {
@@ -62,6 +60,5 @@
 .track-row--collapsed .source-span__body {
   justify-content: center;
   padding-block: 0;
-  font-size: 0.68rem;
   line-height: 1;
 }
