@@ -58,15 +58,15 @@
   text-overflow: ellipsis;
 }
 
-/* Collapsed: a 20px row (row-heights.ts) with the toggle and a scaled-down
-   waveform. */
+/* Collapsed: a 44px row like a collapsed layer (row-heights.ts, #1077),
+   with the toggle, its full-size index badge 8px from the top and bottom,
+   and a scaled-down waveform inset as much. */
 .track-row--bus-collapsed .track-label {
-  height: 20px;
+  height: 44px;
   min-height: 0;
-  padding-block: 0;
+  padding-block: 8px 7px;
 }
 
-.track-row--bus-collapsed .track-label__index,
 .track-row--bus-collapsed .audio-row__title small {
   display: none;
 }
@@ -76,12 +76,12 @@
 }
 
 .track-row--bus-collapsed .waveform__canvas {
-  top: 2px;
-  height: calc(100% - 4px);
+  top: 8px;
+  height: calc(100% - 16px);
 }
 
 .track-row--bus-collapsed .media-sync--waveform {
-  inset-block: 2px;
+  inset-block: 8px;
 }
 
 .audio-row__playhead {
