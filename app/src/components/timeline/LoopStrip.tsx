@@ -135,7 +135,6 @@ export function LoopStrip({
       {selectionStyle ? (
         <div className="ruler-playback-selection" style={selectionStyle} />
       ) : null}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: range selection is a pointer gesture over the ruler, like scrubbing */}
       <div
         className="ruler-loop-strip"
         onPointerDown={onPointerDown}

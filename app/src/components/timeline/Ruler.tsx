@@ -1,12 +1,12 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS } from "../../app/constants.ts";
+import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
   getTimelinePointerX,
   pointerToTimelineQ,
   quartersToSeconds,
 } from "../../app/timeline-math.ts";
-import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import type { TimelineDragState, TimelineMode } from "../../app/types.ts";
 import { clamp, pluralize } from "../../app/util.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";

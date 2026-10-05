@@ -1,5 +1,5 @@
-import { clamp } from "./util.ts";
 import { snapQuarterValue } from "./timeline-math.ts";
+import { clamp } from "./util.ts";
 
 /** A highlighted time range on the timeline, in quarters, start before end. */
 export type PlaybackSelection = { startQ: number; endQ: number };
