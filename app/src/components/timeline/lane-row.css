@@ -10,14 +10,15 @@
   cursor: crosshair;
 }
 
-/* A collapsed layer or source track (#1057): a 20px row whose handle keeps
-   its grip, index and name on one line and hides the rest. */
+/* A collapsed layer or source track (#1057): a 44px row whose handle keeps
+   its grip, index and name on one line and hides the rest. They keep their
+   expanded sizes, fonts and x positions (#1073), and the 28px index badge
+   gets 8px above and below it (#1077), the bottom border counting toward
+   the 8px under it, as it does under the clips. */
 .track-row--collapsed .track-label {
   height: var(--lane-height);
-  padding-block: 0;
+  padding-block: var(--lane-clip-inset) calc(var(--lane-clip-inset) - 1px);
   overflow: hidden;
-  font-size: 0.78rem;
-  line-height: 1;
 }
 
 .track-row--collapsed .track-label small,
@@ -27,37 +28,17 @@
   display: none;
 }
 
-.track-row--collapsed .track-label__grip {
-  height: 16px;
-}
-
-.track-row--collapsed .track-label__grip svg {
-  width: 12px;
-  height: 12px;
-}
-
-.track-row--collapsed .track-label__index {
-  width: 22px;
-  height: 16px;
-  border-radius: 5px;
-  font-size: 0.68rem;
-}
-
 .track-row--collapsed .track-label__rename {
   padding-block: 0;
 }
 
 /* A row dragged shorter than its default (#1058): its handle fits the row,
-   clipping what doesn't fit, and drops its summary when it's one line. */
+   clipping what doesn't fit. */
 .track-row--short .track-label {
   height: var(--lane-height);
   min-height: 0;
   padding-block: 0;
   overflow: hidden;
-}
-
-.track-row--one-line .track-label small {
-  display: none;
 }
 
 /* Collapsed clips are plain bars with their name, when it fits. */
@@ -75,6 +56,5 @@
 .track-row--collapsed .source-span__body {
   justify-content: center;
   padding-block: 0;
-  font-size: 0.68rem;
   line-height: 1;
 }

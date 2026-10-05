@@ -231,17 +231,19 @@ test("the collapsed Audio row stays docked and still draws the waveform", async 
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(toggle).toHaveAttribute("title", "Expand audio row");
   const collapsedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
-  expect(collapsedHeight).toBeLessThan(expandedHeight / 2);
-  // As short as a collapsed layer (#1057).
-  expect(collapsedHeight).toBe(20);
+  expect(collapsedHeight).toBeLessThan(expandedHeight);
+  // As short as a collapsed layer (#1057, #1077).
+  expect(collapsedHeight).toBe(44);
   await expect.poll(() => bottomGap(page)).toBeLessThan(1);
 
   // Compact, not hidden: the waveform is drawn at the slim height.
   const canvas = mixContent(page).locator(".waveform__canvas").first();
   await expect(canvas).toBeVisible();
-  const canvasHeight = (await canvas.boundingBox())?.height ?? 0;
-  expect(canvasHeight).toBeGreaterThanOrEqual(14);
-  expect(canvasHeight).toBeLessThan(collapsedHeight);
+  // Inset 8px, like a collapsed layer's clips.
+  const rowTop = (await audioRow(page).boundingBox())?.y ?? 0;
+  const canvasBox = await canvas.boundingBox();
+  expect(canvasBox?.height).toBe(28);
+  expect(Math.abs((canvasBox?.y ?? 0) - rowTop - 8)).toBeLessThanOrEqual(0.5);
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
   // The preference survives a reload.

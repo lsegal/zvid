@@ -41,7 +41,7 @@ type AudioRowProps = {
 // clips make, with a summary of where it comes from and a Refresh button.
 // It takes no files; a drop over it falls through to the timeline.
 // It is docked at the bottom of the timeline panel, under the rows (Timeline
-// footer), so it draws its own playhead line. Collapsed, it is a 20px row
+// footer), so it draws its own playhead line. Collapsed, it is a 44px row
 // (row-heights.ts) that still draws the waveform, scaled down. The toggle
 // collapses and expands it, as does a double-click anywhere on its label but
 // the Refresh button. Dragging the separator along the bottom of its label
