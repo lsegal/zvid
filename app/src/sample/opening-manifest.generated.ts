@@ -48,14 +48,14 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "\"Just Nasty\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). 2:00–2:30 excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
     },
     {
-      "id": "zvid-sample:opening-v2:movie-camera",
-      "path": "zvid-sample://opening-v2/movie-camera.svg",
-      "url": "/samples/opening-v2/movie-camera.svg",
-      "name": "movie-camera.svg",
+      "id": "zvid-sample:opening-v2:zvid-logo",
+      "path": "zvid-sample://opening-v2/zvid-logo.svg",
+      "url": "/samples/opening-v2/zvid-logo.svg",
+      "name": "zvid-logo.svg",
       "mediaType": "image/svg+xml",
-      "bytes": 2079,
-      "sha256": "cb0cd75bc95e741ccf9c5870d3b3dd079bfd193bab11017f0e2913e81a74a19a",
-      "credit": "\"Movie camera\" combined from \"Film projector\" and \"Film spool\" by Delapouite (https://game-icons.net), licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)."
+      "bytes": 990,
+      "sha256": "a3a2ce53cd78904b535f70d7e8dda7997e0a2cfadd2cad78b6aa9965da7e4eba",
+      "credit": "The zvid logo, zvid's own artwork."
     }
   ]
 };
