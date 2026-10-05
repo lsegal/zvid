@@ -524,6 +524,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   bpm={bpm}
                   fps={fps}
                   snapEnabled={project.snapEnabled}
+                  timelineContentEndQ={editing.timelineContentEndQ}
                 />
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}

@@ -105,8 +105,10 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     handleRedo: record("redo"),
     handleUndo: record("undo"),
     lanes: [],
+    lockPlaybackSelection: record("lockPlaybackSelection"),
     pendingSelection: null,
     playbackOriginRef: { current: 0 },
+    playbackSelection: null,
     playheadQRef: { current: 8 },
     selectedClip: undefined,
     selectedSourceSpan: undefined,
@@ -165,6 +167,7 @@ describe("shortcut table", () => {
         "transport.step-frame: ArrowLeft, ArrowRight",
         "transport.jump-to-edge: Home, End",
         "layers.step-selection: ArrowUp, ArrowDown",
+        "loop.lock: L",
         "clips.delete: Delete, Backspace",
       ],
     );
@@ -305,6 +308,22 @@ describe("dispatching shortcuts", () => {
       `setPlayheadQ(${8 + 1 / 15})`,
       `setPlayheadQ(${8 - 5 / 15})`,
     ]);
+  });
+
+  it("locks the playback selection into the loop with L", () => {
+    const playbackSelection = { startQ: 4, endQ: 8 };
+    const event = dispatch(press("l"), { playbackSelection });
+    assert.equal(event.defaultPrevented, true);
+    assert.deepEqual(calls, ["lockPlaybackSelection"]);
+  });
+
+  it("leaves L alone with no playback selection, in a text field or with a modifier", () => {
+    const playbackSelection = { startQ: 4, endQ: 8 };
+    const noSelection = dispatch(press("l"));
+    dispatch(press("l", { target: new FakeInput() }), { playbackSelection });
+    dispatch(press("l", { metaKey: true }), { playbackSelection });
+    assert.equal(noSelection.defaultPrevented, false);
+    assert.deepEqual(calls, []);
   });
 
   it("jumps to the start and to the last frame of the content", () => {

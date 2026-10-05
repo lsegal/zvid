@@ -78,6 +78,91 @@
   pointer-events: none;
 }
 
+/* The loop region: a bar from the in marker to the out marker, with a flag
+   at each end rising into the ruler, as in Ableton's loop brace. It edits
+   like a layer clip: the middle moves it and the edge handles resize it,
+   shown only on the hovered or dragged handle. */
+.ruler-loop-region {
+  --loop-handle-width: 8px;
+  --loop-flag-size: 7px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 2px;
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.ruler-loop-region__body {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.ruler-loop-region--moving .ruler-loop-region__body {
+  cursor: grabbing;
+}
+
+.ruler-loop-region__marker--in,
+.ruler-loop-region__marker--out {
+  position: absolute;
+  bottom: 100%;
+  width: var(--loop-flag-size);
+  height: var(--loop-flag-size);
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.ruler-loop-region__marker--in {
+  left: 0;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+.ruler-loop-region__marker--out {
+  right: 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.ruler-loop-region__handle {
+  position: absolute;
+  top: calc(-1 * var(--loop-flag-size));
+  bottom: 0;
+  width: var(--loop-handle-width);
+  background: var(--ink);
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.ruler-loop-region__handle--start {
+  left: calc(-1 * var(--loop-handle-width) / 2);
+}
+
+.ruler-loop-region__handle--end {
+  right: calc(-1 * var(--loop-handle-width) / 2);
+}
+
+.ruler-loop-region__handle:hover,
+.ruler-loop-region__handle--trimming {
+  opacity: 0.6;
+}
+
+@media (hover: none) {
+  .ruler-loop-region__handle {
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruler-loop-region__handle {
+    transition: none;
+  }
+}
+
+/* Holds only the portaled loop menu. */
+.ruler-loop-strip__menu {
+  display: contents;
+}
+
 /* The playback selection's faint highlight down the ruler above the strip. */
 .ruler-playback-selection {
   position: absolute;
