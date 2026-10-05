@@ -309,6 +309,25 @@ export function getPlaybackStopQ(
   }, startQ);
 }
 
+// Where Play from `fromQ` runs: from there to the end of the last playable
+// clip after it, or, with nothing playable after it, from the start. None when
+// nothing on the timeline is playable.
+export function getPlaybackRange(
+  clips: ArrangementClip[],
+  mediaItems: MediaItem[],
+  fromQ: number,
+  bpm: number,
+): { startQ: number; stopQ: number } | undefined {
+  const epsilon = 0.0001;
+  for (const startQ of fromQ > 0 ? [fromQ, 0] : [fromQ]) {
+    const stopQ = getPlaybackStopQ(clips, mediaItems, startQ, bpm);
+    if (stopQ > startQ + epsilon) {
+      return { startQ, stopQ };
+    }
+  }
+  return undefined;
+}
+
 export function chooseSourceSpanForWindow(
   spans: SourceSpan[],
   sourceTrackId: string,
