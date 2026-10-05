@@ -7,6 +7,7 @@ const read = (path: string) =>
 const brandMarkTsx = read("./components/BrandMark.tsx");
 const logoSvg = read("../public/samples/opening-v2/zvid-logo.svg");
 const appCss = read("./App.css");
+const brandMarkCss = read("./components/brand-mark.css");
 const faviconSvg = read("../public/favicon.svg");
 
 const pathData = (source: string) =>
@@ -74,7 +75,7 @@ const passesOnBackgrounds = (color: string) =>
   APP_BACKGROUNDS.every((background) => contrast(color, background) >= 4.5);
 
 describe("the brand purple", () => {
-  it("colors the logo and the wordmark at 4.5:1 on the app background", () => {
+  it("colors the logo at 4.5:1 on the app background", () => {
     const color = brandMarkColor(appCss);
     assert.equal(color, "#b282ff");
     for (const background of APP_BACKGROUNDS) {
@@ -83,11 +84,15 @@ describe("the brand purple", () => {
         `${color} on ${background}: ${contrast(color, background).toFixed(2)}:1`,
       );
     }
-    // The logo shows the exact color, and the wordmark inherits it.
+    // The logo shows the exact color.
     const svgRule = appCss.match(/\.brand-mark svg \{([^}]*)\}/)?.[1] ?? "";
     assert.doesNotMatch(svgRule, /opacity/);
-    const nameRule = appCss.match(/\.brand-mark__name \{([^}]*)\}/)?.[1] ?? "";
-    assert.doesNotMatch(nameRule, /(?:^|\s)color:/);
+  });
+
+  it("leaves the wordmark in the primary text color", () => {
+    const nameRule =
+      brandMarkCss.match(/\.brand-mark__name \{([^}]*)\}/)?.[1] ?? "";
+    assert.match(nameRule, /(?:^|\s)color: var\(--ink\);/);
   });
 
   it("rejects the favicon's darker purple on the app background", () => {
