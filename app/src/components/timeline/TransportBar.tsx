@@ -37,6 +37,8 @@ type TransportBarProps = {
   flushZoomDraft: (label?: string) => void;
   isPlaying: boolean;
   jumpPlayhead: (bars: number) => void;
+  // Half a bar, onto the snap grid when snapping is on.
+  jumpHalfBar: (direction: -1 | 1) => void;
   onTransportToggle: () => void;
   onRandomize: () => void;
   previewVolume: PreviewVolume;
@@ -61,6 +63,7 @@ export function TransportBar({
   flushZoomDraft,
   isPlaying,
   jumpPlayhead,
+  jumpHalfBar,
   onTransportToggle,
   onRandomize,
   previewVolume,
@@ -141,7 +144,7 @@ export function TransportBar({
         <button
           aria-label="Jump back half a bar"
           className="transport-button"
-          onClick={() => jumpPlayhead(-0.5)}
+          onClick={() => jumpHalfBar(-1)}
           title="Jump back half a bar"
           type="button"
         >
@@ -163,7 +166,7 @@ export function TransportBar({
         <button
           aria-label="Jump forward half a bar"
           className="transport-button"
-          onClick={() => jumpPlayhead(0.5)}
+          onClick={() => jumpHalfBar(1)}
           title="Jump forward half a bar"
           type="button"
         >
