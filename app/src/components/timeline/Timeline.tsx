@@ -174,7 +174,9 @@ export function Timeline({
             className="timeline-loop"
             loopRegion={loopRegion}
             quarterPx={quarterPx}
-            offsetPx={labelWidth}
+            // Past the rows' 1px left border, where their clips and the
+            // ruler's loop brace start.
+            offsetPx={labelWidth + 1}
           />
           <PlayheadLine
             className="timeline-playhead"

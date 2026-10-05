@@ -1,11 +1,11 @@
 import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
 import { type CSSProperties, useMemo, useRef } from "react";
+import type { LoopRegion } from "../../app/loop-region.ts";
 import { mixPeakLevel } from "../../audio-mix-peaks.ts";
 import {
   AUDIO_ROW_HEIGHT,
   audioRowToggleLabel,
 } from "../../audio-row-section.ts";
-import type { LoopRegion } from "../../app/loop-region.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { MainWaveform } from "../../MainWaveform";
@@ -167,8 +167,7 @@ export function AudioRow({
           className="audio-row__loop"
           loopRegion={loopRegion}
           quarterPx={quarterPx}
-          // Inside the content's left border, like the playhead line.
-          offsetPx={-1}
+          offsetPx={0}
         />
         {computing ? (
           <MediaSyncSkeleton style={skeletonStyle} variant="waveform" />

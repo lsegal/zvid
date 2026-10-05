@@ -8,6 +8,8 @@
   grid-template-columns: 42px 1fr;
   overflow: hidden;
   background: rgba(36, 38, 53, 0.92);
+  /* After the loop overlay in the DOM, so at its depth it paints over it. */
+  z-index: var(--z-timeline-loop);
   /* Dragging the span moves it in its track, as on an arrangement clip. */
   cursor: grab;
 }

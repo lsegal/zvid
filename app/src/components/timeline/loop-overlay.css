@@ -3,10 +3,10 @@
      dotted lines aren't mistaken for the playhead. */
   --loop-yellow: #f2d15c;
   --loop-yellow-strong: #f8e08a;
-  /* Below the lane stacking in App.css: at z-index 0 and ahead of the rows
-     in the DOM, the overlay paints over the lane backgrounds and grid but
-     under the clip cards, which are positioned at z-index auto after it. */
-  --z-timeline-loop: 0;
+  /* The bottom of the lane stacking in App.css: over the rows' backgrounds
+     and grid, which sit at z-index auto, and under the clips, which share
+     this depth but come after the overlay in the DOM. */
+  --z-timeline-loop: 1;
 }
 
 .loop-overlay {

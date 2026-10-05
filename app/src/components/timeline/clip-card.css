@@ -11,6 +11,8 @@
   text-align: left;
   overflow: hidden;
   isolation: isolate;
+  /* After the loop overlay in the DOM, so at its depth it paints over it. */
+  z-index: var(--z-timeline-loop);
 }
 
 .clip-card__body,
