@@ -125,11 +125,12 @@ export function usePlayback({
       }
 
       // Play at the end restarts from the start.
-      if (range.startQ !== fromQ) {
-        setPlayheadQ(range.startQ);
+      const { startQ, stopQ } = range;
+      if (startQ !== fromQ) {
+        setPlayheadQ(startQ);
       }
-      playbackOriginRef.current = range.startQ;
-      playbackStopRef.current = range.stopQ;
+      playbackOriginRef.current = startQ;
+      playbackStopRef.current = stopQ;
       setIsPlaying(true);
     },
     [
