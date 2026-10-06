@@ -49,6 +49,8 @@ import {
 } from "./mix.ts";
 import {
   DecodedClipVoice,
+  DecodedVoiceClock,
+  decodedClipSeconds,
   prefersDecodedVoice,
 } from "./preview-buffer-voice.ts";
 import {
@@ -156,6 +158,7 @@ export class PreviewAudioMixer {
   // How long the last seek during playback took to land, by the audio clock.
   private seekLatency = 0;
   private readonly preferDecoded: boolean;
+  private readonly decodedClock = new DecodedVoiceClock();
   // Tells the chains which stages' Transient levels to report, and lists
   // the voices in the audio diagnostics.
   private readonly unwatch: () => void;
@@ -268,6 +271,7 @@ export class PreviewAudioMixer {
     // Plain playback, as opposed to a scrub, lets seeks land and leads them.
     const steady = playback.isPlaying && !playback.isScrubbing;
     const now = playback.playheadSeconds;
+    this.decodedClock.holdWhile(steady);
     this.applyMode();
     // With chains, the mix comes out this late, so its media plays this far
     // ahead of the playhead to stay with the video, and the chains are told
@@ -315,11 +319,11 @@ export class PreviewAudioMixer {
       const at = now + (shouldPlay || !video ? ahead : 0);
 
       if (voice.decoded) {
-        const inside = at >= start && at < end;
         voice.decoded.sync(
-          shouldPlay && inside ? at - start : undefined,
+          decodedClipSeconds(at, start, end, shouldPlay, steady),
           driftTolerance,
           steady,
+          start,
         );
         continue;
       }
@@ -652,6 +656,7 @@ export class PreviewAudioMixer {
           this.mix.bpm,
           gain,
           this.preferDecoded,
+          this.decodedClock,
         );
       } else {
         const video = this.videoClips.isVideo(clip);
