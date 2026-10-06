@@ -85,6 +85,11 @@ export function decodedClipSeconds(
 // where buffers play by preference, as in WebKit, only past
 // LENIENT_DRIFT_SECONDS, as media elements there do (see preview-player.ts).
 const STEADY_DRIFT_SYNCS = 3;
+// A source started at the audio clock's current time starts late, as the
+// audio thread has already moved on (by a render quantum in WebKit), and
+// plays that far behind the clock, over the next clip's start. In steady
+// playback one starts this far ahead instead, at its clip time there.
+const START_AHEAD_SECONDS = 0.05;
 const LENIENT_DRIFT_SECONDS = 0.6;
 
 // The audio clock time each timeline time plays at in steady playback,
@@ -210,15 +215,17 @@ export class DecodedClipVoice {
       audioDiagnostics.recordResync(steady);
       this.stop();
     }
-    // The audio clock time the clip's start plays at.
+    // The audio clock time the clip's start plays at, and the soonest it
+    // can start.
     const startsAt =
       steady && this.clock
         ? this.clock.contextTimeOf(startSeconds, now - clipSeconds, limit)
         : now - clipSeconds;
+    const soonest = now + (steady ? START_AHEAD_SECONDS : 0);
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.connect(this.output);
-    source.start(Math.max(now, startsAt), Math.max(0, now - startsAt));
+    source.start(Math.max(soonest, startsAt), Math.max(0, soonest - startsAt));
     this.source = source;
     this.drifting = 0;
     this.started = { contextTime: startsAt };
