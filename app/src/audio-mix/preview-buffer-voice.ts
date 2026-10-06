@@ -50,6 +50,15 @@ export async function decodeClipMedia(
   };
 }
 
+// A buffer plays on the audio clock, which the playhead, on the display's
+// clock, can read a jump in for a frame where the audio thread runs late.
+// Restarting the buffer is an audible gap, so steady playback restarts it
+// only once it has been off for STEADY_DRIFT_SYNCS syncs in a row, and
+// where buffers play by preference, as in WebKit, only past
+// LENIENT_DRIFT_SECONDS, as media elements there do (see preview-player.ts).
+const STEADY_DRIFT_SYNCS = 3;
+const LENIENT_DRIFT_SECONDS = 0.6;
+
 export class DecodedClipVoice {
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
@@ -57,8 +66,11 @@ export class DecodedClipVoice {
   // started from.
   private started = { contextTime: 0, clipSeconds: 0 };
   private disposed = false;
+  // How many steady syncs in a row it has been off for.
+  private drifting = 0;
   private readonly context: AudioContext;
   private readonly output: AudioNode;
+  private readonly lenient: boolean;
 
   constructor(
     context: AudioContext,
@@ -66,9 +78,11 @@ export class DecodedClipVoice {
     url: string,
     bpm: number,
     output: AudioNode,
+    lenient = false,
   ) {
     this.context = context;
     this.output = output;
+    this.lenient = lenient;
     void this.load(clip, url, bpm);
   }
 
@@ -98,7 +112,8 @@ export class DecodedClipVoice {
 
   // Plays from `clipSeconds` into the clip, unless already playing within
   // `tolerance` of it, or stops when `clipSeconds` is undefined. A restart
-  // to meet the playhead counts as a re-sync, `steady` in plain playback.
+  // to meet the playhead counts as a re-sync, `steady` in plain playback,
+  // which waits for drift to last.
   sync(clipSeconds: number | undefined, tolerance: number, steady = false) {
     if (clipSeconds === undefined || !this.buffer) {
       this.stop();
@@ -108,10 +123,16 @@ export class DecodedClipVoice {
       const playing =
         this.started.clipSeconds +
         (this.context.currentTime - this.started.contextTime);
+      const drift = playing - clipSeconds;
+      const limit =
+        steady && this.lenient
+          ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
+          : tolerance;
       if (steady) {
-        audioDiagnostics.recordDrift(playing - clipSeconds);
+        audioDiagnostics.recordDrift(drift);
       }
-      if (Math.abs(playing - clipSeconds) <= tolerance) {
+      this.drifting = Math.abs(drift) > limit ? this.drifting + 1 : 0;
+      if (!this.drifting || (steady && this.drifting < STEADY_DRIFT_SYNCS)) {
         return;
       }
       audioDiagnostics.recordResync(steady);
@@ -122,6 +143,7 @@ export class DecodedClipVoice {
     source.connect(this.output);
     source.start(0, Math.max(0, clipSeconds));
     this.source = source;
+    this.drifting = 0;
     this.started = {
       contextTime: this.context.currentTime,
       clipSeconds,

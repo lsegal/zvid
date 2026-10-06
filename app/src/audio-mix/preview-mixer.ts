@@ -649,6 +649,7 @@ export class PreviewAudioMixer {
           url,
           this.mix.bpm,
           gain,
+          this.preferDecoded,
         );
       } else {
         const video = this.videoClips.isVideo(clip);
