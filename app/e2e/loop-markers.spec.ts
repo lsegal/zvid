@@ -168,3 +168,78 @@ test("the loop strip menu places markers, locks a selection and deletes the loop
   // Choosing items never scrubs the ruler under them.
   await expect(timecode).toHaveText(timecodeBefore ?? "");
 });
+
+test("Create loop in and out marker always make a full loop at the click", async ({
+  page,
+}) => {
+  const region = page.locator(".ruler-loop-region");
+  const menuItem = (name: string) =>
+    page.getByRole("menuitem", { name: new RegExp(`^${name}( |$)`) });
+  const { view, strip, y } = await stripGeometry(page);
+  // The visible part of the strip, right of the layer headers.
+  const left = strip.x;
+  const right = view.x + view.width;
+  const at = (fraction: number) => left + (right - left) * fraction;
+  const place = async (x: number, name: string) => {
+    await page.mouse.click(x, y, { button: "right" });
+    await menuItem(name).click();
+    await expect(region).toBeVisible();
+    const ends = await loopEnds(page);
+    const box = await region.boundingBox();
+    if (!box) {
+      throw new Error("loop brace is not visible");
+    }
+    return { ...ends, box };
+  };
+
+  const outOnly = await place(
+    view.x + view.width * 0.5,
+    "Create loop out marker",
+  );
+  expect(outOnly.startQ).toBe(0);
+  expect(outOnly.endQ).toBeGreaterThan(0);
+  const quarterPx = outOnly.box.width / outOnly.endQ;
+  const snapPx = quarterPx;
+
+  // An in marker just before the out marker starts a full loop instead of
+  // shrinking to a sliver against the out marker.
+  const outX = outOnly.box.x + outOnly.box.width;
+  const justBefore = await place(
+    outX - quarterPx * 0.3,
+    "Create loop in marker",
+  );
+  expect(justBefore.box.x + justBefore.box.width).toBeGreaterThanOrEqual(
+    right - 1,
+  );
+
+  // An in marker past the out marker starts a loop at the click instead of
+  // shrinking to a sliver at the out marker. The blank session's content
+  // ends at bar 2, so the loop runs on to the timeline end.
+  const inX = at(0.75);
+  const pastOut = await place(inX, "Create loop in marker");
+  expect(pastOut.startQ).toBeGreaterThan(outOnly.endQ);
+  expect(Math.abs(pastOut.box.x - inX)).toBeLessThan(snapPx);
+  expect(pastOut.box.x + pastOut.box.width).toBeGreaterThanOrEqual(right - 1);
+
+  // An out marker before the in marker runs the loop from the timeline start.
+  const beforeInX = at(0.25);
+  const beforeIn = await place(beforeInX, "Create loop out marker");
+  expect(beforeIn.startQ).toBe(0);
+  expect(beforeIn.endQ).toBeLessThan(pastOut.startQ);
+  expect(Math.abs(beforeIn.box.x - left)).toBeLessThan(1);
+  expect(
+    Math.abs(beforeIn.box.x + beforeIn.box.width - beforeInX),
+  ).toBeLessThan(snapPx);
+
+  // With no loop, an in marker before the content end runs to it.
+  await page.mouse.click(at(0.5), y, { button: "right" });
+  await menuItem("Delete loop").click();
+  await expect(region).toHaveCount(0);
+  const beforeEnd = await place(
+    strip.x + quarterPx * 1.1,
+    "Create loop in marker",
+  );
+  expect(beforeEnd.startQ).toBe(1);
+  expect(beforeEnd.endQ).toBe(4);
+  expect(beforeEnd.box.width).toBeCloseTo(3 * quarterPx, 0);
+});
