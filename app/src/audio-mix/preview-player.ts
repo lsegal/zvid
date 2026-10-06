@@ -266,18 +266,30 @@ export function playsLike(audio: AudioMixClip, drawn: DrawnClip) {
   );
 }
 
+// A media item, in the fields that tell video media and its container.
+export type MixMediaItem = {
+  id: string;
+  kind?: string;
+  name?: string;
+  container?: string;
+};
+
+// Whether `item` is WebM media, whose <video> WebKit plays silently
+// through a MediaElementAudioSourceNode (#1113).
+export function isWebMMedia(item: MixMediaItem) {
+  return item.container === "WebM" || /\.webm$/i.test(item.name ?? "");
+}
+
 // The mix's clips of video media, by media, to find the one a drawn clip
 // plays.
 export class MixVideoClips {
   private clipsByMediaId = new Map<string, AudioMixClip[]>();
+  private webmIds = new Set<string>();
 
-  update(
-    clips: readonly AudioMixClip[],
-    mediaItems: readonly { id: string; kind?: string }[],
-  ) {
-    const videoIds = new Set(
-      mediaItems.filter((item) => item.kind === "video").map((item) => item.id),
-    );
+  update(clips: readonly AudioMixClip[], mediaItems: readonly MixMediaItem[]) {
+    const videos = mediaItems.filter((item) => item.kind === "video");
+    const videoIds = new Set(videos.map((item) => item.id));
+    this.webmIds = new Set(videos.filter(isWebMMedia).map((item) => item.id));
     this.clipsByMediaId = new Map();
     for (const clip of clips) {
       if (videoIds.has(clip.mediaId)) {
@@ -290,6 +302,11 @@ export class MixVideoClips {
 
   isVideo(clip: AudioMixClip) {
     return this.clipsByMediaId.has(clip.mediaId);
+  }
+
+  // Whether `clip` plays WebM video media.
+  isWebM(clip: AudioMixClip) {
+    return this.webmIds.has(clip.mediaId);
   }
 
   // The clips of video media placed like `drawn`.

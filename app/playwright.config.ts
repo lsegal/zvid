@@ -68,13 +68,17 @@ const chromium = devices["Desktop Chrome"];
 // Specs that also run in WebKit, the engine of Safari and every iOS browser
 // (#1111). The WebKit project is opt-in, with PLAYWRIGHT_WEBKIT=1, since
 // only CI's e2e-webkit job installs WebKit.
-const WEBKIT_SPECS = ["audio-resync.spec.ts"];
+const WEBKIT_SPECS = ["audio-mix.spec.ts", "audio-resync.spec.ts"];
 const webkitProjects =
   process.env.PLAYWRIGHT_WEBKIT === "1"
     ? [
         {
           name: "webkit",
           testMatch: WEBKIT_SPECS,
+          // The specs time steady playback of 18 to 20 s media. Run side by
+          // side on CI's macOS runner, WebKit slows until playback ends
+          // before their window does, so they run one at a time.
+          workers: 1,
           use: {
             ...devices["Desktop Safari"],
             baseURL: `http://localhost:${PORT}/`,

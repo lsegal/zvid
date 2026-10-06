@@ -24,8 +24,9 @@
 // starts while its own element is still loading or seeking takes over a
 // loaded element of the same media that another clip has finished with, so
 // back-to-back short clips keep playing on a slow main thread. A clip
-// whose source stages read its media other than forwards plays from a
-// decoded buffer instead (see preview-buffer-voice.ts).
+// whose source stages read its media other than forwards, or in WebKit,
+// whose WebM video it routes silently, plays from a decoded buffer instead
+// (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { releaseMediaElement } from "../media-element.ts";
 import { audioDiagnostics, voiceDiagnostics } from "./audio-diagnostics.ts";
@@ -59,6 +60,7 @@ import {
 import {
   createPlayer,
   type DrawnClip,
+  type MixMediaItem,
   MixVideoClips,
   type Player,
   playbackDriftTolerance,
@@ -95,8 +97,8 @@ export type PreviewAudioMixerOptions = {
   registry?: AudioProcessorRegistry;
   // Called when the mixer makes or releases a <video> (see videoElements).
   onVideoElementsChange?: () => void;
-  // Plays audio-only clips from decoded buffers where it can (see
-  // prefersDecodedVoice); by default in WebKit.
+  // Plays audio-only and WebM video clips from decoded buffers where it can
+  // (see prefersDecodedVoice); by default in WebKit.
   preferDecodedAudio?: boolean;
 };
 
@@ -174,7 +176,7 @@ export class PreviewAudioMixer {
 
   update(
     mix: AudioMix,
-    mediaItems: readonly { id: string; previewUrl: string; kind?: string }[],
+    mediaItems: readonly (MixMediaItem & { previewUrl: string })[],
   ) {
     this.mix = mix;
     this.needsChains = this.mixNeedsChains();
@@ -418,7 +420,7 @@ export class PreviewAudioMixer {
     return (
       clipReadSeconds(clip, this.registry) !== undefined ||
       (this.preferDecoded &&
-        !this.videoClips.isVideo(clip) &&
+        (!this.videoClips.isVideo(clip) || this.videoClips.isWebM(clip)) &&
         prefersDecodedVoice(clip))
     );
   }
