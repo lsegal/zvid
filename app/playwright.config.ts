@@ -75,6 +75,10 @@ const webkitProjects =
         {
           name: "webkit",
           testMatch: WEBKIT_SPECS,
+          // The specs time steady playback of 18 to 20 s media. Run side by
+          // side on CI's macOS runner, WebKit slows until playback ends
+          // before their window does, so they run one at a time.
+          workers: 1,
           use: {
             ...devices["Desktop Safari"],
             baseURL: `http://localhost:${PORT}/`,
