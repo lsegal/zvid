@@ -65,6 +65,24 @@ const previewServer = {
 
 const chromium = devices["Desktop Chrome"];
 
+// Specs that also run in WebKit, the engine of Safari and every iOS browser
+// (#1111). The WebKit project is opt-in, with PLAYWRIGHT_WEBKIT=1, since
+// only CI's e2e-webkit job installs WebKit.
+const WEBKIT_SPECS = ["audio-resync.spec.ts"];
+const webkitProjects =
+  process.env.PLAYWRIGHT_WEBKIT === "1"
+    ? [
+        {
+          name: "webkit",
+          testMatch: WEBKIT_SPECS,
+          use: {
+            ...devices["Desktop Safari"],
+            baseURL: `http://localhost:${PORT}/`,
+          },
+        },
+      ]
+    : [];
+
 // CI runs the suite on main only, as 16 shards on separate runners
 // (.github/workflows/ci.yml). Each runner has 4 vCPUs and each worker drives
 // a Chromium against the app and the wasm bridge, so CI uses two
@@ -98,6 +116,7 @@ export default defineConfig({
             name: "chromium",
             use: { ...chromium, baseURL: `http://localhost:${PORT}/` },
           },
+          ...webkitProjects,
         ]
       : [
           {
@@ -110,6 +129,7 @@ export default defineConfig({
             testMatch: SOURCE_MODULE_SPECS,
             use: { ...chromium, baseURL: `http://localhost:${DEV_PORT}/` },
           },
+          ...webkitProjects,
         ],
   webServer:
     SERVER === "dev" ? devServer(PORT) : [previewServer, devServer(DEV_PORT)],

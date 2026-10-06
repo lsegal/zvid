@@ -15,6 +15,41 @@ export type ChainTransport = {
   rate: number;
 };
 
+// A playhead this far from where the chains expect it is a seek, which
+// resets them so no stale tail plays; a smaller gap only re-anchors their
+// timeline time.
+const SEEK_SECONDS = 0.25;
+const TRANSPORT_DRIFT_SECONDS = 0.02;
+
+// The timeline time `transport` puts at context time `contextTime`.
+export function timelineAt(transport: ChainTransport, contextTime: number) {
+  return (
+    transport.timelineSeconds +
+    (contextTime - transport.contextTime) * transport.rate
+  );
+}
+
+// The transport to tell the chains, at context time `contextTime`, of a
+// playhead at `now`, `playing` or not, when `previous` no longer says
+// where it is, and whether that is a seek that resets them; null while it
+// still does.
+export function nextTransport(
+  previous: ChainTransport | null,
+  contextTime: number,
+  now: number,
+  playing: boolean,
+): { transport: ChainTransport; reset: boolean } | null {
+  const rate = playing ? 1 : 0;
+  const gap = previous ? Math.abs(timelineAt(previous, contextTime) - now) : 0;
+  if (previous && previous.rate === rate && gap <= TRANSPORT_DRIFT_SECONDS) {
+    return null;
+  }
+  return {
+    transport: { contextTime, timelineSeconds: now, rate },
+    reset: Boolean(previous) && gap > SEEK_SECONDS,
+  };
+}
+
 export type ChainMessage =
   | { type: "configure"; settings: AudioChainSettings; tempo: AudioTempo }
   | ({ type: "transport" } & ChainTransport)

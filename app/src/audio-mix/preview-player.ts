@@ -8,6 +8,8 @@
 import { clamp } from "../app/util.ts";
 import { type ClipWarp, loopMediaTime } from "../clip-warp.ts";
 import { seekWhenReady } from "../media-seek.ts";
+import { audioDiagnostics } from "./audio-diagnostics.ts";
+import { isWebKit } from "./preview-graph.ts";
 import type { AudioMixClip } from "./resolve.ts";
 
 // The most a seek during playback aims ahead of the playhead to make up for
@@ -15,6 +17,22 @@ import type { AudioMixClip } from "./resolve.ts";
 const MAX_SEEK_LEAD_SECONDS = 0.5;
 // HTMLMediaElement.HAVE_FUTURE_DATA: an element with this much can play.
 const HAVE_FUTURE_DATA = 3;
+const MAX_DRIFT_SECONDS = 0.18;
+const SCRUB_DRIFT_SECONDS = 0.035;
+// Audio keeps playing through a scrub started during playback, so it only
+// re-syncs once it falls this far behind or ahead of the playhead.
+const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
+// WebKit freezes an element routed into Web Audio for about 0.3 s, some
+// 0.4 s after it starts playing or seeks (#1111). Re-seeking for the drift
+// that leaves only freezes it again, every second or so, so in steady
+// playback a WebKit element re-seeks only once it is further than
+// STALLING_DRIFT_SECONDS off, which a freeze, longer on a busy device,
+// stays within. The picture a <video> draws stays with its sound.
+const STALLING_DRIFT_SECONDS = 0.6;
+// The playback rates every browser accepts; a media element throws outside
+// them.
+const MIN_PLAYBACK_RATE = 0.0625;
+const MAX_PLAYBACK_RATE = 16;
 
 // A media element routed into Web Audio. Voices of the same media trade
 // players, so its source moves to whichever voice's gain it plays for.
@@ -25,6 +43,8 @@ export type Player = {
   video: boolean;
   // The audio clock time its seek during playback was made, until it lands.
   seekStartedAt: number | null;
+  // Whether it freezes after it starts or seeks, as in WebKit.
+  stalls: boolean;
 };
 
 // What of a voice trading players reads and swaps.
@@ -34,6 +54,19 @@ export type PlayerVoice = {
   gain: GainNode;
 };
 
+// How far an element may drift from the playhead before it seeks.
+export function playbackDriftTolerance(playback: {
+  isAudibleScrubbing: boolean;
+  isContinuousScrubbing: boolean;
+}) {
+  if (!playback.isAudibleScrubbing) {
+    return MAX_DRIFT_SECONDS;
+  }
+  return playback.isContinuousScrubbing
+    ? CONTINUOUS_SCRUB_DRIFT_SECONDS
+    : SCRUB_DRIFT_SECONDS;
+}
+
 // Whether `element` can play from where it is without waiting.
 function isReady(element: HTMLMediaElement) {
   return element.readyState >= HAVE_FUTURE_DATA && !element.seeking;
@@ -41,12 +74,13 @@ function isReady(element: HTMLMediaElement) {
 
 // A player of `url`, a <video> for `video` media, which tells
 // `onSeekLanded` how long each seek made during playback took to land, by
-// the audio clock.
+// the audio clock, and `stalls` after it starts or seeks.
 export function createPlayer(
   context: AudioContext,
   url: string,
   video: boolean,
   onSeekLanded: (seconds: number) => void,
+  stalls = isWebKit(),
 ): Player {
   const element = document.createElement(video ? "video" : "audio");
   element.crossOrigin = "anonymous";
@@ -58,7 +92,13 @@ export function createPlayer(
   // Routing through Web Audio is permanent; the element plays at full
   // volume into its voice's gain.
   const source = context.createMediaElementSource(element);
-  const player: Player = { element, source, video, seekStartedAt: null };
+  const player: Player = {
+    element,
+    source,
+    video,
+    seekStartedAt: null,
+    stalls,
+  };
   element.addEventListener("seeked", () => {
     if (player.seekStartedAt !== null) {
       onSeekLanded(
@@ -133,11 +173,21 @@ export function takeReadyPlayer(
   voice.player = taken;
 }
 
+// Plays `player`'s media at `rate`, its clip's, within the rates every
+// browser accepts.
+export function setPlayerRate(player: Player, rate: number) {
+  const clamped = clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE);
+  if (player.element.playbackRate !== clamped) {
+    player.element.playbackRate = clamped;
+  }
+}
+
 // Seeks `player`'s element to `mediaTime` once it drifts further than
-// `tolerance`. In `steady` playback a seek still landing is left to land,
-// and a new one aims `seekLatency`, as long as the last one took to land,
-// ahead, so an element that starts late, as on a slow main thread, meets
-// the playhead rather than chasing it from behind. Aiming past the end of
+// `tolerance`, or in steady playback of an element that stalls, further
+// than STALLING_DRIFT_SECONDS. In `steady` playback a seek still landing is
+// left to land, and a new one aims `seekLatency`, as long as the last one
+// took to land, ahead, so an element that starts late, as on a slow main
+// thread, meets the playhead rather than chasing it from behind. Aiming past the end of
 // media `mediaDurationSeconds` long loops back to its start, as the clip
 // does.
 export function seekPlayer(
@@ -153,9 +203,19 @@ export function seekPlayer(
   if (steady && element.seeking) {
     return;
   }
-  if (Math.abs(element.currentTime - mediaTime) <= tolerance) {
+  const drift = element.currentTime - mediaTime;
+  const playing = steady && !element.paused;
+  if (playing) {
+    audioDiagnostics.recordDrift(drift);
+  }
+  const steadyTolerance =
+    player.stalls && playing
+      ? Math.max(tolerance, STALLING_DRIFT_SECONDS)
+      : tolerance;
+  if (Math.abs(drift) <= steadyTolerance) {
     return;
   }
+  audioDiagnostics.recordResync(playing);
   if (!steady || !context) {
     // A scrub queues no seeks behind one another on an element the
     // compositor draws.

@@ -3,6 +3,8 @@
 // than each opening a context of its own. It is suspended while nothing
 // uses it.
 
+import { audioDiagnostics } from "../audio-mix/audio-diagnostics.ts";
+
 // The parts of an AudioContext sharing it needs, so tests can stand one in.
 type ContextLike = {
   readonly state: string;
@@ -45,6 +47,8 @@ export class SharedAudioContext<Context extends ContextLike> {
 }
 
 /** The app's shared analysis context. */
-export const analysisAudioContext = new SharedAudioContext(
-  () => new AudioContext(),
-);
+export const analysisAudioContext = new SharedAudioContext(() => {
+  const context = new AudioContext();
+  audioDiagnostics.addContext("input analysis", context);
+  return context;
+});
