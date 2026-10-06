@@ -10,7 +10,7 @@ export function AudioDiagnosticsPanel() {
   const [report, setReport] = useState(() => audioDiagnostics.report());
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState(false);
-  const text = useRef<HTMLPreElement>(null);
+  const text = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const timer = window.setInterval(
@@ -29,11 +29,7 @@ export function AudioDiagnosticsPanel() {
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // Without clipboard access, select the text to copy by hand.
-      const node = text.current;
-      const selection = window.getSelection();
-      if (node && selection) {
-        selection.selectAllChildren(node);
-      }
+      text.current?.select();
     }
   };
 
@@ -58,9 +54,14 @@ export function AudioDiagnosticsPanel() {
         </button>
       </header>
       {open ? (
-        <pre ref={text} className="audio-diagnostics__report">
-          {report}
-        </pre>
+        <textarea
+          ref={text}
+          className="audio-diagnostics__report"
+          aria-label="Audio diagnostics report"
+          readOnly
+          rows={14}
+          value={report}
+        />
       ) : null}
     </section>
   );

@@ -4,12 +4,10 @@ import { expect, type Page, test } from "@playwright/test";
 // Steady preview playback never re-seeks its media: each seek is an audible
 // gap, and iOS Safari reported choppy audio (#1111). With `?debugAudio=1`
 // the preview counts its re-syncs, and the diagnostics panel reports them.
-// This spec also runs in WebKit (PLAYWRIGHT_WEBKIT=1, see
+// The video is MP4, since WebKit plays a WebM <video> routed into Web Audio
+// silently. This spec also runs in WebKit (PLAYWRIGHT_WEBKIT=1, see
 // playwright.config.ts), the engine iOS uses.
-const VIDEO = new URL(
-  "./fixtures/test-pattern-audio-16s.webm",
-  import.meta.url,
-);
+const VIDEO = new URL("./fixtures/test-pattern-audio-20s.mp4", import.meta.url);
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 90_000 });
@@ -145,11 +143,15 @@ async function steadyPlayback(page: Page, file: DroppedFile) {
     .click();
   await page.waitForTimeout(STEADY_MS);
   const steady = await snapshot(page);
-  console.log(
-    test.info().project.name,
-    test.info().title,
-    JSON.stringify(steady),
-  );
+  // The report, to read when a run fails.
+  await test.info().attach("audio diagnostics", {
+    body: await page.evaluate(() =>
+      (
+        window as unknown as { zvidAudioDiagnostics: { report(): string } }
+      ).zvidAudioDiagnostics.report(),
+    ),
+    contentType: "text/plain",
+  });
   // Still playing, so the window was steady playback throughout.
   await expect(
     page.getByRole("button", { name: "Pause playback" }),
@@ -173,21 +175,26 @@ test("steady playback of an audio clip makes no re-syncs", async ({
   expect(steady.steadyResyncs).toBeLessThanOrEqual(1);
   // The tone is heard: about 0.22 RMS.
   await expect.poll(() => mixLevel(page)).toBeGreaterThan(0.1);
-  const panel = page.getByRole("region", { name: "Audio diagnostics" });
-  await expect(panel).toContainText("AudioContexts: 1");
-  await expect(panel).toContainText("Re-syncs:");
-  await expect(panel).toContainText(/User agent: \S/);
+  const report = page.getByRole("textbox", {
+    name: "Audio diagnostics report",
+  });
+  await expect(report).toHaveValue(/AudioContexts: 1/);
+  await expect(report).toHaveValue(/Re-syncs: \d+/);
+  await expect(report).toHaveValue(/User agent: \S/);
 });
 
 test("steady playback of a video clip makes no re-syncs", async ({ page }) => {
+  await probeAnalysers(page);
   const base64 = (await readFile(VIDEO)).toString("base64");
   const steady = await steadyPlayback(page, {
-    name: "test-pattern-audio.webm",
-    type: "video/webm",
+    name: "test-pattern-audio-20s.mp4",
+    type: "video/mp4",
     base64,
   });
-  expect(steady.voices.some((voice) => voice.kind === "video")).toBe(true);
+  expect(steady.voices.map((voice) => voice.kind)).toEqual(["video"]);
   expect(steady.steadyResyncs).toBeLessThanOrEqual(1);
+  // Its soundtrack is heard: about 0.09 RMS.
+  await expect.poll(() => mixLevel(page)).toBeGreaterThan(0.04);
 });
 
 test("steady playback on a busy main thread makes no re-syncs", async ({

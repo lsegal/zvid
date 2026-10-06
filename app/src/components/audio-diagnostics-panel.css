@@ -28,8 +28,11 @@
 .audio-diagnostics__report {
   max-height: 40vh;
   margin: 0;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: text;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font: 0.72rem / 1.4 ui-monospace, monospace;
 }

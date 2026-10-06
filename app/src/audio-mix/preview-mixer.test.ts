@@ -982,5 +982,32 @@ describe("PreviewAudioMixer", () => {
       assert.equal(video.seeks, 2);
       mixer.dispose();
     });
+    it("plays short audio-only clips from decoded buffers where it prefers them", () => {
+      const withLong = [
+        ...videoMedia,
+        { id: "b", previewUrl: "blob:b", kind: "audio" },
+      ];
+      const clips = mix([
+        clip({ id: "short", mediaId: "a", mediaDurationSeconds: 10 }),
+        clip({ id: "video", mediaId: "v", mediaDurationSeconds: 10 }),
+        clip({ id: "long", mediaId: "b", mediaDurationSeconds: 600 }),
+      ]);
+      const preferring = new PreviewAudioMixer({ preferDecodedAudio: true });
+      preferring.update(clips, withLong);
+      preferring.sync(playing(1));
+      // A video clip's element is the compositor's too, and long media
+      // would take too much memory decoded.
+      assert.equal(elementOf("a"), undefined);
+      assert.ok(elementOf("v"));
+      assert.ok(elementOf("b"));
+      preferring.dispose();
+
+      // Outside WebKit, every clip read forwards plays from its element.
+      const mixer = new PreviewAudioMixer();
+      mixer.update(clips, withLong);
+      mixer.sync(playing(1));
+      assert.ok(elementOf("a"));
+      mixer.dispose();
+    });
   });
 });

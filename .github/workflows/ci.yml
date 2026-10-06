@@ -162,6 +162,40 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
+  # The specs that also run in WebKit, the engine of Safari and every iOS
+  # browser (WEBKIT_SPECS in app/playwright.config.ts), such as the steady
+  # playback re-sync checks of #1111. Only this job installs WebKit.
+  e2e-webkit:
+    needs: export-bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: app
+          browser: webkit
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: export-bridge-pkg
+          path: app/export-bridge/pkg
+
+      - name: WebKit browser tests
+        working-directory: app
+        env:
+          PLAYWRIGHT_WEBKIT: "1"
+        run: pnpm exec playwright test --project webkit
+
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-webkit-test-results
+          path: app/test-results
+          if-no-files-found: ignore
+
   # Merges the shards' blob reports into one HTML report, with the tests'
   # durations (e2e-durations.json) to refresh scripts/e2e-durations.json
   # from when the shards drift apart.
