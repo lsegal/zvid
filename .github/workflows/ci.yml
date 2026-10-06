@@ -164,10 +164,12 @@ jobs:
 
   # The specs that also run in WebKit, the engine of Safari and every iOS
   # browser (WEBKIT_SPECS in app/playwright.config.ts), such as the steady
-  # playback re-sync checks of #1111. Only this job installs WebKit.
+  # playback re-sync checks of #1111. Only this job installs WebKit. It runs
+  # on macOS, whose WebKit plays media through AVFoundation as Safari and
+  # iOS do; Linux WebKit's GStreamer backend seeks differently.
   e2e-webkit:
     needs: export-bridge
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
