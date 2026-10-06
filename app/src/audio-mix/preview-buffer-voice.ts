@@ -9,15 +9,18 @@ import { sharedClipAudioCache } from "./clip-audio-cache.ts";
 import type { DecodedAudio } from "./mix.ts";
 import type { AudioMixClip } from "./resolve.ts";
 
-// The longest media, and clip, iOS plays from a decoded buffer rather than
-// a media element, bounding the memory decoding takes: a minute of 48 kHz
-// stereo decodes to about 23 MB, and the clip's span as much again.
+// The longest media, and clip, WebKit plays from a decoded buffer rather
+// than a media element, bounding the memory decoding takes: a minute of
+// 48 kHz stereo decodes to about 23 MB, and the clip's span as much again.
 const MAX_PREFERRED_DECODED_SECONDS = 120;
 
 // Whether the preview may play `clip`, an audio-only clip, from a decoded
-// buffer by preference: iOS WebKit's MediaElementAudioSourceNode is prone
-// to glitches, where an AudioBufferSourceNode plays on the audio thread
-// alone (#1111). Its media's length must be known and short enough.
+// buffer by preference, as it does in WebKit (#1111). There an <audio>
+// routed through a MediaElementAudioSourceNode stalls for up to a second
+// after it starts playing, so the mixer's seek to catch it up stalls it
+// again: steady playback re-seeks, audibly, several times every ten
+// seconds. A buffer plays on the audio clock alone. Its media's length must
+// be known and short enough.
 export function prefersDecodedVoice(
   clip: Pick<AudioMixClip, "durationSeconds" | "mediaDurationSeconds">,
 ) {
@@ -105,6 +108,9 @@ export class DecodedClipVoice {
       const playing =
         this.started.clipSeconds +
         (this.context.currentTime - this.started.contextTime);
+      if (steady) {
+        audioDiagnostics.recordDrift(playing - clipSeconds);
+      }
       if (Math.abs(playing - clipSeconds) <= tolerance) {
         return;
       }

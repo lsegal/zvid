@@ -52,7 +52,7 @@ import {
 } from "./preview-buffer-voice.ts";
 import {
   createMixGraph,
-  isIOSWebKit,
+  isWebKit,
   type MixGraph,
   setSmoothly,
 } from "./preview-graph.ts";
@@ -96,7 +96,7 @@ export type PreviewAudioMixerOptions = {
   // Called when the mixer makes or releases a <video> (see videoElements).
   onVideoElementsChange?: () => void;
   // Plays audio-only clips from decoded buffers where it can (see
-  // prefersDecodedVoice); by default on iOS.
+  // prefersDecodedVoice); by default in WebKit.
   preferDecodedAudio?: boolean;
 };
 
@@ -163,7 +163,7 @@ export class PreviewAudioMixer {
     this.workletUrl = options.workletUrl;
     this.registry = options.registry ?? AUDIO_PROCESSORS;
     this.onVideoElementsChange = options.onVideoElementsChange;
-    this.preferDecoded = options.preferDecodedAudio ?? isIOSWebKit();
+    this.preferDecoded = options.preferDecodedAudio ?? isWebKit();
     this.unlist = audioDiagnostics.addVoices(() =>
       voiceDiagnostics(this.voices),
     );

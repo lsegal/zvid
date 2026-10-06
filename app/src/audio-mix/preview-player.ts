@@ -21,15 +21,6 @@ const SCRUB_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
 const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
-// Steady playback closes drift past NUDGE_START_SECONDS, but within the
-// seek tolerance, by playing NUDGE_RATE faster or slower until it is back
-// within NUDGE_STOP_SECONDS: a seek is an audible gap, and on iOS WebKit,
-// whose elements start late after play() and seeks, a seek can miss and
-// call for another (#1111). The rate moves in one step each way, so it
-// changes rarely.
-const NUDGE_START_SECONDS = 0.04;
-const NUDGE_STOP_SECONDS = 0.01;
-const NUDGE_RATE = 0.03;
 // The playback rates every browser accepts; a media element throws outside
 // them.
 const MIN_PLAYBACK_RATE = 0.0625;
@@ -44,10 +35,6 @@ export type Player = {
   video: boolean;
   // The audio clock time its seek during playback was made, until it lands.
   seekStartedAt: number | null;
-  // The rate its clip plays its media at, and the nudge, −1..1 of
-  // NUDGE_RATE, applied on top to close drift.
-  rate: number;
-  nudge: number;
 };
 
 // What of a voice trading players reads and swaps.
@@ -94,14 +81,7 @@ export function createPlayer(
   // Routing through Web Audio is permanent; the element plays at full
   // volume into its voice's gain.
   const source = context.createMediaElementSource(element);
-  const player: Player = {
-    element,
-    source,
-    video,
-    seekStartedAt: null,
-    rate: 1,
-    nudge: 0,
-  };
+  const player: Player = { element, source, video, seekStartedAt: null };
   element.addEventListener("seeked", () => {
     if (player.seekStartedAt !== null) {
       onSeekLanded(
@@ -176,45 +156,17 @@ export function takeReadyPlayer(
   voice.player = taken;
 }
 
-// Plays `player`'s media at `rate`, its clip's, with its nudge on top,
-// setting the element's rate only when that changes, since each change can
-// be heard.
+// Plays `player`'s media at `rate`, its clip's, within the rates every
+// browser accepts.
 export function setPlayerRate(player: Player, rate: number) {
-  if (rate !== player.rate) {
-    player.rate = rate;
-    applyPlayerRate(player);
-  }
-}
-
-function applyPlayerRate(player: Player) {
-  player.element.playbackRate = clamp(
-    player.rate * (1 + player.nudge * NUDGE_RATE),
-    MIN_PLAYBACK_RATE,
-    MAX_PLAYBACK_RATE,
-  );
-}
-
-// Nudges `player`'s rate to close `drift`, positive ahead, or stops
-// nudging once it has closed.
-function nudgePlayer(player: Player, drift: number) {
-  const nudge =
-    Math.abs(drift) > NUDGE_START_SECONDS
-      ? -Math.sign(drift)
-      : Math.abs(drift) < NUDGE_STOP_SECONDS || drift * player.nudge > 0
-        ? 0
-        : player.nudge;
-  if (nudge !== player.nudge) {
-    player.nudge = nudge;
-    applyPlayerRate(player);
-    if (nudge) {
-      audioDiagnostics.recordNudge();
-    }
+  const clamped = clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE);
+  if (player.element.playbackRate !== clamped) {
+    player.element.playbackRate = clamped;
   }
 }
 
 // Seeks `player`'s element to `mediaTime` once it drifts further than
-// `tolerance`, and in steady playback closes smaller drift by nudging its
-// rate. In `steady` playback a seek still landing is left to land,
+// `tolerance`. In `steady` playback a seek still landing is left to land,
 // and a new one aims `seekLatency`, as long as the last one took to land,
 // ahead, so an element that starts late, as on a slow main thread, meets
 // the playhead rather than chasing it from behind. Aiming past the end of
@@ -239,17 +191,7 @@ export function seekPlayer(
     audioDiagnostics.recordDrift(drift);
   }
   if (Math.abs(drift) <= tolerance) {
-    if (playing) {
-      nudgePlayer(player, drift);
-    } else if (player.nudge) {
-      player.nudge = 0;
-      applyPlayerRate(player);
-    }
     return;
-  }
-  if (player.nudge) {
-    player.nudge = 0;
-    applyPlayerRate(player);
   }
   audioDiagnostics.recordResync(playing);
   if (!steady || !context) {

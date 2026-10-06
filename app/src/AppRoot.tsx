@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import App from "./App.tsx";
 import { bootWorkspace } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
+import { audioDiagnostics } from "./audio-mix/audio-diagnostics.ts";
+import { AudioDiagnosticsPanel } from "./components/AudioDiagnosticsPanel.tsx";
 
 // Loads the saved session before the editor renders, so the timeline never
 // flashes empty before a restore.
@@ -23,7 +25,12 @@ function AppRoot() {
   if (!boot) {
     return <output className="workspace-restoring">Restoring session…</output>;
   }
-  return <App boot={boot} />;
+  return (
+    <>
+      <App boot={boot} />
+      {audioDiagnostics.enabled ? <AudioDiagnosticsPanel /> : null}
+    </>
+  );
 }
 
 export default AppRoot;

@@ -39,6 +39,20 @@ export function isIOSWebKit(
   );
 }
 
+// Whether the page runs in WebKit: Safari, or any iOS browser.
+export function isWebKit(
+  platform: PlatformNavigator | undefined = globalThis.navigator,
+) {
+  if (!platform) {
+    return false;
+  }
+  return (
+    isIOSWebKit(platform) ||
+    (/AppleWebKit\//.test(platform.userAgent) &&
+      !/(Chrome|Chromium|Edg|OPR|Android)\//.test(platform.userAgent))
+  );
+}
+
 // The preview context's options. iOS WebKit underruns on the "interactive"
 // default's small buffers when the main thread is busy (#1111), so there it
 // asks for "playback" buffers; desktop browsers keep the default, whose

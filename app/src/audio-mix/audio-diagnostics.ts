@@ -50,7 +50,6 @@ export class AudioDiagnostics {
   private voiceSources = new Set<() => AudioVoiceDiagnostics[]>();
   private resyncs: Resync[] = [];
   private steadyResyncCount = 0;
-  private nudgeCount = 0;
   private drift: number[] = [];
   private longTaskCount = 0;
   private longTasksObserved = false;
@@ -108,13 +107,6 @@ export class AudioDiagnostics {
     }
   }
 
-  // A playback-rate nudge made to close drift without seeking.
-  recordNudge() {
-    if (this.enabled) {
-      this.nudgeCount += 1;
-    }
-  }
-
   // How far, in seconds, an element playing steadily was from the
   // playhead: positive ahead.
   recordDrift(seconds: number) {
@@ -131,7 +123,6 @@ export class AudioDiagnostics {
   reset() {
     this.resyncs = [];
     this.steadyResyncCount = 0;
-    this.nudgeCount = 0;
     this.drift = [];
     this.longTaskCount = 0;
     this.sinceMs = this.now();
@@ -160,7 +151,6 @@ export class AudioDiagnostics {
       resyncs: this.resyncs.length,
       steadyResyncs: this.steadyResyncCount,
       steadyResyncsPerSecond: recent / windowSeconds,
-      nudges: this.nudgeCount,
       drift: [...this.drift],
       longTasks: this.longTasksObserved ? this.longTaskCount : null,
       seconds: (nowMs - this.sinceMs) / 1000,
@@ -187,7 +177,6 @@ export class AudioDiagnostics {
           `  ${voice.clipId}: ${voice.kind}, rate ${voice.playbackRate.toFixed(3)}${voice.paused ? ", paused" : ""}`,
       ),
       `Re-syncs: ${snapshot.resyncs} (steady playback: ${snapshot.steadyResyncs}, ${snapshot.steadyResyncsPerSecond.toFixed(2)}/s over the last 10 s)`,
-      `Rate nudges: ${snapshot.nudges}`,
       `Drift (ms, latest last): ${
         snapshot.drift.length
           ? snapshot.drift
