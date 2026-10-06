@@ -18,9 +18,10 @@ type LoopBounds = {
 
 /**
  * The loop with its `marker` placed at `atQ`. The other end stays where it
- * is, unless there's no loop yet or the marker lands on or past it: then an
- * out marker's loop starts at the timeline start, and an in marker's loop
- * runs to the content end, or to the timeline end from past the content.
+ * is, unless there's no loop yet or keeping it would leave no more than the
+ * minimum loop: then an out marker's loop starts at the timeline start, and
+ * an in marker's loop runs to the content end, or to the timeline end from
+ * past the content.
  */
 export function placeLoopMarker(
   region: LoopRegion | null,
@@ -35,7 +36,7 @@ export function placeLoopMarker(
   if (marker === "in") {
     const inQ = clamp(atQ, 0, Math.max(0, totalQuarters - minimumQ));
     const keptEndQ =
-      region && region.endQ - inQ >= minimumQ ? region.endQ : null;
+      region && region.endQ - inQ > minimumQ ? region.endQ : null;
     const endQ =
       keptEndQ ?? (contentEndQ - inQ >= minimumQ ? contentEndQ : totalQuarters);
     return {
@@ -45,7 +46,7 @@ export function placeLoopMarker(
   }
 
   const outQ = clamp(atQ, Math.min(minimumQ, totalQuarters), totalQuarters);
-  const startQ = region && outQ - region.startQ >= minimumQ ? region.startQ : 0;
+  const startQ = region && outQ - region.startQ > minimumQ ? region.startQ : 0;
   return {
     startQ: Math.max(0, Math.min(startQ, outQ - minimumQ)),
     endQ: outQ,

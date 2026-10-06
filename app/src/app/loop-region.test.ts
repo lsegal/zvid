@@ -61,14 +61,23 @@ describe("placeLoopMarker", () => {
   });
 
   it("never leaves a loop shorter than the minimum at the other end", () => {
-    // The out marker just after the click is too close to keep.
+    // An out marker within the minimum of the click is too close to keep.
     assert.deepEqual(
       placeLoopMarker({ startQ: 0, endQ: 12.5 }, "in", 12, markerBounds),
       { startQ: 12, endQ: 16 },
     );
     assert.deepEqual(
-      placeLoopMarker({ startQ: 11.5, endQ: 16 }, "out", 12, markerBounds),
+      placeLoopMarker({ startQ: 0, endQ: 13 }, "in", 12, markerBounds),
+      { startQ: 12, endQ: 16 },
+    );
+    assert.deepEqual(
+      placeLoopMarker({ startQ: 11, endQ: 16 }, "out", 12, markerBounds),
       { startQ: 0, endQ: 12 },
+    );
+    // Further away, it stays.
+    assert.deepEqual(
+      placeLoopMarker({ startQ: 0, endQ: 13.5 }, "in", 12, markerBounds),
+      { startQ: 12, endQ: 13.5 },
     );
   });
 
