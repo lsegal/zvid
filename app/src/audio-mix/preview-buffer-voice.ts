@@ -132,7 +132,7 @@ export class DecodedClipVoice {
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
   // While playing: the audio clock time its clip's start plays at.
-  private started = { contextTime: 0 };
+  private startsAt = 0;
   private disposed = false;
   // How many steady syncs in a row it has been off for.
   private drifting = 0;
@@ -204,7 +204,7 @@ export class DecodedClipVoice {
         ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
         : tolerance;
     if (this.source) {
-      const drift = now - this.started.contextTime - clipSeconds;
+      const drift = now - this.startsAt - clipSeconds;
       if (steady) {
         audioDiagnostics.recordDrift(drift);
       }
@@ -228,7 +228,7 @@ export class DecodedClipVoice {
     source.start(Math.max(soonest, startsAt), Math.max(0, soonest - startsAt));
     this.source = source;
     this.drifting = 0;
-    this.started = { contextTime: startsAt };
+    this.startsAt = startsAt;
   }
 
   stop() {
