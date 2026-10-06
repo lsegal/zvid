@@ -4,9 +4,29 @@
 // it with, and plays that buffer from the clip's position under the
 // playhead. Spans and decoded media are cached across voices, and rendered
 // off the main thread (see clip-audio-cache.ts).
+import { audioDiagnostics } from "./audio-diagnostics.ts";
 import { sharedClipAudioCache } from "./clip-audio-cache.ts";
 import type { DecodedAudio } from "./mix.ts";
 import type { AudioMixClip } from "./resolve.ts";
+
+// The longest media, and clip, iOS plays from a decoded buffer rather than
+// a media element, bounding the memory decoding takes: a minute of 48 kHz
+// stereo decodes to about 23 MB, and the clip's span as much again.
+const MAX_PREFERRED_DECODED_SECONDS = 120;
+
+// Whether the preview may play `clip`, an audio-only clip, from a decoded
+// buffer by preference: iOS WebKit's MediaElementAudioSourceNode is prone
+// to glitches, where an AudioBufferSourceNode plays on the audio thread
+// alone (#1111). Its media's length must be known and short enough.
+export function prefersDecodedVoice(
+  clip: Pick<AudioMixClip, "durationSeconds" | "mediaDurationSeconds">,
+) {
+  return (
+    clip.mediaDurationSeconds !== undefined &&
+    clip.mediaDurationSeconds <= MAX_PREFERRED_DECODED_SECONDS &&
+    clip.durationSeconds <= MAX_PREFERRED_DECODED_SECONDS
+  );
+}
 
 // The media at `url`, decoded at `context`'s rate into arrays of its own, so
 // they can move to the clip span worker.
@@ -74,8 +94,9 @@ export class DecodedClipVoice {
   }
 
   // Plays from `clipSeconds` into the clip, unless already playing within
-  // `tolerance` of it, or stops when `clipSeconds` is undefined.
-  sync(clipSeconds: number | undefined, tolerance: number) {
+  // `tolerance` of it, or stops when `clipSeconds` is undefined. A restart
+  // to meet the playhead counts as a re-sync, `steady` in plain playback.
+  sync(clipSeconds: number | undefined, tolerance: number, steady = false) {
     if (clipSeconds === undefined || !this.buffer) {
       this.stop();
       return;
@@ -87,6 +108,7 @@ export class DecodedClipVoice {
       if (Math.abs(playing - clipSeconds) <= tolerance) {
         return;
       }
+      audioDiagnostics.recordResync(steady);
       this.stop();
     }
     const source = this.context.createBufferSource();

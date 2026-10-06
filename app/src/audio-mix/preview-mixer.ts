@@ -27,15 +27,17 @@
 // whose source stages read its media other than forwards plays from a
 // decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
-import { clamp } from "../app/util.ts";
 import { releaseMediaElement } from "../media-element.ts";
+import { audioDiagnostics, voiceDiagnostics } from "./audio-diagnostics.ts";
 import type { AudioChainSettings } from "./chain.ts";
 import {
   type ChainMessage,
   type ChainReport,
   type ChainTransport,
   createChainNode,
+  nextTransport,
   postChainMessage,
+  timelineAt,
 } from "./chain-node.ts";
 import {
   type AudioMixTiming,
@@ -44,14 +46,24 @@ import {
   clipMediaTimeAt,
   clipReadSeconds,
 } from "./mix.ts";
-import { DecodedClipVoice } from "./preview-buffer-voice.ts";
-import { createMixGraph, type MixGraph, setSmoothly } from "./preview-graph.ts";
+import {
+  DecodedClipVoice,
+  prefersDecodedVoice,
+} from "./preview-buffer-voice.ts";
+import {
+  createMixGraph,
+  isIOSWebKit,
+  type MixGraph,
+  setSmoothly,
+} from "./preview-graph.ts";
 import {
   createPlayer,
   type DrawnClip,
   MixVideoClips,
   type Player,
+  playbackDriftTolerance,
   seekPlayer,
+  setPlayerRate,
   takeReadyPlayer,
 } from "./preview-player.ts";
 import type { AudioProcessorRegistry } from "./processor.ts";
@@ -83,6 +95,9 @@ export type PreviewAudioMixerOptions = {
   registry?: AudioProcessorRegistry;
   // Called when the mixer makes or releases a <video> (see videoElements).
   onVideoElementsChange?: () => void;
+  // Plays audio-only clips from decoded buffers where it can (see
+  // prefersDecodedVoice); by default on iOS.
+  preferDecodedAudio?: boolean;
 };
 
 type Voice = {
@@ -105,11 +120,6 @@ type ChainGraph = {
   buses: Map<string, AudioWorkletNode>;
 };
 
-const MAX_DRIFT_SECONDS = 0.18;
-const SCRUB_DRIFT_SECONDS = 0.035;
-// Audio keeps playing through a scrub started during playback, so it only
-// re-syncs once it falls this far behind or ahead of the playhead.
-const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
 // A clip's element is made this long before the clip starts, so it has
 // loaded by then, and released this long after it ends, or after its
 // chain's tail when that is longer.
@@ -118,15 +128,6 @@ const PRELOAD_SECONDS = 1.5;
 // before it can play, so its voice is made this much earlier.
 const DECODED_PRELOAD_SECONDS = 8;
 const RELEASE_SECONDS = 3;
-// The playback rates every browser accepts; a media element throws outside
-// them.
-const MIN_PLAYBACK_RATE = 0.0625;
-const MAX_PLAYBACK_RATE = 16;
-// A playhead this far from where the chains expect it is a seek, which
-// resets them so no stale tail plays; a smaller gap only re-anchors their
-// timeline time.
-const SEEK_SECONDS = 0.25;
-const TRANSPORT_DRIFT_SECONDS = 0.02;
 // How long past its tail a clip chain no longer needed waits to be dropped,
 // so its last stage crossfade and Gain ramps finish first.
 const RETIRE_MARGIN_SECONDS = 0.1;
@@ -152,13 +153,20 @@ export class PreviewAudioMixer {
   private posted = new WeakMap<AudioWorkletNode, string>();
   // How long the last seek during playback took to land, by the audio clock.
   private seekLatency = 0;
-  // Tells the chains which stages' Transient levels to report.
+  private readonly preferDecoded: boolean;
+  // Tells the chains which stages' Transient levels to report, and lists
+  // the voices in the audio diagnostics.
   private readonly unwatch: () => void;
+  private readonly unlist: () => void;
 
   constructor(options: PreviewAudioMixerOptions = {}) {
     this.workletUrl = options.workletUrl;
     this.registry = options.registry ?? AUDIO_PROCESSORS;
     this.onVideoElementsChange = options.onVideoElementsChange;
+    this.preferDecoded = options.preferDecodedAudio ?? isIOSWebKit();
+    this.unlist = audioDiagnostics.addVoices(() =>
+      voiceDiagnostics(this.voices),
+    );
     this.unwatch = subscribeWatchedTransients(() => {
       this.broadcast({ type: "watch", ids: watchedTransients() });
     });
@@ -254,13 +262,7 @@ export class PreviewAudioMixer {
 
   sync(playback: AudioMixPlayback) {
     const shouldPlay = playback.isPlaying || playback.isAudibleScrubbing;
-    const continuousScrub =
-      playback.isAudibleScrubbing && playback.isContinuousScrubbing;
-    const driftTolerance = continuousScrub
-      ? CONTINUOUS_SCRUB_DRIFT_SECONDS
-      : playback.isAudibleScrubbing
-        ? SCRUB_DRIFT_SECONDS
-        : MAX_DRIFT_SECONDS;
+    const driftTolerance = playbackDriftTolerance(playback);
     // Plain playback, as opposed to a scrub, lets seeks land and leads them.
     const steady = playback.isPlaying && !playback.isScrubbing;
     const now = playback.playheadSeconds;
@@ -315,6 +317,7 @@ export class PreviewAudioMixer {
         voice.decoded.sync(
           shouldPlay && inside ? at - start : undefined,
           driftTolerance,
+          steady,
         );
         continue;
       }
@@ -345,14 +348,7 @@ export class PreviewAudioMixer {
         continue;
       }
 
-      const rate = clamp(
-        media.playbackRate,
-        MIN_PLAYBACK_RATE,
-        MAX_PLAYBACK_RATE,
-      );
-      if (element.playbackRate !== rate) {
-        element.playbackRate = rate;
-      }
+      setPlayerRate(player, media.playbackRate);
       // A video element stopped on the playhead first moves to the chain
       // latency's lead, which is inside the drift tolerance.
       const tolerance = !shouldPlay
@@ -399,12 +395,16 @@ export class PreviewAudioMixer {
       voice.decoded?.stop();
     }
     if (this.transport && this.graph) {
-      this.syncTransport(this.timelineNow(this.transport), false);
+      this.syncTransport(
+        timelineAt(this.transport, this.graph.context.currentTime),
+        false,
+      );
     }
   }
 
   dispose() {
     this.unwatch();
+    this.unlist();
     this.teardownChains();
     this.graph?.context.close().catch(() => {});
     this.graph = null;
@@ -415,7 +415,12 @@ export class PreviewAudioMixer {
   }
 
   private needsDecoded(clip: AudioMixClip) {
-    return clipReadSeconds(clip, this.registry) !== undefined;
+    return (
+      clipReadSeconds(clip, this.registry) !== undefined ||
+      (this.preferDecoded &&
+        !this.videoClips.isVideo(clip) &&
+        prefersDecodedVoice(clip))
+    );
   }
 
   // Whether the mix needs its chains run, beyond Gain; update caches it.
@@ -505,35 +510,21 @@ export class PreviewAudioMixer {
     }
   }
 
-  private timelineNow(transport: ChainTransport) {
-    const context = this.graph?.context;
-    return context
-      ? transport.timelineSeconds +
-          (context.currentTime - transport.contextTime) * transport.rate
-      : transport.timelineSeconds;
-  }
-
   // Tells the chains where the timeline is when that changes: on play,
   // pause or drift. A seek also resets them.
   private syncTransport(now: number, playing: boolean) {
     const context = this.graph?.context;
-    if (!this.chains || !context) {
+    const next =
+      this.chains && context
+        ? nextTransport(this.transport, context.currentTime, now, playing)
+        : null;
+    if (!next) {
       return;
     }
-    const rate = playing ? 1 : 0;
-    const previous = this.transport;
-    const gap = previous ? Math.abs(this.timelineNow(previous) - now) : 0;
-    if (previous && previous.rate === rate && gap <= TRANSPORT_DRIFT_SECONDS) {
-      return;
-    }
-    if (previous && gap > SEEK_SECONDS) {
+    if (next.reset) {
       this.broadcast({ type: "reset" });
     }
-    this.transport = {
-      contextTime: context.currentTime,
-      timelineSeconds: now,
-      rate,
-    };
+    this.transport = next.transport;
     this.broadcast({ type: "transport", ...this.transport });
   }
 
