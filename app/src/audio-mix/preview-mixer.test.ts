@@ -1009,5 +1009,33 @@ describe("PreviewAudioMixer", () => {
       assert.ok(elementOf("a"));
       mixer.dispose();
     });
+    it("plays a WebM video clip's soundtrack from a decoded buffer where it prefers them", () => {
+      const media = [
+        { id: "w", previewUrl: "blob:w", kind: "video", name: "clip.webm" },
+        { id: "m", previewUrl: "blob:m", kind: "video", name: "clip.mp4" },
+      ];
+      const clips = mix([
+        clip({ id: "webm", mediaId: "w", mediaDurationSeconds: 10 }),
+        clip({ id: "mp4", mediaId: "m", mediaDurationSeconds: 10 }),
+      ]);
+      const preferring = new PreviewAudioMixer({ preferDecodedAudio: true });
+      preferring.update(clips, media);
+      preferring.sync(playing(1));
+      // WebKit routes a WebM <video> silently, so the compositor draws its
+      // own while the mix plays the decoded soundtrack.
+      assert.equal(elementOf("w"), undefined);
+      assert.equal(preferring.playsVideoOf(drawn("w")), false);
+      assert.ok(elementOf("m"));
+      assert.equal(preferring.playsVideoOf(drawn("m")), true);
+      preferring.dispose();
+
+      // Outside WebKit, a WebM video clip plays from its <video>.
+      const mixer = new PreviewAudioMixer();
+      mixer.update(clips, media);
+      mixer.sync(playing(1));
+      assert.ok(elementOf("w"));
+      assert.equal(mixer.playsVideoOf(drawn("w")), true);
+      mixer.dispose();
+    });
   });
 });

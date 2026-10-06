@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  isWebMMedia,
   type Player,
   playbackDriftTolerance,
   seekPlayer,
@@ -90,5 +91,18 @@ describe("playbackDriftTolerance", () => {
     assert.equal(tolerance(false), 0.18);
     assert.equal(tolerance(true), 0.035);
     assert.equal(tolerance(true, true), 0.1);
+  });
+});
+
+describe("isWebMMedia", () => {
+  it("knows WebM media by its container or its file name", () => {
+    assert.equal(isWebMMedia({ id: "a", container: "WebM" }), true);
+    assert.equal(isWebMMedia({ id: "b", name: "Take 1.WEBM" }), true);
+    assert.equal(isWebMMedia({ id: "c", name: "take.mp4" }), false);
+    assert.equal(
+      isWebMMedia({ id: "d", name: "take.mov", container: "QuickTime / MOV" }),
+      false,
+    );
+    assert.equal(isWebMMedia({ id: "e" }), false);
   });
 });
