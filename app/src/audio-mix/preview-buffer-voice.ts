@@ -50,6 +50,34 @@ export async function decodeClipMedia(
   };
 }
 
+// How long before its clip starts steady playback hands a voice its clip,
+// so the voice starts it on the audio clock just as the clip starts. A
+// voice started by the first sync after its clip starts, and stopped by the
+// first after it ends, leaves a gap between back-to-back clips as long as
+// that sync was late: up to a frame, 33 ms where WebKit runs at 30 fps, and
+// more on a busy main thread (#1115).
+const SCHEDULE_AHEAD_SECONDS = 0.5;
+
+// Where a clip from `start` to `end` on the timeline is at timeline time
+// `at`, as DecodedClipVoice.sync takes it, or undefined where it is silent.
+// In steady playback it is negative shortly before the clip starts, and
+// past the clip's end its buffer, which ends there, runs out on its own.
+export function decodedClipSeconds(
+  at: number,
+  start: number,
+  end: number,
+  playing: boolean,
+  steady: boolean,
+) {
+  if (!playing) {
+    return undefined;
+  }
+  if (steady) {
+    return at >= start - SCHEDULE_AHEAD_SECONDS ? at - start : undefined;
+  }
+  return at >= start && at < end ? at - start : undefined;
+}
+
 // A buffer plays on the audio clock, which the playhead, on the display's
 // clock, can read a jump in for a frame where the audio thread runs late.
 // Restarting the buffer is an audible gap, so steady playback restarts it
@@ -57,20 +85,61 @@ export async function decodeClipMedia(
 // where buffers play by preference, as in WebKit, only past
 // LENIENT_DRIFT_SECONDS, as media elements there do (see preview-player.ts).
 const STEADY_DRIFT_SYNCS = 3;
+// A source started at the audio clock's current time starts late, as the
+// audio thread has already moved on (by a render quantum in WebKit), and
+// plays that far behind the clock, over the next clip's start. In steady
+// playback one starts this far ahead instead, at its clip time there.
+const START_AHEAD_SECONDS = 0.05;
 const LENIENT_DRIFT_SECONDS = 0.6;
+
+// The audio clock time each timeline time plays at in steady playback,
+// which a mixer's decoded voices share, so back-to-back clips meet sample
+// for sample rather than each where the playhead read as it started.
+export class DecodedVoiceClock {
+  private anchor: { contextTime: number; timelineSeconds: number } | null =
+    null;
+
+  // The audio clock time `timelineSeconds` plays at, given the playhead
+  // puts it at `contextTime`: as the clock has it, if within `tolerance`,
+  // else at `contextTime`, where the clock then puts it.
+  contextTimeOf(
+    timelineSeconds: number,
+    contextTime: number,
+    tolerance: number,
+  ) {
+    if (this.anchor) {
+      const at =
+        this.anchor.contextTime +
+        (timelineSeconds - this.anchor.timelineSeconds);
+      if (Math.abs(at - contextTime) <= tolerance) {
+        return at;
+      }
+    }
+    this.anchor = { contextTime, timelineSeconds };
+    return contextTime;
+  }
+
+  // Forgets where the timeline plays unless playback is `steady`: a stop or
+  // a scrub moves it.
+  holdWhile(steady: boolean) {
+    if (!steady) {
+      this.anchor = null;
+    }
+  }
+}
 
 export class DecodedClipVoice {
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
-  // While playing: the context time it started and the clip second it
-  // started from.
-  private started = { contextTime: 0, clipSeconds: 0 };
+  // While playing: the audio clock time its clip's start plays at.
+  private startsAt = 0;
   private disposed = false;
   // How many steady syncs in a row it has been off for.
   private drifting = 0;
   private readonly context: AudioContext;
   private readonly output: AudioNode;
   private readonly lenient: boolean;
+  private readonly clock: DecodedVoiceClock | undefined;
 
   constructor(
     context: AudioContext,
@@ -79,10 +148,12 @@ export class DecodedClipVoice {
     bpm: number,
     output: AudioNode,
     lenient = false,
+    clock?: DecodedVoiceClock,
   ) {
     this.context = context;
     this.output = output;
     this.lenient = lenient;
+    this.clock = clock;
     void this.load(clip, url, bpm);
   }
 
@@ -110,24 +181,30 @@ export class DecodedClipVoice {
     }
   }
 
-  // Plays from `clipSeconds` into the clip, unless already playing within
-  // `tolerance` of it, or stops when `clipSeconds` is undefined. A restart
-  // to meet the playhead counts as a re-sync, `steady` in plain playback,
-  // which waits for drift to last.
-  sync(clipSeconds: number | undefined, tolerance: number, steady = false) {
+  // Plays from `clipSeconds` into the clip, or when it is negative, from
+  // the clip's start that many seconds from now, unless already playing
+  // within `tolerance` of it, or stops when `clipSeconds` is undefined. A
+  // restart to meet the playhead counts as a re-sync, `steady` in plain
+  // playback, which waits for drift to last. In steady playback its clip,
+  // starting at `startSeconds` on the timeline, starts where the shared
+  // clock puts it.
+  sync(
+    clipSeconds: number | undefined,
+    tolerance: number,
+    steady = false,
+    startSeconds = 0,
+  ) {
     if (clipSeconds === undefined || !this.buffer) {
       this.stop();
       return;
     }
+    const now = this.context.currentTime;
+    const limit =
+      steady && this.lenient
+        ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
+        : tolerance;
     if (this.source) {
-      const playing =
-        this.started.clipSeconds +
-        (this.context.currentTime - this.started.contextTime);
-      const drift = playing - clipSeconds;
-      const limit =
-        steady && this.lenient
-          ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
-          : tolerance;
+      const drift = now - this.startsAt - clipSeconds;
       if (steady) {
         audioDiagnostics.recordDrift(drift);
       }
@@ -138,16 +215,20 @@ export class DecodedClipVoice {
       audioDiagnostics.recordResync(steady);
       this.stop();
     }
+    // The audio clock time the clip's start plays at, and the soonest it
+    // can start.
+    const startsAt =
+      steady && this.clock
+        ? this.clock.contextTimeOf(startSeconds, now - clipSeconds, limit)
+        : now - clipSeconds;
+    const soonest = now + (steady ? START_AHEAD_SECONDS : 0);
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.connect(this.output);
-    source.start(0, Math.max(0, clipSeconds));
+    source.start(Math.max(soonest, startsAt), Math.max(0, soonest - startsAt));
     this.source = source;
     this.drifting = 0;
-    this.started = {
-      contextTime: this.context.currentTime,
-      clipSeconds,
-    };
+    this.startsAt = startsAt;
   }
 
   stop() {
