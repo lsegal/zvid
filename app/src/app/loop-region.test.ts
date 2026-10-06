@@ -38,31 +38,63 @@ describe("placeLoopMarker", () => {
     });
   });
 
-  it("clamps a marker past the other end so in stays before out", () => {
+  it("starts a fresh loop at a marker placed on or past the other end", () => {
     const region = { startQ: 4, endQ: 8 };
+    // An in marker past the out marker runs to the content end.
     assert.deepEqual(placeLoopMarker(region, "in", 12, markerBounds), {
-      startQ: 7,
-      endQ: 8,
-    });
-    assert.deepEqual(placeLoopMarker(region, "out", 2, markerBounds), {
-      startQ: 4,
-      endQ: 5,
-    });
-    // A lone in marker past the content end.
-    assert.deepEqual(placeLoopMarker(null, "in", 30, markerBounds), {
-      startQ: 15,
+      startQ: 12,
       endQ: 16,
+    });
+    assert.deepEqual(placeLoopMarker(region, "in", 8, markerBounds), {
+      startQ: 8,
+      endQ: 16,
+    });
+    // An out marker before the in marker starts at the timeline start.
+    assert.deepEqual(placeLoopMarker(region, "out", 2, markerBounds), {
+      startQ: 0,
+      endQ: 2,
+    });
+    assert.deepEqual(placeLoopMarker(region, "out", 4, markerBounds), {
+      startQ: 0,
+      endQ: 4,
     });
   });
 
-  it("keeps a loop on an empty timeline at least the minimum long", () => {
+  it("never leaves a loop shorter than the minimum at the other end", () => {
+    // The out marker just after the click is too close to keep.
+    assert.deepEqual(
+      placeLoopMarker({ startQ: 0, endQ: 12.5 }, "in", 12, markerBounds),
+      { startQ: 12, endQ: 16 },
+    );
+    assert.deepEqual(
+      placeLoopMarker({ startQ: 11.5, endQ: 16 }, "out", 12, markerBounds),
+      { startQ: 0, endQ: 12 },
+    );
+  });
+
+  it("runs a lone in marker on or past the content end to the timeline end", () => {
+    assert.deepEqual(placeLoopMarker(null, "in", 30, markerBounds), {
+      startQ: 30,
+      endQ: 64,
+    });
+    assert.deepEqual(placeLoopMarker(null, "in", 16, markerBounds), {
+      startQ: 16,
+      endQ: 64,
+    });
     assert.deepEqual(
       placeLoopMarker(null, "in", 3, { ...markerBounds, contentEndQ: 0 }),
-      { startQ: 0, endQ: 1 },
+      { startQ: 3, endQ: 64 },
     );
+  });
+
+  it("keeps a loop at least the minimum long", () => {
     assert.deepEqual(placeLoopMarker(null, "out", 0, markerBounds), {
       startQ: 0,
       endQ: 1,
+    });
+    assert.deepEqual(placeLoopMarker(null, "in", 64, markerBounds), {
+      startQ: 63,
+      endQ: 64,
     });
   });
 
