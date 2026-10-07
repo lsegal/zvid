@@ -273,8 +273,12 @@ jobs:
           path: daw/ui/test-results
           if-no-files-found: ignore
 
-  # Pull requests that don't touch /daw skip the `daw` job; pushes to main
-  # always run it.
+  # Pull requests and pushes to main that don't touch /daw skip the `daw`
+  # job. A push is compared against the commit main pointed at before it
+  # (the push's `before` SHA), so a multi-commit push that changed /daw in
+  # any of its commits still runs it. When the changed files can't be
+  # determined (a new branch, a force-push whose old head can't be fetched,
+  # or a filter error), `daw` is true and the job runs anyway.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -282,13 +286,15 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      daw: ${{ steps.filter.outputs.daw }}
+      daw: ${{ steps.filter.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.daw == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
         id: filter
+        continue-on-error: true
         with:
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
           filters: |
             daw:
               - daw/**
@@ -298,7 +304,7 @@ jobs:
   daw:
     name: daw (${{ matrix.os }})
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.daw == 'true'
+    if: needs.changes.outputs.daw == 'true'
     strategy:
       fail-fast: false
       matrix:
