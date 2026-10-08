@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 # browser, so the only codec it needs from zvidlib is the Opus encoder for
 # WebM audio. Keep the version identical to daw/Cargo.toml; `cargo xtask
 # check` fails when the two drift apart.
-zvidlib = { version = "0.4.1", default-features = false, features = ["opus-encoder"] }
+zvidlib = { version = "0.5.0", default-features = false, features = ["opus-encoder"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.127"

@@ -1052,9 +1052,9 @@ dependencies = [
 
 [[package]]
 name = "zvidlib"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4206506c817e59055a639d6e583fe71e2adeaaa22d66c133a3cf62862485aeb4"
+checksum = "1d367df265cea4dad53432eb232661c8ca030b3a13521d4099b63866f3f85371"
 dependencies = [
  "cpal",
  "zvidlib-av1-syntax",
@@ -1071,33 +1071,33 @@ dependencies = [
 
 [[package]]
 name = "zvidlib-av1-syntax"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34196ebc1f0ff471a48304bdda8e09f76a4bf85b6f9b84039254046ac9e9296b"
+checksum = "8939098d0a1e6e8da1e34eca2d4445d8bffa90e493369c04d81546a3a55bf0cf"
 dependencies = [
  "zvidlib-core",
 ]
 
 [[package]]
 name = "zvidlib-build"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0aea8693d4ee80f0b2ca0e5d78bdae5688984c8a60d2eaa68c970638326c639a"
+checksum = "4703bf6f711ae09b600c6272c6e629d4b9e9857c6aea50bb599f65bec876c169"
 
 [[package]]
 name = "zvidlib-color"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5a0388766062f5ff9aeb3d6c3859bad0140cb0fb6ebb7195567033fdb25b8f5"
+checksum = "9c337a4d5bae5eae15934c4d4081bf6a4be04d309332b018d8c2dfa494f95934"
 dependencies = [
  "zvidlib-core",
 ]
 
 [[package]]
 name = "zvidlib-container"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fef08d37d83aaec7caaebea206df63fc23ecbb5ad7378f2538f76a45197f778"
+checksum = "b055e7942c9f653a5b231c2bc6ff20c87551b80a1729bfa171a64795429a6cdc"
 dependencies = [
  "zvidlib-av1-syntax",
  "zvidlib-core",
@@ -1107,21 +1107,21 @@ dependencies = [
 
 [[package]]
 name = "zvidlib-core"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6dd5459495f39c29decc104cdcc99fb20f7fa3e949f0a97ab5df58937dea925"
+checksum = "568189ce764b4890342f24ed013595066b6beb0d8e30af37bb755fafae074b90"
 
 [[package]]
 name = "zvidlib-hevc-syntax"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8895ce3ae65eaecc61c9dc2ffa1d05dc39014ed997e379724f24b5dbb9bdd40c"
+checksum = "09e81bdb5d12d153a6edd9ae0fc404a3f055a5ab74245636b89748e1b2e56009"
 
 [[package]]
 name = "zvidlib-opus"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b2d9da540f5cdecfdfcad794c5b8518fb0d35cf32b077c31814a5323848840d"
+checksum = "63981780caf813184e159a4e7f578dc97c5af644b38df2d145d024a33eb12fca"
 dependencies = [
  "opus-pure",
  "zvidlib-core",
@@ -1130,27 +1130,27 @@ dependencies = [
 
 [[package]]
 name = "zvidlib-opus-syntax"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "819ed54be349198c8807f4223a7a1ad047b7bc8fd77033499d989a67a8447f37"
+checksum = "ce3ecb5a3fd353a713d52c3c25a57d1ac1d0fec14ee00563d89c5e8546701057"
 dependencies = [
  "zvidlib-core",
 ]
 
 [[package]]
 name = "zvidlib-vorbis-syntax"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa42de6cace6b24478ea13b8c5d9782caba4c48a3574b4d713e3a19c39a344a"
+checksum = "a17c521504be43d9123b0da8a6c028e2078900a44715fc673f27e26f0c95608c"
 dependencies = [
  "zvidlib-core",
 ]
 
 [[package]]
 name = "zvidlib-vp9-syntax"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdeb61cf606b0582dc7926a19b85ceee2932e60f686e7cd29a71af009ab7df29"
+checksum = "9b0d61751ba4de74bb367a9f137aebc360322775ffb22301db0caf6f8bd60fec"
 dependencies = [
  "zvidlib-color",
  "zvidlib-core",
