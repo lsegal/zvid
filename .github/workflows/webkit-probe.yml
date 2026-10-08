@@ -1,0 +1,24 @@
+# TEMPORARY probe for #1121; removed before the pull request is ready.
+name: WebKit probe
+on:
+  pull_request:
+    types: [synchronize]
+jobs:
+  probe:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: app
+          browser: webkit
+      - name: Probe
+        working-directory: app
+        env:
+          PLAYWRIGHT_WEBKIT: "1"
+        run: pnpm exec playwright test --project webkit webm-opus.spec.ts --retries 0 --reporter list

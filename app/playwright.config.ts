@@ -68,7 +68,11 @@ const chromium = devices["Desktop Chrome"];
 // Specs that also run in WebKit, the engine of Safari and every iOS browser
 // (#1111). The WebKit project is opt-in, with PLAYWRIGHT_WEBKIT=1, since
 // only CI's e2e-webkit job installs WebKit.
-const WEBKIT_SPECS = ["audio-mix.spec.ts", "audio-resync.spec.ts"];
+const WEBKIT_SPECS = [
+  "audio-mix.spec.ts",
+  "audio-resync.spec.ts",
+  "webm-opus.spec.ts",
+];
 const webkitProjects =
   process.env.PLAYWRIGHT_WEBKIT === "1"
     ? [
