@@ -14,6 +14,9 @@ describe("image media", () => {
     assert.equal(inferMediaKind("Logo.SVG"), "image");
     assert.equal(inferMediaKind("take.mov"), "video");
     assert.equal(inferMediaKind("mix.wav"), "audio");
+    assert.equal(inferMediaKind("voice.opus"), "audio");
+    assert.equal(inferMediaKind("voice.OGG"), "audio");
+    assert.equal(inferMediaKind("take.webm"), "video");
     assert.equal(isImageMedia({ kind: "image" }), true);
     assert.equal(isImageMedia({ kind: "video" }), false);
   });
