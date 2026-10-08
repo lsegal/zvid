@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor";
 import type { AudioMix } from "./audio-mix/resolve";
+import { exportExtension } from "./export-options";
 import { gainToAmplitude } from "./fx/effects/gain/gain";
 import { gainStageAt } from "./fx/effects/gain/processor";
 import type { SaveTarget } from "./harness/contracts";
@@ -11,6 +12,7 @@ import {
   AUDIO_BITRATES,
   AUDIO_SAMPLE_RATES,
   DEFAULT_SESSION_ENCODING,
+  exportContainer,
   type SessionSettings,
   VIDEO_CODECS,
 } from "./session-settings";
@@ -33,8 +35,8 @@ let videoOnlyBytes: Uint8Array | null = null;
 let videoOnlyCover: Uint8Array | undefined;
 
 // The Session Settings to export with. Query parameters override the
-// encoding defaults: codec (auto, h264, hevc, av1), mbps (a custom video
-// bitrate), audioKbps and sampleRate.
+// encoding defaults: codec (auto, h264, hevc, av1, or vp8 or vp9 for WebM),
+// mbps (a custom video bitrate), audioKbps and sampleRate.
 function smokeSettings(): SessionSettings {
   const query = new URLSearchParams(location.search);
   const encoding = { ...DEFAULT_SESSION_ENCODING };
@@ -102,9 +104,10 @@ async function destination(filename: string): Promise<SaveTarget | null> {
       filename,
       path: `${automationOutputDir}/${filename}`,
     };
+  const extension = filename.slice(filename.lastIndexOf(".") + 1);
   const path = await nativeSave({
     defaultPath: filename,
-    filters: [{ name: "MP4", extensions: ["mp4"] }],
+    filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
   });
   return path ? { kind: "native-path", filename, path } : null;
 }
@@ -158,7 +161,11 @@ function toneMix(previewUrl: string) {
 }
 
 async function run(audible: boolean) {
-  const filename = audible ? "smoke-audible.mp4" : "smoke-video-only.mp4";
+  const settings = smokeSettings();
+  const extension = exportExtension(
+    exportContainer(settings.encoding.videoCodec),
+  );
+  const filename = `smoke-${audible ? "audible" : "video-only"}${extension}`;
   const saveTarget = await destination(filename);
   if (!saveTarget) return;
   const toneUrl = audible ? tone() : null;
@@ -169,7 +176,7 @@ async function run(audible: boolean) {
         filename,
         saveTarget,
         canvas,
-        settings: smokeSettings(),
+        settings,
         durationSeconds: 2,
         frameCount: 48,
         bpm: 120,

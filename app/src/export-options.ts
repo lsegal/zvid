@@ -5,6 +5,8 @@
 import { quartersToSeconds, secondsToQuarters } from "./app/timeline-math.ts";
 import { sanitizeFilenameSegment } from "./app/util.ts";
 import {
+  type ExportContainer,
+  exportContainer,
   hasSessionSettingsErrors,
   type SessionSettings,
   type SessionSettingsErrors,
@@ -47,7 +49,10 @@ export type DefaultRangeInputs = {
   projectDurationFrames?: number;
 };
 
-const MP4_EXTENSION = ".mp4";
+const EXPORT_EXTENSIONS: Record<ExportContainer, string> = {
+  mp4: ".mp4",
+  webm: ".webm",
+};
 
 function clipEndQ(clip: RangeClip, bpm: number) {
   return clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
@@ -75,17 +80,49 @@ export function defaultExportRange({
   return { inQ, outQ: projectEndQ > inQ ? projectEndQ : lastClipEndQ };
 }
 
-/** "My Session" → "My Session.mp4", with characters files can't use replaced. */
-export function normalizeExportFileName(fileName: string) {
-  const trimmed = fileName.trim();
-  const base = trimmed.toLowerCase().endsWith(MP4_EXTENSION)
-    ? trimmed.slice(0, -MP4_EXTENSION.length)
-    : trimmed;
-  return `${sanitizeFilenameSegment(base)}${MP4_EXTENSION}`;
+/** The file extension, like ".webm", of a container. */
+export function exportExtension(container: ExportContainer) {
+  return EXPORT_EXTENSIONS[container];
 }
 
-export function defaultExportFileName(sessionName: string | null) {
-  return normalizeExportFileName(sessionName ?? "zvid-session");
+// `fileName` without a trailing export extension of any container.
+function stripExportExtension(fileName: string) {
+  const lower = fileName.toLowerCase();
+  const extension = Object.values(EXPORT_EXTENSIONS).find((candidate) =>
+    lower.endsWith(candidate),
+  );
+  return extension ? fileName.slice(0, -extension.length) : fileName;
+}
+
+/**
+ * "My Session" → "My Session.mp4" (or ".webm" for WebM), with characters
+ * files can't use replaced.
+ */
+export function normalizeExportFileName(
+  fileName: string,
+  container: ExportContainer = "mp4",
+) {
+  const base = stripExportExtension(fileName.trim());
+  return `${sanitizeFilenameSegment(base)}${exportExtension(container)}`;
+}
+
+/**
+ * The name typed so far with its export extension switched to `container`'s,
+ * so "take.mp4" becomes "take.webm"; a name without one stays as typed.
+ */
+export function switchExportExtension(
+  fileName: string,
+  container: ExportContainer,
+) {
+  const base = stripExportExtension(fileName);
+  return base === fileName ? fileName : `${base}${exportExtension(container)}`;
+}
+
+export function defaultExportFileName(
+  sessionName: string | null,
+  container: ExportContainer = "mp4",
+) {
+  return normalizeExportFileName(sessionName ?? "zvid-session", container);
 }
 
 export function createExportOptions(
@@ -166,8 +203,17 @@ export function reopenExportOptions(
     modified.has(field) ? own : fromSession;
   const { encoding } = remembered;
   const quality = pick("quality", encoding, session.encoding);
+  const videoCodec = pick(
+    "videoCodec",
+    encoding.videoCodec,
+    session.encoding.videoCodec,
+  );
   return {
     ...remembered,
+    fileName: switchExportExtension(
+      remembered.fileName,
+      exportContainer(videoCodec),
+    ),
     canvasWidth: pick(
       "resolution",
       remembered.canvasWidth,
@@ -180,11 +226,7 @@ export function reopenExportOptions(
     ),
     fps: pick("fps", remembered.fps, session.fps),
     encoding: {
-      videoCodec: pick(
-        "videoCodec",
-        encoding.videoCodec,
-        session.encoding.videoCodec,
-      ),
+      videoCodec,
       quality: quality.quality,
       ...(quality.customBitrateMbps !== undefined
         ? { customBitrateMbps: quality.customBitrateMbps }

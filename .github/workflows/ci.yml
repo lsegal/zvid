@@ -320,7 +320,7 @@ jobs:
 
       # Fails when C/C++/Objective-C++ sources appear under /daw. Runs before
       # anything is built so the Rust-only rule holds even if compilation
-      # breaks; `cargo xtask check` below repeats it with the zvidlib rev check.
+      # breaks; `cargo xtask check` below repeats it with the zvidlib version check.
       - name: Rust-only check
         run: |
           forbidden=$(find . -path ./target -prune -o -type f \( -iname '*.cpp' -o -iname '*.cc' -o -iname '*.mm' \) -print)

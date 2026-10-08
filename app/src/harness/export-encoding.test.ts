@@ -39,6 +39,7 @@ describe("resolveExportEncoding", () => {
     const { canEncode, asked } = device("hevc", "av1", "h264");
     const encoding = await resolveExportEncoding(settings(), canEncode);
     assert.deepEqual(encoding, {
+      container: "mp4",
       videoCodec: "hevc",
       videoBitrate: 12_000_000,
       audioCodec: "aac",
@@ -137,6 +138,36 @@ describe("resolveExportEncoding", () => {
     assert.equal(encoding.audioBitrate, 320_000);
     assert.equal(encoding.audioSampleRate, 44_100);
   });
+
+  for (const videoCodec of ["vp8", "vp9"] as const) {
+    it(`exports ${videoCodec} to WebM with 48 kHz Opus`, async () => {
+      const { canEncode, asked } = device("hevc", videoCodec);
+      const encoding = await resolveExportEncoding(
+        settings({ videoCodec, audioBitrateKbps: 128, audioSampleRate: 44100 }),
+        canEncode,
+      );
+      assert.deepEqual(encoding, {
+        container: "webm",
+        videoCodec,
+        videoBitrate: 12_000_000,
+        audioCodec: "opus",
+        audioBitrate: 128_000,
+        // Opus always codes 48 kHz.
+        audioSampleRate: 48_000,
+      });
+      assert.deepEqual(
+        asked.map(([codec]) => codec),
+        [videoCodec],
+      );
+    });
+  }
+
+  it("keeps Auto on MP4 even when only VP9 can encode", async () => {
+    await assert.rejects(
+      resolveExportEncoding(settings(), device("vp8", "vp9").canEncode),
+      /requires an HEVC, AV1 or H\.264 encoder/,
+    );
+  });
 });
 
 describe("describeExportEncoding", () => {
@@ -155,6 +186,7 @@ describe("describeExportEncoding", () => {
   it("rounds fractional frame rates and bitrates", () => {
     assert.equal(
       describeExportEncoding(settings({}, { fps: 30000 / 1001 }), {
+        container: "mp4",
         videoCodec: "h264",
         videoBitrate: 4_500_000,
         audioCodec: "aac",

@@ -249,6 +249,9 @@ export function inferMediaKind(name: string): MediaKind {
     case ".flac":
     case ".aif":
     case ".aiff":
+    case ".opus":
+    case ".ogg":
+    case ".oga":
       return "audio";
     case ".svg":
       return "image";

@@ -11,6 +11,10 @@ export const MEDIA_EXTENSIONS = [
   "flac",
   "aif",
   "aiff",
+  // Opus audio, on its own or in Ogg.
+  "opus",
+  "ogg",
+  "oga",
   // Images, used by effects such as Shape ▸ Custom rather than as clips.
   "svg",
 ];

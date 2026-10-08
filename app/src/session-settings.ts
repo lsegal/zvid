@@ -7,8 +7,11 @@
 
 import type { ProjectState } from "./app/types.ts";
 
-export type VideoCodecChoice = "auto" | "h264" | "hevc" | "av1";
+export type VideoCodecChoice = "auto" | "h264" | "hevc" | "av1" | "vp8" | "vp9";
 export type EncodableVideoCodec = Exclude<VideoCodecChoice, "auto">;
+// The file an export writes: MP4 with AAC audio, or WebM with Opus audio.
+export type ExportContainer = "mp4" | "webm";
+export type ExportAudioCodec = "aac" | "opus";
 export type VideoQuality = "low" | "medium" | "high" | "custom";
 export type AudioBitrateKbps = 128 | 192 | 256 | 320;
 export type AudioSampleRate = 44100 | 48000;
@@ -82,7 +85,43 @@ export const VIDEO_CODECS: readonly {
   { value: "h264", label: "H.264" },
   { value: "hevc", label: "HEVC" },
   { value: "av1", label: "AV1" },
+  { value: "vp8", label: "VP8 (WebM)" },
+  { value: "vp9", label: "VP9 (WebM)" },
 ];
+
+// VP8 and VP9 export to WebM; every other choice, Auto included, to MP4.
+const WEBM_CODECS: readonly VideoCodecChoice[] = ["vp8", "vp9"];
+
+/** The container a codec choice exports to. */
+export function exportContainer(videoCodec: VideoCodecChoice): ExportContainer {
+  return WEBM_CODECS.includes(videoCodec) ? "webm" : "mp4";
+}
+
+/** The audio codec a container carries: AAC in MP4, Opus in WebM. */
+export function exportAudioCodec(container: ExportContainer): ExportAudioCodec {
+  return container === "webm" ? "opus" : "aac";
+}
+
+export const EXPORT_CONTAINER_LABELS: Record<ExportContainer, string> = {
+  mp4: "MP4",
+  webm: "WebM",
+};
+
+export const EXPORT_AUDIO_CODEC_LABELS: Record<ExportAudioCodec, string> = {
+  aac: "AAC",
+  opus: "Opus",
+};
+
+// Opus always codes 48 kHz, so a WebM export's audio is at that rate
+// whatever the settings' sample rate is.
+export const OPUS_SAMPLE_RATE: AudioSampleRate = 48000;
+
+/** The sample rate the settings' export audio is encoded at. */
+export function exportAudioSampleRate(encoding: SessionEncoding) {
+  return exportContainer(encoding.videoCodec) === "webm"
+    ? OPUS_SAMPLE_RATE
+    : encoding.audioSampleRate;
+}
 
 // Auto picks the first of these the device can encode.
 export const AUTO_CODEC_ORDER: readonly EncodableVideoCodec[] = [

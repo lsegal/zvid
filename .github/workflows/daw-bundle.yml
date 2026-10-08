@@ -26,7 +26,7 @@ on:
   pull_request:
     branches:
       - main
-    # app/export-bridge/Cargo.toml pins the zvidlib rev `cargo xtask check`
+    # app/export-bridge/Cargo.toml pins the zvidlib version `cargo xtask check`
     # compares against.
     paths:
       - daw/**
@@ -44,7 +44,7 @@ concurrency:
 
 jobs:
   # Whether a push to main changed anything the Capture bundles are built
-  # from: /daw, the design tokens the plugin UI embeds, the zvidlib rev pin
+  # from: /daw, the design tokens the plugin UI embeds, the zvidlib version pin
   # and this workflow. The push is compared against the commit main pointed
   # at before it (the push's `before` SHA), so a multi-commit push that
   # changed /daw in any of its commits still builds. When the changed files

@@ -1,7 +1,7 @@
 import type { AudioMix } from "../audio-mix/resolve";
 import type { MediaItem, Palette } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
-import type { SessionSettings } from "../session-settings";
+import type { ExportContainer, SessionSettings } from "../session-settings";
 import type { ExportEncoding } from "./export-encoding";
 
 export type HarnessCapability =
@@ -69,6 +69,8 @@ export type ExportProgress = {
   phase: "idle" | "preparing" | "decoding-audio" | "rendering" | "muxing";
   progress: number | null;
   detail: string;
+  // The file being written, while muxing; MP4 when unset.
+  container?: ExportContainer;
 };
 
 export type ExportRequest = {

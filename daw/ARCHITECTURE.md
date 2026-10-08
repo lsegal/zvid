@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are Apple silicon only on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are Apple silicon only on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib version matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where

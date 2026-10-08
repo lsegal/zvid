@@ -88,13 +88,15 @@ Wrangler's build command, `pnpm run cf:prepare`, only builds the app. The ZVID C
 
 MP4 export uses the zvidlib bridge built during the app build. The runtime needs a HEVC or AV1 video encoder. Audible exports use a browser AAC encoder when available; the native macOS app can also use AudioToolbox.
 
+Choosing VP8 or VP9 as the video codec exports WebM instead: the browser encodes the video, and the bridge encodes the audio to 48 kHz Opus with zvidlib's own encoder and writes the WebM, so every harness exports the same file.
+
 To check playable browser and Tauri exports, follow [the MP4 export smoke test](EXPORT_SMOKE_TEST.md).
 
 ## Media harness
 
 `window.harness` owns session open, media analysis, and export. The web harness routes session access through the local Vite middleware, while Tauri upgrades the same contract with native dialogs and filesystem-backed URLs.
 
-The editor only supplies canvas frames and timeline state. Media analysis uses the shared reader, while export encodes platform-supported tracks and writes the final MP4 through zvidlib.
+The editor only supplies canvas frames and timeline state. Media analysis uses the shared reader, while export encodes platform-supported tracks and writes the final MP4 or WebM through zvidlib.
 
 ## Collaboration signaling
 

@@ -64,7 +64,13 @@ import {
 } from "./ui/dialog";
 import "./export-dialog.css";
 
-const PROBED_CODECS: readonly EncodableVideoCodec[] = ["h264", "hevc", "av1"];
+const PROBED_CODECS: readonly EncodableVideoCodec[] = [
+  "h264",
+  "hevc",
+  "av1",
+  "vp8",
+  "vp9",
+];
 
 // Which codecs this device can encode at the export's size and bitrate,
 // checked again (after a pause) whenever those change.

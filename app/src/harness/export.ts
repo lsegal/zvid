@@ -6,11 +6,13 @@ import {
   canEncodeVideo,
   Mp4OutputFormat,
   Output,
+  WebMOutputFormat,
 } from "mediabunny";
 import { renderAudioMixOffline } from "../audio-mix/offline";
-import type {
-  EncodableVideoCodec,
-  VideoCodecSupport,
+import {
+  type EncodableVideoCodec,
+  EXPORT_CONTAINER_LABELS,
+  type VideoCodecSupport,
 } from "../session-settings";
 import type {
   ExportRequest,
@@ -54,6 +56,26 @@ export async function probeVideoCodecSupport(
 
 // Exports mix their audio to stereo.
 const EXPORT_AUDIO_CHANNELS = 2;
+
+// The zvidlib bridge that writes the final file.
+async function loadExportBridge() {
+  const bridge = await import("../../export-bridge/pkg/zvid_export_bridge.js");
+  await bridge.default();
+  return bridge;
+}
+
+// The buffer's channels interleaved, as zvidlib's encoders take them.
+function interleave(audio: AudioBuffer) {
+  const channels = audio.numberOfChannels;
+  const samples = new Float32Array(audio.length * channels);
+  for (let channel = 0; channel < channels; channel++) {
+    const data = audio.getChannelData(channel);
+    for (let index = 0; index < data.length; index++) {
+      samples[index * channels + channel] = data[index];
+    }
+  }
+  return samples;
+}
 
 type NativeMux = (
   video: Uint8Array,
@@ -110,20 +132,28 @@ export async function exportVideo(
       });
     }
   }
-  const browserAac = audio
-    ? await canEncodeAudio("aac", {
-        sampleRate: audio.sampleRate,
-        numberOfChannels: audio.numberOfChannels,
-        bitrate: encoding.audioBitrate,
-      })
-    : false;
-  if (audio && !browserAac && !nativeMux) {
+  // A WebM's Opus audio is encoded by zvidlib when it writes the file, so
+  // only MP4 needs the browser's (or the native) AAC encoder.
+  const webm = encoding.container === "webm";
+  const containerLabel = EXPORT_CONTAINER_LABELS[encoding.container];
+  const browserAac =
+    audio && !webm
+      ? await canEncodeAudio("aac", {
+          sampleRate: audio.sampleRate,
+          numberOfChannels: audio.numberOfChannels,
+          bitrate: encoding.audioBitrate,
+        })
+      : false;
+  if (audio && !webm && !browserAac && !nativeMux) {
     throw new Error(
       "This browser does not provide an AAC encoder for audible MP4 export.",
     );
   }
   const target = new BufferTarget();
-  const output = new Output({ format: new Mp4OutputFormat(), target });
+  const output = new Output({
+    format: webm ? new WebMOutputFormat() : new Mp4OutputFormat(),
+    target,
+  });
   const video = new CanvasSource(request.canvas, {
     codec: MEDIABUNNY_VIDEO_CODECS[encoding.videoCodec],
     bitrate: encoding.videoBitrate,
@@ -139,7 +169,10 @@ export async function exportVideo(
         })
       : null;
   if (audioSource) output.addAudioTrack(audioSource);
-  const thumbnailIndex = getThumbnailFrameIndex(request.frameCount, frameRate);
+  // WebM has no cover art, so only an MP4 takes a thumbnail.
+  const thumbnailIndex = webm
+    ? -1
+    : getThumbnailFrameIndex(request.frameCount, frameRate);
   let thumbnail: HTMLCanvasElement | null = null;
   try {
     await output.start();
@@ -187,10 +220,19 @@ export async function exportVideo(
     request.onProgress({
       phase: "muxing",
       progress: null,
-      detail: "Writing final MP4...",
+      detail: `Writing final ${containerLabel}...`,
+      container: encoding.container,
     });
     let bytes: Uint8Array;
-    if (nativeMux) {
+    if (webm) {
+      const bridge = await loadExportBridge();
+      bytes = await bridge.muxWebm(
+        new Uint8Array(target.buffer),
+        audio ? interleave(audio) : undefined,
+        audio?.numberOfChannels ?? EXPORT_AUDIO_CHANNELS,
+        encoding.audioBitrate,
+      );
+    } else if (nativeMux) {
       bytes = await nativeMux(
         new Uint8Array(target.buffer),
         audioSource ? null : audio,
@@ -198,19 +240,17 @@ export async function exportVideo(
         cover,
       );
     } else {
-      const bridge = await import(
-        "../../export-bridge/pkg/zvid_export_bridge.js"
-      );
-      await bridge.default();
+      const bridge = await loadExportBridge();
       bytes = await bridge.muxMp4(new Uint8Array(target.buffer), cover);
     }
     signal?.throwIfAborted();
-    const blob = new Blob([new Uint8Array(bytes)], { type: "video/mp4" });
+    const mimeType = `video/${encoding.container}`;
+    const blob = new Blob([new Uint8Array(bytes)], { type: mimeType });
     return {
       encoding,
       summary,
       bytes: bytes.byteLength,
-      mimeType: "video/mp4",
+      mimeType,
       muxedWith: "zvidlib",
       saveMethod: await save(blob, request.saveTarget),
     };

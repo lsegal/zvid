@@ -13,6 +13,10 @@ import {
   applyCanvasPreset,
   CANVAS_PRESETS,
   CUSTOM_PRESET_ID,
+  EXPORT_AUDIO_CODEC_LABELS,
+  EXPORT_CONTAINER_LABELS,
+  exportAudioCodec,
+  exportContainer,
   FRAME_RATES,
   hasSessionSettingsErrors,
   matchCanvasPreset,
@@ -177,6 +181,8 @@ function SessionSettingsForm({
     }));
 
   const autoCodec = resolveAutoCodec(support);
+  // VP8 and VP9 export WebM with Opus; the rest MP4 with AAC.
+  const container = exportContainer(encoding.videoCodec);
   const invalid = hasSessionSettingsErrors(errors);
 
   return (
@@ -375,7 +381,9 @@ function SessionSettingsForm({
               ) : null}
             </Field>
             <Field label="Container">
-              <span className="session-settings__static">MP4</span>
+              <span className="session-settings__static">
+                {EXPORT_CONTAINER_LABELS[container]}
+              </span>
             </Field>
           </div>
           <div className="session-settings__row">
@@ -444,7 +452,9 @@ function SessionSettingsForm({
           <legend>Audio</legend>
           <div className="session-settings__row">
             <Field label="Codec">
-              <span className="session-settings__static">AAC</span>
+              <span className="session-settings__static">
+                {EXPORT_AUDIO_CODEC_LABELS[exportAudioCodec(container)]}
+              </span>
             </Field>
             <Field label="Bitrate">
               <Select
@@ -463,20 +473,25 @@ function SessionSettingsForm({
               />
             </Field>
             <Field label="Sample rate">
-              <Select
-                aria-label="Audio sample rate"
-                className="session-settings__input"
-                onValueChange={(value) =>
-                  setEncoding({
-                    audioSampleRate: Number(value) as AudioSampleRate,
-                  })
-                }
-                options={AUDIO_SAMPLE_RATES.map((rate) => ({
-                  value: String(rate),
-                  label: `${rate / 1000} kHz`,
-                }))}
-                value={String(encoding.audioSampleRate)}
-              />
+              {container === "webm" ? (
+                // Opus always codes 48 kHz.
+                <span className="session-settings__static">48 kHz</span>
+              ) : (
+                <Select
+                  aria-label="Audio sample rate"
+                  className="session-settings__input"
+                  onValueChange={(value) =>
+                    setEncoding({
+                      audioSampleRate: Number(value) as AudioSampleRate,
+                    })
+                  }
+                  options={AUDIO_SAMPLE_RATES.map((rate) => ({
+                    value: String(rate),
+                    label: `${rate / 1000} kHz`,
+                  }))}
+                  value={String(encoding.audioSampleRate)}
+                />
+              )}
             </Field>
           </div>
         </fieldset>

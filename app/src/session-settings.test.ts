@@ -13,6 +13,9 @@ import {
   applySessionSettings,
   DEFAULT_SESSION_ENCODING,
   DEFAULT_SESSION_SETTINGS,
+  exportAudioCodec,
+  exportAudioSampleRate,
+  exportContainer,
   formatFrameRate,
   hasSessionSettingsErrors,
   matchCanvasPreset,
@@ -169,7 +172,13 @@ describe("validateSessionSettings", () => {
 
 describe("video codecs", () => {
   it("disables codecs the device can't encode, with the reason", () => {
-    const options = videoCodecOptions({ h264: true, hevc: false, av1: false });
+    const options = videoCodecOptions({
+      h264: true,
+      hevc: false,
+      av1: false,
+      vp8: false,
+      vp9: true,
+    });
     assert.deepEqual(
       options.map(({ value, disabled, reason }) => ({
         value,
@@ -181,6 +190,8 @@ describe("video codecs", () => {
         { value: "h264", disabled: false, reason: undefined },
         { value: "hevc", disabled: true, reason: UNSUPPORTED_CODEC_REASON },
         { value: "av1", disabled: true, reason: UNSUPPORTED_CODEC_REASON },
+        { value: "vp8", disabled: true, reason: UNSUPPORTED_CODEC_REASON },
+        { value: "vp9", disabled: false, reason: undefined },
       ],
     );
   });
@@ -203,6 +214,36 @@ describe("video codecs", () => {
       "h264",
     );
     assert.equal(resolveAutoCodec({}), undefined);
+    // Auto stays on MP4, never picking a WebM codec.
+    assert.equal(resolveAutoCodec({ vp8: true, vp9: true }), undefined);
+  });
+
+  it("exports VP8 and VP9 to WebM with 48 kHz Opus, the rest to MP4 with AAC", () => {
+    for (const codec of ["auto", "h264", "hevc", "av1"] as const) {
+      assert.equal(exportContainer(codec), "mp4");
+    }
+    for (const codec of ["vp8", "vp9"] as const) {
+      assert.equal(exportContainer(codec), "webm");
+    }
+    assert.equal(exportAudioCodec("mp4"), "aac");
+    assert.equal(exportAudioCodec("webm"), "opus");
+    const encoding = {
+      ...DEFAULT_SESSION_ENCODING,
+      audioSampleRate: 44100,
+    } as const;
+    assert.equal(exportAudioSampleRate(encoding), 44100);
+    assert.equal(
+      exportAudioSampleRate({ ...encoding, videoCodec: "vp9" }),
+      48000,
+    );
+  });
+
+  it("reads a saved WebM codec back", () => {
+    assert.equal(
+      readSessionEncoding({ ...DEFAULT_SESSION_ENCODING, videoCodec: "vp8" })
+        .videoCodec,
+      "vp8",
+    );
   });
 });
 

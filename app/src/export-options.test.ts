@@ -20,6 +20,7 @@ import {
   resetExportSettings,
   snapExportQ,
   snapToFrame,
+  switchExportExtension,
   validateExportOptions,
 } from "./export-options.ts";
 import {
@@ -84,6 +85,19 @@ describe("export file names", () => {
     assert.equal(normalizeExportFileName(" take: 2 "), "take- 2.mp4");
     assert.equal(normalizeExportFileName("clip.MP4"), "clip.mp4");
   });
+
+  it("uses the WebM extension for a WebM export", () => {
+    assert.equal(defaultExportFileName("My Song", "webm"), "My Song.webm");
+    assert.equal(normalizeExportFileName("clip.mp4", "webm"), "clip.webm");
+    assert.equal(normalizeExportFileName("clip.WEBM", "webm"), "clip.webm");
+    assert.equal(normalizeExportFileName("clip.webm"), "clip.mp4");
+  });
+
+  it("switches a typed name's extension to the container's", () => {
+    assert.equal(switchExportExtension("take.mp4", "webm"), "take.webm");
+    assert.equal(switchExportExtension("take.webm", "mp4"), "take.mp4");
+    assert.equal(switchExportExtension("take", "webm"), "take");
+  });
 });
 
 describe("overrides", () => {
@@ -145,6 +159,16 @@ describe("overrides", () => {
     assert.equal(reopened.canvasWidth, 1920);
     assert.equal(reopened.canvasHeight, 1080);
     assert.deepEqual([reopened.inQ, reopened.outQ], [1, 3]);
+  });
+
+  it("switch the file name's extension when the session's codec changes container", () => {
+    const remembered = options({ fileName: "Take.mp4" });
+    const reopened = reopenExportOptions(remembered, session, {
+      ...session,
+      encoding: { ...session.encoding, videoCodec: "vp9" },
+    });
+    assert.equal(reopened.encoding.videoCodec, "vp9");
+    assert.equal(reopened.fileName, "Take.webm");
   });
 });
 
