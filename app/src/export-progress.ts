@@ -1,4 +1,5 @@
 import type { ExportProgress } from "./harness/contracts";
+import { EXPORT_CONTAINER_LABELS } from "./session-settings.ts";
 
 // Seconds left in an export's render, from how long the frames rendered so
 // far took. Undefined until there is progress to extrapolate from.
@@ -37,7 +38,7 @@ export function describeExportActivity(
   secondsLeft: number | undefined,
 ) {
   if (progress?.phase === "muxing") {
-    return "Exporting · writing MP4";
+    return `Exporting · writing ${EXPORT_CONTAINER_LABELS[progress.container ?? "mp4"]}`;
   }
   const percent = progress?.progress;
   if (percent == null) {

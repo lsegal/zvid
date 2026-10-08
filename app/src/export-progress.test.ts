@@ -72,6 +72,13 @@ describe("describeExportActivity", () => {
       ),
       "Exporting · writing MP4",
     );
+    assert.equal(
+      describeExportActivity(
+        { phase: "muxing", progress: null, detail: "", container: "webm" },
+        undefined,
+      ),
+      "Exporting · writing WebM",
+    );
   });
 });
 

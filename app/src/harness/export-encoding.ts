@@ -1,19 +1,26 @@
 // The encoder configuration an export uses, derived from the session's
-// Session Settings: which video codec the device encodes with, and the video
-// and audio bitrates and audio sample rate.
+// Session Settings: which video codec the device encodes with, the container
+// and audio codec that codec exports to, and the video and audio bitrates and
+// audio sample rate.
 
 import {
   AUTO_CODEC_ORDER,
   type EncodableVideoCodec,
+  type ExportAudioCodec,
+  type ExportContainer,
+  exportAudioCodec,
+  exportAudioSampleRate,
+  exportContainer,
   type SessionSettings,
   videoBitrateMbps,
 } from "../session-settings.ts";
 
 export type ExportEncoding = {
+  container: ExportContainer;
   videoCodec: EncodableVideoCodec;
   // Bits per second.
   videoBitrate: number;
-  audioCodec: "aac";
+  audioCodec: ExportAudioCodec;
   // Bits per second.
   audioBitrate: number;
   audioSampleRate: number;
@@ -23,6 +30,8 @@ export const VIDEO_CODEC_LABELS: Record<EncodableVideoCodec, string> = {
   h264: "H.264",
   hevc: "HEVC",
   av1: "AV1",
+  vp8: "VP8",
+  vp9: "VP9",
 };
 
 // Mediabunny's names for the codecs.
@@ -30,6 +39,8 @@ export const MEDIABUNNY_VIDEO_CODECS = {
   h264: "avc",
   hevc: "hevc",
   av1: "av1",
+  vp8: "vp8",
+  vp9: "vp9",
 } as const satisfies Record<EncodableVideoCodec, string>;
 
 /** Whether the device can encode `codec` at the given size and bitrate. */
@@ -72,12 +83,14 @@ export async function resolveExportEncoding(
         `${VIDEO_CODEC_LABELS[videoCodec]} encoding at ${settings.canvasWidth}×${settings.canvasHeight} is not supported on this device. Choose Auto in Session Settings to export with the best available codec.`,
       );
   }
+  const container = exportContainer(videoCodec);
   return {
+    container,
     videoCodec,
     videoBitrate: config.bitrate,
-    audioCodec: "aac",
+    audioCodec: exportAudioCodec(container),
     audioBitrate: encoding.audioBitrateKbps * 1000,
-    audioSampleRate: encoding.audioSampleRate,
+    audioSampleRate: exportAudioSampleRate(encoding),
   };
 }
 

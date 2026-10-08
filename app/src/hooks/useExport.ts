@@ -19,6 +19,7 @@ import {
   defaultExportRange,
   type ExportOptions,
   type ExportRange,
+  exportExtension,
   exportSettings,
   exportTiming,
   normalizeExportFileName,
@@ -35,6 +36,8 @@ import type { MediaItem } from "../media";
 import { retainObjectUrls } from "../object-url-retention.ts";
 import { hasRenderableContent, resolveRenderClips } from "../render-clips.ts";
 import {
+  EXPORT_CONTAINER_LABELS,
+  exportContainer,
   type SessionSettings,
   sessionSettingsFromProject,
 } from "../session-settings";
@@ -286,7 +289,10 @@ export function useExport({
         : createExportOptions(
             session,
             defaultRange,
-            defaultExportFileName(sessionName),
+            defaultExportFileName(
+              sessionName,
+              exportContainer(session.encoding.videoCodec),
+            ),
           ),
     );
     // The dialog plays on its own; the editor's playback stops meanwhile.
@@ -328,14 +334,18 @@ export function useExport({
       bpm,
     );
     const { canvasWidth, canvasHeight, fps } = settings;
-    const exportName = normalizeExportFileName(exportOptions.fileName);
+    const container = exportContainer(settings.encoding.videoCodec);
+    const exportName = normalizeExportFileName(
+      exportOptions.fileName,
+      container,
+    );
 
     let saveTarget: SaveTarget;
     try {
       const nextSaveTarget = await getHarness().prepareSave(exportName, {
-        mimeType: "video/mp4",
-        extensions: [".mp4"],
-        description: "MP4 video",
+        mimeType: `video/${container}`,
+        extensions: [exportExtension(container)],
+        description: `${EXPORT_CONTAINER_LABELS[container]} video`,
       });
       if (!nextSaveTarget) {
         setStatus("Export canceled before rendering.");

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import type {
-  ExportOptions,
-  ExportOptionsErrors,
-  ExportSettingField,
+import {
+  type ExportOptions,
+  type ExportOptionsErrors,
+  type ExportSettingField,
+  switchExportExtension,
 } from "../export-options.ts";
 import {
   AUDIO_BITRATES,
@@ -12,6 +13,9 @@ import {
   applyCanvasPreset,
   CANVAS_PRESETS,
   CUSTOM_PRESET_ID,
+  EXPORT_AUDIO_CODEC_LABELS,
+  exportAudioCodec,
+  exportContainer,
   FRAME_RATES,
   matchCanvasPreset,
   matchFrameRate,
@@ -57,6 +61,7 @@ export function ExportSettingsForm({
   const { encoding } = options;
   const presetId = matchCanvasPreset(options.canvasWidth, options.canvasHeight);
   const frameRateLabel = matchFrameRate(options.fps);
+  const container = exportContainer(encoding.videoCodec);
 
   function update(patch: Partial<ExportOptions>) {
     onChange((current) => ({ ...current, ...patch }));
@@ -203,7 +208,15 @@ export function ExportSettingsForm({
           aria-label="Video codec"
           disabled={disabled}
           onValueChange={(videoCodec: VideoCodecChoice) =>
-            setEncoding({ videoCodec })
+            // The file name's extension follows the container.
+            onChange((current) => ({
+              ...current,
+              fileName: switchExportExtension(
+                current.fileName,
+                exportContainer(videoCodec),
+              ),
+              encoding: { ...current.encoding, videoCodec },
+            }))
           }
           options={videoCodecOptions(support).map((codec) => ({
             ...codec,
@@ -270,7 +283,9 @@ export function ExportSettingsForm({
         "audioBitrateKbps",
         "Audio",
         <div className="export-settings__row">
-          <span className="export-settings__hint">AAC</span>
+          <span className="export-settings__hint">
+            {EXPORT_AUDIO_CODEC_LABELS[exportAudioCodec(container)]}
+          </span>
           <Select
             aria-label="Audio bitrate"
             disabled={disabled}
@@ -291,18 +306,23 @@ export function ExportSettingsForm({
       {field(
         "audioSampleRate",
         "Sample rate",
-        <Select
-          aria-label="Audio sample rate"
-          disabled={disabled}
-          onValueChange={(value) =>
-            setEncoding({ audioSampleRate: Number(value) as AudioSampleRate })
-          }
-          options={AUDIO_SAMPLE_RATES.map((rate) => ({
-            value: String(rate),
-            label: `${formatNumber(rate / 1000)} kHz`,
-          }))}
-          value={String(encoding.audioSampleRate)}
-        />,
+        // Opus always codes 48 kHz.
+        container === "webm" ? (
+          <span className="export-settings__hint">48 kHz (Opus)</span>
+        ) : (
+          <Select
+            aria-label="Audio sample rate"
+            disabled={disabled}
+            onValueChange={(value) =>
+              setEncoding({ audioSampleRate: Number(value) as AudioSampleRate })
+            }
+            options={AUDIO_SAMPLE_RATES.map((rate) => ({
+              value: String(rate),
+              label: `${formatNumber(rate / 1000)} kHz`,
+            }))}
+            value={String(encoding.audioSampleRate)}
+          />
+        ),
       )}
 
       {field(
