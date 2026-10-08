@@ -21,7 +21,7 @@ zvid-capture = { path = "crates/zvid-capture" }
 zvid-daw-ui = { path = "crates/zvid-daw-ui" }
 zvid-vst3 = { path = "crates/zvid-vst3" }
 zvid-au = { path = "crates/zvid-au" }
-# Keep this rev identical to app/export-bridge/Cargo.toml; `cargo xtask check`
+# Keep this version identical to app/export-bridge/Cargo.toml; `cargo xtask check`
 # fails when the two drift apart.
 zvidlib = "0.4.1"
 dirs = "6"

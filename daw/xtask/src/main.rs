@@ -1,7 +1,8 @@
 //! Workspace tasks, run with `cargo xtask <task>`.
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
-//!   when the zvidlib rev drifts from `app/export-bridge`.
+//!   when the zvidlib version drifts from `app/export-bridge` or either takes
+//!   zvidlib from anywhere but crates.io.
 //! - `bundle [--release] [--installer] [--app <path>]`: builds the plugin and
 //!   lays it out as `target/bundle/ZVID Capture.vst3`, plus, on macOS,
 //!   `target/bundle/ZVID Capture.component`. `--release` stamps the version
@@ -295,10 +296,10 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
         .map(|path| format!("{} is not allowed: /daw is Rust only", path.display()))
         .collect();
     let bridge = daw.join("../app/export-bridge/Cargo.toml");
-    match (zvidlib_rev(&daw.join("Cargo.toml")), zvidlib_rev(&bridge)) {
+    match (zvidlib_version(&daw.join("Cargo.toml")), zvidlib_version(&bridge)) {
         (Some(ours), Some(theirs)) if ours == theirs => {}
         (ours, theirs) => problems.push(format!(
-            "zvidlib rev in daw/Cargo.toml ({}) must match app/export-bridge ({})",
+            "zvidlib in daw/Cargo.toml ({}) must be the same crates.io version as app/export-bridge ({})",
             ours.as_deref().unwrap_or("missing"),
             theirs.as_deref().unwrap_or("missing"),
         )),
@@ -1411,15 +1412,27 @@ fn forbidden_sources(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
-/// The `rev` of the `zvidlib` dependency declared in a Cargo manifest.
-fn zvidlib_rev(manifest: &Path) -> Option<String> {
+/// The crates.io version of the `zvidlib` dependency declared in a Cargo
+/// manifest, as `zvidlib = "0.4.1"` or `zvidlib = { version = "0.4.1", ... }`.
+/// `None` when it is missing or comes from Git or a path instead.
+fn zvidlib_version(manifest: &Path) -> Option<String> {
     let text = fs::read_to_string(manifest).ok()?;
     let line = text
         .lines()
         .find(|line| line.trim_start().starts_with("zvidlib ="))?;
-    let (_, rest) = line.split_once("rev = \"")?;
-    let (rev, _) = rest.split_once('"')?;
-    Some(rev.to_string())
+    let (_, value) = line.split_once('=')?;
+    let value = value.trim();
+    let quoted = match value.strip_prefix('"') {
+        Some(version) => version,
+        None => {
+            if value.contains("git =") || value.contains("path =") {
+                return None;
+            }
+            value.split_once("version = \"")?.1
+        }
+    };
+    let (version, _) = quoted.split_once('"')?;
+    Some(version.to_string())
 }
 
 #[cfg(test)]
@@ -1542,15 +1555,26 @@ mod tests {
     }
 
     #[test]
-    fn reads_zvidlib_rev() {
-        let dir = scratch("rev");
+    fn reads_zvidlib_version() {
+        let dir = scratch("version");
         let manifest = dir.join("Cargo.toml");
-        fs::write(
-            &manifest,
-            "[dependencies]\nzvidlib = { git = \"https://example.com/zvidlib\", rev = \"abc123\" }\n",
-        )
-        .unwrap();
-        assert_eq!(zvidlib_rev(&manifest).as_deref(), Some("abc123"));
+        let version = |dependency: &str| {
+            fs::write(&manifest, format!("[dependencies]\n{dependency}\n")).unwrap();
+            zvidlib_version(&manifest)
+        };
+        assert_eq!(version("zvidlib = \"0.4.1\"").as_deref(), Some("0.4.1"));
+        assert_eq!(
+            version("zvidlib = { version = \"0.4.1\", default-features = false }").as_deref(),
+            Some("0.4.1"),
+        );
+        assert_eq!(
+            version("zvidlib = { git = \"https://example.com/zvidlib\", rev = \"abc123\" }"),
+            None,
+        );
+        assert_eq!(
+            version("zvidlib = { path = \"../zvidlib\", version = \"0.4.1\" }"),
+            None
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
