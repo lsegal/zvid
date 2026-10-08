@@ -47,13 +47,10 @@ Then run this in another shell from `app`:
 npx -y pnpm@8 exec tauri dev --config smoke-tauri.json --no-watch
 ```
 
-Click the same two export buttons and save both files. On macOS, first export
-video only, then click **Test native AAC fallback** and save the resulting
-`smoke-native-aac.mp4`. This calls the Tauri AAC command with PCM directly, so
-it exercises AudioToolbox even when the WebView also supports browser AAC. On
-Windows or another platform without that native encoder, the button should
-report `Native AAC export currently requires macOS AudioToolbox.`; the normal
-audible export can still succeed through WebCodecs AAC.
+Click the same two export buttons and save both files. Audible export mixes
+the desktop app through the same WebCodecs AAC encoder and WebAssembly export
+bridge as the browser, so a WebView without an AAC encoder reports the same
+`This browser does not provide an AAC encoder for audible MP4 export.` error.
 
 The temporary Tauri config is only for this test. Remove it afterwards.
 
@@ -61,12 +58,6 @@ The temporary Tauri config is only for this test. Remove it afterwards.
 Chromium and checks that the saved MP4 carries a JPEG thumbnail of the frame
 one second in. CI runs it, with the rest of the app browser tests, on pushes
 to `main`.
-
-The `macOS AAC fallback` GitHub Actions workflow also runs this smoke page in
-Tauri on a macOS runner. It selects the video-only and native AAC paths, saves
-both MP4s without a dialog, and runs the media validator. The automation uses
-the `automationOutputDir` query parameter in the temporary Tauri `devUrl`; the
-normal page still uses native save dialogs.
 
 ## Inspect and play the saved files
 
@@ -82,8 +73,7 @@ files were made with those Session Settings.
 The check requires one HEVC, AV1 or H.264 video track in each file, AAC audio only in
 the audible file, a JPEG cover-art thumbnail of at most 640 px in each file, a
 duration close to two seconds, aligned track start/end times, successful video
-and audio decoding, and non-silent audio. On macOS,
-inspect `smoke-native-aac.mp4` in place of the audible file as a second run.
+and audio decoding, and non-silent audio.
 Also open each MP4 in a player and confirm that the frame number changes and
 the audible version has a continuous tone. Record the runtime, codecs,
 durations, playback result, and any unsupported-codec message in the PR.

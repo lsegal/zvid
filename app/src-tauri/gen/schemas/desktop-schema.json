@@ -345,10 +345,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-mux-export`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-mux-export`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`"
         },
         {
           "description": "Enables the files_exist command.",
@@ -361,12 +361,6 @@
           "type": "string",
           "const": "allow-list-font-families",
           "markdownDescription": "Enables the list_font_families command."
-        },
-        {
-          "description": "Enables the mux_export command.",
-          "type": "string",
-          "const": "allow-mux-export",
-          "markdownDescription": "Enables the mux_export command."
         },
         {
           "description": "Enables the open_session command.",

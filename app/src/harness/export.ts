@@ -77,17 +77,9 @@ function interleave(audio: AudioBuffer) {
   return samples;
 }
 
-type NativeMux = (
-  video: Uint8Array,
-  audio: AudioBuffer | null,
-  audioBitrate: number,
-  cover: Uint8Array | undefined,
-) => Promise<Uint8Array>;
-
 export async function exportVideo(
   request: ExportRequest,
   save: (blob: Blob, target: SaveTarget) => Promise<SaveMethod>,
-  nativeMux?: NativeMux,
 ): Promise<ExportResult> {
   const { settings, signal } = request;
   const frameRate = settings.fps;
@@ -144,7 +136,7 @@ export async function exportVideo(
           bitrate: encoding.audioBitrate,
         })
       : false;
-  if (audio && !webm && !browserAac && !nativeMux) {
+  if (audio && !webm && !browserAac) {
     throw new Error(
       "This browser does not provide an AAC encoder for audible MP4 export.",
     );
@@ -231,13 +223,6 @@ export async function exportVideo(
         audio ? interleave(audio) : undefined,
         audio?.numberOfChannels ?? EXPORT_AUDIO_CHANNELS,
         encoding.audioBitrate,
-      );
-    } else if (nativeMux) {
-      bytes = await nativeMux(
-        new Uint8Array(target.buffer),
-        audioSource ? null : audio,
-        encoding.audioBitrate,
-        cover,
       );
     } else {
       const bridge = await loadExportBridge();
