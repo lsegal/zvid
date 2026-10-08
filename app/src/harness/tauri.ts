@@ -377,34 +377,14 @@ export async function maybeCreateTauriHarness(
         await revealItemInDir(target.path);
       },
       async exportVideo(request) {
-        return exportVideo(
-          request,
-          async (blob, target) => {
-            if (target.kind !== "native-path")
-              return base.saveBlob(blob, target);
-            await invoke("write_file_bytes", {
-              path: target.path,
-              bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
-            });
-            return "native-path";
-          },
-          async (video, audio, audioBitrate, cover) => {
-            const pcm = audio
-              ? Array.from({ length: audio.numberOfChannels }, (_, channel) =>
-                  Array.from(audio.getChannelData(channel)),
-                )
-              : null;
-            return new Uint8Array(
-              await invoke<number[]>("mux_export", {
-                video: Array.from(video),
-                pcm,
-                sampleRate: audio?.sampleRate ?? 48000,
-                bitrate: audioBitrate,
-                cover: cover ? Array.from(cover) : null,
-              }),
-            );
-          },
-        );
+        return exportVideo(request, async (blob, target) => {
+          if (target.kind !== "native-path") return base.saveBlob(blob, target);
+          await invoke("write_file_bytes", {
+            path: target.path,
+            bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+          });
+          return "native-path";
+        });
       },
     };
   } catch {

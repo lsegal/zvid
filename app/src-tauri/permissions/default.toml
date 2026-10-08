@@ -28,11 +28,6 @@ identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
 
-[[permission]]
-identifier = "allow-mux-export"
-description = "Enables the mux_export command."
-commands.allow = ["mux_export"]
-
 [default]
 description = "Default application permissions."
 permissions = [
@@ -42,5 +37,4 @@ permissions = [
   "allow-read-file-prefix",
   "allow-files-exist",
   "allow-write-file-bytes",
-  "allow-mux-export",
 ]

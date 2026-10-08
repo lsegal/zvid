@@ -31,8 +31,6 @@ const native = isTauri();
 const automationOutputDir = native
   ? new URLSearchParams(location.search).get("automationOutputDir")
   : null;
-let videoOnlyBytes: Uint8Array | null = null;
-let videoOnlyCover: Uint8Array | undefined;
 
 // The Session Settings to export with. Query parameters override the
 // encoding defaults: codec (auto, h264, hevc, av1, or vp8 or vp9 for WebM),
@@ -195,34 +193,7 @@ async function run(audible: boolean) {
           status.textContent = update.detail;
         },
       },
-      async (blob, target) => {
-        if (!audible) videoOnlyBytes = new Uint8Array(await blob.arrayBuffer());
-        return write(blob, target);
-      },
-      native
-        ? async (video, audio, audioBitrate, cover) => {
-            if (!audible) videoOnlyCover = cover;
-            if (automationOutputDir)
-              await invoke("write_file_bytes", {
-                path: `${automationOutputDir}/encoder-video.mp4`,
-                bytes: Array.from(video),
-              });
-            return new Uint8Array(
-              await invoke<number[]>("mux_export", {
-                video: Array.from(video),
-                pcm: audio
-                  ? Array.from(
-                      { length: audio.numberOfChannels },
-                      (_, channel) => Array.from(audio.getChannelData(channel)),
-                    )
-                  : null,
-                sampleRate: audio?.sampleRate ?? 48_000,
-                bitrate: audioBitrate,
-                cover: cover ? Array.from(cover) : null,
-              }),
-            );
-          }
-        : undefined,
+      (blob, target) => write(blob, target),
     );
     status.textContent = `Saved ${filename}: ${result.bytes} bytes, ${result.summary}`;
   } catch (error) {
@@ -233,51 +204,12 @@ async function run(audible: boolean) {
   }
 }
 
-async function testNativeAac() {
-  if (!videoOnlyBytes) {
-    status.textContent = "Export video only first.";
-    return;
-  }
-  const filename = "smoke-native-aac.mp4";
-  const saveTarget = await destination(filename);
-  if (!saveTarget) return;
-  status.textContent = "Encoding AAC through the native fallback...";
-  try {
-    const pcm = Array.from(
-      { length: 96_000 },
-      (_, index) => Math.sin((2 * Math.PI * 440 * index) / 48_000) * 0.36,
-    );
-    const bytes = await invoke<number[]>("mux_export", {
-      video: Array.from(videoOnlyBytes),
-      pcm: [pcm],
-      sampleRate: 48_000,
-      bitrate: 192_000,
-      cover: videoOnlyCover ? Array.from(videoOnlyCover) : null,
-    });
-    await write(
-      new Blob([new Uint8Array(bytes)], { type: "video/mp4" }),
-      saveTarget,
-    );
-    status.textContent = `Saved ${filename}: ${bytes.length} bytes`;
-  } catch (error) {
-    status.textContent = `Error: ${error}`;
-    await reportAutomationError(error);
-  }
-}
-
 required<HTMLButtonElement>("#video").addEventListener("click", () => {
   void run(false);
 });
 required<HTMLButtonElement>("#audio").addEventListener("click", () => {
   void run(true);
 });
-if (native) {
-  const nativeButton = required<HTMLButtonElement>("#native-aac");
-  nativeButton.hidden = false;
-  nativeButton.addEventListener("click", () => {
-    void testNativeAac();
-  });
-  if (automationOutputDir) {
-    void run(false).then(() => nativeButton.click());
-  }
+if (native && automationOutputDir) {
+  void run(false);
 }

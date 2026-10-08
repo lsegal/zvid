@@ -15,6 +15,12 @@ fn invalid(message: &str) -> Error {
     Error::new(ErrorKind::InvalidInput, message)
 }
 
+/// The macOS WebView's HEVC encoder writes a zero-duration final video
+/// sample; carry the previous sample's duration into it instead.
+fn fix_zero_duration_tail(duration: u32, previous_duration: u32) -> u32 {
+    if duration == 0 { previous_duration } else { duration }
+}
+
 /// Remuxes the encoder's video (and optional AAC) into the final MP4. `cover`
 /// is a JPEG thumbnail that file browsers show without decoding the video.
 pub async fn mux(
@@ -86,11 +92,17 @@ pub async fn mux(
         for (sample_index, sample) in track.samples.iter().enumerate() {
             let mut data = vec![0; sample.size as usize];
             track.read_sample_into(&sources[*source_index], sample_index, &mut data).await?;
+            let duration = if track.kind == TrackKind::Video && sample_index + 1 == track.samples.len() {
+                let previous = track.samples[..sample_index].last().map_or(0, |previous| previous.duration);
+                fix_zero_duration_tail(sample.duration, previous)
+            } else {
+                sample.duration
+            };
             output.write_sample(output_index, EncodedSample {
                 data,
                 dts: i64::try_from(sample.dts).map_err(|_| invalid("decode timestamp overflow"))?,
                 pts: sample.pts,
-                duration: sample.duration,
+                duration,
                 is_sync: sample.is_sync,
                 dependency: sample.dependency,
             }).await?;
@@ -319,6 +331,16 @@ mod tests {
     fn writes_no_cover_without_one() {
         let output = block_on(super::mux(encoder_video(), None, None)).unwrap();
         assert_eq!(cover_art(output), None);
+    }
+
+    #[test]
+    fn fix_zero_duration_tail_uses_previous_duration_when_zero() {
+        assert_eq!(super::fix_zero_duration_tail(0, 7), 7);
+    }
+
+    #[test]
+    fn fix_zero_duration_tail_keeps_nonzero_duration() {
+        assert_eq!(super::fix_zero_duration_tail(3, 7), 3);
     }
 
     #[test]

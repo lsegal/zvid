@@ -1,7 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod export;
-
 use serde::Serialize;
 use sha1::{Digest, Sha1};
 use std::fs;
@@ -213,8 +211,7 @@ fn main() {
       read_file_bytes,
       read_file_prefix,
       files_exist,
-      write_file_bytes,
-      export::mux_export
+      write_file_bytes
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
