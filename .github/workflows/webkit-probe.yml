@@ -21,4 +21,4 @@ jobs:
         working-directory: app
         env:
           PLAYWRIGHT_WEBKIT: "1"
-        run: pnpm exec playwright test --project webkit webm-opus.spec.ts --retries 0 --reporter list
+        run: pnpm exec playwright test --project=webkit webm-opus.spec.ts --retries 0 --reporter list
