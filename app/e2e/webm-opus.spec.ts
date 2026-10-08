@@ -158,21 +158,50 @@ function codecIds(webm: Buffer) {
   );
 }
 
+// Exports the smoke page's two seconds with the button and waits for the
+// file. WebKit may have no VP8 or VP9 encoder, in which case the export
+// dialog lists the codec as unsupported and the export stops before
+// rendering; the test is skipped there rather than failed. Chromium always
+// encodes both.
+async function exportSmoke(
+  page: Page,
+  browserName: string,
+  codec: "vp8" | "vp9",
+  button: "#audio" | "#video",
+  filename: string,
+) {
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  // A skipped export never downloads.
+  download.catch(() => {});
+  await page.click(button);
+  const status = page.locator("#status");
+  await expect(status).toContainText(/^(Saved|Error)/, { timeout: 120_000 });
+  const text = (await status.textContent()) ?? "";
+  test.skip(
+    browserName === "webkit" &&
+      text.includes("is not supported on this device"),
+    `WebKit's VideoEncoder can't encode ${codec.toUpperCase()}.`,
+  );
+  await expect(status).toContainText(`Saved ${filename}`);
+  return download;
+}
+
 for (const codec of ["vp8", "vp9"] as const) {
   test(`exports ${codec.toUpperCase()} video with Opus audio to WebM`, async ({
     page,
+    browserName,
   }) => {
     await page.goto(`/export-smoke.html?codec=${codec}&audioKbps=128`);
-    const download = page.waitForEvent("download", { timeout: 120_000 });
-    await page.click("#audio");
-    await expect(page.locator("#status")).toContainText(
-      "Saved smoke-audible.webm",
-      { timeout: 120_000 },
+    const saved = await exportSmoke(
+      page,
+      browserName,
+      codec,
+      "#audio",
+      "smoke-audible.webm",
     );
     await expect(page.locator("#status")).toContainText(
       `320×180 · 24 fps · ${codec.toUpperCase()}`,
     );
-    const saved = await download;
     expect(saved.suggestedFilename()).toBe("smoke-audible.webm");
     const webm = await readFile(await saved.path());
     // An EBML header whose DocType is webm.
@@ -220,14 +249,16 @@ for (const codec of ["vp8", "vp9"] as const) {
 
 test("a VP9 video-only export writes a WebM without audio", async ({
   page,
+  browserName,
 }) => {
   await page.goto("/export-smoke.html?codec=vp9");
-  const download = page.waitForEvent("download", { timeout: 120_000 });
-  await page.click("#video");
-  await expect(page.locator("#status")).toContainText(
-    "Saved smoke-video-only.webm",
-    { timeout: 120_000 },
+  const download = await exportSmoke(
+    page,
+    browserName,
+    "vp9",
+    "#video",
+    "smoke-video-only.webm",
   );
-  const webm = await readFile(await (await download).path());
+  const webm = await readFile(await download.path());
   expect(codecIds(webm)).toEqual(["V_VP9"]);
 });
