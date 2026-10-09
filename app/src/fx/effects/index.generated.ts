@@ -23,6 +23,8 @@ import { pass as digitalGlitchPass } from "./digital-glitch/pass.ts";
 import * as distortion from "./distortion/definition.ts";
 import { pass as distortionPass } from "./distortion/pass.ts";
 import * as eq from "./eq/definition.ts";
+import * as exposure from "./exposure/definition.ts";
+import { pass as exposurePass } from "./exposure/pass.ts";
 import * as gain from "./gain/definition.ts";
 import * as gaussianBlur from "./gaussian-blur/definition.ts";
 import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
@@ -72,6 +74,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   digitalGlitch,
   distortion,
   eq,
+  exposure,
   gain,
   gaussianBlur,
   highCut,
@@ -108,6 +111,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   colorizePass,
   digitalGlitchPass,
   distortionPass,
+  exposurePass,
   gaussianBlurPass,
   negativeSplitPass,
   pixelatePass,
