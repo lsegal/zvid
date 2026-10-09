@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 
 // The Audio toggle in the preview header shows an audio analysis area below
@@ -43,13 +44,23 @@ function toneWav(seconds = 30, sampleRate = 8000) {
 }
 
 async function addSourceAudio(page: Page, sampleRate?: number) {
-  const base64 = toneWav(30, sampleRate);
-  const dataTransfer = await page.evaluateHandle((data) => {
-    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+  await addSourceFile(page, {
+    base64: toneWav(30, sampleRate),
+    name: "tone.wav",
+    type: "audio/wav",
+  });
+}
+
+async function addSourceFile(
+  page: Page,
+  file: { base64: string; name: string; type: string },
+) {
+  const dataTransfer = await page.evaluateHandle(({ base64, name, type }) => {
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
     const transfer = new DataTransfer();
-    transfer.items.add(new File([bytes], "tone.wav", { type: "audio/wav" }));
+    transfer.items.add(new File([bytes], name, { type }));
     return transfer;
-  }, base64);
+  }, file);
   for (const type of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(DROP_AREA, type, { dataTransfer });
   }
@@ -163,29 +174,61 @@ test("the meter and spectrogram follow the master output", async ({ page }) => {
   expect((await newestColumn(page)).rows).toEqual(held.rows);
 });
 
-test("on the Media tab the meter follows the media playing there", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  // WebKit, which follows the media through a copy routed into Web Audio,
-  // routes nothing from 8 kHz media.
-  await addSourceAudio(page, 48_000);
-  await audioToggle(page).click();
+// WebKit can't capture the Media tab's player, and follows it through a
+// copy: a decoded one for media short enough, as here, since it routes WebM
+// and 8 kHz media into Web Audio silently.
+const MEDIA_TAB_FILES = [
+  {
+    label: "a 48 kHz WAV",
+    name: "tone.wav",
+    file: () => ({
+      base64: toneWav(30, 48_000),
+      name: "tone.wav",
+      type: "audio/wav",
+    }),
+  },
+  {
+    label: "an 8 kHz WAV",
+    name: "tone.wav",
+    file: () => ({ base64: toneWav(), name: "tone.wav", type: "audio/wav" }),
+  },
+  {
+    label: "WebM",
+    name: "test-pattern-audio.webm",
+    file: () => ({
+      base64: readFileSync(
+        new URL("./fixtures/test-pattern-audio.webm", import.meta.url),
+      ).toString("base64"),
+      name: "test-pattern-audio.webm",
+      type: "video/webm",
+    }),
+  },
+];
 
-  await page.getByRole("button", { name: "Media", exact: true }).click();
-  await page.getByRole("option").filter({ hasText: "tone" }).dblclick();
-  await expect(page.locator(".preview-panel__title")).toHaveText("tone.wav");
-  await page.getByRole("button", { name: "Play media" }).click();
-  await expect
-    .poll(async () =>
-      Number(await paneLevel(page).getAttribute("aria-valuenow")),
-    )
-    .toBeGreaterThan(-30);
+for (const media of MEDIA_TAB_FILES) {
+  test(`on the Media tab the meter follows ${media.label} playing there`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/");
+    await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+    await addSourceFile(page, media.file());
+    await audioToggle(page).click();
 
-  await page.getByRole("button", { name: "Pause media" }).click();
-  await expect(paneLevel(page)).toHaveAttribute("aria-valuenow", "-60", {
-    timeout: 10_000,
+    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await page.getByRole("option").filter({ hasText: media.name }).dblclick();
+    await expect(page.locator(".preview-panel__title")).toHaveText(media.name);
+    await page.getByRole("button", { name: "Play media" }).click();
+    await expect
+      .poll(
+        async () => Number(await paneLevel(page).getAttribute("aria-valuenow")),
+        { intervals: [50] },
+      )
+      .toBeGreaterThan(-30);
+
+    await page.getByRole("button", { name: "Pause media" }).click();
+    await expect(paneLevel(page)).toHaveAttribute("aria-valuenow", "-60", {
+      timeout: 10_000,
+    });
   });
-});
+}
