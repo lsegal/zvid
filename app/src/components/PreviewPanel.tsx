@@ -27,6 +27,7 @@ import {
   previewFrameAnalysis,
 } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
+import { canMirrorMedia } from "../hooks/media-analysis-mirror.ts";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
 import { useMediaElementMeterTap } from "../hooks/useMediaElementMeterTap.ts";
@@ -203,10 +204,13 @@ export function PreviewPanel({
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
   const isMediaTab = previewTab === "media";
   const getMeterTap = useMasterMeterTap(compositionPlayerRef);
-  const mediaMeterTap = useMediaElementMeterTap();
   const [isAudioAnalysisOpen, setAudioAnalysisOpen] = useState(
     readAudioAnalysisOpen,
   );
+  const mediaMeterTap = useMediaElementMeterTap({
+    active: isMediaTab && isAudioAnalysisOpen,
+    canMirror: canMirrorMedia(mediaItem),
+  });
   const toggleAudioAnalysis = () => {
     const open = !isAudioAnalysisOpen;
     setAudioAnalysisOpen(open);
