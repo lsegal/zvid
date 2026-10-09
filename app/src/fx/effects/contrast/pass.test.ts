@@ -85,7 +85,10 @@ describe("Contrast pass", () => {
         assertClose(contrastChannel(level, 1, pivot), level);
       }
     }
-    assert.equal(pass.isIdentity?.(params({ _Contrast: 1, _Pivot: 0.9 })), true);
+    assert.equal(
+      pass.isIdentity?.(params({ _Contrast: 1, _Pivot: 0.9 })),
+      true,
+    );
     assert.equal(pass.isIdentity?.([]), true);
     assert.equal(pass.isIdentity?.(params({ _Contrast: 1.2 })), false);
   });

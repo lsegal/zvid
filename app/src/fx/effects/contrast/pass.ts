@@ -27,7 +27,11 @@ export function readPivot(params: EffectParameter[]) {
 
 // One channel as the shader computes it: moved away from `pivot` by
 // `contrast`, and clamped.
-export function contrastChannel(value: number, contrast: number, pivot: number) {
+export function contrastChannel(
+  value: number,
+  contrast: number,
+  pivot: number,
+) {
   return Math.min(Math.max((value - pivot) * contrast + pivot, 0), 1);
 }
 

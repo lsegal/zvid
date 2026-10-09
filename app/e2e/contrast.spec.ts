@@ -132,18 +132,19 @@ test("Contrast is added from a layer's Video → Color menu and changes the prev
     .poll(async () => change(await previewPixels(page), plain))
     .toBeLessThan(0.02);
 
-  // Contrast 0 flattens it toward the pivot gray.
+  // Contrast 0 flattens the text toward the pivot gray. Only the text box
+  // is drawn on the layer, so most of the frame is left as it was.
   await setContrast(page, "0");
   await expect
     .poll(async () => change(await previewPixels(page), plain))
-    .toBeGreaterThan(1);
+    .toBeGreaterThan(0.05);
   const flat = await previewPixels(page);
 
   // Contrast 2 steepens it instead.
   await setContrast(page, "2");
   await expect
     .poll(async () => change(await previewPixels(page), flat))
-    .toBeGreaterThan(1);
+    .toBeGreaterThan(0.05);
 
   // Back at 1, it is untouched again.
   await setContrast(page, "1");
@@ -309,9 +310,7 @@ test.describe("Contrast rendering", () => {
       const row = await renderRow(page, gray, contrast);
       for (const pixel of [row[0], row[32], row[63]]) {
         for (const level of pixel.slice(0, 3)) {
-          expect(Math.abs(level - 111), `contrast ${contrast}`).toBeLessThan(
-            2,
-          );
+          expect(Math.abs(level - 111), `contrast ${contrast}`).toBeLessThan(2);
         }
       }
     }
