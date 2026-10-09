@@ -218,7 +218,9 @@ function withTransition(
 }
 
 // `effectDefaults` for an effect whose new devices come with Animation off.
-function offWhenAdded(effectDefaults: FxAnimationDefaults): FxAnimationDefaults {
+function offWhenAdded(
+  effectDefaults: FxAnimationDefaults,
+): FxAnimationDefaults {
   return { ...effectDefaults, offWhenAdded: true };
 }
 
@@ -282,9 +284,7 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     "Contrast",
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
-        "_Contrast",
-      ]),
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["_Contrast"]),
     ),
   ],
   [
