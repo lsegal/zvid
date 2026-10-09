@@ -82,6 +82,10 @@ import {
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
+import {
+  PROGRAM_FRAME_ID,
+  publishFrame,
+} from "./fx-shaders/frame-analysis.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
 import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
@@ -775,5 +779,7 @@ export function drawComposition(
     bindCompositeState(resources, null, width, height);
   }
   recordRenderFrame(performance.now() - startedAt);
+  // The Scopes pane reads the finished frame while it is open.
+  publishFrame(effectChain.analysis, PROGRAM_FRAME_ID, gl.canvas);
   return settled;
 }
