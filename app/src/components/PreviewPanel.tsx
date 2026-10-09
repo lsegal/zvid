@@ -15,7 +15,11 @@ import {
   type ClipMediaState,
   describePreviewMediaState,
 } from "../clip-media-state";
-import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
+import {
+  MEDIA_FRAME_ID,
+  PROGRAM_FRAME_ID,
+  previewFrameAnalysis,
+} from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
@@ -28,6 +32,7 @@ import type { TimeValueFormat } from "../time-value.ts";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
+import { ScopesPane, useScopesPane } from "./scopes/ScopesPane";
 import "./preview-panel.css";
 
 type PreviewEditing = ReturnType<typeof usePreviewEditing>;
@@ -119,6 +124,24 @@ function LivePreviewTransformOverlay({
   return <PreviewTransformOverlay {...props} layers={liveLayers} />;
 }
 
+// What the Scopes pane analyzes: the media the Media tab plays, or the
+// program frame the compositor draws. Audio has no picture to analyze.
+function scopesSource(isMediaTab: boolean, media: MediaItem | undefined) {
+  if (isMediaTab && !media) {
+    return { frameId: null, emptyMessage: "Select media to see its scopes." };
+  }
+  if (isMediaTab ? !media?.hasVideo : media?.kind === "audio") {
+    return {
+      frameId: null,
+      emptyMessage: "Audio only: there is no picture to analyze.",
+    };
+  }
+  return {
+    frameId: isMediaTab ? MEDIA_FRAME_ID : PROGRAM_FRAME_ID,
+    emptyMessage: "",
+  };
+}
+
 // The preview pane beside the timeline, with the handle that resizes it. Its
 // Timeline tab is the Program monitor: the composition player, the transform
 // and text overlays, and the placeholder shown when nothing at the playhead
@@ -170,6 +193,14 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
   const isMediaTab = previewTab === "media";
+  const scopesPane = useScopesPane();
+  const previewedMedia = isMediaTab ? mediaItem : previewMedia;
+  const scopes = scopesPane.open ? (
+    <ScopesPane
+      pane={scopesPane}
+      {...scopesSource(isMediaTab, previewedMedia)}
+    />
+  ) : null;
   return (
     <>
       <hr
@@ -221,10 +252,17 @@ export function PreviewPanel({
               </span>
             </>
           )}
+          <button
+            type="button"
+            className="preview-panel__scopes"
+            aria-pressed={scopesPane.open}
+            title={scopesPane.open ? "Hide scopes" : "Show scopes"}
+            onClick={scopesPane.toggle}
+          >
+            Scopes
+          </button>
           <span className="preview-panel__mode">
-            {(isMediaTab ? mediaItem : previewMedia)?.kind === "audio"
-              ? "Audio"
-              : "Video"}
+            {previewedMedia?.kind === "audio" ? "Audio" : "Video"}
           </span>
         </div>
 
@@ -299,8 +337,10 @@ export function PreviewPanel({
               volume={previewVolume}
               projectFps={mediaTimeFormat.fps}
               mediaRange={mediaRange}
+              scopes={scopes}
             />
           ) : null}
+          {isMediaTab ? null : scopes}
         </div>
       </aside>
     </>

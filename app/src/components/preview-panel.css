@@ -170,3 +170,32 @@
     height: min(70vh, 640px);
   }
 }
+
+/* Right-aligned beside the Audio/Video badge. */
+.preview-panel__scopes {
+  flex: none;
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.preview-panel__scopes:hover {
+  color: var(--ink);
+}
+
+.preview-panel__scopes[aria-pressed='true'] {
+  border-color: rgba(242, 209, 75, 0.5);
+  background: rgba(242, 209, 75, 0.14);
+  color: #f2d14b;
+}
+
+.preview-panel__scopes + .preview-panel__mode {
+  margin-left: 0;
+}

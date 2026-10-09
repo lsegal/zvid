@@ -1,0 +1,93 @@
+/* Over the bottom of the picture: the program monitor on the Timeline tab,
+   the media's picture above its transport on the Media tab. Above the
+   transform overlay and the Media tab, which sit at z-index 3 at most. */
+.scopes-pane {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-height: min(96px, 100%);
+  max-height: 90%;
+  border-top: 1px solid var(--line);
+  background: rgba(7, 8, 13, 0.94);
+}
+
+/* The top edge, dragged to resize the pane. */
+.scopes-pane__resize {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 8px;
+  margin: 0;
+  border: 0;
+  cursor: row-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.scopes-pane__resize::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 3px;
+  transform: translateY(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.scopes-pane__resize:hover::before,
+.scopes-pane__resize:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.scopes-pane__resize:active::before {
+  background: var(--amber);
+}
+
+.scopes-pane__kinds {
+  flex: none;
+  align-self: flex-start;
+  gap: 2px;
+  margin: 6px 8px 0;
+  padding: 2px;
+}
+
+.scopes-pane__kinds button {
+  padding: 3px 8px;
+  font-size: 0.58rem;
+}
+
+.scopes-pane__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.scopes-pane__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scopes-pane__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0 16px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.scopes-pane__canvas[hidden] {
+  display: none;
+}

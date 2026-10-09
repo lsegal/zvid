@@ -82,10 +82,7 @@ import {
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
-import {
-  PROGRAM_FRAME_ID,
-  publishFrame,
-} from "./fx-shaders/frame-analysis.ts";
+import { PROGRAM_FRAME_ID, publishFrame } from "./fx-shaders/frame-analysis.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
 import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";

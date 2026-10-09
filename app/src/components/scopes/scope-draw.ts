@@ -122,7 +122,7 @@ function drawVectorscopeScale(context: CanvasRenderingContext2D, area: Rect) {
   context.textBaseline = "middle";
   const box = Math.max(6, area.width / 28);
   for (const { label, rgb } of VECTORSCOPE_TARGETS) {
-    const { cb, cr } = chromaOf(...rgb);
+    const { cb, cr } = chromaOf(rgb[0], rgb[1], rgb[2]);
     const x = centerX + cb * area.width;
     const y = centerY - cr * area.height;
     context.strokeRect(x - box / 2, y - box / 2, box, box);

@@ -20,7 +20,7 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number]["kind"];
 export type ScopeImage = {
   width: number;
   height: number;
-  pixels: Uint8ClampedArray;
+  pixels: Uint8ClampedArray<ArrayBuffer>;
 };
 
 // The RGB waveform: each channel lights its own color at the levels its
