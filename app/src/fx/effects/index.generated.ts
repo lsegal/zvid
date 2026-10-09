@@ -45,6 +45,8 @@ import { pass as refractionPass } from "./refraction/pass.ts";
 import * as reverb from "./reverb/definition.ts";
 import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
+import * as scopes from "./scopes/definition.ts";
+import { pass as scopesPass } from "./scopes/pass.ts";
 import * as shape from "./shape/definition.ts";
 import { pass as shapePass } from "./shape/pass.ts";
 import * as stereo from "./stereo/definition.ts";
@@ -90,6 +92,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   reverb,
   reverse,
   saturation,
+  scopes,
   shape,
   stereo,
   text,
@@ -112,6 +115,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   negativeSplitPass,
   pixelatePass,
   refractionPass,
+  scopesPass,
   shapePass,
   zoomAndPanPass,
 ];

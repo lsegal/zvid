@@ -8,6 +8,8 @@ import {
 } from "./types.ts";
 
 export type ChainEffect = {
+  // The effect's id, which a view-only pass's readback is published under.
+  id?: string;
   trackId: string;
   effectName: string;
   enabled?: boolean;
@@ -17,6 +19,7 @@ export type ChainEffect = {
 export type EffectChainStep = {
   pass: EffectPass;
   parameters: EffectParameter[];
+  effectId?: string;
 };
 
 const effectPasses = new Map<string, EffectPass>(
@@ -47,7 +50,11 @@ export function resolveEffectChain(
 
     const pass = getEffectPass(effect.effectName);
     if (pass) {
-      steps.push({ pass, parameters: effect.parameters });
+      steps.push({
+        pass,
+        parameters: effect.parameters,
+        ...(effect.id === undefined ? {} : { effectId: effect.id }),
+      });
     }
   }
 

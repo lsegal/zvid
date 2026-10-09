@@ -10,6 +10,7 @@ import { NumberControl } from "./NumberControl";
 import { PaintControl } from "./PaintControl";
 import { ShapeControl } from "./ShapeControl";
 import { TextControl } from "./TextControl";
+import { WaveformControl } from "./WaveformControl";
 
 // The control each parameter kind renders with. A new kind adds its control
 // file and one entry here.
@@ -27,4 +28,5 @@ export const PARAMETER_CONTROLS: Record<
   layers: LayersControl,
   layer: LayerControl,
   shape: ShapeControl,
+  waveform: WaveformControl,
 };

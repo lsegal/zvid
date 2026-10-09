@@ -15,6 +15,7 @@ import {
   type ClipMediaState,
   describePreviewMediaState,
 } from "../clip-media-state";
+import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
@@ -253,6 +254,7 @@ export function PreviewPanel({
             playheadSignal={playheadSignal}
             projectDurationFrames={projectDurationFrames}
             hiddenTextClipId={textEdit?.clipId}
+            frameAnalysis={previewFrameAnalysis}
           />
           <LivePreviewTransformOverlay
             canvas={{ width: canvasWidth, height: canvasHeight }}

@@ -1,4 +1,5 @@
 import { renderStats } from "../render-stats.ts";
+import { type FrameAnalysisHub, frameSampleSize } from "./frame-analysis.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   finishProgram,
@@ -91,6 +92,10 @@ export type PreparedEffectStep = {
   parameters: EffectParameter[];
   // For a merged step, the parameters of each of its passes.
   partParameters?: EffectParameter[][];
+  // Set for a view-only pass's step (see `EffectPass.analyzes`): the id of
+  // the effect its picture is published under. It reads its input back
+  // rather than drawing over it.
+  analysis?: string;
 };
 
 export type RenderTarget = {
@@ -192,6 +197,7 @@ export class EffectChainRenderer {
   private readonly merged: MergedPrograms;
   private pingPongTargets: TargetPool;
   private stageTargets: TargetPool;
+  private analysisTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
   // One pool per slot, since a mask is carried between surfaces through
@@ -220,6 +226,9 @@ export class EffectChainRenderer {
   // once it has compiled; off draws every pass on its own, for tests to
   // compare against.
   mergePasses = true;
+  // Where view-only passes publish the picture at their position, for the
+  // preview; unset, as for export, they are skipped and read nothing back.
+  analysis: FrameAnalysisHub | null = null;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
@@ -233,6 +242,7 @@ export class EffectChainRenderer {
     };
     this.pingPongTargets = new TargetPool(this.release);
     this.stageTargets = new TargetPool(this.release);
+    this.analysisTargets = new TargetPool(this.release);
     this.layerTargets = new TargetPool(this.release);
     this.merged = new MergedPrograms(
       gl,
@@ -285,6 +295,22 @@ export class EffectChainRenderer {
   prepare(steps: EffectChainStep[]): PreparedEffectStep[] {
     const prepared: PreparedEffectStep[] = [];
     for (const step of steps) {
+      // A view-only pass changes nothing either, and costs nothing unless a
+      // panel wants the picture at its position in this frame.
+      if (step.pass.analyzes) {
+        const compiled =
+          step.effectId !== undefined && this.analysis?.wants(step.effectId)
+            ? this.getCompiledPass(step.pass)
+            : null;
+        if (compiled && step.effectId !== undefined) {
+          prepared.push({
+            compiled,
+            parameters: step.parameters,
+            analysis: step.effectId,
+          });
+        }
+        continue;
+      }
       // A pass at its neutral settings changes nothing, so it costs nothing.
       if (step.pass.isIdentity?.(step.parameters)) {
         continue;
@@ -308,8 +334,17 @@ export class EffectChainRenderer {
     let start = 0;
     while (start < steps.length) {
       let end = start + 1;
-      if (canMergePass(steps[start].compiled.pass)) {
-        while (end < steps.length && isPerPixelPass(steps[end].compiled.pass)) {
+      // A view-only step reads the picture between the passes around it,
+      // so they are not merged across it.
+      if (
+        steps[start].analysis === undefined &&
+        canMergePass(steps[start].compiled.pass)
+      ) {
+        while (
+          end < steps.length &&
+          steps[end].analysis === undefined &&
+          isPerPixelPass(steps[end].compiled.pass)
+        ) {
           end++;
         }
       }
@@ -441,6 +476,14 @@ export class EffectChainRenderer {
     let input = source;
     for (const [index, step] of steps.entries()) {
       const isLast = index === steps.length - 1;
+      if (step.analysis !== undefined) {
+        this.readBack(input, step, stepContext);
+        // Last on the way to the screen, it copies its input there, since
+        // nothing after it does.
+        if (!isLast || output !== "screen") {
+          continue;
+        }
+      }
       const target = isLast && output === "screen" ? null : targets[index % 2];
       const { compiled, parameters } = step;
       const stages = this.runStages(input, compiled, parameters, stepContext);
@@ -491,6 +534,39 @@ export class EffectChainRenderer {
     }
     this.pending.clear();
     this.merged.dispose();
+  }
+
+  // Draws `input` at a sample's size with view-only `step`'s copy shader,
+  // reads it back and publishes it under the step's effect id.
+  private readBack(
+    input: TextureRegion,
+    step: PreparedEffectStep,
+    ctx: EffectContext,
+  ) {
+    const { gl, analysis } = this;
+    if (!analysis || step.analysis === undefined) {
+      return;
+    }
+    const { width, height } = frameSampleSize(...ctx.resolution);
+    const [target] = this.getPooledTargets(
+      this.analysisTargets,
+      width,
+      height,
+      1,
+    );
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, width, height);
+    this.bindProgram(step.compiled, input, null);
+    step.compiled.pass.setUniforms(
+      gl,
+      step.compiled.locations,
+      step.parameters,
+      ctx,
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    analysis.publish(step.analysis, { width, height, pixels });
   }
 
   // Draws `compiled`'s stages from `input` into pooled stage targets and
@@ -766,6 +842,7 @@ export class EffectChainRenderer {
   private releaseTargets() {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
+    this.analysisTargets.clear();
     this.layerTargets.clear();
     for (const pool of this.maskTargets.values()) {
       pool.clear();
