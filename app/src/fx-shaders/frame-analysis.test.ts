@@ -1,9 +1,10 @@
 // The chain reads pictures back through WebGL.
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, type TestContext } from "node:test";
 import { EffectChainRenderer, wholeTexture } from "./chain.ts";
 import {
+  ANALYSIS_INTERVAL_MS,
   ANALYSIS_SIZE,
   countHistogram,
   type FrameHistogram,
@@ -56,6 +57,13 @@ function createReadingGl(color: [number, number, number] = [255, 0, 0]) {
   return { gl, reads };
 }
 
+// Holds the chain's clock at `time` ms for the rest of the test.
+function stopClock(t: TestContext, time = 1000) {
+  const clock = { time };
+  t.mock.method(performance, "now", () => clock.time);
+  return clock;
+}
+
 const CONTEXT = {
   time: 0,
   clipProgress: 0,
@@ -99,7 +107,8 @@ describe("countHistogram", () => {
 });
 
 describe("EffectChainRenderer frame analysis", () => {
-  it("reads back a small copy of the picture reaching a watched effect", () => {
+  it("reads back a small copy of the picture reaching a watched effect", (t) => {
+    const clock = stopClock(t);
     const { gl, reads } = createReadingGl();
     const renderer = new EffectChainRenderer(gl, {} as WebGLBuffer);
     renderer.frameAnalysis = true;
@@ -124,9 +133,45 @@ describe("EffectChainRenderer frame analysis", () => {
       assert.equal(received[0].red[HISTOGRAM_BINS - 1], 1);
       assert.equal(received[0].green[0], 1);
       // Not again until the interval has passed.
+      clock.time += ANALYSIS_INTERVAL_MS - 1;
       renderer.run(source, 1920, 1080, steps, CONTEXT);
       assert.equal(reads.length, 1);
+      clock.time += 1;
+      renderer.run(source, 1920, 1080, steps, CONTEXT);
+      assert.equal(reads.length, 2);
     } finally {
+      stop();
+    }
+  });
+
+  it("asks for a frame later when it skips a readback, so a scrub ends on its last frame", async (t) => {
+    const clock = stopClock(t);
+    const { gl, reads } = createReadingGl();
+    const renderer = new EffectChainRenderer(gl, {} as WebGLBuffer);
+    renderer.frameAnalysis = true;
+    const stop = watchFrameHistogram("scrubbed", () => {});
+    let redraws = 0;
+    const stopListening = onFrameHistogramWatch(() => redraws++);
+    try {
+      const steps = renderer.prepare(
+        resolveEffectChain([levels("scrubbed")], "lane"),
+      );
+      const source = wholeTexture({} as WebGLTexture);
+      renderer.run(source, 64, 64, steps, CONTEXT);
+      renderer.run(source, 64, 64, steps, CONTEXT);
+      renderer.run(source, 64, 64, steps, CONTEXT);
+      assert.equal(reads.length, 1);
+      assert.equal(redraws, 0);
+      await new Promise((resolve) =>
+        setTimeout(resolve, ANALYSIS_INTERVAL_MS + 50),
+      );
+      // One redraw for the skipped readbacks, which then reads.
+      assert.equal(redraws, 1);
+      clock.time += ANALYSIS_INTERVAL_MS;
+      renderer.run(source, 64, 64, steps, CONTEXT);
+      assert.equal(reads.length, 2);
+    } finally {
+      stopListening();
       stop();
     }
   });

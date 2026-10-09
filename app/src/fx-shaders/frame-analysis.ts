@@ -58,9 +58,7 @@ export function watchFrameHistogram(effectId: string, listener: Listener) {
   if (last) {
     listener(last);
   }
-  for (const watchListener of watchListeners) {
-    watchListener();
-  }
+  notifyWatchListeners();
   return () => {
     set.delete(listener);
     if (!set.size && watchers.get(effectId) === set) {
@@ -74,8 +72,29 @@ export function isFrameHistogramWatched(effectId: string) {
   return watchers.has(effectId);
 }
 
-// Calls `listener` whenever an effect starts being watched, so a paused
-// preview can draw a frame to read back. Returns a function that stops it.
+function notifyWatchListeners() {
+  for (const watchListener of watchListeners) {
+    watchListener();
+  }
+}
+
+let redrawTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Asks a paused preview for another frame in `delay` ms, once a readback
+// was skipped to keep to ANALYSIS_INTERVAL_MS, so the histogram ends on the
+// frame left showing after a scrub.
+export function requestFrameHistogramRedraw(delay: number) {
+  if (redrawTimer === null) {
+    redrawTimer = setTimeout(() => {
+      redrawTimer = null;
+      notifyWatchListeners();
+    }, delay);
+  }
+}
+
+// Calls `listener` whenever an effect starts being watched, or a skipped
+// readback is due, so a paused preview can draw a frame to read back.
+// Returns a function that stops it.
 export function onFrameHistogramWatch(listener: () => void) {
   watchListeners.add(listener);
   return () => {

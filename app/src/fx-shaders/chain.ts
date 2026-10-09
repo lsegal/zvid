@@ -5,6 +5,7 @@ import {
   COPY_PASS,
   isFrameHistogramWatched,
   publishFrameHistogram,
+  requestFrameHistogramRedraw,
 } from "./frame-analysis.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
@@ -460,7 +461,8 @@ export class EffectChainRenderer {
 
   // Reads back a small copy of the `width` × `height` picture in `input`,
   // the picture reaching `effectId`, for its histogram, at most once every
-  // ANALYSIS_INTERVAL_MS. Leaves the copy's target bound.
+  // ANALYSIS_INTERVAL_MS, asking for a frame later for one skipped. Leaves
+  // the copy's target bound.
   private analyze(
     effectId: string,
     input: TextureRegion,
@@ -470,6 +472,7 @@ export class EffectChainRenderer {
     const now = performance.now();
     const last = this.analyzedAt.get(effectId);
     if (last !== undefined && now - last < ANALYSIS_INTERVAL_MS) {
+      requestFrameHistogramRedraw(last + ANALYSIS_INTERVAL_MS - now);
       return;
     }
     const copy = this.getCompiledPass(COPY_PASS);
