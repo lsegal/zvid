@@ -181,9 +181,7 @@ test("an exact frame waits for a built-in look's file", async ({ page }) => {
   const pixel = (await page.evaluate(async () => {
     // A variable keeps TypeScript from resolving the dev server's path.
     const playerPath = "/src/CompositionPlayer.tsx";
-    const { CompositionRenderer } = await import(
-      /* @vite-ignore */ playerPath
-    );
+    const { CompositionRenderer } = await import(/* @vite-ignore */ playerPath);
     const canvas = document.createElement("canvas");
     const renderer = new CompositionRenderer(
       {
