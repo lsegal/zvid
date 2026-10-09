@@ -109,16 +109,41 @@
   white-space: nowrap;
 }
 
+/* The Audio toggle, which shows the audio analysis area: an outline when
+   off, the blue chip when on. */
 .preview-panel__mode {
   flex: none;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(124, 161, 255, 0.4);
-  background: rgba(124, 161, 255, 0.12);
-  color: #b9cbff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
   font-size: 0.66rem;
   letter-spacing: 0.06em;
+  line-height: 1;
   text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.preview-panel__mode:hover {
+  border-color: rgba(124, 161, 255, 0.4);
+  color: #b9cbff;
+}
+
+.preview-panel__mode[aria-pressed="true"] {
+  border-color: rgba(124, 161, 255, 0.4);
+  background: rgba(124, 161, 255, 0.12);
+  color: #b9cbff;
+}
+
+.preview-panel__mode:focus-visible {
+  outline: 2px solid rgba(124, 161, 255, 0.6);
+  outline-offset: 1px;
 }
 
 .preview-monitor {

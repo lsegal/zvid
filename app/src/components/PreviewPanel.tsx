@@ -1,11 +1,16 @@
 import { ChartBarIcon } from "@heroicons/react/16/solid";
-import type {
-  ComponentProps,
-  KeyboardEvent as ReactKeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-  RefObject,
+import {
+  type ComponentProps,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useState,
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
+import {
+  readAudioAnalysisOpen,
+  writeAudioAnalysisOpen,
+} from "../app/spectrogram.ts";
 import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
 import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
@@ -23,6 +28,8 @@ import {
 } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
+import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
+import { useMediaElementMeterTap } from "../hooks/useMediaElementMeterTap.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
@@ -30,6 +37,7 @@ import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
 import type { PreviewLayer } from "../preview-edit.ts";
 import type { TimeValueFormat } from "../time-value.ts";
+import { AudioAnalysisPane } from "./audio-analysis/AudioAnalysisPane";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
@@ -194,6 +202,16 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
   const isMediaTab = previewTab === "media";
+  const getMeterTap = useMasterMeterTap(compositionPlayerRef);
+  const mediaMeterTap = useMediaElementMeterTap();
+  const [isAudioAnalysisOpen, setAudioAnalysisOpen] = useState(
+    readAudioAnalysisOpen,
+  );
+  const toggleAudioAnalysis = () => {
+    const open = !isAudioAnalysisOpen;
+    setAudioAnalysisOpen(open);
+    writeAudioAnalysisOpen(open);
+  };
   const scopesPane = useScopesPane();
   const previewedMedia = isMediaTab ? mediaItem : previewMedia;
   const scopes = scopesPane.open ? (
@@ -266,9 +284,19 @@ export function PreviewPanel({
             >
               <ChartBarIcon aria-hidden="true" />
             </button>
-            <span className="preview-panel__mode">
-              {previewedMedia?.kind === "audio" ? "Audio" : "Video"}
-            </span>
+            <button
+              type="button"
+              className="preview-panel__mode"
+              aria-pressed={isAudioAnalysisOpen}
+              title={
+                isAudioAnalysisOpen
+                  ? "Hide the audio meter and spectrogram"
+                  : "Show the audio meter and spectrogram"
+              }
+              onClick={toggleAudioAnalysis}
+            >
+              Audio
+            </button>
           </div>
         </div>
 
@@ -343,11 +371,19 @@ export function PreviewPanel({
               volume={previewVolume}
               projectFps={mediaTimeFormat.fps}
               mediaRange={mediaRange}
+              onMediaElement={mediaMeterTap.setElement}
               scopes={scopes}
             />
           ) : null}
           {isMediaTab ? null : scopes}
         </div>
+        {isAudioAnalysisOpen ? (
+          // On the Media tab it follows the media playing there instead.
+          <AudioAnalysisPane
+            isPlaying={isMediaTab ? mediaPreview.isMediaPlaying : isPlaying}
+            getMeterTap={isMediaTab ? mediaMeterTap.getMeterTap : getMeterTap}
+          />
+        ) : null}
       </aside>
     </>
   );

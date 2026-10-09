@@ -115,6 +115,98 @@
   white-space: nowrap;
 }
 
+/* The vertical meter, in the audio analysis pane: the bars fill bottom to
+   top, with the dB scale labeled down their left and the readout below. */
+.vu-meter--vertical {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+}
+
+.vu-meter--vertical .vu-meter__bars {
+  flex: 1;
+  grid-template-columns: repeat(2, 6px);
+  column-gap: 3px;
+  row-gap: 0;
+  width: auto;
+  min-height: 0;
+  margin-left: 22px;
+}
+
+.vu-meter--vertical .vu-meter__channel {
+  width: 6px;
+  height: auto;
+}
+
+.vu-meter--vertical .vu-meter__fill,
+.vu-meter--vertical .vu-meter__zone,
+.vu-meter--vertical .vu-meter__peak {
+  left: 0;
+  right: 0;
+}
+
+.vu-meter--vertical .vu-meter__fill {
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    #3fc66b 0,
+    #3fc66b var(--vu-yellow),
+    #ead53f calc(var(--vu-yellow) + 4%),
+    #f59a35 var(--vu-orange),
+    #f59a35 100%
+  );
+  clip-path: inset(calc((1 - var(--vu-level, 0)) * 100%) 0 0 0);
+}
+
+.vu-meter--vertical .vu-meter__zone {
+  top: 0;
+  bottom: var(--vu-zero);
+}
+
+.vu-meter--vertical .vu-meter__peak {
+  top: auto;
+  bottom: calc(var(--vu-peak, 0) * 100% - 1px);
+  width: auto;
+  height: 2px;
+}
+
+.vu-meter--vertical .vu-meter__tick {
+  top: auto;
+  left: -2px;
+  right: -2px;
+  width: auto;
+  height: 1px;
+  margin: 0 0 -1px;
+}
+
+.vu-meter__label {
+  position: absolute;
+  right: calc(100% + 4px);
+  bottom: 0;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateY(50%);
+}
+
+.vu-meter--vertical .vu-meter__clip {
+  top: -6px;
+  bottom: var(--vu-zero);
+  left: -4px;
+  right: -4px;
+}
+
+.vu-meter--vertical .vu-meter__readout {
+  width: auto;
+  font-size: 0.62rem;
+  text-align: center;
+}
+
 /* The meter gives way before the volume slider as the bar narrows: the
    readout goes first, then the meter. */
 @container transport-bar (max-width: 1120px) {

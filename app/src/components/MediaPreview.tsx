@@ -42,6 +42,8 @@ type MediaPreviewProps = {
   volume: { volume: number; muted: boolean };
   projectFps: number;
   mediaRange: MediaRangeActions;
+  // Told about the player's media element, for the audio analysis pane.
+  onMediaElement?: (element: HTMLMediaElement | null) => void;
   // The Scopes pane, over the bottom of the picture, when it is open.
   scopes?: ReactNode;
 };
@@ -56,6 +58,7 @@ export function MediaPreview({
   volume,
   projectFps,
   mediaRange,
+  onMediaElement,
   scopes,
 }: MediaPreviewProps) {
   if (!media) {
@@ -94,6 +97,7 @@ export function MediaPreview({
       volume={volume}
       projectFps={projectFps}
       mediaRange={mediaRange}
+      onMediaElement={onMediaElement}
       scopes={scopes}
     />
   );
@@ -107,6 +111,7 @@ function MediaPlayer({
   volume,
   projectFps,
   mediaRange,
+  onMediaElement,
   scopes,
 }: MediaPreviewProps & { media: MediaItem }) {
   const elementRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
@@ -132,6 +137,12 @@ function MediaPlayer({
     });
     return () => cancelAnimationFrame(frame);
   }, [isPlaying, setPlaying]);
+
+  // The element is fixed for the player's life (it is keyed by media).
+  useEffect(() => {
+    onMediaElement?.(elementRef.current);
+    return () => onMediaElement?.(null);
+  }, [onMediaElement]);
 
   // The Scopes pane reads the picture while it is open: each frame while
   // playing, and after a seek or a frame request while paused.
