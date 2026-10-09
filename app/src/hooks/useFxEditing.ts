@@ -11,6 +11,7 @@ import { isShapeEffectName } from "../fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
 import type { EffectModulation } from "../fx-modulation-defaults";
+import type { FxEffectScope } from "../fx-registry";
 import {
   addEffect,
   copyEffect,
@@ -210,22 +211,31 @@ export function useFxEditing({
     [editEffects],
   );
 
-  // An FX clip's own stack takes the effects that work on a composite,
-  // Order among them. Other stacks' scopes follow from their track ids.
-  const getStackScope = useCallback(
-    (trackId: string) => {
-      const clipId = getEffectClipId(trackId);
-      return clipId !== undefined &&
-        isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
-        ? "fxClip"
-        : undefined;
-    },
-    [timelineClipsRef],
+  // Moves a device onto another stack, ahead of `beforeId` or else at its
+  // end, as one undoable edit.
+  const moveFxDeviceToStack = useCallback(
+    (
+      device: FxDevice,
+      trackId: string,
+      scope: FxEffectScope,
+      beforeId: string | undefined,
+    ) =>
+      editEffects(effectHistoryLabels.move(device.effectName), (current) =>
+        moveEffectToStack(current, device.id, trackId, beforeId, scope),
+      ),
+    [editEffects],
   );
 
   const addFxDevice = useCallback(
     (trackId: string, effectName: string, id: string) => {
-      const scope = getStackScope(trackId);
+      // An FX clip's own stack takes the effects that work on a composite,
+      // Order among them.
+      const clipId = getEffectClipId(trackId);
+      const scope =
+        clipId !== undefined &&
+        isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
+          ? "fxClip"
+          : undefined;
       // Made once, so the updater adds the same Transform however often
       // it runs.
       const transformId = crypto.randomUUID();
@@ -250,7 +260,7 @@ export function useFxEditing({
           : added;
       });
     },
-    [editEffects, getStackScope],
+    [editEffects, timelineClipsRef],
   );
 
   const removeFxDevice = useCallback(
@@ -313,31 +323,17 @@ export function useFxEditing({
   // Adds a copy of the cut or copied effect, under the new `id`, to the end
   // of the `trackId` stack.
   const pasteFxDevice = useCallback(
-    (trackId: string, id: string) => {
+    (trackId: string, scope: FxEffectScope, id: string) => {
       if (!fxClipboard) {
         return;
       }
 
       const copy = copyEffect(fxClipboard, trackId, id);
-      const scope = getStackScope(trackId);
       editEffects(effectHistoryLabels.paste(copy.effectName), (current) =>
         placeEffect(current, copy, scope),
       );
     },
-    [editEffects, fxClipboard, getStackScope],
-  );
-
-  // Moves a device to the end of another stack, which `stackName` names in
-  // the history, such as "Global".
-  const moveFxDeviceToStack = useCallback(
-    (device: FxDevice, trackId: string, stackName: string) => {
-      const scope = getStackScope(trackId);
-      editEffects(
-        effectHistoryLabels.moveTo(device.effectName, stackName),
-        (current) => moveEffectToStack(current, device.id, trackId, scope),
-      );
-    },
-    [editEffects, getStackScope],
+    [editEffects, fxClipboard],
   );
 
   const clearFxDevices = useCallback(
@@ -383,6 +379,7 @@ export function useFxEditing({
     setFxDeviceModulationEnabled,
     setFxDeviceModulation,
     moveFxDevice,
+    moveFxDeviceToStack,
     addFxDevice,
     removeFxDevice,
     resetFxDevice,
@@ -391,7 +388,6 @@ export function useFxEditing({
     copyFxDevice,
     cutFxDevice,
     pasteFxDevice,
-    moveFxDeviceToStack,
     clearFxDevices,
   };
 }

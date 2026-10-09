@@ -50,6 +50,7 @@ export {
   getEffectDisplayName,
   hasGlobalOrder,
   moveEffect,
+  moveEffectToStack,
   pruneExcludedLayers,
   removeEffect,
   resetEffect,
@@ -64,7 +65,6 @@ export { mapEffects } from "./fx/stack/session-mapping.ts";
 export {
   canPlaceEffect,
   copyEffect,
-  moveEffectToStack,
   placeEffect,
   removeEffects,
 } from "./fx/stack/transfer.ts";

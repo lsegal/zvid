@@ -337,35 +337,86 @@ export function canStartFxChainPan(event: {
   return event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR);
 }
 
-// Screen reader text for a device that moved within its stack.
+// Screen reader text for a device that moved within its stack, or to the
+// `stack` named.
 export function describeDeviceMove(
   device: Pick<FxDevice, "name" | "group" | "subtitle">,
   toIndex: number,
   stackSize: number,
+  stack = device.group === "global" ? "Global" : device.subtitle,
 ) {
-  const stack = device.group === "global" ? "Global" : device.subtitle;
   return `Moved ${device.name} to position ${toIndex + 1} of ${stackSize} in ${stack}`;
 }
 
-// Whether a device stays where it is: a layer's own Layout, and the content
-// effect that defines the selected clip, such as a text clip's Text. It
-// can't be cut, deleted, moved to another stack or cleared. An FX clip
-// has no content.
-export function isFixedDevice(
-  device: Pick<FxDevice, "effectName" | "group" | "layerDefault">,
+// A clip's content device (its Text or Color) defines the clip, so it stays
+// at the front of the Clip stack: it can't be moved, and nothing can be put
+// ahead of it.
+export function isPinnedDevice(device: Pick<FxDevice, "group" | "effectName">) {
+  return device.group === "clip" && isContentEffectName(device.effectName);
+}
+
+// Whether `device` can move to `toIndex` of the `toGroup` stack, counted
+// without the device itself. Within its own stack any device but a pinned
+// one reorders. Moving to another stack also needs the effect to be designed
+// for that stack's scope (the Clip stack's is `clipScope`), and is never
+// allowed for the content effects that define a layer or clip.
+export function canMoveDevice(
+  groups: FxChainGroups,
+  device: FxDevice,
+  toGroup: FxDeviceGroup,
+  toIndex: number,
   clipScope: FxEffectScope,
 ) {
+  if (isPinnedDevice(device)) {
+    return false;
+  }
+
+  if (
+    toGroup !== device.group &&
+    (device.layerDefault ||
+      isContentEffectName(device.effectName) ||
+      !isEffectSupportedIn(
+        device.effectName,
+        toGroup === "clip" ? clipScope : toGroup,
+      ))
+  ) {
+    return false;
+  }
+
+  const target = groups[toGroup].filter(
+    (candidate) => candidate.id !== device.id,
+  );
   return (
-    Boolean(device.layerDefault) ||
-    (device.group === "clip" &&
-      clipScope !== "fxClip" &&
-      isContentEffectName(device.effectName))
+    toIndex >= target.findLastIndex(isPinnedDevice) + 1 &&
+    toIndex <= target.length
   );
 }
 
-// Whether an `effectName` device can be pasted or moved onto a `scope`
-// stack holding `stack`: its definition must support the scope, and a
-// layer keeps a single Layout.
+// Where a device sent to another stack lands: at the end of a stack to its
+// left, or at the start of one to its right, after any pinned device.
+export function getStackMoveIndex(
+  groups: FxChainGroups,
+  device: Pick<FxDevice, "group">,
+  toGroup: FxDeviceGroup,
+) {
+  const target = groups[toGroup];
+  return FX_CHAIN_SECTIONS.indexOf(toGroup) <
+    FX_CHAIN_SECTIONS.indexOf(device.group)
+    ? target.length
+    : target.findLastIndex(isPinnedDevice) + 1;
+}
+
+// Whether a device can't be cut, deleted or cleared: a layer's own Layout
+// and the clip's pinned content device.
+export function isFixedDevice(
+  device: Pick<FxDevice, "effectName" | "group" | "layerDefault">,
+) {
+  return Boolean(device.layerDefault) || isPinnedDevice(device);
+}
+
+// Whether an `effectName` device can be pasted onto a `scope` stack holding
+// `stack`: its definition must support the scope, and a layer keeps a
+// single Layout.
 export function canPlaceDevice(
   effectName: string,
   scope: FxEffectScope,
@@ -380,24 +431,13 @@ export function canPlaceDevice(
   );
 }
 
-// The stack whose section holds viewport point `x`: the last section
-// divider at or left of it, or undefined left of every divider, where the
-// chain's leading devices sit.
-export function getStackAtPoint(
-  dividers: readonly { group: FxDeviceGroup; left: number }[],
-  x: number,
-) {
-  return dividers.findLast((divider) => divider.left <= x)?.group;
-}
-
 // The devices Clear All removes: every device of the layer and clip stacks
 // that isn't fixed. Global devices stay.
 export function getClearableDevices(
   groups: Pick<FxChainGroups, "layer" | "clip">,
-  clipScope: FxEffectScope,
 ) {
   return [...groups.layer, ...groups.clip].filter(
-    (device) => !isFixedDevice(device, clipScope),
+    (device) => !isFixedDevice(device),
   );
 }
 

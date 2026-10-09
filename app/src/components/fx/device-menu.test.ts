@@ -4,7 +4,7 @@ import type { ContextMenuEntry, ContextMenuItem } from "../../context-menu.ts";
 import type { FxDevice, FxDeviceGroup } from "../../fx-stack.ts";
 import {
   type DeviceMenuState,
-  type DeviceMoveTarget,
+  type DeviceStackTarget,
   getDeviceMenuEntries,
   getSurfaceMenuEntries,
 } from "./device-menu.ts";
@@ -32,44 +32,38 @@ function summarize(entries: readonly ContextMenuEntry[]) {
   );
 }
 
-const TARGETS: DeviceMoveTarget[] = [
-  { group: "global", label: "Global", allowed: true },
-  { group: "layer", label: "Layer", allowed: false },
-  { group: "clip", label: "Clip", allowed: true },
+const TARGETS: DeviceStackTarget[] = [
+  { group: "global", label: "Global", index: 1 },
+  { group: "layer", label: "Layer", index: 3 },
+  { group: "clip", label: "Clip", index: 2 },
 ];
 
 function open(
   target: FxDevice,
   {
     index = 1,
-    stackSize = 3,
     fixed = false,
-    moveTargets = TARGETS,
-  }: Partial<{
-    index: number;
-    stackSize: number;
-    fixed: boolean;
-    moveTargets: DeviceMoveTarget[];
-  }> = {},
+    // Where the device may go: "<group> <index>" keys.
+    allowed = ["layer 0", "layer 2", "global 1", "clip 2"],
+  }: Partial<{ index: number; fixed: boolean; allowed: string[] }> = {},
 ) {
   const calls: string[] = [];
   const menu: DeviceMenuState = {
     type: "device",
     device: target,
     index,
-    stackSize,
     x: 0,
     y: 0,
   };
   const entries = getDeviceMenuEntries(menu, {
     collapsed: new Set(),
     fixed,
-    moveTargets,
     toggleCollapsed: () => calls.push("collapse"),
     onSetEnabled: () => calls.push("enable"),
-    moveDevice: (_device, from, to) => calls.push(`move ${from}->${to}`),
-    moveDeviceTo: (_device, group: FxDeviceGroup) =>
-      calls.push(`move to ${group}`),
+    moveDevice: (_device, group: FxDeviceGroup, to) =>
+      calls.push(`move ${group} ${to}`),
+    canMoveDevice: (_device, group, to) => allowed.includes(`${group} ${to}`),
+    stackTargets: TARGETS,
     resetDevice: () => calls.push("reset"),
     cutDevice: () => calls.push("cut"),
     copyDevice: () => calls.push("copy"),
@@ -92,6 +86,7 @@ describe("getDeviceMenuEntries", () => {
       "Delete",
       "Move",
     ]);
+    // The device's own stack is never a target.
     assert.deepEqual(summarize(move), [
       "Left",
       "Right",
@@ -113,28 +108,29 @@ describe("getDeviceMenuEntries", () => {
       "copy",
       "duplicate",
       "delete",
-      "move 1->0",
-      "move 1->2",
-      "move to global",
-      "move to layer",
-      "move to clip",
+      "move layer 0",
+      "move layer 2",
+      "move global 1",
+      "move layer 3",
+      "move clip 2",
     ]);
   });
 
-  it("disables Left and Right at the ends of the stack", () => {
-    assert.deepEqual(summarize(open(device(), { index: 0 }).move).slice(0, 2), [
+  it("disables the moves the chain refuses", () => {
+    const { move } = open(device(), { allowed: ["layer 2", "clip 2"] });
+    assert.deepEqual(summarize(move), [
       "(Left)",
       "Right",
-    ]);
-    assert.deepEqual(summarize(open(device(), { index: 2 }).move).slice(0, 2), [
-      "Left",
-      "(Right)",
+      "(to Global)",
+      "(to Layer)",
+      "to Clip",
     ]);
   });
 
-  it("keeps a fixed device in its stack", () => {
-    const { entries, move } = open(device({ effectName: "Text" }), {
+  it("disables Cut and Delete for a fixed device", () => {
+    const { entries } = open(device({ effectName: "Text", group: "clip" }), {
       fixed: true,
+      allowed: [],
     });
     assert.deepEqual(summarize(entries), [
       "Collapse",
@@ -145,21 +141,12 @@ describe("getDeviceMenuEntries", () => {
       "(Delete)",
       "Move",
     ]);
-    assert.deepEqual(summarize(move), [
-      "Left",
-      "Right",
-      "(to Global)",
-      "(to Layer)",
-      "(to Clip)",
-    ]);
   });
 
   it("offers a layer's own Layout Reset to Default but no Duplicate", () => {
     const { entries } = open(
       device({ effectName: "Layout", layerDefault: true }),
-      {
-        fixed: true,
-      },
+      { fixed: true },
     );
     assert.deepEqual(summarize(entries), [
       "Collapse",

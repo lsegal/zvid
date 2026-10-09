@@ -6,7 +6,6 @@ export type DeviceMenuState = {
   type: "device";
   device: FxDevice;
   index: number;
-  stackSize: number;
   x: number;
   y: number;
 };
@@ -21,30 +20,33 @@ export type SurfaceMenuState = {
 
 export type FxChainMenuState = DeviceMenuState | SurfaceMenuState;
 
-// A stack a device's Move submenu offers, such as "to Global". A target
-// that can't take the device is shown disabled.
-export type DeviceMoveTarget = {
+// Another stack a device can be sent to, and where it would land there.
+export type DeviceStackTarget = {
   group: FxDeviceGroup;
   label: string;
-  allowed: boolean;
+  index: number;
 };
 
 type DeviceMenuActions = {
   collapsed: ReadonlySet<string>;
-  // True for a device that stays where it is: a layer's own Layout and the
-  // content effect of the selected clip. It can't be cut, deleted or moved
-  // to another stack.
+  // True for a device that can't be cut or deleted: a layer's own Layout
+  // and the clip's content device.
   fixed: boolean;
-  moveTargets: readonly DeviceMoveTarget[];
   toggleCollapsed: (deviceId: string) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   moveDevice: (
     device: FxDevice,
-    fromIndex: number,
+    toGroup: FxDeviceGroup,
     toIndex: number,
-    stackSize: number,
   ) => void;
-  moveDeviceTo: (device: FxDevice, group: FxDeviceGroup) => void;
+  canMoveDevice: (
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) => boolean;
+  // Every stack, left to right, for the Move submenu. The device's own
+  // stack and those that can't take it are shown disabled.
+  stackTargets: readonly DeviceStackTarget[];
   resetDevice: (device: FxDevice) => void;
   cutDevice: (device: FxDevice) => void;
   copyDevice: (device: FxDevice) => void;
@@ -58,11 +60,11 @@ export function getDeviceMenuEntries(
   {
     collapsed,
     fixed,
-    moveTargets,
     toggleCollapsed,
     onSetEnabled,
     moveDevice,
-    moveDeviceTo,
+    canMoveDevice,
+    stackTargets,
     resetDevice,
     cutDevice,
     copyDevice,
@@ -125,27 +127,27 @@ export function getDeviceMenuEntries(
           id: "move-left",
           label: "Left",
           shortcut: "Alt+←",
-          disabled: menu.index === 0,
-          onSelect: () =>
-            moveDevice(device, menu.index, menu.index - 1, menu.stackSize),
+          disabled: !canMoveDevice(device, device.group, menu.index - 1),
+          onSelect: () => moveDevice(device, device.group, menu.index - 1),
         },
         {
           type: "item",
           id: "move-right",
           label: "Right",
           shortcut: "Alt+→",
-          disabled: menu.index >= menu.stackSize - 1,
-          onSelect: () =>
-            moveDevice(device, menu.index, menu.index + 1, menu.stackSize),
+          disabled: !canMoveDevice(device, device.group, menu.index + 1),
+          onSelect: () => moveDevice(device, device.group, menu.index + 1),
         },
         { type: "separator" },
-        ...moveTargets.map(
+        ...stackTargets.map(
           (target): ContextMenuEntry => ({
             type: "item",
             id: `move-to-${target.group}`,
             label: `to ${target.label}`,
-            disabled: fixed || !target.allowed,
-            onSelect: () => moveDeviceTo(device, target.group),
+            disabled:
+              target.group === device.group ||
+              !canMoveDevice(device, target.group, target.index),
+            onSelect: () => moveDevice(device, target.group, target.index),
           }),
         ),
       ],

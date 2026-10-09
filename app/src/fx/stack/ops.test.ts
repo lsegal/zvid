@@ -5,7 +5,7 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "../../project-history.ts";
-import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
+import { clipEffectTrackId, GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import { mapSessionEffectsToDevices } from "./devices.ts";
 import {
   addEffect,
@@ -15,6 +15,7 @@ import {
   ensureGlobalOrder,
   ensureLayerLayouts,
   moveEffect,
+  moveEffectToStack,
   pruneExcludedLayers,
   removeEffect,
   resetEffect,
@@ -109,6 +110,143 @@ describe("moveEffect", () => {
     const effects = load();
     assert.equal(moveEffect(effects, "pixelate", 0), effects);
     assert.equal(moveEffect(effects, "missing", 0), effects);
+  });
+});
+
+describe("moveEffectToStack", () => {
+  const clip = clipEffectTrackId("c1");
+  function stacks() {
+    return [
+      ...load(),
+      {
+        id: "text",
+        trackId: clip,
+        effectName: "Text",
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: "blur",
+        trackId: clip,
+        effectName: "GaussianBlur",
+        parameters: [],
+        enabled: true,
+      },
+    ] satisfies SessionEffect[];
+  }
+
+  it("moves an effect to another stack ahead of a device or at its end", () => {
+    const effects = stacks();
+    const before = moveEffectToStack(effects, "colorize", clip, "blur");
+    assert.deepEqual(ids(before, clip), ["text", "colorize", "blur"]);
+    assert.deepEqual(ids(before, "6"), ["pixelate", "negative", "glitch"]);
+    assert.equal(before.length, effects.length);
+
+    const end = moveEffectToStack(effects, "colorize", GLOBAL_EFFECT_TRACK_ID);
+    assert.deepEqual(ids(end, GLOBAL_EFFECT_TRACK_ID), ["layout", "colorize"]);
+
+    const back = moveEffectToStack(before, "colorize", "6", "negative");
+    assert.deepEqual(ids(back, "6"), [
+      "pixelate",
+      "colorize",
+      "negative",
+      "glitch",
+    ]);
+  });
+
+  it("keeps the effect's settings and drops its defaulted flag", () => {
+    const effects = setEffectEnabled(
+      setEffectParameter(stacks(), "colorize", "_HueOffset", -0.5),
+      "colorize",
+      false,
+    ).map((effect) =>
+      effect.id === "colorize" ? { ...effect, defaulted: true } : effect,
+    );
+    const original = effects.find((effect) => effect.id === "colorize");
+    const moved = moveEffectToStack(effects, "colorize", clip).find(
+      (effect) => effect.id === "colorize",
+    );
+    assert.ok(original?.defaulted);
+    const { defaulted: _defaulted, ...settings } = original;
+    assert.deepEqual(moved, { ...settings, trackId: clip });
+  });
+
+  it("rejects stacks the effect isn't designed for", () => {
+    const effects = [
+      ...stacks(),
+      {
+        id: "move",
+        trackId: "6",
+        effectName: "Transform",
+        parameters: [],
+        enabled: true,
+      },
+    ] satisfies SessionEffect[];
+    assert.equal(
+      moveEffectToStack(effects, "move", GLOBAL_EFFECT_TRACK_ID),
+      effects,
+    );
+    // The Clip stack of an FX clip takes Order; a plain clip's doesn't.
+    const order = [
+      ...effects,
+      {
+        id: "order",
+        trackId: GLOBAL_EFFECT_TRACK_ID,
+        effectName: "Order",
+        parameters: [],
+        enabled: true,
+      },
+    ] satisfies SessionEffect[];
+    assert.equal(moveEffectToStack(order, "order", clip), order);
+    assert.deepEqual(
+      ids(moveEffectToStack(order, "order", clip, undefined, "fxClip"), clip),
+      ["text", "blur", "order"],
+    );
+  });
+
+  it("keeps the content effects that define a layer or clip in place", () => {
+    const effects = stacks();
+    assert.equal(moveEffectToStack(effects, "text", "6"), effects);
+    assert.equal(moveEffectToStack(effects, "layout", "6"), effects);
+  });
+
+  it("ignores moves within the stack, to a missing device, or of no effect", () => {
+    const effects = stacks();
+    assert.equal(moveEffectToStack(effects, "colorize", "6"), effects);
+    assert.equal(moveEffectToStack(effects, "colorize", clip, "gone"), effects);
+    assert.equal(moveEffectToStack(effects, "gone", clip), effects);
+  });
+
+  it("bypasses the Orders already on the stack an Order moves to", () => {
+    const fxClip = clipEffectTrackId("fx");
+    const effects = [
+      {
+        id: "global-order",
+        trackId: GLOBAL_EFFECT_TRACK_ID,
+        effectName: "Order",
+        parameters: [],
+        enabled: true,
+      },
+      {
+        id: "clip-order",
+        trackId: fxClip,
+        effectName: "Order",
+        parameters: [],
+        enabled: true,
+      },
+    ] satisfies SessionEffect[];
+    const next = moveEffectToStack(
+      effects,
+      "global-order",
+      fxClip,
+      "clip-order",
+      "fxClip",
+    );
+    assert.deepEqual(ids(next, fxClip), ["global-order", "clip-order"]);
+    assert.deepEqual(
+      next.map((effect) => effect.enabled),
+      [true, false],
+    );
   });
 });
 
@@ -523,6 +661,11 @@ describe("effect history", () => {
       [string, (effects: SessionEffect[]) => SessionEffect[]]
     > = [
       ["Move Colorize", (effects) => moveEffect(effects, "colorize", 0)],
+      [
+        "Move Negative Split",
+        (effects) =>
+          moveEffectToStack(effects, "negative", GLOBAL_EFFECT_TRACK_ID),
+      ],
       [
         "Add Pixelate",
         (effects) => addEffect(effects, "6", "Pixelate", undefined, "new"),

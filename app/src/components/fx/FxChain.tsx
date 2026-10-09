@@ -11,14 +11,13 @@ import type { EffectAnimation } from "../../fx-animation-defaults";
 import {
   addableEffectsFor,
   animationCollapseKey,
-  canPlaceDevice,
+  canMoveDevice as canMoveDeviceIn,
   canStartFxChainPan,
   describeDeviceMove,
   deviceLayerOptions,
   FX_CHAIN_SECTIONS,
   type FxLayerOption,
-  getClearableDevices,
-  getStackAtPoint,
+  getStackMoveIndex,
   groupChainDevices,
   isFixedDevice,
   modulationCollapseKey,
@@ -27,7 +26,7 @@ import {
   writeCollapsedDevices,
 } from "../../fx-chain";
 import type { EffectModulation } from "../../fx-modulation-defaults";
-import { type FxEffectScope, getEffectDefinition } from "../../fx-registry";
+import type { FxEffectScope } from "../../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -38,11 +37,11 @@ import { useDragScroll } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
 import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
 import { AddDeviceMenu } from "./AddDeviceMenu";
+import { getChainClipboard } from "./chain-clipboard";
 import {
-  type DeviceMoveTarget,
+  type DeviceStackTarget,
   type FxChainMenuState,
   getDeviceMenuEntries,
-  getSurfaceMenuEntries,
 } from "./device-menu";
 import { FxAnimationPanel } from "./FxAnimationPanel";
 import { FxDevicePanel } from "./FxDevicePanel";
@@ -98,6 +97,14 @@ export type FxChainProps = {
   ) => void;
   onSetParameter: FxSetParameter;
   onMove: (device: FxDevice, toIndex: number) => void;
+  // Moves a device onto another stack, ahead of `beforeId` or else at its
+  // end.
+  onMoveToStack: (
+    device: FxDevice,
+    trackId: string,
+    scope: FxEffectScope,
+    beforeId: string | undefined,
+  ) => void;
   onAdd: (trackId: string, effectName: string, id: string) => void;
   onRemove: (device: FxDevice) => void;
   onDuplicate: (device: FxDevice, id: string) => void;
@@ -108,10 +115,7 @@ export type FxChainProps = {
   onCut: (device: FxDevice) => void;
   onCopy: (device: FxDevice) => void;
   // Adds the cut or copied device to the end of the `trackId` stack.
-  onPaste: (trackId: string, id: string) => void;
-  // Moves a device to the end of the `trackId` stack, which `stackName`
-  // names, such as "Global".
-  onMoveToStack: (device: FxDevice, trackId: string, stackName: string) => void;
+  onPaste: (trackId: string, scope: FxEffectScope, id: string) => void;
   onClearAll: (devices: readonly FxDevice[]) => void;
 };
 
@@ -180,6 +184,7 @@ export function FxChain({
   onSetModulation,
   onSetParameter,
   onMove,
+  onMoveToStack,
   onAdd,
   onRemove,
   onDuplicate,
@@ -188,7 +193,6 @@ export function FxChain({
   onCut,
   onCopy,
   onPaste,
-  onMoveToStack,
   onClearAll,
 }: FxChainProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -205,13 +209,22 @@ export function FxChain({
   const [menu, setMenu] = useState<FxChainMenuState | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
+  const canEdit = layerTrackId !== undefined;
+  const showClip = canEdit && clipTrackId !== undefined;
+  // The stacks shown with a track to move devices onto.
+  const movableSections = FX_CHAIN_SECTIONS.filter((group) =>
+    group === "global"
+      ? canEdit
+      : group === "layer"
+        ? canEdit && layerName !== undefined
+        : showClip,
+  );
   const { drag, beginDrag, suppressClickRef } = useDeviceDrag({
     scrollRef,
-    groups,
     moveDevice,
+    canMoveDevice,
     setAnnouncement,
   });
-  const canEdit = layerTrackId !== undefined;
   const layerOptions = useMemo(
     () => ({
       global: layers,
@@ -232,7 +245,6 @@ export function FxChain({
     }),
     [clipLayers, clipScope, layerTrackId, layers],
   );
-  const showClip = canEdit && clipTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -291,19 +303,82 @@ export function FxChain({
     });
   }
 
+  function canMoveDevice(
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) {
+    return (
+      (toGroup === device.group || movableSections.includes(toGroup)) &&
+      canMoveDeviceIn(groups, device, toGroup, toIndex, clipScope)
+    );
+  }
+
+  // Moves a device to `toIndex` of the `toGroup` stack, counted without the
+  // device itself.
   function moveDevice(
     device: FxDevice,
-    fromIndex: number,
+    toGroup: FxDeviceGroup,
     toIndex: number,
-    stackSize: number,
   ) {
-    if (toIndex < 0 || toIndex >= stackSize || toIndex === fromIndex) {
+    const stack = groups[toGroup];
+    if (!canMoveDevice(device, toGroup, toIndex)) {
+      return;
+    }
+
+    if (toGroup === device.group) {
+      if (stack[toIndex]?.id === device.id) {
+        return;
+      }
+
+      requestFocus(device.id);
+      onMove(device, toIndex);
+      setAnnouncement(describeDeviceMove(device, toIndex, stack.length));
+      return;
+    }
+
+    const trackId = getTrackId(toGroup, layerTrackId, clipTrackId);
+    if (!trackId) {
       return;
     }
 
     requestFocus(device.id);
-    onMove(device, toIndex);
-    setAnnouncement(describeDeviceMove(device, toIndex, stackSize));
+    onMoveToStack(device, trackId, scopeOf(toGroup), stack[toIndex]?.id);
+    setAnnouncement(
+      describeDeviceMove(
+        device,
+        toIndex,
+        stack.length + 1,
+        toGroup === "layer"
+          ? (layerName ?? layerLabel)
+          : sectionLabel(toGroup, layerLabel),
+      ),
+    );
+  }
+
+  // The other stacks shown that a device can be sent to, left to right.
+  function getStackTargets(device: FxDevice): DeviceStackTarget[] {
+    return movableSections
+      .filter((group) => group !== device.group)
+      .map((group) => ({
+        group,
+        label: sectionLabel(group, layerLabel),
+        index: getStackMoveIndex(groups, device, group),
+      }));
+  }
+
+  // Sends a device to the nearest stack on one side that takes it.
+  function moveDeviceToNextStack(device: FxDevice, direction: -1 | 1) {
+    const from = FX_CHAIN_SECTIONS.indexOf(device.group);
+    const targets = getStackTargets(device).filter(
+      (target) =>
+        Math.sign(FX_CHAIN_SECTIONS.indexOf(target.group) - from) ===
+          direction && canMoveDevice(device, target.group, target.index),
+    );
+    const target = direction < 0 ? targets.at(-1) : targets[0];
+    if (target) {
+      moveDevice(device, target.group, target.index);
+    }
   }
 
   function removeDevice(device: FxDevice) {
@@ -337,91 +412,6 @@ export function FxChain({
     return group === "clip" ? clipScope : group;
   }
 
-  // Whether a section is shown with its add menu, so devices can be pasted
-  // or moved onto its stack.
-  function isStackEditable(group: FxDeviceGroup) {
-    if (!canEdit) {
-      return false;
-    }
-    if (group === "layer") {
-      return layerName !== undefined || groups.layer.length > 0;
-    }
-    return group === "global" || showClip;
-  }
-
-  function getMoveTargets(device: FxDevice): DeviceMoveTarget[] {
-    return FX_CHAIN_SECTIONS.map((group) => ({
-      group,
-      label: sectionLabel(group, layerLabel),
-      allowed:
-        group !== device.group &&
-        isStackEditable(group) &&
-        canPlaceDevice(device.effectName, scopeOf(group), groups[group]),
-    }));
-  }
-
-  function moveDeviceTo(device: FxDevice, group: FxDeviceGroup) {
-    const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    if (!trackId || isFixedDevice(device, clipScope)) {
-      return;
-    }
-
-    const stackName = sectionLabel(group, layerLabel);
-    requestFocus(device.id);
-    onMoveToStack(device, trackId, stackName);
-    setAnnouncement(`Moved ${device.name} to ${stackName}`);
-  }
-
-  function cutDevice(device: FxDevice) {
-    if (isFixedDevice(device, clipScope)) {
-      return;
-    }
-
-    const stack = groups[device.group];
-    const index = stack.findIndex((candidate) => candidate.id === device.id);
-    const neighbor = stack[index + 1] ?? stack[index - 1];
-    requestFocus(neighbor?.id ?? `add-${device.group}`);
-    onCut(device);
-    setAnnouncement(`Cut ${device.name}`);
-  }
-
-  function copyDevice(device: FxDevice) {
-    onCopy(device);
-    setAnnouncement(`Copied ${device.name}`);
-  }
-
-  function canPaste(group: FxDeviceGroup) {
-    return (
-      clipboardEffectName !== undefined &&
-      isStackEditable(group) &&
-      canPlaceDevice(clipboardEffectName, scopeOf(group), groups[group])
-    );
-  }
-
-  function pasteDevice(group: FxDeviceGroup) {
-    const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    if (!trackId || !clipboardEffectName || !canPaste(group)) {
-      return;
-    }
-
-    const id = crypto.randomUUID();
-    requestFocus(id);
-    onPaste(trackId, id);
-    const name = getEffectDefinition(clipboardEffectName).displayName;
-    setAnnouncement(`Pasted ${name} to ${sectionLabel(group, layerLabel)}`);
-  }
-
-  function clearAll() {
-    const cleared = getClearableDevices(groups, clipScope);
-    if (!cleared.length) {
-      return;
-    }
-
-    onClearAll(cleared);
-    const noun = cleared.length === 1 ? "device" : "devices";
-    setAnnouncement(`Cleared ${cleared.length} ${noun}`);
-  }
-
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId, clipTrackId);
     const definition = addableEffectsFor(scopeOf(group), kind).find(
@@ -441,7 +431,6 @@ export function FxChain({
     event: ReactKeyboardEvent<HTMLElement>,
     device: FxDevice,
     index: number,
-    stackSize: number,
   ) {
     if (
       event.altKey &&
@@ -451,12 +440,13 @@ export function FxChain({
     ) {
       event.preventDefault();
       event.stopPropagation();
-      moveDevice(
-        device,
-        index,
-        index + (event.key === "ArrowLeft" ? -1 : 1),
-        stackSize,
-      );
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      // Shift sends the device to the neighboring stack instead.
+      if (event.shiftKey) {
+        moveDeviceToNextStack(device, direction);
+      } else {
+        moveDevice(device, device.group, index + direction);
+      }
       return;
     }
 
@@ -477,7 +467,6 @@ export function FxChain({
     event: ReactMouseEvent<HTMLElement>,
     device: FxDevice,
     index: number,
-    stackSize: number,
   ) {
     event.preventDefault();
     // The context-menu key and Shift+F10 report no pointer position.
@@ -489,45 +478,34 @@ export function FxChain({
     }
     menuDeviceIdRef.current = device.id;
     menuFocusRef.current = null;
-    setMenu({ type: "device", device, index, stackSize, x, y });
+    setMenu({ type: "device", device, index, x, y });
   }
 
-  // Right-clicking a section's empty space opens its stack's menu. Devices
-  // open their own, and the chain's leading devices and the menus React
-  // bubbles through the chain open none.
-  function openSurfaceMenu(event: ReactMouseEvent<HTMLElement>) {
-    const chain = event.currentTarget;
-    const target = event.target as Element;
-    const section = target.closest("section");
-    if (
-      event.defaultPrevented ||
-      !chain.contains(target) ||
-      (section && chain.contains(section))
-    ) {
-      return;
-    }
+  const clipboard = getChainClipboard({
+    groups,
+    editableSections: movableSections,
+    clipboardEffectName,
+    scopeOf,
+    trackIdOf: (group) => getTrackId(group, layerTrackId, clipTrackId),
+    sectionName: (group) => sectionLabel(group, layerLabel),
+    requestFocus,
+    setAnnouncement,
+    onCut,
+    onCopy,
+    onPaste,
+    onClearAll,
+  });
 
-    let { clientX: x, clientY: y } = event;
-    if (!x && !y) {
-      const rect = target.getBoundingClientRect();
-      x = rect.left;
-      y = rect.bottom;
-    }
-    const dividers = [
-      ...chain.querySelectorAll<HTMLElement>("[data-fx-divider]"),
-    ].map((divider) => ({
-      group: divider.dataset.fxDivider as FxDeviceGroup,
-      left: divider.getBoundingClientRect().left,
-    }));
-    const group = getStackAtPoint(dividers, x);
-    if (!group || !isStackEditable(group)) {
+  function openSurfaceMenu(event: ReactMouseEvent<HTMLElement>) {
+    const surfaceMenu = clipboard.getSurfaceMenu(event);
+    if (!surfaceMenu) {
       return;
     }
 
     event.preventDefault();
     menuDeviceIdRef.current = null;
     menuFocusRef.current = null;
-    setMenu({ type: "surface", group, x, y });
+    setMenu(surfaceMenu);
   }
 
   function renderStack(group: FxDeviceGroup) {
@@ -557,9 +535,7 @@ export function FxChain({
           collapsed={collapsed.has(device.id)}
           device={device}
           dragging={dragging}
-          onContextMenu={(event) =>
-            openContextMenu(event, device, index, stack.length)
-          }
+          onContextMenu={(event) => openContextMenu(event, device, index)}
           onRemove={() => removeDevice(device)}
           layerBypassed={layerBypassed}
           onSetEnabled={onSetEnabled}
@@ -574,9 +550,7 @@ export function FxChain({
             }
             toggleCollapsed(device.id);
           }}
-          onTitleKeyDown={(event) =>
-            handleTitleKeyDown(event, device, index, stack.length)
-          }
+          onTitleKeyDown={(event) => handleTitleKeyDown(event, device, index)}
           onTitlePointerDown={(event) => beginDrag(event, device, index)}
           onToggleCollapsed={() => toggleCollapsed(device.id)}
         />
@@ -656,25 +630,25 @@ export function FxChain({
     menu?.type === "device"
       ? getDeviceMenuEntries(menu, {
           collapsed,
-          fixed: isFixedDevice(menu.device, clipScope),
-          moveTargets: getMoveTargets(menu.device),
+          fixed: isFixedDevice(menu.device),
           toggleCollapsed,
           onSetEnabled,
           moveDevice,
-          moveDeviceTo,
+          canMoveDevice,
+          // The menu's moves land at the end of the target stack.
+          stackTargets: FX_CHAIN_SECTIONS.map((group) => ({
+            group,
+            label: sectionLabel(group, layerLabel),
+            index: groups[group].length,
+          })),
           resetDevice,
-          cutDevice,
-          copyDevice,
+          cutDevice: clipboard.cutDevice,
+          copyDevice: clipboard.copyDevice,
           duplicateDevice,
           removeDevice,
         })
-      : menu?.type === "surface"
-        ? getSurfaceMenuEntries(menu, {
-            canPaste: canPaste(menu.group),
-            clearableCount: getClearableDevices(groups, clipScope).length,
-            paste: pasteDevice,
-            clearAll,
-          })
+      : menu
+        ? clipboard.getSurfaceEntries(menu)
         : [];
   const menuLabel = menuDevice
     ? `${menuDevice.name} actions`

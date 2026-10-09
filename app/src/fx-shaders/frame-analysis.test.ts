@@ -309,6 +309,26 @@ describe("Levels in the effect chain", () => {
     assert.equal(draws.length, 3);
   });
 
+  it("grades into a different target than the one it reads", () => {
+    const { hub } = createHub();
+    hub.subscribe("levels", () => {});
+    const { renderer, draws } = createRenderer(hub);
+    const steps = renderer.prepare(
+      chain([
+        ["c", "Colorize", { _HueOffset: 0.25 }],
+        ["levels", "Levels", { GainY: 2 }],
+        ["d", "Colorize", { _HueOffset: -0.25 }],
+      ]),
+    );
+    renderer.run(SOURCE, 1920, 1080, steps, CONTEXT);
+    // Colorize, the readback, Levels, then the second Colorize. Levels reads
+    // Colorize's target, so drawing into it too would leave the frame
+    // ungraded.
+    assert.equal(draws.length, 4);
+    assert.notEqual(draws[2], draws[0]);
+    assert.notEqual(draws[3], draws[2]);
+  });
+
   it("still reads back its input at its defaults, where it draws nothing", () => {
     const { hub } = createHub();
     hub.subscribe("levels", () => {});

@@ -12,6 +12,7 @@ import {
 } from "../../composition-order.ts";
 import {
   createDefaultAnimation,
+  createNewDeviceAnimation,
   type EffectAnimation,
   normalizeEffectAnimation,
   supportsAnimation,
@@ -38,6 +39,7 @@ import {
   getTrackGroup,
 } from "./clip-stacks.ts";
 import {
+  isContentEffectName,
   isLayerLayoutEffect,
   isLayoutEffectName,
   LAYOUT_EFFECT_NAME,
@@ -273,15 +275,70 @@ export function moveEffect(
   );
 }
 
+// Moves an effect onto another stack, ahead of `beforeId` or else at its
+// end, with its parameters, bypass state, animation and modulation. Only
+// effects designed for the target's `scope` can move there, and the content
+// effects that define a layer or clip (Layout, Color, Text) stay where they
+// are.
+export function moveEffectToStack(
+  effects: SessionEffect[],
+  effectId: string,
+  toTrackId: string,
+  beforeId?: string,
+  scope: FxEffectScope = getTrackGroup(toTrackId),
+) {
+  const effect = effects.find((candidate) => candidate.id === effectId);
+  if (
+    !effect ||
+    effect.trackId === toTrackId ||
+    isContentEffectName(effect.effectName) ||
+    !isEffectSupportedIn(effect.effectName, scope)
+  ) {
+    return effects;
+  }
+
+  let current = effects.filter((candidate) => candidate !== effect);
+  // A stack arranges its layers one way: an Order moved in bypasses the
+  // ones already there, as a new one would.
+  if (isOrderEffectName(effect.effectName) && effect.enabled) {
+    for (const existing of getStack(current, toTrackId)) {
+      if (isOrderEffectName(existing.effectName)) {
+        current = setEffectEnabled(current, existing.id, false);
+      }
+    }
+  }
+
+  const stack = getStack(current, toTrackId);
+  const before = stack.find((candidate) => candidate.id === beforeId);
+  if (beforeId !== undefined && !before) {
+    return effects;
+  }
+
+  let insertAt: number;
+  if (before) {
+    insertAt = current.indexOf(before);
+  } else if (stack.length) {
+    insertAt = current.indexOf(stack[stack.length - 1]) + 1;
+  } else {
+    insertAt = current.length;
+  }
+
+  // A moved effect is the user's own, no longer a defaulted one.
+  const { defaulted: _defaulted, ...rest } = effect;
+  const moved = { ...rest, trackId: toTrackId };
+  return [...current.slice(0, insertAt), moved, ...current.slice(insertAt)];
+}
+
 // A new effect with the registry defaults. Effects that support animation
-// come with their Animation modifier turned on, at its defaults.
+// come with their Animation modifier at its defaults, turned on unless the
+// effect is added with it off (see `createNewDeviceAnimation`).
 export function createEffect(
   trackId: string,
   effectName: string,
   id: string = crypto.randomUUID(),
 ): SessionEffect {
   const definition = getEffectDefinition(effectName);
-  const animation = createDefaultAnimation(effectName);
+  const animation = createNewDeviceAnimation(effectName);
   return {
     id,
     trackId,
@@ -379,7 +436,7 @@ export function duplicateEffect(
   const source = effects[index];
   const animation = source.animation
     ? cloneAnimation(source.animation)
-    : createDefaultAnimation(source.effectName);
+    : createNewDeviceAnimation(source.effectName);
   const { defaulted: _defaulted, ...rest } = source;
   const copy: SessionEffect = {
     ...rest,
@@ -540,8 +597,6 @@ export const effectHistoryLabels = {
     `Duplicate ${getEffectDisplayName(effectName)}`,
   cut: (effectName: string) => `Cut ${getEffectDisplayName(effectName)}`,
   paste: (effectName: string) => `Paste ${getEffectDisplayName(effectName)}`,
-  moveTo: (effectName: string, stack: string) =>
-    `Move ${getEffectDisplayName(effectName)} to ${stack}`,
   clearAll: () => "Clear All Effects",
   enabled: (effectName: string, enabled: boolean) =>
     `${enabled ? "Enable" : "Bypass"} ${getEffectDisplayName(effectName)}`,

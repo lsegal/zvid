@@ -67,7 +67,7 @@ test("a device's menu moves it to another stack where allowed", async ({
   await expect(device(page, "layer", "Transform")).toHaveCount(0);
   await expect(device(page, "clip", "Transform")).toHaveCount(1);
   await expect(page.locator(".fx-chain__status")).toHaveText(
-    "Moved Transform to Clip",
+    "Moved Transform to position 2 of 2 in Clip",
   );
 
   await openDeviceMenu(page, "clip", "Transform");

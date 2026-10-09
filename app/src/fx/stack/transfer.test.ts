@@ -8,6 +8,7 @@ import { clipEffectTrackId, GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import {
   createEffect,
   ensureLayerLayouts,
+  moveEffectToStack,
   removeEffect,
   setEffectEnabled,
   setEffectModulationEnabled,
@@ -17,7 +18,6 @@ import { ids, load } from "./test-fixtures.ts";
 import {
   canPlaceEffect,
   copyEffect,
-  moveEffectToStack,
   placeEffect,
   removeEffects,
 } from "./transfer.ts";
@@ -131,52 +131,6 @@ describe("placeEffect", () => {
       placeEffect(effects, { ...effects[1], trackId: CLIP }),
       effects,
     );
-  });
-});
-
-describe("moveEffectToStack", () => {
-  it("moves the effect to the end of another stack, keeping its id", () => {
-    const effects = load();
-    const next = moveEffectToStack(effects, "colorize", GLOBAL_EFFECT_TRACK_ID);
-
-    assert.deepEqual(ids(next, "6"), ["pixelate", "negative", "glitch"]);
-    assert.deepEqual(ids(next, GLOBAL_EFFECT_TRACK_ID), ["layout", "colorize"]);
-    assert.deepEqual(
-      next.find((effect) => effect.id === "colorize")?.parameters,
-      effects.find((effect) => effect.id === "colorize")?.parameters,
-    );
-  });
-
-  it("moves to the layer and to the clip", () => {
-    const toClip = moveEffectToStack(load(), "pixelate", CLIP);
-    assert.deepEqual(ids(toClip, CLIP), ["pixelate"]);
-    const toLayer = moveEffectToStack(toClip, "pixelate", "6");
-    assert.deepEqual(ids(toLayer, "6"), [
-      "colorize",
-      "negative",
-      "glitch",
-      "pixelate",
-    ]);
-  });
-
-  it("refuses stacks that can't take the effect", () => {
-    const effects = [
-      ...load(),
-      createEffect(CLIP, "Reverse", "rev"),
-      createEffect(GLOBAL_EFFECT_TRACK_ID, "Order", "order"),
-    ];
-    assert.equal(
-      moveEffectToStack(effects, "rev", GLOBAL_EFFECT_TRACK_ID),
-      effects,
-    );
-    assert.equal(moveEffectToStack(effects, "order", "6"), effects);
-    assert.equal(moveEffectToStack(effects, "colorize", "6"), effects);
-    assert.equal(moveEffectToStack(effects, "missing", CLIP), effects);
-  });
-
-  it("keeps a layer's own Layout on its layer", () => {
-    const effects = ensureLayerLayouts(load(), ["6"]);
-    assert.equal(moveEffectToStack(effects, "layout-6", CLIP), effects);
   });
 });
 

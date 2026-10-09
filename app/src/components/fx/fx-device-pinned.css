@@ -1,0 +1,5 @@
+/* A clip's content device, such as its Text, defines the clip and stays at
+   the front of the Clip stack, so its title bar doesn't offer to drag it. */
+.fx-device-panel--pinned .fx-device-panel__title {
+  cursor: default;
+}

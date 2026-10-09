@@ -1,7 +1,7 @@
-// Moving and copying effects between stacks, for the FX panel's Cut, Copy,
-// Paste, Move to Global / Layer / Clip and Clear All. Like the rest of the
-// stack helpers these are pure and return `effects` itself when nothing
-// changed.
+// Copying effects between stacks and clearing them, for the FX panel's Cut,
+// Copy, Paste and Clear All. Moves between stacks are `moveEffectToStack`
+// in ops.ts. Like the rest of the stack helpers these are pure and return
+// `effects` itself when nothing changed.
 
 import { isOrderEffectName } from "../../composition-order.ts";
 import { cloneModulation } from "../../fx-modulation-defaults.ts";
@@ -85,31 +85,6 @@ export function placeEffect(
   );
   const insertAt = last < 0 ? current.length : last + 1;
   return [...current.slice(0, insertAt), effect, ...current.slice(insertAt)];
-}
-
-// Moves an effect to the end of another stack, keeping its id and
-// settings. A layer's own Layout stays on its layer, and an effect only
-// moves to a stack that can take it.
-export function moveEffectToStack(
-  effects: SessionEffect[],
-  effectId: string,
-  toTrackId: string,
-  scope: FxEffectScope = getTrackGroup(toTrackId),
-) {
-  const effect = effects.find((candidate) => candidate.id === effectId);
-  if (!effect || effect.trackId === toTrackId || isLayerLayoutEffect(effect)) {
-    return effects;
-  }
-
-  const { defaulted: _defaulted, ...moved } = effect;
-  const result = placeEffect(
-    effects.filter((candidate) => candidate !== effect),
-    { ...moved, trackId: toTrackId },
-    scope,
-  );
-  return result.some((candidate) => candidate.id === effectId)
-    ? result
-    : effects;
 }
 
 // Removes the effects with the given ids, apart from a layer's own Layout.

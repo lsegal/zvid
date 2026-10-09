@@ -147,11 +147,10 @@ test("Levels grades a layer with a color wheel and the curve, over a histogram, 
 
   const device = levelsDevice(page);
   await expect(device).toHaveCount(1);
-  const animation = device.getByRole("button", {
-    name: "Turn Animation Off for Levels",
-  });
-  await expect(animation).toHaveAttribute("aria-pressed", "true");
-  await animation.click();
+  // A static grading tool, it comes with Animation off.
+  await expect(
+    device.getByRole("button", { name: "Turn Animation On for Levels" }),
+  ).toHaveAttribute("aria-pressed", "false");
   for (const wheel of ["Lift", "Gamma", "Gain", "Offset"]) {
     await expect(
       device.getByRole("slider", { name: `${wheel} color` }),

@@ -45,6 +45,16 @@ export function targetRegion(
   };
 }
 
+// Of a pass's two ping-pong `targets`, the one it doesn't read `input` from,
+// to draw into. Picking by step instead would have the pass after a readback,
+// which draws into neither, draw into the target it reads.
+export function unreadTarget(
+  targets: readonly RenderTarget[],
+  input: TextureRegion,
+) {
+  return targets[input.texture === targets[0].texture ? 1 : 0];
+}
+
 // A pooled target's side for a picture `size` pixels long.
 export function bucketTargetSize(
   size: number,

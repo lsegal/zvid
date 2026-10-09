@@ -12,6 +12,7 @@ import type {
 } from "react";
 import {
   type FxLayerOption,
+  isPinnedDevice,
   knobColumnCount,
   splitDeviceParameters,
   splitKnobRows,
@@ -22,6 +23,7 @@ import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
 import "./fx-device-audio.css";
+import "./fx-device-pinned.css";
 
 type FxDevicePanelProps = {
   device: FxDevice;
@@ -57,10 +59,19 @@ function getUnsupportedTitle(device: FxDevice) {
   return `${device.name} isn't designed for ${stack}. Remove it, or add it where it is supported.`;
 }
 
+const MOVE_SHORTCUTS =
+  "Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight";
+
+// A clip's content device can't move, and a layer's Layout can't be deleted.
 function getTitleShortcuts(device: FxDevice) {
-  return device.layerDefault
-    ? "Alt+ArrowLeft Alt+ArrowRight"
-    : "Alt+ArrowLeft Alt+ArrowRight Delete";
+  const move = isPinnedDevice(device) ? [] : [MOVE_SHORTCUTS];
+  return [...move, ...(device.layerDefault ? [] : ["Delete"])].join(" ");
+}
+
+function getTitleLabel(device: FxDevice) {
+  return isPinnedDevice(device)
+    ? device.name
+    : `${device.name}, drag or press Alt+Left or Alt+Right to move, with Shift to move to another stack`;
 }
 
 export function FxDevicePanel({
@@ -91,6 +102,7 @@ export function FxDevicePanel({
     dragging ? "fx-device-panel--dragging" : "",
     device.unsupported ? "fx-device-panel--unsupported" : "",
     attached ? "fx-device-panel--attached" : "",
+    isPinnedDevice(device) ? "fx-device-panel--pinned" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -213,7 +225,7 @@ export function FxDevicePanel({
         {animationToggle}
         <button
           aria-keyshortcuts={getTitleShortcuts(device)}
-          aria-label={`${device.name}, drag or press Alt+Left or Alt+Right to move`}
+          aria-label={getTitleLabel(device)}
           className="fx-device-panel__name"
           data-fx-focus={device.id}
           onKeyDown={onTitleKeyDown}
