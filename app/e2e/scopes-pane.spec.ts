@@ -138,7 +138,8 @@ async function pictureBox(page: Page) {
 }
 
 // The scopes sit below the monitor, the whole picture stays in it, and the
-// selected full-frame fill's transform outline stays on the picture.
+// selected full-frame fill's transform outline stays on the picture (its
+// box takes in the outline's stroke, 2px outside the picture).
 async function expectPictureClear(page: Page) {
   const monitor = await boxOf(page, ".preview-monitor");
   const pane = await boxOf(page, ".scopes-pane");
@@ -155,10 +156,10 @@ async function expectPictureClear(page: Page) {
         '[data-testid="preview-transform-outline"]',
       );
       return Math.max(
-        Math.abs(outline.x - picture.x),
-        Math.abs(outline.y - picture.y),
-        Math.abs(outline.width - picture.width),
-        Math.abs(outline.height - picture.height),
+        Math.abs(outline.x + 2 - picture.x),
+        Math.abs(outline.y + 2 - picture.y),
+        Math.abs(outline.width - 4 - picture.width),
+        Math.abs(outline.height - 4 - picture.height),
       );
     })
     .toBeLessThan(2);
@@ -238,8 +239,9 @@ test("the Scopes button opens a resizable pane of the composited program frame",
       .not.toBe(waveform);
   }
 
-  // Dragging the splitter up makes the pane taller and the monitor shorter,
-  // until the monitor is at its least height.
+  // Dragging the splitter trades height between the pane and the monitor:
+  // down shrinks the pane, up grows it until the monitor is at its least
+  // height, and far down leaves the pane at its own least height.
   const edge = scopesPane(page).getByRole("separator", {
     name: "Resize scopes",
   });
@@ -249,36 +251,31 @@ test("the Scopes button opens a resizable pane of the composited program frame",
   }
   expect(edgeBox.y).toBeGreaterThanOrEqual(monitor.y + monitor.height - 1);
   expect(edgeBox.y + edgeBox.height).toBeLessThanOrEqual(pane.y + 1);
-  const x = edgeBox.x + edgeBox.width / 2;
-  const y = edgeBox.y + edgeBox.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, y - 40, { steps: 4 });
-  await page.mouse.up();
-  const taller = await boxOf(page, ".scopes-pane");
-  const shorter = await boxOf(page, ".preview-monitor");
-  expect(Math.abs(taller.height - (pane.height + 40))).toBeLessThan(3);
-  expect(Math.abs(shorter.height - (monitor.height - 40))).toBeLessThan(3);
+  const dragSplitter = async (toY: number) => {
+    const box = await edge.boundingBox();
+    if (!box) {
+      throw new Error("The splitter is not visible");
+    }
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, toY, { steps: 4 });
+    await page.mouse.up();
+  };
+  await dragSplitter(edgeBox.y + edgeBox.height / 2 + 30);
+  const shorter = await boxOf(page, ".scopes-pane");
+  const taller = await boxOf(page, ".preview-monitor");
+  expect(Math.abs(shorter.height - (pane.height - 30))).toBeLessThan(3);
+  expect(Math.abs(taller.height - (monitor.height + 30))).toBeLessThan(3);
   await expectPictureClear(page);
-  await page.mouse.move(x, y - 40);
-  await page.mouse.down();
-  await page.mouse.move(x, monitor.y - 200, { steps: 4 });
-  await page.mouse.up();
+  await dragSplitter(fullMonitor.y - 200);
   const shortest = await boxOf(page, ".preview-monitor");
   expect(Math.abs(shortest.height - 140)).toBeLessThan(3);
+  expect((await boxOf(page, ".scopes-pane")).height).toBeGreaterThan(
+    pane.height,
+  );
   await expectPictureClear(page);
-
-  // Dragging it down shrinks the pane to its least height.
-  const low = await edge.boundingBox();
-  if (!low) {
-    throw new Error("The splitter is not visible");
-  }
-  await page.mouse.move(x, low.y + low.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(x, fullMonitor.y + fullMonitor.height + 200, {
-    steps: 4,
-  });
-  await page.mouse.up();
+  await dragSplitter(fullMonitor.y + fullMonitor.height + 200);
   expect(
     Math.abs((await boxOf(page, ".scopes-pane")).height - 96),
   ).toBeLessThan(3);
