@@ -406,6 +406,41 @@ export function getStackMoveIndex(
     : target.findLastIndex(isPinnedDevice) + 1;
 }
 
+// Whether a device can't be cut, deleted or cleared: a layer's own Layout
+// and the clip's pinned content device.
+export function isFixedDevice(
+  device: Pick<FxDevice, "effectName" | "group" | "layerDefault">,
+) {
+  return Boolean(device.layerDefault) || isPinnedDevice(device);
+}
+
+// Whether an `effectName` device can be pasted onto a `scope` stack holding
+// `stack`: its definition must support the scope, and a layer keeps a
+// single Layout.
+export function canPlaceDevice(
+  effectName: string,
+  scope: FxEffectScope,
+  stack: readonly Pick<FxDevice, "effectName">[],
+) {
+  return (
+    isEffectSupportedIn(effectName, scope) &&
+    !(
+      isLayoutEffectName(effectName) &&
+      stack.some((device) => isLayoutEffectName(device.effectName))
+    )
+  );
+}
+
+// The devices Clear All removes: every device of the layer and clip stacks
+// that isn't fixed. Global devices stay.
+export function getClearableDevices(
+  groups: Pick<FxChainGroups, "layer" | "clip">,
+) {
+  return [...groups.layer, ...groups.clip].filter(
+    (device) => !isFixedDevice(device),
+  );
+}
+
 type SelectableLane = { id: string };
 type SelectableClip = { id: string; laneId: string };
 type LaneEffect = { trackId: string; effectName: string };

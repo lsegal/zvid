@@ -142,6 +142,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     lanes,
     sourceTracks,
     timelineClipsRef: selection.timelineClipsRef,
+    projectSnapshotRef: store.projectSnapshotRef,
   });
   const timeline = useTimeline({
     restoredSession,
