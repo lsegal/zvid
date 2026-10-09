@@ -4,6 +4,8 @@
 // the picture back only for watched effects, at a reduced size and rate,
 // and export never does.
 
+import type { EffectPass } from "./types.ts";
+
 export const HISTOGRAM_BINS = 64;
 
 // The longest side, in pixels, of the copy a histogram is counted from.
@@ -11,6 +13,21 @@ export const ANALYSIS_SIZE = 128;
 
 // The least time between two readbacks of one effect's picture.
 export const ANALYSIS_INTERVAL_MS = 100;
+
+// Draws the picture as it is, into the small copy a histogram is read from.
+export const COPY_PASS: EffectPass = {
+  effectName: "FrameAnalysisCopy",
+  fragmentSource: `
+    uniform sampler2D uTex;
+    varying vec2 vUv;
+
+    void main() {
+      gl_FragColor = texture2D(uTex, vUv);
+    }
+  `,
+  uniforms: [],
+  setUniforms() {},
+};
 
 // Each bin's share of the picture's pixels, weighted by their alpha, so
 // transparent areas count for nothing. `luma` bins Rec. 709 luminance.

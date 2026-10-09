@@ -72,7 +72,7 @@ describe("Levels effect", () => {
         ["Curve", "curve", undefined],
       ],
     );
-    assert.equal(device.knobColumns, WHEELS.length);
+    assert.equal(device.knobColumns, WHEELS.length + 1);
     const gain = device.parameters[2];
     assert.deepEqual(
       gain.channels?.map((channel) => [channel.key, channel.numericValue]),

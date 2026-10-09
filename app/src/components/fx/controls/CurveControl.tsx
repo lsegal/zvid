@@ -27,8 +27,8 @@ import {
 import type { FxParameterControlProps } from "../types";
 import "./curve-control.css";
 
-const WIDTH = 300;
-const HEIGHT = 150;
+const WIDTH = 280;
+const HEIGHT = 140;
 // How near, in pixels, a press must be to a point to grab it.
 const GRAB_RADIUS = 8;
 // Samples drawn along the curve.

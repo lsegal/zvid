@@ -208,24 +208,11 @@ test("Levels grades a layer with a color wheel and the curve, over a histogram, 
   const gradedGainRed = await gainRed.inputValue();
   const whitePointText = await whitePoint.getAttribute("aria-valuetext");
 
-  // The drag is one undo step.
-  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^Undo/ }).click();
-  await expect(whitePoint).toHaveAttribute(
-    "aria-valuetext",
-    "in 1.00, out 1.00",
-  );
-  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^Redo/ }).click();
-  await expect(whitePoint).toHaveAttribute(
-    "aria-valuetext",
-    whitePointText ?? "",
-  );
-
   // A refresh brings the grade back from the saved session.
   await expect
     .poll(
-      async () => (await readSavedPayload(page))?.includes("|||") ?? false,
+      async () =>
+        /"0,0 1,0\.\d+\|\|\|"/.test((await readSavedPayload(page)) ?? ""),
       { timeout: 10_000 },
     )
     .toBe(true);
@@ -241,4 +228,18 @@ test("Levels grades a layer with a color wheel and the curve, over a histogram, 
   await expect
     .poll(async () => Math.abs((await previewColor(page))[1] - gradedGreen))
     .toBeLessThan(3);
+
+  // The curve drag is one undo step, kept across the refresh.
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Undo/ }).click();
+  await expect(whitePoint).toHaveAttribute(
+    "aria-valuetext",
+    "in 1.00, out 1.00",
+  );
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Redo/ }).click();
+  await expect(whitePoint).toHaveAttribute(
+    "aria-valuetext",
+    whitePointText ?? "",
+  );
 });

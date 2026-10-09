@@ -6,11 +6,7 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-}
-
-.fx-device-panel__body > .fx-curve {
-  grid-column: 1 / -1;
-  justify-self: center;
+  margin-left: 8px;
 }
 
 .fx-curve--red {

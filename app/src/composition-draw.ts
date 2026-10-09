@@ -162,16 +162,21 @@ export type WebGlResources = SourceTextures & {
   masked: MaskedComposite;
 };
 
+// `frameAnalysis` reads pictures back for the device panels' histograms
+// (see fx-shaders/frame-analysis.ts), which only the preview does.
 export function ensureWebGlResources(
   canvas: HTMLCanvasElement,
   attributes: WebGLContextAttributes,
+  frameAnalysis = false,
 ) {
   const gl = canvas.getContext("webgl", attributes);
   if (!gl) {
     throw new Error("WebGL is unavailable on this device.");
   }
 
-  return createWebGlResources(gl);
+  const resources = createWebGlResources(gl);
+  resources.effectChain.frameAnalysis = frameAnalysis;
+  return resources;
 }
 
 export function createWebGlResources(

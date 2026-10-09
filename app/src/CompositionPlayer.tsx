@@ -58,7 +58,6 @@ import {
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
-import { onFrameHistogramWatch } from "./fx-shaders/frame-analysis.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";
@@ -340,15 +339,12 @@ export class CompositionRenderer {
   }
 
   private ensureResources() {
-    if (!this.resources) {
-      this.resources = ensureWebGlResources(
-        this.canvas,
-        this.contextAttributes,
-      );
-      // Only the preview reads pictures back for the device panels'
-      // histograms.
-      this.resources.effectChain.frameAnalysis = this.audioAnalysis === "live";
-    }
+    this.resources ??= ensureWebGlResources(
+      this.canvas,
+      this.contextAttributes,
+      // Only the preview reads pictures back for histograms.
+      this.audioAnalysis === "live",
+    );
   }
 
   private computeActiveClips(
@@ -778,10 +774,9 @@ export const CompositionPlayer = forwardRef<
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
-  // A paused preview redraws once a text font or Custom shape SVG loads.
+  // A paused preview redraws once a font or Custom shape loads, or a panel
+  // starts showing a histogram, which is read from a drawn frame.
   useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
-  // A panel newly showing a histogram needs a frame drawn to read it from.
-  useEffect(() => onFrameHistogramWatch(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
   useEffect(() => {

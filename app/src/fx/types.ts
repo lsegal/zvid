@@ -163,8 +163,8 @@ export type FxEffectDefinition = {
   // Labels for the knob rows, when the knobs split evenly into labeled
   // rows (a Move's Start and End) instead of filling two rows freely.
   knobRows?: readonly string[];
-  // How many columns the knobs fill, when not the usual two rows: a row of
-  // Levels' four color wheels.
+  // How many columns the knobs fill, when not the usual two rows: Levels'
+  // four color wheels and its curve in one row.
   knobColumns?: number;
   // Keys of parameters the effect no longer has. Collaboration peers on
   // older builds still publish them, so the device does not list them as

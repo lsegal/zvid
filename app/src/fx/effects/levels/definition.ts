@@ -46,7 +46,8 @@ export const definition: FxEffectDefinition = {
   category: "color",
   known: true,
   scopes: ALL_SCOPES,
-  knobColumns: WHEELS.length,
+  // The four wheels in a row, and the curve beside them.
+  knobColumns: WHEELS.length + 1,
   parameters: [
     ...WHEELS.flatMap(wheelParameters),
     {
