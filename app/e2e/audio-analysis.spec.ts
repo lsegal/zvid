@@ -20,8 +20,7 @@ function paneLevel(page: Page) {
 }
 
 // A 440 Hz mono tone at about -13 dBFS RMS, as a 16-bit WAV.
-function toneWav(seconds = 30) {
-  const sampleRate = 8000;
+function toneWav(seconds = 30, sampleRate = 8000) {
   const frames = Math.round(seconds * sampleRate);
   const wav = Buffer.alloc(44 + frames * 2);
   wav.write("RIFF", 0, "ascii");
@@ -43,8 +42,8 @@ function toneWav(seconds = 30) {
   return wav.toString("base64");
 }
 
-async function addSourceAudio(page: Page) {
-  const base64 = toneWav();
+async function addSourceAudio(page: Page, sampleRate?: number) {
+  const base64 = toneWav(30, sampleRate);
   const dataTransfer = await page.evaluateHandle((data) => {
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
     const transfer = new DataTransfer();
@@ -170,7 +169,9 @@ test("on the Media tab the meter follows the media playing there", async ({
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  await addSourceAudio(page);
+  // WebKit, which follows the media through a copy routed into Web Audio,
+  // routes nothing from 8 kHz media.
+  await addSourceAudio(page, 48_000);
   await audioToggle(page).click();
 
   await page.getByRole("button", { name: "Media", exact: true }).click();
