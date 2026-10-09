@@ -12,33 +12,19 @@ import {
 } from "../../fx-shaders/frame-analysis.ts";
 import { drawScope } from "./scope-draw.ts";
 import { SCOPE_KINDS, type ScopeKind } from "./scope-pixels.ts";
+import { clampScopesHeight, MIN_SCOPES_HEIGHT_PX } from "./scopes-height.ts";
 import "./scopes-pane.css";
 
-// The pane's height as a share of the picture it covers: half to start, at
-// most nine tenths, and at least MIN_HEIGHT CSS pixels.
-export const DEFAULT_SCOPES_HEIGHT = 0.5;
-export const MAX_SCOPES_HEIGHT = 0.9;
-export const MIN_SCOPES_HEIGHT_PX = 96;
-// How far an arrow key moves the pane's top edge.
-const KEYBOARD_STEP = 0.05;
+// How far an arrow key moves the splitter, in CSS pixels.
+const KEYBOARD_STEP_PX = 16;
 
-// The share of a `containerHeight`-tall picture a pane `heightPx` tall
-// covers, kept between the pane's minimum and maximum heights.
-export function clampScopesHeight(heightPx: number, containerHeight: number) {
-  if (containerHeight <= 0) {
-    return DEFAULT_SCOPES_HEIGHT;
-  }
-  const most = containerHeight * MAX_SCOPES_HEIGHT;
-  const least = Math.min(MIN_SCOPES_HEIGHT_PX, most);
-  return Math.min(most, Math.max(least, heightPx)) / containerHeight;
-}
-
-// Whether the preview's Scopes pane is open, how tall it is and which scope
-// it shows. They live with the preview panel so the pane keeps them when it
-// moves between the Timeline and Media tabs.
+// Whether the preview's Scopes panel is open, how tall it is (null while it
+// shares the room evenly with the monitor) and which scope it shows. They
+// live with the preview panel so it keeps them across the Timeline and
+// Media tabs.
 export function useScopesPane() {
   const [open, setOpen] = useState(false);
-  const [height, setHeight] = useState(DEFAULT_SCOPES_HEIGHT);
+  const [height, setHeight] = useState<number | null>(null);
   const [kind, setKind] = useState<ScopeKind>("waveform");
   const toggle = useCallback(() => setOpen((current) => !current), []);
   return { open, toggle, height, setHeight, kind, setKind };
@@ -53,8 +39,9 @@ type ScopesPaneProps = {
   emptyMessage: string;
 };
 
-// Lumetri-style scopes of the preview's picture over the bottom of it, with
-// a top edge that drags to resize it. It reads samples only while open.
+// Lumetri-style scopes of the preview's picture in a panel below the
+// monitor, with a splitter above it that trades height between the two. It
+// reads samples only while open.
 export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
   const { height, setHeight, kind, setKind } = pane;
   const rootRef = useRef<HTMLElement>(null);
@@ -122,8 +109,12 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
     return () => observer.disconnect();
   }, [redraw]);
 
-  const containerHeight = () =>
-    rootRef.current?.parentElement?.clientHeight ?? 0;
+  // The room the panel shares with the monitor, which sits just above it.
+  const room = () => {
+    const root = rootRef.current;
+    const monitor = root?.previousElementSibling;
+    return (root?.offsetHeight ?? 0) + (monitor?.clientHeight ?? 0);
+  };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLHRElement>) => {
     if (event.button !== 0) {
@@ -142,10 +133,7 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
       return;
     }
     setHeight(
-      clampScopesHeight(
-        drag.startPx + drag.startY - event.clientY,
-        containerHeight(),
-      ),
+      clampScopesHeight(drag.startPx + drag.startY - event.clientY, room()),
     );
   };
   const handlePointerEnd = (event: ReactPointerEvent<HTMLHRElement>) => {
@@ -160,16 +148,16 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLHRElement>) => {
     const step =
       event.key === "ArrowUp"
-        ? KEYBOARD_STEP
+        ? KEYBOARD_STEP_PX
         : event.key === "ArrowDown"
-          ? -KEYBOARD_STEP
+          ? -KEYBOARD_STEP_PX
           : 0;
     if (!step) {
       return;
     }
     event.preventDefault();
-    const container = containerHeight();
-    setHeight(clampScopesHeight((height + step) * container, container));
+    const current = rootRef.current?.offsetHeight ?? 0;
+    setHeight(clampScopesHeight(current + step, room()));
   };
 
   return (
@@ -177,22 +165,22 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
       ref={rootRef}
       className="scopes-pane"
       aria-label="Scopes"
-      style={{ height: `${height * 100}%` }}
+      style={height === null ? undefined : { flex: "none", height }}
     >
       <hr
         className="scopes-pane__resize"
         aria-orientation="horizontal"
         aria-label="Resize scopes"
-        aria-valuenow={Math.round(height * 100)}
-        aria-valuemin={0}
-        aria-valuemax={Math.round(MAX_SCOPES_HEIGHT * 100)}
+        aria-valuenow={height ?? undefined}
+        aria-valuemin={MIN_SCOPES_HEIGHT_PX}
         tabIndex={0}
-        title="Drag to resize"
+        title="Drag to resize. Double-click to reset."
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onKeyDown={handleKeyDown}
+        onDoubleClick={() => setHeight(null)}
       />
       <div
         className="segmented-control scopes-pane__kinds"

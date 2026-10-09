@@ -371,11 +371,10 @@ export function PreviewPanel({
               projectFps={mediaTimeFormat.fps}
               mediaRange={mediaRange}
               onMediaElement={mediaMeterTap.setElement}
-              scopes={scopes}
             />
           ) : null}
-          {isMediaTab ? null : scopes}
         </div>
+        {scopes}
         {isAudioAnalysisOpen ? (
           // On the Media tab it follows the media playing there instead.
           <AudioAnalysisPane

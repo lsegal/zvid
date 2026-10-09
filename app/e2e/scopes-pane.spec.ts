@@ -3,7 +3,8 @@ import { expect, type Page, test } from "@playwright/test";
 
 // The preview's Scopes pane (#1152): a Scopes button beside the
 // Audio/Video badge opens Lumetri-style scopes of the composited program
-// frame, or of the Media tab's media, over the bottom of the picture.
+// frame, or of the Media tab's media. They sit in their own panel below the
+// monitor (#1165), with a splitter between the two, never over the picture.
 
 // Room for a picture above the Media tab's transport.
 test.beforeEach(async ({ page }) => {
@@ -114,6 +115,56 @@ async function boxOf(page: Page, selector: string) {
   return box;
 }
 
+// Where the monitor's letterboxed program picture is drawn.
+async function pictureBox(page: Page) {
+  const canvas = page.locator(".preview-monitor .composition-player__canvas");
+  const box = await canvas.boundingBox();
+  const size = await canvas.evaluate((node: HTMLCanvasElement) => ({
+    width: node.width,
+    height: node.height,
+  }));
+  if (!box) {
+    throw new Error("The program canvas is not visible");
+  }
+  const fit = Math.min(box.width / size.width, box.height / size.height);
+  const width = size.width * fit;
+  const height = size.height * fit;
+  return {
+    x: box.x + (box.width - width) / 2,
+    y: box.y + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+// The scopes sit below the monitor, the whole picture stays in it, and the
+// selected full-frame fill's transform outline stays on the picture (its
+// box takes in the outline's stroke, 2px outside the picture).
+async function expectPictureClear(page: Page) {
+  const monitor = await boxOf(page, ".preview-monitor");
+  const pane = await boxOf(page, ".scopes-pane");
+  expect(pane.y).toBeGreaterThanOrEqual(monitor.y + monitor.height);
+  const picture = await pictureBox(page);
+  expect(picture.y).toBeGreaterThanOrEqual(monitor.y - 0.5);
+  expect(picture.y + picture.height).toBeLessThanOrEqual(
+    monitor.y + monitor.height + 0.5,
+  );
+  await expect
+    .poll(async () => {
+      const outline = await boxOf(
+        page,
+        '[data-testid="preview-transform-outline"]',
+      );
+      return Math.max(
+        Math.abs(outline.x + 2 - picture.x),
+        Math.abs(outline.y + 2 - picture.y),
+        Math.abs(outline.width - 4 - picture.width),
+        Math.abs(outline.height - 4 - picture.height),
+      );
+    })
+    .toBeLessThan(2);
+}
+
 test("the Scopes button opens a resizable pane of the composited program frame", async ({
   page,
 }) => {
@@ -131,17 +182,17 @@ test("the Scopes button opens a resizable pane of the composited program frame",
     24,
   );
 
+  const fullMonitor = await boxOf(page, ".preview-monitor");
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await expect(scopesPane(page)).toBeVisible();
 
-  // Over the bottom half of the monitor.
+  // In its own panel below the monitor, sharing the room evenly with it.
   const monitor = await boxOf(page, ".preview-monitor");
   const pane = await boxOf(page, ".scopes-pane");
-  expect(
-    Math.abs(pane.y + pane.height - (monitor.y + monitor.height)),
-  ).toBeLessThan(1.5);
-  expect(Math.abs(pane.height - monitor.height / 2)).toBeLessThan(3);
+  expect(monitor.height).toBeLessThan(fullMonitor.height - 50);
+  expect(Math.abs(pane.height - monitor.height)).toBeLessThan(3);
+  await expectPictureClear(page);
 
   // Every scope's name fits the default preview width, uncut.
   const kinds = scopesPane(page).getByRole("toolbar", { name: "Scope" });
@@ -188,33 +239,57 @@ test("the Scopes button opens a resizable pane of the composited program frame",
       .not.toBe(waveform);
   }
 
-  // Dragging the top edge up makes the pane taller, up to its maximum.
+  // Dragging the splitter trades height between the pane and the monitor:
+  // down shrinks the pane, up grows it until the monitor is at its least
+  // height, and far down leaves the pane at its own least height.
   const edge = scopesPane(page).getByRole("separator", {
     name: "Resize scopes",
   });
   const edgeBox = await edge.boundingBox();
   if (!edgeBox) {
-    throw new Error("The resize edge is not visible");
+    throw new Error("The splitter is not visible");
   }
-  const x = edgeBox.x + edgeBox.width / 2;
-  const y = edgeBox.y + edgeBox.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, y - 40, { steps: 4 });
-  await page.mouse.up();
-  const taller = await boxOf(page, ".scopes-pane");
-  expect(Math.abs(taller.height - (pane.height + 40))).toBeLessThan(3);
-  await page.mouse.move(x, y - 40);
-  await page.mouse.down();
-  await page.mouse.move(x, monitor.y - 200, { steps: 4 });
-  await page.mouse.up();
-  const tallest = await boxOf(page, ".scopes-pane");
-  expect(Math.abs(tallest.height - monitor.height * 0.9)).toBeLessThan(3);
+  expect(edgeBox.y).toBeGreaterThanOrEqual(monitor.y + monitor.height - 1);
+  expect(edgeBox.y + edgeBox.height).toBeLessThanOrEqual(pane.y + 1);
+  const dragSplitter = async (toY: number) => {
+    const box = await edge.boundingBox();
+    if (!box) {
+      throw new Error("The splitter is not visible");
+    }
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, toY, { steps: 4 });
+    await page.mouse.up();
+  };
+  await dragSplitter(edgeBox.y + edgeBox.height / 2 + 30);
+  const shorter = await boxOf(page, ".scopes-pane");
+  const taller = await boxOf(page, ".preview-monitor");
+  expect(Math.abs(shorter.height - (pane.height - 30))).toBeLessThan(3);
+  expect(Math.abs(taller.height - (monitor.height + 30))).toBeLessThan(3);
+  await expectPictureClear(page);
+  await dragSplitter(fullMonitor.y - 200);
+  const shortest = await boxOf(page, ".preview-monitor");
+  expect(Math.abs(shortest.height - 140)).toBeLessThan(3);
+  expect((await boxOf(page, ".scopes-pane")).height).toBeGreaterThan(
+    pane.height,
+  );
+  await expectPictureClear(page);
+  await dragSplitter(fullMonitor.y + fullMonitor.height + 200);
+  expect(
+    Math.abs((await boxOf(page, ".scopes-pane")).height - 96),
+  ).toBeLessThan(3);
+  await expectPictureClear(page);
 
   // Clicking the button again closes it.
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "false");
   await expect(scopesPane(page)).toHaveCount(0);
+
+  // The monitor gets its full height back.
+  await expect
+    .poll(async () => (await boxOf(page, ".preview-monitor")).height)
+    .toBeCloseTo(fullMonitor.height, 0);
 });
 
 test("the Scopes pane follows the Media tab and shows an empty state for audio", async ({
@@ -231,13 +306,16 @@ test("the Scopes pane follows the Media tab and shows an empty state for audio",
   await expect(page.locator(".media-preview video")).toBeVisible();
   await scopesButton(page).click();
 
-  // The pane covers the media's picture, not its transport.
+  // The pane sits below the monitor, clear of the media's picture and its
+  // transport.
   await expect(scopesPane(page)).toBeVisible();
-  const picture = await boxOf(page, ".media-preview__picture");
+  const monitor = await boxOf(page, ".preview-monitor");
+  const video = await boxOf(page, ".media-preview video");
   const pane = await boxOf(page, ".scopes-pane");
-  expect(
-    Math.abs(pane.y + pane.height - (picture.y + picture.height)),
-  ).toBeLessThan(1.5);
+  expect(pane.y).toBeGreaterThanOrEqual(monitor.y + monitor.height);
+  expect(video.y + video.height).toBeLessThanOrEqual(
+    monitor.y + monitor.height + 0.5,
+  );
   await expect(
     page.getByRole("button", { name: "Play media" }),
   ).toBeInViewport();
