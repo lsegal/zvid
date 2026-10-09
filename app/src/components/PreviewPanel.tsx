@@ -1,3 +1,4 @@
+import { ChartBarIcon } from "@heroicons/react/16/solid";
 import type {
   ComponentProps,
   KeyboardEvent as ReactKeyboardEvent,
@@ -240,30 +241,35 @@ export function PreviewPanel({
               </button>
             ))}
           </div>
-          {isMediaTab ? (
-            <strong className="preview-panel__title">
-              {mediaItem?.name ?? "Media"}
-            </strong>
-          ) : (
-            <>
-              <strong className="preview-panel__title">Program</strong>
-              <span className="preview-panel__clip">
-                {previewClip ? previewClip.label : "No clip at playhead"}
-              </span>
-            </>
-          )}
-          <button
-            type="button"
-            className="preview-panel__scopes"
-            aria-pressed={scopesPane.open}
-            title={scopesPane.open ? "Hide scopes" : "Show scopes"}
-            onClick={scopesPane.toggle}
-          >
-            Scopes
-          </button>
-          <span className="preview-panel__mode">
-            {previewedMedia?.kind === "audio" ? "Audio" : "Video"}
-          </span>
+          <div className="preview-panel__heading">
+            {isMediaTab ? (
+              <strong className="preview-panel__title">
+                {mediaItem?.name ?? "Media"}
+              </strong>
+            ) : (
+              <>
+                <strong className="preview-panel__title">Program</strong>
+                <span className="preview-panel__clip">
+                  {previewClip ? previewClip.label : "No clip at playhead"}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="preview-panel__actions">
+            <button
+              type="button"
+              className="preview-panel__scopes"
+              aria-label="Scopes"
+              aria-pressed={scopesPane.open}
+              title={scopesPane.open ? "Hide scopes" : "Show scopes"}
+              onClick={scopesPane.toggle}
+            >
+              <ChartBarIcon aria-hidden="true" />
+            </button>
+            <span className="preview-panel__mode">
+              {previewedMedia?.kind === "audio" ? "Audio" : "Video"}
+            </span>
+          </div>
         </div>
 
         <div
