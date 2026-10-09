@@ -205,6 +205,7 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
             type="button"
             aria-pressed={kind === scope.kind}
             className={kind === scope.kind ? "is-active" : ""}
+            title={scope.label}
             onClick={() => setKind(scope.kind)}
           >
             {scope.label}

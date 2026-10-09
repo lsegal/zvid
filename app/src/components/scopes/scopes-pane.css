@@ -54,14 +54,21 @@
 .scopes-pane__kinds {
   flex: none;
   align-self: flex-start;
+  max-width: calc(100% - 16px);
   gap: 2px;
   margin: 6px 8px 0;
   padding: 2px;
 }
 
+/* All four fit the default 280px preview; a narrower one ellipsizes them. */
 .scopes-pane__kinds button {
-  padding: 3px 8px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 5px;
   font-size: 0.58rem;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .scopes-pane__body {

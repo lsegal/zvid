@@ -143,6 +143,18 @@ test("the Scopes button opens a resizable pane of the composited program frame",
   ).toBeLessThan(1.5);
   expect(Math.abs(pane.height - monitor.height / 2)).toBeLessThan(3);
 
+  // Every scope's name fits the default preview width, uncut.
+  const kinds = scopesPane(page).getByRole("toolbar", { name: "Scope" });
+  const kindsBox = await kinds.boundingBox();
+  expect((kindsBox?.x ?? 0) + (kindsBox?.width ?? 0)).toBeLessThanOrEqual(
+    pane.x + pane.width,
+  );
+  for (const kind of await kinds.getByRole("button").all()) {
+    expect(
+      await kind.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
+
   // It draws the program frame's waveform.
   await expect(scopesCanvas(page)).toHaveAttribute("data-sampled", "true");
   await expect.poll(async () => (await readScope(page)).lit).toBeGreaterThan(0);
