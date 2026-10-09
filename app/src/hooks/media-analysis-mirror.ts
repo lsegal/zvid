@@ -9,13 +9,38 @@
 import { isWebKit } from "../audio-mix/preview-graph.ts";
 import { isWebMMedia, type MixMediaItem } from "../audio-mix/preview-player.ts";
 
-// Whether a mirror can follow `media`'s audio: it has some, and it isn't
-// WebM in WebKit, whose routed elements play WebM silently (#1113).
-export function canMirrorMedia(
-  media: (MixMediaItem & { hasAudio: boolean }) | undefined,
+// The longest media WebKit follows from a decoded copy of its audio (see
+// MediaAnalysisDecodedFollower), bounding the memory decoding takes: five
+// minutes of 48 kHz stereo decodes to about 115 MB.
+export const MAX_DECODED_ANALYSIS_SECONDS = 300;
+
+// How the pane follows `media`'s audio where the browser can't capture its
+// player: through a hidden routed copy of the player, through a decoded
+// copy of its audio, or not at all, for media without audio. WebKit routes
+// WebM silently (#1113) and nothing from 8 kHz media, so there media short
+// enough is decoded instead, and longer media is mirrored unless it's WebM.
+// Longer 8 kHz media stays silent in WebKit.
+export type MediaAnalysisFallback = "mirror" | "decode" | null;
+
+export function mediaAnalysisFallback(
+  media:
+    | (MixMediaItem & { hasAudio: boolean; durationSeconds: number })
+    | undefined,
   webKit = isWebKit(),
-) {
-  return !!media?.hasAudio && !(webKit && isWebMMedia(media));
+): MediaAnalysisFallback {
+  if (!media?.hasAudio) {
+    return null;
+  }
+  if (!webKit) {
+    return "mirror";
+  }
+  if (
+    media.durationSeconds > 0 &&
+    media.durationSeconds <= MAX_DECODED_ANALYSIS_SECONDS
+  ) {
+    return "decode";
+  }
+  return isWebMMedia(media) ? null : "mirror";
 }
 
 // How far the copy may drift from the element before it seeks to catch up.

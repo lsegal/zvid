@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  canMirrorMedia,
+  MAX_DECODED_ANALYSIS_SECONDS,
   MediaAnalysisMirror,
   type MirrorCopy,
   type MirroredElement,
+  mediaAnalysisFallback,
 } from "./media-analysis-mirror.ts";
 
 class FakeElement extends EventTarget {
@@ -166,31 +167,71 @@ describe("MediaAnalysisMirror", () => {
   });
 });
 
-describe("canMirrorMedia", () => {
+describe("mediaAnalysisFallback", () => {
   const mp4 = {
     id: "a",
     name: "clip.mp4",
     container: "MPEG-4",
     hasAudio: true,
+    durationSeconds: 30,
   };
   const webm = {
     id: "b",
     name: "clip.webm",
     container: "WebM",
     hasAudio: true,
+    durationSeconds: 30,
   };
+  const long = MAX_DECODED_ANALYSIS_SECONDS + 1;
 
-  it("mirrors media with audio", () => {
-    assert.equal(canMirrorMedia(mp4, true), true);
-    assert.equal(canMirrorMedia(webm, false), true);
+  it("mirrors media with audio outside WebKit", () => {
+    assert.equal(mediaAnalysisFallback(mp4, false), "mirror");
+    assert.equal(mediaAnalysisFallback(webm, false), "mirror");
+    assert.equal(
+      mediaAnalysisFallback({ ...webm, durationSeconds: long }, false),
+      "mirror",
+    );
   });
 
-  it("skips WebM in WebKit, which plays it silently once routed", () => {
-    assert.equal(canMirrorMedia(webm, true), false);
+  it("decodes media short enough in WebKit, which routes WebM and 8 kHz media silently", () => {
+    assert.equal(mediaAnalysisFallback(mp4, true), "decode");
+    assert.equal(mediaAnalysisFallback(webm, true), "decode");
+    assert.equal(
+      mediaAnalysisFallback(
+        { ...webm, durationSeconds: MAX_DECODED_ANALYSIS_SECONDS },
+        true,
+      ),
+      "decode",
+    );
   });
 
-  it("skips media without audio, and no media", () => {
-    assert.equal(canMirrorMedia({ ...mp4, hasAudio: false }, false), false);
-    assert.equal(canMirrorMedia(undefined, false), false);
+  it("mirrors longer media in WebKit, except WebM", () => {
+    assert.equal(
+      mediaAnalysisFallback({ ...mp4, durationSeconds: long }, true),
+      "mirror",
+    );
+    assert.equal(
+      mediaAnalysisFallback({ ...webm, durationSeconds: long }, true),
+      null,
+    );
+  });
+
+  it("mirrors media of unknown length in WebKit, except WebM", () => {
+    assert.equal(
+      mediaAnalysisFallback({ ...mp4, durationSeconds: 0 }, true),
+      "mirror",
+    );
+    assert.equal(
+      mediaAnalysisFallback({ ...webm, durationSeconds: 0 }, true),
+      null,
+    );
+  });
+
+  it("follows neither media without audio nor no media", () => {
+    assert.equal(
+      mediaAnalysisFallback({ ...mp4, hasAudio: false }, true),
+      null,
+    );
+    assert.equal(mediaAnalysisFallback(undefined, false), null);
   });
 });
