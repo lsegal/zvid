@@ -481,8 +481,10 @@ Files are never moved or collected, so each take stores its own
 
 ## CI builds
 
-Every push to `main` runs the **DAW bundles** workflow
-(`.github/workflows/daw-bundle.yml`), which builds two plugin installers:
+Every push to `main` that changes a DAW input (`daw/`, the design tokens,
+the zvidlib version pin or the workflow itself) runs the **DAW bundles**
+workflow (`.github/workflows/daw-bundle.yml`), which builds two plugin
+installers:
 
 - `zvid-capture-macos.pkg`: `ZVID Capture.vst3` and
   `ZVID Capture.component`, arm64 only. CI checks with `lipo -archs` that
@@ -494,7 +496,9 @@ Every push to `main` runs the **DAW bundles** workflow
   was installed, then uninstalls it.
 
 The plugin installers are plugin only. The zvid desktop app ships as its
-own installers, built by the workflow's `desktop` job with Tauri's bundler:
+own installers, built separately by the **Desktop app** workflow
+(`.github/workflows/desktop.yml`) with Tauri's bundler, on pushes to `main`
+that change a desktop app input:
 
 - `zvid-macos.dmg`: `zvid.app`, arm64 only (`pnpm --dir app tauri build
   --target aarch64-apple-darwin --bundles dmg`), signed and notarized by
@@ -574,14 +578,14 @@ its key ID and its issuer ID in `ZVID_NOTARY_KEY_PATH`, `ZVID_NOTARY_KEY_ID`
 and `ZVID_NOTARY_ISSUER`; or an Apple ID, team ID and app-specific password
 in `ZVID_NOTARY_APPLE_ID`, `ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`.
 
-The DAW bundles workflow signs the bundles and the desktop app whenever
-`APPLE_CERTIFICATE` is set, and otherwise builds ad-hoc signed bundles, an
-unsigned `.pkg` and an unsigned app. It signs the `.pkg` only when
-`APPLE_INSTALLER_CERTIFICATE` is also set, and notarizes the signed `.pkg`
-and the app with the API key. Builds of `main` fail unless both the `.pkg`
-and the app are notarized with stapled tickets, so a missing or broken secret
-can't publish unsigned installers; pull request builds keep the unsigned
-fallback. It uses these repository secrets:
+The DAW bundles workflow, and the Desktop app workflow for the app, sign the
+bundles and the app whenever `APPLE_CERTIFICATE` is set, and otherwise build
+ad-hoc signed bundles, an unsigned `.pkg` and an unsigned app. The `.pkg` is
+signed only when `APPLE_INSTALLER_CERTIFICATE` is also set, and the signed
+`.pkg` and the app are notarized with the API key. Builds of `main` fail
+unless the `.pkg` or app they build is notarized with a stapled ticket, so a
+missing or broken secret can't publish unsigned installers; pull request
+builds keep the unsigned fallback. They use these repository secrets:
 
 | Secret | Contents |
 |---|---|
