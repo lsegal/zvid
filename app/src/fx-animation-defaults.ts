@@ -7,6 +7,12 @@ import { ORDER_EFFECT_NAME } from "./composition-order.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
 import { COLOR_EFFECT_NAME } from "./fill-paint.ts";
 import {
+  LEVELS_EFFECT_NAME,
+  WHEEL_CHANNELS,
+  WHEELS,
+  wheelKey,
+} from "./fx/effects/levels/levels.ts";
+import {
   TRANSITION_EFFECT_NAME,
   TRANSITION_FRAMES,
 } from "./fx/effects/transition/transition.ts";
@@ -303,6 +309,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     "GaussianBlur",
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Radius"]),
+  ],
+  [
+    LEVELS_EFFECT_NAME,
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["GainY"]),
   ],
   [
     COLOR_EFFECT_NAME,
@@ -631,6 +641,19 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   ["Bloom", { _Intensity: { neutral: 0 } }],
   // Radius 0 leaves the picture sharp.
   ["GaussianBlur", { _Radius: { neutral: 0 } }],
+  // Each wheel at its default leaves the levels as they are; the curves
+  // aren't numbers, so they stay.
+  [
+    LEVELS_EFFECT_NAME,
+    Object.fromEntries(
+      WHEELS.flatMap((wheel) =>
+        WHEEL_CHANNELS.map((channel) => [
+          wheelKey(wheel.name, channel),
+          { neutral: wheel.defaultValue },
+        ]),
+      ),
+    ),
+  ],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],

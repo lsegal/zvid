@@ -175,14 +175,17 @@ export function usesColumnLayout(controlCount: number) {
 // Splits a device's parameters into the full-width controls (enums), which
 // sit on their own rows first, and the knobs that fill the grid below them.
 // A color listed after a knob, such as the Order's Border after Spacing,
-// sits in the knob grid beside it instead.
+// sits in the knob grid beside it instead, and a curve listed after them,
+// such as Levels' after its wheels, takes a full row of the grid below them.
 export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
   const firstKnob = parameters.findIndex(
     (parameter) => parameter.kind === "number",
   );
   const inGrid = (parameter: FxDeviceParameter, index: number) =>
     parameter.kind === "number" ||
-    (parameter.kind === "color" && firstKnob >= 0 && index > firstKnob);
+    ((parameter.kind === "color" || parameter.kind === "curve") &&
+      firstKnob >= 0 &&
+      index > firstKnob);
   return {
     controls: parameters.filter(
       (parameter, index) => !inGrid(parameter, index),

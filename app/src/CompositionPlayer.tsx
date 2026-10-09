@@ -58,6 +58,7 @@ import {
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
+import { onFrameHistogramWatch } from "./fx-shaders/frame-analysis.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";
@@ -344,6 +345,9 @@ export class CompositionRenderer {
         this.canvas,
         this.contextAttributes,
       );
+      // Only the preview reads pictures back for the device panels'
+      // histograms.
+      this.resources.effectChain.frameAnalysis = this.audioAnalysis === "live";
     }
   }
 
@@ -776,6 +780,8 @@ export const CompositionPlayer = forwardRef<
 
   // A paused preview redraws once a text font or Custom shape SVG loads.
   useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
+  // A panel newly showing a histogram needs a frame drawn to read it from.
+  useEffect(() => onFrameHistogramWatch(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
   useEffect(() => {

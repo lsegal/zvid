@@ -2,12 +2,16 @@ import { getParameterFormat } from "../../../fx-chain";
 import { Fader } from "../../ui/Fader";
 import { Knob } from "../../ui/Knob";
 import type { FxParameterControlProps } from "../types";
+import { ColorWheelControl } from "./ColorWheelControl";
 import { ToggleControl } from "./ToggleControl";
 
 export function NumberControl(props: FxParameterControlProps) {
   const { device, parameter, onSetParameter } = props;
   if (parameter.control === "toggle") {
     return <ToggleControl {...props} />;
+  }
+  if (parameter.control === "wheel") {
+    return <ColorWheelControl {...props} />;
   }
 
   const defaultValue =

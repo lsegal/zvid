@@ -43,6 +43,7 @@ export type {
   FxParameterVisibility,
   FxScaleTick,
   FxStringParameterDefinition,
+  FxWheelChannel,
 } from "./fx/types.ts";
 
 const HIDDEN_PARAMETER_PREFIX = "_LAYERS_";

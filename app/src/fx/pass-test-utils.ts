@@ -14,12 +14,14 @@ export const CONTEXT: EffectContext = {
   bottomUp: false,
 };
 
-export function params(values: Record<string, number>): EffectParameter[] {
-  return Object.entries(values).map(([key, value]) => ({
-    key,
-    value: String(value),
-    numericValue: value,
-  }));
+export function params(
+  values: Record<string, number | string>,
+): EffectParameter[] {
+  return Object.entries(values).map(([key, value]) =>
+    typeof value === "string"
+      ? { key, value }
+      : { key, value: String(value), numericValue: value },
+  );
 }
 
 // Runs a pass's or stage's setUniforms against a stand-in context and
@@ -39,11 +41,17 @@ export function uniformValues(
     (location: WebGLUniformLocation | null, ...args: number[]) => {
       values[(location as unknown as { name: string }).name] = args;
     };
+  // An array uniform is recorded as its values.
+  const recordArray =
+    () => (location: WebGLUniformLocation | null, data: ArrayLike<number>) => {
+      values[(location as unknown as { name: string }).name] = Array.from(data);
+    };
   const gl = {
     uniform1f: record(),
     uniform1i: record(),
     uniform2f: record(),
     uniform3f: record(),
+    uniform3fv: recordArray(),
   } as unknown as WebGLRenderingContext;
   pass.setUniforms(gl, locations, parameters, ctx);
   return values;

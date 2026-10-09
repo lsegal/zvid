@@ -136,8 +136,35 @@ function toDeviceParameter(
       ? { taper: definition.taper }
       : {}),
     ...(definition.ticks ? { ticks: definition.ticks } : {}),
+    ...(definition.wheel ? { wheel: definition.wheel } : {}),
     display: definition.format(resolved),
   };
+}
+
+// `parameters` with each color wheel's channels gathered into one control,
+// its master's, in the master's place, listing the wheel's channels.
+function groupWheelChannels(parameters: FxDeviceParameter[]) {
+  const wheels = new Map<string, FxDeviceParameter[]>();
+  for (const parameter of parameters) {
+    if (parameter.control === "wheel" && parameter.wheel) {
+      const channels = wheels.get(parameter.wheel.name) ?? [];
+      channels.push(parameter);
+      wheels.set(parameter.wheel.name, channels);
+    }
+  }
+  if (!wheels.size) {
+    return parameters;
+  }
+  return parameters.flatMap((parameter) => {
+    if (parameter.control !== "wheel" || !parameter.wheel) {
+      return [parameter];
+    }
+    if (parameter.wheel.channel !== "y") {
+      return [];
+    }
+    const channels = wheels.get(parameter.wheel.name) ?? [parameter];
+    return [{ ...parameter, label: parameter.wheel.name, channels }];
+  });
 }
 
 // Whether the effect's current value of `condition.key` is one of
@@ -287,27 +314,30 @@ function toDevice(
     ...(effect.modulation ? { modulation: effect.modulation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
+    ...(definition.knobColumns ? { knobColumns: definition.knobColumns } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:
       describeHiddenLayers(effect, activeLayerIds) ??
       describeMissingFont(effect, missingFonts),
-    parameters: parameterDefinitions
-      .filter(
-        (parameter) =>
-          !parameter.hidden &&
-          isParameterVisible(parameter, definition, effect),
-      )
-      .map((parameter) => {
-        const device = toDeviceParameter(
-          parameter,
-          effect.parameters.find((stored) => stored.key === parameter.key),
-          (key) =>
-            effect.parameters.find((stored) => stored.key === key)?.value,
-        );
-        return isParameterDimmed(parameter, definition, effect)
-          ? { ...device, dimmed: true }
-          : device;
-      }),
+    parameters: groupWheelChannels(
+      parameterDefinitions
+        .filter(
+          (parameter) =>
+            !parameter.hidden &&
+            isParameterVisible(parameter, definition, effect),
+        )
+        .map((parameter) => {
+          const device = toDeviceParameter(
+            parameter,
+            effect.parameters.find((stored) => stored.key === parameter.key),
+            (key) =>
+              effect.parameters.find((stored) => stored.key === key)?.value,
+          );
+          return isParameterDimmed(parameter, definition, effect)
+            ? { ...device, dimmed: true }
+            : device;
+        }),
+    ),
   };
 }
 

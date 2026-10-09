@@ -28,6 +28,8 @@ import * as gaussianBlur from "./gaussian-blur/definition.ts";
 import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
 import * as highCut from "./high-cut/definition.ts";
 import * as layout from "./layout/definition.ts";
+import * as levels from "./levels/definition.ts";
+import { pass as levelsPass } from "./levels/pass.ts";
 import * as limiter from "./limiter/definition.ts";
 import * as lowCut from "./low-cut/definition.ts";
 import * as mask from "./mask/definition.ts";
@@ -76,6 +78,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   gaussianBlur,
   highCut,
   layout,
+  levels,
   limiter,
   lowCut,
   mask,
@@ -109,6 +112,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   digitalGlitchPass,
   distortionPass,
   gaussianBlurPass,
+  levelsPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,
