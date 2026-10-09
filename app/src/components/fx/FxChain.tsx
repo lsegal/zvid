@@ -19,6 +19,7 @@ import {
   type FxLayerOption,
   getStackMoveIndex,
   groupChainDevices,
+  isFixedDevice,
   modulationCollapseKey,
   readCollapsedDevices,
   toggleCollapsedDevice,
@@ -36,9 +37,10 @@ import { useDragScroll } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
 import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
 import { AddDeviceMenu } from "./AddDeviceMenu";
+import { getChainClipboard } from "./chain-clipboard";
 import {
-  type DeviceMenuState,
   type DeviceStackTarget,
+  type FxChainMenuState,
   getDeviceMenuEntries,
 } from "./device-menu";
 import { FxAnimationPanel } from "./FxAnimationPanel";
@@ -107,6 +109,14 @@ export type FxChainProps = {
   onRemove: (device: FxDevice) => void;
   onDuplicate: (device: FxDevice, id: string) => void;
   onReset: (device: FxDevice) => void;
+  // The effect of the cut or copied device, which a stack's Paste adds;
+  // undefined until a device is cut or copied.
+  clipboardEffectName?: string;
+  onCut: (device: FxDevice) => void;
+  onCopy: (device: FxDevice) => void;
+  // Adds the cut or copied device to the end of the `trackId` stack.
+  onPaste: (trackId: string, scope: FxEffectScope, id: string) => void;
+  onClearAll: (devices: readonly FxDevice[]) => void;
 };
 
 export type FxCollapseState = {
@@ -179,6 +189,11 @@ export function FxChain({
   onRemove,
   onDuplicate,
   onReset,
+  clipboardEffectName,
+  onCut,
+  onCopy,
+  onPaste,
+  onClearAll,
 }: FxChainProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Title bar (or add button) to focus once the next render lands, so
@@ -191,7 +206,7 @@ export function FxChain({
   const [collapsed, setCollapsed] = useState(() =>
     readCollapsedDevices(getStorage()),
   );
-  const [menu, setMenu] = useState<DeviceMenuState | null>(null);
+  const [menu, setMenu] = useState<FxChainMenuState | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
   const canEdit = layerTrackId !== undefined;
@@ -463,7 +478,34 @@ export function FxChain({
     }
     menuDeviceIdRef.current = device.id;
     menuFocusRef.current = null;
-    setMenu({ device, index, x, y });
+    setMenu({ type: "device", device, index, x, y });
+  }
+
+  const clipboard = getChainClipboard({
+    groups,
+    editableSections: movableSections,
+    clipboardEffectName,
+    scopeOf,
+    trackIdOf: (group) => getTrackId(group, layerTrackId, clipTrackId),
+    sectionName: (group) => sectionLabel(group, layerLabel),
+    requestFocus,
+    setAnnouncement,
+    onCut,
+    onCopy,
+    onPaste,
+    onClearAll,
+  });
+
+  function openSurfaceMenu(event: ReactMouseEvent<HTMLElement>) {
+    const surfaceMenu = clipboard.getSurfaceMenu(event);
+    if (!surfaceMenu) {
+      return;
+    }
+
+    event.preventDefault();
+    menuDeviceIdRef.current = null;
+    menuFocusRef.current = null;
+    setMenu(surfaceMenu);
   }
 
   function renderStack(group: FxDeviceGroup) {
@@ -583,26 +625,44 @@ export function FxChain({
 
   const layerEmpty = !groups.layer.length;
   const showGlobal = groups.global.length > 0 || canEdit;
-  const menuDevice = menu?.device;
-  const menuEntries = menu
-    ? getDeviceMenuEntries(menu, {
-        collapsed,
-        toggleCollapsed,
-        onSetEnabled,
-        moveDevice,
-        canMoveDevice,
-        stackTargets: getStackTargets(menu.device),
-        resetDevice,
-        duplicateDevice,
-        removeDevice,
-      })
-    : [];
+  const menuDevice = menu?.type === "device" ? menu.device : undefined;
+  const menuEntries =
+    menu?.type === "device"
+      ? getDeviceMenuEntries(menu, {
+          collapsed,
+          fixed: isFixedDevice(menu.device),
+          toggleCollapsed,
+          onSetEnabled,
+          moveDevice,
+          canMoveDevice,
+          // The menu's moves land at the end of the target stack.
+          stackTargets: FX_CHAIN_SECTIONS.map((group) => ({
+            group,
+            label: sectionLabel(group, layerLabel),
+            index: groups[group].length,
+          })),
+          resetDevice,
+          cutDevice: clipboard.cutDevice,
+          copyDevice: clipboard.copyDevice,
+          duplicateDevice,
+          removeDevice,
+        })
+      : menu
+        ? clipboard.getSurfaceEntries(menu)
+        : [];
+  const menuLabel = menuDevice
+    ? `${menuDevice.name} actions`
+    : menu?.type === "surface"
+      ? `${sectionLabel(menu.group, layerLabel)} stack actions`
+      : "Device actions";
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-clicking a stack's empty space is a pointer shortcut; the context-menu key and Shift+F10 on a stack's add button open the same menu
     <div
       className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
         chainDragScroll.isGrabbing ? "fx-chain--grab-scrolling" : ""
       }`}
+      onContextMenu={openSurfaceMenu}
       ref={scrollRef}
       {...chainDragScroll.handlers}
     >
@@ -651,7 +711,7 @@ export function FxChain({
       <ContextMenu
         anchor={menu}
         entries={menuEntries}
-        label={menuDevice ? `${menuDevice.name} actions` : "Device actions"}
+        label={menuLabel}
         onClose={() => setMenu(null)}
         onCloseFocus={() => {
           if (!focusAfterMenu() && menuDeviceIdRef.current) {
