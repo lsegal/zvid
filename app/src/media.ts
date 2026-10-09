@@ -1,8 +1,9 @@
+import { parseCubeLut } from "./fx/effects/lut/cube.ts";
 import type { ServerMediaRef } from "./session";
 
-// Images (SVG) have no timeline clips; they only feed effects such as
-// Shape ▸ Custom.
-export type MediaKind = "video" | "audio" | "image";
+// Images (SVG) and LUTs (.cube) have no timeline clips; they only feed
+// effects such as Shape ▸ Custom and LUT.
+export type MediaKind = "video" | "audio" | "image" | "lut";
 
 export type Palette = {
   color: string;
@@ -78,6 +79,13 @@ export function probeMediaBlob(
 ): Promise<MediaProbeResult> {
   if (blob.size === 0) {
     return Promise.reject(new Error("File is empty"));
+  }
+
+  if (kind === "lut") {
+    return blob.text().then((text) => {
+      parseCubeLut(text);
+      return { durationSeconds: 0 };
+    });
   }
 
   if (kind === "image") {
@@ -234,6 +242,49 @@ export function isImageMedia(item: Pick<MediaItem, "kind">) {
   return item.kind === "image";
 }
 
+export function isLutMedia(item: Pick<MediaItem, "kind">) {
+  return item.kind === "lut";
+}
+
+/**
+ * Imported `items` without the LUTs whose file was rejected as malformed,
+ * and a status message naming those, if any.
+ */
+export function rejectMalformedLuts<T extends MediaItem>(items: readonly T[]) {
+  const rejected = items.filter((item) => isLutMedia(item) && item.lastError);
+  const message = rejected.length
+    ? `Skipped ${rejected
+        .map((item) => `${item.name} (${item.lastError})`)
+        .join(", ")}.`
+    : undefined;
+  for (const item of rejected) {
+    if (item.previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+  }
+  return {
+    accepted: items.filter((item) => !rejected.includes(item)),
+    message,
+  };
+}
+
+// The status after importing only `items` that make no clips.
+export function describeEffectMediaImport(items: readonly MediaItem[]) {
+  const images = items.filter(isImageMedia).length;
+  const luts = items.filter(isLutMedia).length;
+  return [
+    images ? `Imported ${images} image${images === 1 ? "" : "s"} for Shape ▸ Custom.` : "",
+    luts ? `Imported ${luts} LUT${luts === 1 ? "" : "s"} for the LUT effect.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+// Media that only feeds effects and makes no clips: images and LUTs.
+export function isEffectMedia(item: Pick<MediaItem, "kind">) {
+  return item.kind === "image" || item.kind === "lut";
+}
+
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
@@ -255,6 +306,8 @@ export function inferMediaKind(name: string): MediaKind {
       return "audio";
     case ".svg":
       return "image";
+    case ".cube":
+      return "lut";
     default:
       return "video";
   }

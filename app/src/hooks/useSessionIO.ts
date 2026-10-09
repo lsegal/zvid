@@ -30,7 +30,8 @@ import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
 import { getHarness, type SaveTarget, type SessionSelection } from "../harness";
 import {
   buildFallbackMediaItem,
-  isImageMedia,
+  isEffectMedia,
+  rejectMalformedLuts,
   type MediaItem,
   toShareableMediaItem,
 } from "../media";
@@ -341,16 +342,19 @@ export function useSessionIO({
           : selection.refs.length;
       setStatus(`Analyzing ${pluralize(itemCount, "imported media file")}...`);
       const nextPaletteIndex = mediaItems.length;
-      const analyzed = await harness.analyzeMedia(
-        selection,
-        PALETTE,
-        nextPaletteIndex,
+      const { accepted: analyzed, message: rejected } = rejectMalformedLuts(
+        await harness.analyzeMedia(selection, PALETTE, nextPaletteIndex),
       );
+      if (!analyzed.length) {
+        setStatus(rejected ?? "No media imported.");
+        return;
+      }
       const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
 
       const nextMedia = [...projectMediaItems, ...sharedAnalyzed];
-      // Images make no clips, so importing only images keeps the timeline.
-      if (!sessionName && analyzed.some((item) => !isImageMedia(item))) {
+      // Images and LUTs make no clips, so importing only those keeps the
+      // timeline.
+      if (!sessionName && analyzed.some((item) => !isEffectMedia(item))) {
         const standalone = buildStandaloneProject(nextMedia);
         commitProjectChange("Import media", (current) =>
           patchProjectState(current, {
@@ -393,7 +397,11 @@ export function useSessionIO({
 
       seedLocalMediaItems(analyzed);
       void cacheLocalMediaItems(analyzed);
-      setStatus(`Imported ${pluralize(analyzed.length, "media file")}.`);
+      setStatus(
+        [`Imported ${pluralize(analyzed.length, "media file")}.`, rejected]
+          .filter(Boolean)
+          .join(" "),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Media import failed: ${message}`);
