@@ -25,6 +25,9 @@ type VuMeterProps = {
   // routes the main audio through Web Audio, so it is only asked for while
   // playing.
   getMeterTap: () => MasterMeterTap | null;
+  // Horizontal for the transport bar; vertical, with a dB scale, for the
+  // audio analysis pane.
+  orientation?: "horizontal" | "vertical";
 };
 
 const CHANNELS = [
@@ -49,15 +52,25 @@ function setReadout(element: HTMLElement, text: string) {
   }
 }
 
+// The scale label's text, with a typographic minus.
+function tickLabel(db: number) {
+  return db < 0 ? `−${-db}` : String(db);
+}
+
 function ariaLevel(db: number) {
   return String(Math.round(Math.min(METER_MAX_DB, Math.max(METER_MIN_DB, db))));
 }
 
-// A horizontal stereo VU meter of the program mix, before the preview
-// volume: a bar per channel on a -60…+6 dB scale with a high-water line, a
-// latching above-0 zone, and the RMS average in dB. It draws straight to
-// the DOM each frame rather than re-rendering.
-export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
+// A stereo VU meter of the program mix, before the preview volume: a bar
+// per channel on a -60…+6 dB scale with a high-water line, a latching
+// above-0 zone, and the RMS average in dB. It draws straight to the DOM
+// each frame rather than re-rendering.
+export function VuMeter({
+  isPlaying,
+  getMeterTap,
+  orientation = "horizontal",
+}: VuMeterProps) {
+  const vertical = orientation === "vertical";
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
   const readoutRef = useRef<HTMLSpanElement | null>(null);
   const meterRef = useRef(new StereoMeter());
@@ -141,15 +154,22 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
   };
 
   return (
-    <div className="vu-meter" style={SCALE_STYLE}>
+    <div
+      className={vertical ? "vu-meter vu-meter--vertical" : "vu-meter"}
+      style={SCALE_STYLE}
+    >
       <div className="vu-meter__bars">
         {METER_TICKS_DB.map((db) => (
           <span
             aria-hidden="true"
             className="vu-meter__tick"
             key={db}
-            style={{ left: `${dbToPosition(db) * 100}%` }}
-          />
+            style={{ [vertical ? "bottom" : "left"]: `${dbToPosition(db) * 100}%` }}
+          >
+            {vertical ? (
+              <span className="vu-meter__label">{tickLabel(db)}</span>
+            ) : null}
+          </span>
         ))}
         {CHANNELS.map(({ key, label }, index) => (
           // biome-ignore lint/a11y/useSemanticElements: a native <meter> can't draw the gradient, peak line and clip zone

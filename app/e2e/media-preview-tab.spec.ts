@@ -184,7 +184,6 @@ test("audio-only media shows its waveform and plays", async ({ page }) => {
 
   await mediaItem(page, "tone").dblclick();
   await expect(page.locator(".preview-panel__title")).toHaveText("tone.wav");
-  await expect(page.locator(".preview-panel__mode")).toHaveText("Audio");
   await expect(page.locator(".media-preview video")).toHaveCount(0);
   await expect(page.locator(".media-preview__waveform")).toBeVisible({
     timeout: 30_000,

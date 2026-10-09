@@ -1,11 +1,16 @@
-import type {
-  ComponentProps,
-  KeyboardEvent as ReactKeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-  RefObject,
+import {
+  type ComponentProps,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useState,
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
 import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
+import {
+  readAudioAnalysisOpen,
+  writeAudioAnalysisOpen,
+} from "../app/spectrogram.ts";
 import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
   CompositionPlayer,
@@ -17,6 +22,7 @@ import {
 } from "../clip-media-state";
 import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
+import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
@@ -25,6 +31,7 @@ import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
 import type { PreviewLayer } from "../preview-edit.ts";
 import type { TimeValueFormat } from "../time-value.ts";
+import { AudioAnalysisPane } from "./audio-analysis/AudioAnalysisPane";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
@@ -78,7 +85,6 @@ export type PreviewPanelProps = Pick<
     typeof usePreview
   >["resolvePreviewLayersAt"];
   previewMaxWidth: number;
-  previewMedia: MediaItem | undefined;
   previewMediaState: ClipMediaState;
   previewVolume: { volume: number; muted: boolean };
   projectDurationFrames: number | undefined;
@@ -152,7 +158,6 @@ export function PreviewPanel({
   previewLaneId,
   previewLayers,
   previewMaxWidth,
-  previewMedia,
   previewMediaState,
   previewTextEdit,
   previewVolume,
@@ -170,6 +175,15 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
   const isMediaTab = previewTab === "media";
+  const getMeterTap = useMasterMeterTap(compositionPlayerRef);
+  const [isAudioAnalysisOpen, setAudioAnalysisOpen] = useState(
+    readAudioAnalysisOpen,
+  );
+  const toggleAudioAnalysis = () => {
+    const open = !isAudioAnalysisOpen;
+    setAudioAnalysisOpen(open);
+    writeAudioAnalysisOpen(open);
+  };
   return (
     <>
       <hr
@@ -221,11 +235,19 @@ export function PreviewPanel({
               </span>
             </>
           )}
-          <span className="preview-panel__mode">
-            {(isMediaTab ? mediaItem : previewMedia)?.kind === "audio"
-              ? "Audio"
-              : "Video"}
-          </span>
+          <button
+            type="button"
+            className="preview-panel__mode"
+            aria-pressed={isAudioAnalysisOpen}
+            title={
+              isAudioAnalysisOpen
+                ? "Hide the audio meter and spectrogram"
+                : "Show the audio meter and spectrogram"
+            }
+            onClick={toggleAudioAnalysis}
+          >
+            Audio
+          </button>
         </div>
 
         <div
@@ -302,6 +324,9 @@ export function PreviewPanel({
             />
           ) : null}
         </div>
+        {isAudioAnalysisOpen ? (
+          <AudioAnalysisPane isPlaying={isPlaying} getMeterTap={getMeterTap} />
+        ) : null}
       </aside>
     </>
   );
