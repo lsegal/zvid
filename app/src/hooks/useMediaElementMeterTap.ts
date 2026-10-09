@@ -81,11 +81,11 @@ export function useMediaElementMeterTap({
       release();
       const context = analysisAudioContext.acquire();
       const { input, tap } = createMeterTap(context);
-      const mirror = new MediaAnalysisMirror(element, new Audio());
-      const source = context.createMediaElementSource(
-        mirror.copy as HTMLMediaElement,
-      );
+      // Routed before it loads anything.
+      const copy = new Audio();
+      const source = context.createMediaElementSource(copy);
       source.connect(input);
+      const mirror = new MediaAnalysisMirror(element, copy);
       tapRef.current = { element, trackId: null, mirror, source, tap };
       return tap;
     },

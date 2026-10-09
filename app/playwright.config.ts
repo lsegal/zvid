@@ -69,6 +69,7 @@ const chromium = devices["Desktop Chrome"];
 // (#1111). The WebKit project is opt-in, with PLAYWRIGHT_WEBKIT=1, since
 // only CI's e2e-webkit job installs WebKit.
 const WEBKIT_SPECS = [
+  "audio-analysis.spec.ts",
   "audio-mix.spec.ts",
   "audio-resync.spec.ts",
   "webm-opus.spec.ts",
