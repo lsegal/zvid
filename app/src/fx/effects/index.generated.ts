@@ -36,6 +36,8 @@ import * as levels from "./levels/definition.ts";
 import { pass as levelsPass } from "./levels/pass.ts";
 import * as limiter from "./limiter/definition.ts";
 import * as lowCut from "./low-cut/definition.ts";
+import * as lut from "./lut/definition.ts";
+import { pass as lutPass } from "./lut/pass.ts";
 import * as mask from "./mask/definition.ts";
 import * as mono from "./mono/definition.ts";
 import * as move from "./move/definition.ts";
@@ -89,6 +91,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   levels,
   limiter,
   lowCut,
+  lut,
   mask,
   mono,
   move,
@@ -124,6 +127,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   exposurePass,
   gaussianBlurPass,
   levelsPass,
+  lutPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,

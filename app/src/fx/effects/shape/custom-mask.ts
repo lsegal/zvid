@@ -3,6 +3,7 @@
 // the size of the box it masks, so it stays crisp when scaled.
 
 import { isImageMedia, type MediaItem } from "../../../media.ts";
+import { effectMediaPath, findEffectMedia } from "../../effect-media.ts";
 import { alphaToMask, stretchSvgSource } from "./custom-svg.ts";
 
 export type ShapeImageMedia = Pick<
@@ -68,19 +69,9 @@ export function setShapeImageMedia(items: readonly MediaItem[]) {
   }
 }
 
-// As app/util's, which this can't import: the effect registry loads this,
-// and app/util's constants load the registry.
-function normalizeMediaPath(value: string) {
-  return value.replaceAll("/", "\\").toLowerCase();
-}
-
-function basename(value: string) {
-  return value.split(/[/\\]/).pop() ?? value;
-}
-
 // The path a Custom shape stores for `item`, as a clip stores its media's.
 export function shapeMediaPath(item: Pick<MediaItem, "name" | "sourcePath">) {
-  return item.sourcePath ?? item.name;
+  return effectMediaPath(item);
 }
 
 // The media `path` names, matched the way session clips match theirs: by
@@ -89,18 +80,7 @@ export function findShapeMedia(
   path: string | undefined,
   items: readonly ShapeImageMedia[] = imageMedia,
 ) {
-  if (!path?.trim()) {
-    return undefined;
-  }
-  const target = normalizeMediaPath(path.trim());
-  const exact = items.find(
-    (item) => item.sourcePath && normalizeMediaPath(item.sourcePath) === target,
-  );
-  if (exact) {
-    return exact;
-  }
-  const name = basename(path.trim()).toLowerCase();
-  return items.find((item) => item.name.toLowerCase() === name);
+  return findEffectMedia(path, items);
 }
 
 // The URL to draw `item` from, while it is online.

@@ -1,4 +1,5 @@
 import type { AlsImportSummary } from "./als-import.ts";
+import { customLutMediaPaths } from "./fx/effects/lut/lut.ts";
 import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
@@ -191,7 +192,7 @@ function isFilePath(value: unknown): value is string {
 }
 
 // Every media file the session references: its clips, its Custom shapes'
-// SVGs and, in an older session, its main audio.
+// SVGs, its LUTs' .cube files and, in an older session, its main audio.
 export function collectSessionMediaPaths(session: ProjectSession) {
   const mediaPaths = new Set<string>();
 
@@ -205,24 +206,28 @@ export function collectSessionMediaPaths(session: ProjectSession) {
     mediaPaths.add(session.audioFilename.trim());
   }
 
-  for (const path of collectShapeMediaPaths(session)) {
+  for (const path of collectEffectMediaPaths(session)) {
     mediaPaths.add(path);
   }
 
   return Array.from(mediaPaths);
 }
 
-// The SVG media the session's Custom shapes take their masks from.
-export function collectShapeMediaPaths(session: ProjectSession) {
-  return customShapeMediaPaths(
-    (session.effects ?? []).map((effect) => ({
-      effectName: effect.effectName,
-      enabled: effect.enabled,
-      parameters: Object.entries(effect.parameters ?? {}).map(
-        ([key, parameter]) => ({ key, value: parameter?.stringValue ?? "" }),
-      ),
-    })),
-  );
+function sessionEffects(session: ProjectSession) {
+  return (session.effects ?? []).map((effect) => ({
+    effectName: effect.effectName,
+    enabled: effect.enabled,
+    parameters: Object.entries(effect.parameters ?? {}).map(
+      ([key, parameter]) => ({ key, value: parameter?.stringValue ?? "" }),
+    ),
+  }));
+}
+
+// The media the session's effects use: the SVGs its Custom shapes take
+// their masks from and the .cube files its LUTs grade with.
+export function collectEffectMediaPaths(session: ProjectSession) {
+  const effects = sessionEffects(session);
+  return [...customShapeMediaPaths(effects), ...customLutMediaPaths(effects)];
 }
 
 // Session files are parsed JSON that the types are never checked against, so

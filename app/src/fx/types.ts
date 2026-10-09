@@ -78,9 +78,10 @@ export type FxFlagOption = { value: string; label: string; title: string };
 // (`text`) in a text area, a font (`font`) from the font list, a set of
 // toggles (`flags`) stored comma-separated, a set of layers (`layers`)
 // stored as comma-separated layer ids, one layer (`layer`) stored as its id,
-// empty for none, and a shape (`shape`) by name, from the Shape effect's
-// shapes, and a tone curve (`curve`), stored as its points (see
-// effects/levels/curve.ts).
+// empty for none, a shape (`shape`) by name, from the Shape effect's
+// shapes, a LUT (`lut`), bundled by name or from the media library (see
+// effects/lut/lut.ts), and a tone curve (`curve`), stored as its points
+// (see effects/levels/curve.ts).
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -100,6 +101,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "layers" })
   | (FxStringParameterFields & { kind: "layer" })
   | (FxStringParameterFields & { kind: "shape" })
+  | (FxStringParameterFields & { kind: "lut" })
   | (FxStringParameterFields & { kind: "curve" })
   | (FxStringParameterFields & {
       kind: "flags";

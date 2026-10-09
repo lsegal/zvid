@@ -16,14 +16,17 @@ import type {
   SourceTrackDropTarget,
 } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
+import { setLutMedia } from "../fx/effects/lut/lut-media.ts";
 import { setShapeImageMedia } from "../fx/effects/shape/custom-mask.ts";
 import { getHarness } from "../harness";
 import {
+  describeEffectMediaImport,
   inferMediaKind,
-  isImageMedia,
+  isEffectMedia,
   type MediaItem,
   type MediaProbeResult,
   probeMediaBlob,
+  rejectMalformedLuts,
   toShareableMediaItem,
   withMediaType,
 } from "../media";
@@ -75,8 +78,12 @@ export function useMediaLibrary({
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
-  // Shape ▸ Custom draws its masks from the session's SVG media.
-  useEffect(() => setShapeImageMedia(mediaItems), [mediaItems]);
+  // Shape ▸ Custom draws its masks from the session's SVG media, and LUT
+  // grades with its .cube media.
+  useEffect(() => {
+    setShapeImageMedia(mediaItems);
+    setLutMedia(mediaItems);
+  }, [mediaItems]);
 
   const setLocalMediaOverride = useCallback(
     (mediaId: string, patch: LocalMediaOverride) => {
@@ -476,19 +483,25 @@ export function useMediaLibraryCommands({
         setStatus(
           `Analyzing ${pluralize(files.length, "dropped media file")}...`,
         );
-        const analyzed = await harness.analyzeMedia(
-          {
-            kind: "files",
-            files,
-          },
-          PALETTE,
-          projectMediaItems.length,
+        const { accepted: analyzed, message: rejected } = rejectMalformedLuts(
+          await harness.analyzeMedia(
+            {
+              kind: "files",
+              files,
+            },
+            PALETTE,
+            projectMediaItems.length,
+          ),
         );
+        if (!analyzed.length) {
+          setStatus(rejected ?? "No media imported.");
+          return;
+        }
         const sharedAnalyzed = analyzed.map((item) =>
           toShareableMediaItem(item),
         );
-        // Images go to the Media drawer only; they make no clips.
-        const clipMedia = analyzed.filter((item) => !isImageMedia(item));
+        // Images and LUTs go to the Media drawer only; they make no clips.
+        const clipMedia = analyzed.filter((item) => !isEffectMedia(item));
 
         commitProjectChange("Drop media into source tracks", (current) => {
           const placed = addMediaToSourceTrack(current, analyzed, target);
@@ -523,7 +536,9 @@ export function useMediaLibraryCommands({
         void cacheLocalMediaItems(analyzed);
         if (!clipMedia.length) {
           setStatus(
-            `Imported ${pluralize(analyzed.length, "image")} for Shape ▸ Custom.`,
+            [describeEffectMediaImport(analyzed), rejected]
+              .filter(Boolean)
+              .join(" "),
           );
           return;
         }
@@ -534,7 +549,7 @@ export function useMediaLibraryCommands({
             target.kind === "track"
               ? "the selected source track"
               : "a new source track"
-          }.`,
+          }.${rejected ? ` ${rejected}` : ""}`,
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
