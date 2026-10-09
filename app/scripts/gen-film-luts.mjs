@@ -37,9 +37,10 @@ const saturate = (rgb, amount) => {
 };
 // S-shaped contrast curve around `pivot`: 0 leaves `x` unchanged.
 const sCurve = (x, amount, pivot = 0.5) => {
-  const curved = x < pivot
-    ? pivot * (x / pivot) ** (1 + amount)
-    : 1 - (1 - pivot) * ((1 - x) / (1 - pivot)) ** (1 + amount);
+  const curved =
+    x < pivot
+      ? pivot * (x / pivot) ** (1 + amount)
+      : 1 - (1 - pivot) * ((1 - x) / (1 - pivot)) ** (1 + amount);
   return clamp01(curved);
 };
 // Maps 0..1 onto `black`..`white`, so a raised black fades shadows and a
@@ -83,7 +84,9 @@ export const LOOKS = {
     const cool = [r * 0.92, g * 1.0 + 0.01, b * 1.08 + 0.02];
     const t = smoothstep(0, 0.6, luma(cool));
     const shadowTint = [-0.03, 0.02, 0.04].map((value) => value * (1 - t));
-    return cool.map((value, index) => sCurve(clamp01(value + shadowTint[index]), 0.3));
+    return cool.map((value, index) =>
+      sCurve(clamp01(value + shadowTint[index]), 0.3),
+    );
   },
   // Skipping the bleach bath leaves silver in the print: a black-and-white
   // overlay that drains color and hardens contrast.
@@ -92,9 +95,8 @@ export const LOOKS = {
     const silver = sCurve(y, 0.8);
     return saturate(rgb, 0.4).map((value) => {
       // Overlay blend of the color image with its contrasty silver layer.
-      const overlay = value < 0.5
-        ? 2 * value * silver
-        : 1 - 2 * (1 - value) * (1 - silver);
+      const overlay =
+        value < 0.5 ? 2 * value * silver : 1 - 2 * (1 - value) * (1 - silver);
       return mix(value, overlay, 0.7);
     });
   },
@@ -104,7 +106,7 @@ export const LOOKS = {
     const [r, g, b] = saturate(rgb, 1.15);
     return [
       sCurve(clamp01(r), 0.6),
-      clamp01(g ** 0.88),
+      clamp01(g) ** 0.88,
       range(clamp01(b) ** 1.15, 0.12, 0.82),
     ];
   },
@@ -123,7 +125,9 @@ export const LOOKS = {
   // Hard print stock: crushed blacks, bright whites and a little extra
   // saturation.
   "builtin:high-contrast": (rgb) =>
-    saturate(rgb, 1.1).map((value) => sCurve(clamp01(range(value, -0.03, 1.02)), 0.9)),
+    saturate(rgb, 1.1).map((value) =>
+      sCurve(clamp01(range(value, -0.03, 1.02)), 0.9),
+    ),
   // Modern blockbuster split-tone: teal shadows and orange highlights and
   // skin, with a slight saturation boost.
   "builtin:teal-orange": (rgb) => {
@@ -136,6 +140,7 @@ export const LOOKS = {
 };
 
 function formatValue(value) {
+  if (!Number.isFinite(value)) throw new Error(`Non-finite LUT value ${value}`);
   return clamp01(value).toFixed(6);
 }
 
