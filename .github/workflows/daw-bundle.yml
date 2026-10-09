@@ -6,14 +6,14 @@ name: DAW bundles
 # the previous build's, where the app's Worker serves them at
 # /downloads/capture; other merges leave the published Capture installers and
 # manifest as they were. Running the workflow by hand (workflow_dispatch)
-# always builds and publishes them. The zvid desktop app ships as its own
-# installers (desktop job), built for every merge that changes a desktop app
-# input and published the same way under /downloads/desktop.
-# Pull requests that touch /daw or the desktop app build the same bundles and
-# installers, so a broken release-only build or bundle layout fails the PR
-# rather than main; PR runs publish nothing. macOS builds are Apple silicon
-# (arm64) only, and Developer ID signed and notarized when the Apple secrets
-# below are configured, and ad-hoc signed otherwise.
+# always builds and publishes them. This workflow builds only the plugin: the
+# zvid desktop app ships as its own installers, built by the Desktop app
+# workflow (desktop.yml) and published the same way under /downloads/desktop.
+# Pull requests that touch /daw build the same bundles and installers, so a
+# broken release-only build or bundle layout fails the PR rather than main;
+# PR runs publish nothing. macOS builds are Apple silicon (arm64) only, and
+# Developer ID signed and notarized when the Apple secrets below are
+# configured, and ad-hoc signed otherwise.
 #
 # Publishing uses the same CLOUDFLARE_API_TOKEN secret and
 # CLOUDFLARE_ACCOUNT_ID variable as the Deploy workflow. The token needs
@@ -30,7 +30,6 @@ on:
     # compares against.
     paths:
       - daw/**
-      - app/src-tauri/**
       - .github/workflows/daw-bundle.yml
       - .github/workflows/ci.yml
       - app/export-bridge/Cargo.toml
@@ -43,20 +42,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Whether a push to main changed anything the Capture bundles (daw) or the
-  # desktop app (desktop) are built from. The bundles are built from /daw, the
-  # design tokens the plugin UI embeds, the zvidlib version pin and this
-  # workflow. The desktop app is built from the shipped web app (app/src
-  # without its tests, public, index.html and the build config), its Tauri
-  # shell, the export bridge, the design tokens and this workflow; e2e specs,
-  # other app scripts, the Worker and CI config don't ship in it. The push is
+  # Whether a push to main changed anything the Capture bundles are built
+  # from: /daw, the design tokens the plugin UI embeds, the zvidlib version
+  # pin and this workflow. Changes to the web or desktop app alone build
+  # nothing here; the Desktop app workflow gates its own builds. The push is
   # compared against the commit main pointed at before it (the push's
   # `before` SHA), so a multi-commit push that changed an input in any of its
   # commits still builds. When the changed files can't be determined (a new
   # branch, a force-push whose old head can't be fetched, a filter error, or
-  # this job failing), both build anyway. Pull requests are already filtered
-  # by the trigger's paths above, and workflow_dispatch always builds, so only
-  # pushes consult it.
+  # this job failing), the bundles build anyway. Pull requests are already
+  # filtered by the trigger's paths above, and workflow_dispatch always
+  # builds, so only pushes consult it.
   changes:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -65,7 +61,6 @@ jobs:
       contents: read
     outputs:
       daw: ${{ steps.filter.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.daw == 'true' }}
-      desktop: ${{ steps.filter.outcome != 'success' || steps.app-src.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.desktop == 'true' || steps.app-src.outputs.desktop == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -80,32 +75,6 @@ jobs:
               - packages/tokens/**
               - .github/workflows/daw-bundle.yml
               - app/export-bridge/Cargo.toml
-            desktop:
-              - app/src-tauri/**
-              - app/export-bridge/**
-              - app/public/**
-              - app/index.html
-              - app/package.json
-              - app/pnpm-lock.yaml
-              - app/vite.config.ts
-              - app/tsconfig*.json
-              - app/scripts/gen-fx-index.mjs
-              - packages/tokens/**
-              - .github/workflows/daw-bundle.yml
-
-      # app/src minus its colocated unit tests. A file must match every
-      # pattern here, so the exclusion can't share the filter above, where
-      # matching any pattern is enough.
-      - uses: dorny/paths-filter@v3
-        id: app-src
-        continue-on-error: true
-        with:
-          base: ${{ github.event.before }}
-          predicate-quantifier: every
-          filters: |
-            desktop:
-              - app/src/**
-              - '!app/src/**/*.test.*'
 
   bundle:
     name: bundle (${{ matrix.platform }})
@@ -473,254 +442,4 @@ jobs:
             exit 1
           fi
           npx --yes wrangler@4 r2 object put zvid-downloads/capture/manifest.json --remote \
-            --file manifest.json --content-type application/json --cache-control no-cache
-
-  # The zvid desktop app on its own, packaged by Tauri's bundler: a .dmg for
-  # Apple silicon Macs, and an NSIS installer on Windows, which downloads the
-  # WebView2 Runtime when Windows lacks it. On main, publishes them to R2
-  # under desktop/ with fixed names, beside the plugin's capture/ installers.
-  # Like the bundles, skipped on pushes that changed no desktop app input (see
-  # the changes job).
-  desktop:
-    name: desktop (${{ matrix.platform }})
-    needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'push' || needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: macos-arm64
-            desktop-platform: macos
-            installer: zvid-macos.dmg
-            content-type: application/x-apple-diskimage
-          - os: windows-latest
-            platform: windows-x64
-            desktop-platform: windows
-            installer: zvid-windows-setup.exe
-            content-type: application/vnd.microsoft.portable-executable
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    defaults:
-      run:
-        shell: bash
-        working-directory: app
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
-
-      # The frontend embeds the export bridge, which the app's build script
-      # builds for wasm32 with wasm-pack.
-      - name: Install toolchain
-        run: |
-          rustup target add wasm32-unknown-unknown
-          if [ "$RUNNER_OS" = macOS ]; then
-            rustup target add aarch64-apple-darwin
-          fi
-
-      # PR runs restore main's release cache but don't save their own. The
-      # export bridge's wasm build has its own target directory.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            app/src-tauri -> target
-            app/export-bridge -> target
-          save-if: ${{ github.event_name != 'pull_request' }}
-
-      # After rust-cache so this saves before rust-cache's post step prunes
-      # ~/.cargo/bin of anything `cargo install` didn't put there.
-      - name: Cache wasm-pack binary
-        id: wasm-pack-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/wasm-pack${{ runner.os == 'Windows' && '.exe' || '' }}
-          key: wasm-pack-bin-v1-${{ runner.os }}
-
-      - name: Install wasm-pack
-        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      # Tauri signs the app with the Developer ID Application certificate
-      # when APPLE_CERTIFICATE is in the environment, and notarizes it with
-      # the App Store Connect API key when APPLE_API_KEY and
-      # APPLE_API_KEY_PATH are too. Unset secrets are removed from the
-      # environment rather than left empty: an empty APPLE_CERTIFICATE would
-      # fail the build.
-      - name: Build desktop app installer
-        id: build
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-          INSTALLER: ${{ matrix.installer }}
-        run: |
-          pnpm install --frozen-lockfile
-          active='{"bundle":{"active":true}}'
-          apple=(APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY)
-          if [ "$RUNNER_OS" != macOS ] || [ -z "$APPLE_CERTIFICATE" ]; then
-            unset "${apple[@]}"
-          fi
-          for name in "${apple[@]}"; do
-            [ -n "${!name}" ] || unset "$name"
-          done
-          if [ "$RUNNER_OS" = macOS ]; then
-            if [ -n "$APPLE_CERTIFICATE" ]; then
-              echo "signed=true" >> "$GITHUB_OUTPUT"
-              if [ -n "$APPLE_API_KEY" ]; then
-                export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
-                printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
-                echo "notarized=true" >> "$GITHUB_OUTPUT"
-              fi
-            else
-              echo "::notice::Apple signing secrets are not set; building an unsigned desktop app"
-            fi
-            pnpm tauri build --target aarch64-apple-darwin --bundles dmg --config "$active"
-            built=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
-          else
-            pnpm tauri build --bundles nsis --config "$active"
-            built=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
-          fi
-          mkdir -p target/desktop
-          mv "$built" "target/desktop/$INSTALLER"
-          ls -l "target/desktop/$INSTALLER"
-
-      # Mounts the .dmg and checks the app in it is arm64 only and, when
-      # signed, has a valid signature Gatekeeper accepts and a stapled
-      # notarization ticket. Builds of main fail unless they're notarized.
-      - name: Verify (macOS)
-        if: runner.os == 'macOS'
-        env:
-          INSTALLER: target/desktop/${{ matrix.installer }}
-          SIGNED: ${{ steps.build.outputs.signed }}
-          NOTARIZED: ${{ steps.build.outputs.notarized }}
-          REQUIRE_NOTARIZED: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-        run: |
-          if [ "$REQUIRE_NOTARIZED" = true ] && [ "$NOTARIZED" != true ]; then
-            echo "::error::main builds must be signed and notarized; check the APPLE_* signing secrets"
-            exit 1
-          fi
-          mount="$RUNNER_TEMP/zvid-dmg"
-          hdiutil attach "$INSTALLER" -nobrowse -readonly -mountpoint "$mount"
-          app="$mount/zvid.app"
-          executable=$(defaults read "$app/Contents/Info.plist" CFBundleExecutable)
-          archs=$(lipo -archs "$app/Contents/MacOS/$executable")
-          echo "$executable: $archs"
-          if [ "$archs" != arm64 ]; then
-            echo "::error::the desktop app must be arm64 only, has: $archs"
-            exit 1
-          fi
-          if [ "$SIGNED" = true ]; then
-            codesign --verify --deep --strict --verbose=2 "$app"
-          fi
-          if [ "$NOTARIZED" = true ]; then
-            spctl --assess --type execute --verbose "$app"
-            xcrun stapler validate "$app"
-          fi
-          hdiutil detach "$mount"
-
-      # Runs the installer silently, checks the app was installed, then
-      # uninstalls it and checks it is gone. Tauri's NSIS installer installs
-      # per user by default, into %LOCALAPPDATA%\zvid.
-      - name: Install and uninstall (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          INSTALLER: target/desktop/${{ matrix.installer }}
-        run: |
-          $process = Start-Process (Resolve-Path $env:INSTALLER) -ArgumentList '/S' -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "setup exited with $($process.ExitCode)" }
-          $dir = Join-Path $env:LOCALAPPDATA 'zvid'
-          $app = Get-ChildItem $dir -Filter *.exe | Where-Object Name -ne 'uninstall.exe' | Select-Object -First 1
-          if (-not $app) { throw "the app was not installed into $dir" }
-          Write-Output "installed $($app.FullName)"
-          # The uninstaller relaunches itself from a temporary copy, so wait
-          # for the app to disappear rather than for the process.
-          Start-Process (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
-          for ($i = 0; $i -lt 60 -and (Test-Path $app.FullName); $i++) { Start-Sleep -Seconds 1 }
-          if (Test-Path $app.FullName) { throw "uninstalling left $($app.FullName) behind" }
-
-      # main only, like the plugin's upload: overwrites the installer in R2
-      # under its fixed name and records its size and hash for the manifest
-      # the publish-desktop job writes once both platforms have uploaded.
-      - name: Upload the installer to R2
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        working-directory: app/target/desktop
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          INSTALLER: ${{ matrix.installer }}
-          CONTENT_TYPE: ${{ matrix.content-type }}
-          PLATFORM: ${{ matrix.desktop-platform }}
-        run: |
-          npx --yes wrangler@4 r2 object put "zvid-downloads/desktop/$INSTALLER" --remote \
-            --file "$INSTALLER" --content-type "$CONTENT_TYPE" \
-            --content-disposition "attachment; filename=\"$INSTALLER\"" \
-            --cache-control no-cache
-          size=$(wc -c < "$INSTALLER" | tr -d ' ')
-          if command -v sha256sum > /dev/null; then
-            sha256=$(sha256sum "$INSTALLER" | cut -d ' ' -f 1)
-          else
-            sha256=$(shasum -a 256 "$INSTALLER" | cut -d ' ' -f 1)
-          fi
-          mkdir -p ../published
-          printf '{"platform":"%s","file":"%s","size":%s,"sha256":"%s"}\n' \
-            "$PLATFORM" "$INSTALLER" "$size" "$sha256" | tee "../published/$PLATFORM.json"
-
-      # The published installer's manifest entry, not the installer itself.
-      - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        with:
-          name: desktop-installer-${{ matrix.desktop-platform }}
-          path: app/target/published/${{ matrix.desktop-platform }}.json
-          if-no-files-found: error
-          retention-days: 1
-
-  # Writes desktop/manifest.json, which the app's Download Desktop App dialog
-  # reads, only after every platform's installer uploaded. Same format as
-  # capture/manifest.json; the version is app/package.json's. Skipped with the
-  # desktop jobs when a push changed no desktop app input, so the manifest
-  # keeps describing the installers last built.
-  publish-desktop:
-    name: publish desktop manifest
-    needs: desktop
-    if: ${{ !cancelled() && needs.desktop.result == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: desktop-installer-*
-          path: published
-          merge-multiple: true
-
-      - name: Upload the manifest to R2
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          version=$(jq -r .version app/package.json)
-          jq -s --arg version "$version+${GITHUB_SHA::7}" --arg sha "$GITHUB_SHA" \
-            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{version: $version, sha: $sha, builtAt: $builtAt, installers: sort_by(.platform)}' \
-            published/*.json | tee manifest.json
-          count=$(jq '.installers | length' manifest.json)
-          if [ "$count" != 2 ]; then
-            echo "::error::expected 2 installers, got $count"
-            exit 1
-          fi
-          npx --yes wrangler@4 r2 object put zvid-downloads/desktop/manifest.json --remote \
             --file manifest.json --content-type application/json --cache-control no-cache
