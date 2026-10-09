@@ -55,16 +55,20 @@
 }
 
 /* Red at the top, green a third of a turn clockwise and blue two thirds,
-   fading to gray at the center, as the puck moves the channels. */
+   fading to gray at the center, as the puck moves the channels. The border
+   stays for layout but is transparent, and the gradients are laid out over
+   the border box without repeating, so the hue runs cleanly to the rim. */
 .fx-wheel__disc {
   position: relative;
   width: 88px;
   height: 88px;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 50%;
   background:
     radial-gradient(circle closest-side, #2a2c38 0%, rgba(42, 44, 56, 0.55) 55%, transparent 100%),
     conic-gradient(#e0484c, #d8c640, #4ccc5a, #3fc6c8, #4a62e0, #c84ad6, #e0484c);
+  background-origin: border-box;
+  background-repeat: no-repeat;
   cursor: crosshair;
   touch-action: none;
 }
