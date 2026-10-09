@@ -1,10 +1,11 @@
 /* The audio analysis area below the preview monitor: the spectrogram fills
-   the width, and the vertical master meter sits at its right edge. */
+   the width, and the vertical master meter sits at its right edge. In a
+   short panel it gives up height before the monitor drops to its minimum. */
 .audio-analysis {
   display: flex;
-  flex: none;
+  flex: 0 1 150px;
   gap: 8px;
-  height: 150px;
+  min-height: 96px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
