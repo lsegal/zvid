@@ -12,11 +12,13 @@ import {
   formatRawNumber,
   getEffectDefinition,
   getEffectDomain,
+  isEffectSupportedIn,
 } from "./fx-registry.ts";
 import {
   type FxDevice,
   type FxDeviceGroup,
   type FxDeviceParameter,
+  isContentEffectName,
   isLayoutEffectName,
 } from "./fx-stack.ts";
 
@@ -343,6 +345,60 @@ export function describeDeviceMove(
 ) {
   const stack = device.group === "global" ? "Global" : device.subtitle;
   return `Moved ${device.name} to position ${toIndex + 1} of ${stackSize} in ${stack}`;
+}
+
+// Whether a device stays where it is: a layer's own Layout, and the content
+// effect that defines the selected clip, such as a text clip's Text. It
+// can't be cut, deleted, moved to another stack or cleared. An FX clip
+// has no content.
+export function isFixedDevice(
+  device: Pick<FxDevice, "effectName" | "group" | "layerDefault">,
+  clipScope: FxEffectScope,
+) {
+  return (
+    Boolean(device.layerDefault) ||
+    (device.group === "clip" &&
+      clipScope !== "fxClip" &&
+      isContentEffectName(device.effectName))
+  );
+}
+
+// Whether an `effectName` device can be pasted or moved onto a `scope`
+// stack holding `stack`: its definition must support the scope, and a
+// layer keeps a single Layout.
+export function canPlaceDevice(
+  effectName: string,
+  scope: FxEffectScope,
+  stack: readonly Pick<FxDevice, "effectName">[],
+) {
+  return (
+    isEffectSupportedIn(effectName, scope) &&
+    !(
+      isLayoutEffectName(effectName) &&
+      stack.some((device) => isLayoutEffectName(device.effectName))
+    )
+  );
+}
+
+// The stack whose section holds viewport point `x`: the last section
+// divider at or left of it, or undefined left of every divider, where the
+// chain's leading devices sit.
+export function getStackAtPoint(
+  dividers: readonly { group: FxDeviceGroup; left: number }[],
+  x: number,
+) {
+  return dividers.findLast((divider) => divider.left <= x)?.group;
+}
+
+// The devices Clear All removes: every device of the layer and clip stacks
+// that isn't fixed. Global devices stay.
+export function getClearableDevices(
+  groups: Pick<FxChainGroups, "layer" | "clip">,
+  clipScope: FxEffectScope,
+) {
+  return [...groups.layer, ...groups.clip].filter(
+    (device) => !isFixedDevice(device, clipScope),
+  );
 }
 
 type SelectableLane = { id: string };

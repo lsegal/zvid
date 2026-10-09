@@ -31,7 +31,13 @@ export type FxPanelProps = Pick<
   Pick<
     FxEditing,
     | "addFxDevice"
+    | "clearFxDevices"
+    | "copyFxDevice"
+    | "cutFxDevice"
     | "duplicateFxDevice"
+    | "fxClipboard"
+    | "moveFxDeviceToStack"
+    | "pasteFxDevice"
     | "moveFxDevice"
     | "removeFxDevice"
     | "resetFxDevice"
@@ -56,7 +62,11 @@ export type FxPanelProps = Pick<
 // even though it belongs to the track.
 export function FxPanel({
   addFxDevice,
+  clearFxDevices,
+  copyFxDevice,
+  cutFxDevice,
   duplicateFxDevice,
+  fxClipboard,
   fxClipLayerOptions,
   fxClipScope,
   fxClipTrackId,
@@ -72,7 +82,9 @@ export function FxPanel({
   fxSourceTrackId,
   isInspectorCollapsed,
   moveFxDevice,
+  moveFxDeviceToStack,
   orderLayerOptions,
+  pasteFxDevice,
   removeFxDevice,
   resetFxDevice,
   setFxDeviceAnimation,
@@ -138,8 +150,14 @@ export function FxPanel({
           clipTrackId={fxClipTrackId}
           clipScope={fxClipScope}
           onAdd={addFxDevice}
+          clipboardEffectName={fxClipboard?.effectName}
+          onClearAll={clearFxDevices}
+          onCopy={copyFxDevice}
+          onCut={cutFxDevice}
           onDuplicate={duplicateFxDevice}
           onMove={moveFxDevice}
+          onMoveToStack={moveFxDeviceToStack}
+          onPaste={pasteFxDevice}
           onRemove={removeFxDevice}
           onReset={resetFxDevice}
           onSetLayerFxEnabled={(enabled) => {
