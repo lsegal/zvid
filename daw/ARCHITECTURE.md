@@ -497,8 +497,11 @@ installers:
 
 The plugin installers are plugin only. The zvid desktop app ships as its
 own installers, built separately by the **Desktop app** workflow
-(`.github/workflows/desktop.yml`) with Tauri's bundler, on pushes to `main`
-that change a desktop app input:
+(`.github/workflows/desktop.yml`) with Tauri's bundler. It runs only when
+started by hand (the Actions tab's **Run workflow** button, or
+`gh workflow run desktop.yml`); merges to `main` and pull requests don't
+build it. A run on `main` publishes the installers; a run on another branch
+only builds and verifies them:
 
 - `zvid-macos.dmg`: `zvid.app`, arm64 only (`pnpm --dir app tauri build
   --target aarch64-apple-darwin --bundles dmg`), signed and notarized by
@@ -585,7 +588,7 @@ signed only when `APPLE_INSTALLER_CERTIFICATE` is also set, and the signed
 `.pkg` and the app are notarized with the API key. Builds of `main` fail
 unless the `.pkg` or app they build is notarized with a stapled ticket, so a
 missing or broken secret can't publish unsigned installers; pull request
-builds keep the unsigned fallback. They use these repository secrets:
+builds and runs on other branches keep the unsigned fallback. They use these repository secrets:
 
 | Secret | Contents |
 |---|---|
