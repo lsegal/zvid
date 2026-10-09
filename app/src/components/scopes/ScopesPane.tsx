@@ -15,6 +15,9 @@ import { SCOPE_KINDS, type ScopeKind } from "./scope-pixels.ts";
 import { clampScopesHeight, MIN_SCOPES_HEIGHT_PX } from "./scopes-height.ts";
 import "./scopes-pane.css";
 
+// How far an arrow key moves the splitter, in CSS pixels.
+const KEYBOARD_STEP_PX = 16;
+
 // Whether the preview's Scopes panel is open, how tall it is (null while it
 // shares the room evenly with the monitor) and which scope it shows. They
 // live with the preview panel so it keeps them across the Timeline and
