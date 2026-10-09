@@ -266,3 +266,64 @@ test("the Scopes pane follows the Media tab and shows an empty state for audio",
   await expect(scopesCanvas(page)).toBeVisible();
   await expect(scopesCanvas(page)).toHaveAttribute("data-sampled", "true");
 });
+
+// Drops `file` into a new source track, the `count`th.
+async function addSourceTrack(
+  page: Page,
+  count: number,
+  { url, name, type }: typeof VIDEO_FILE,
+) {
+  const base64 = (await readFile(url)).toString("base64");
+  const dataTransfer = await page.evaluateHandle(
+    ({ base64, name, type }) => {
+      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([bytes], name, { type }));
+      return transfer;
+    },
+    { base64, name, type },
+  );
+  const dispatch = async (target: string, types: string[]) => {
+    for (const type of types) {
+      await page.dispatchEvent(target, type, { dataTransfer });
+    }
+  };
+  if (count === 1) {
+    await dispatch('[aria-label="Source track drop area"]', [
+      "dragenter",
+      "dragover",
+      "drop",
+    ]);
+  } else {
+    await dispatch('[data-source-track-drop-target="track"]', [
+      "dragenter",
+      "dragover",
+    ]);
+    await dispatch(".track-row--source-drop", [
+      "dragenter",
+      "dragover",
+      "drop",
+    ]);
+  }
+  await expect(page.locator(".source-span")).toHaveCount(count, {
+    timeout: 30_000,
+  });
+}
+
+test("the Timeline tab's Scopes analyze the program frame when the clip at the playhead is audio (#1164)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(lane(page, "1")).toBeVisible();
+  // A picture on the first track, under audio on the second.
+  await addSourceTrack(page, 1, VIDEO_FILE);
+  await addSourceTrack(page, 2, AUDIO_FILE);
+  await page.getByRole("button", { name: "Jump to timeline start" }).click();
+  await expect(page.locator(".preview-panel__title")).toHaveText("tone.wav");
+
+  await scopesButton(page).click();
+  await expect(scopesPane(page)).toBeVisible();
+  await expect(scopesPane(page)).not.toContainText("Audio only");
+  await expect(scopesCanvas(page)).toHaveAttribute("data-sampled", "true");
+  await expect.poll(async () => (await readScope(page)).lit).toBeGreaterThan(0);
+});
