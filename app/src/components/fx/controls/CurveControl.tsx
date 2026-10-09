@@ -138,17 +138,14 @@ export function CurveControl({
   const [dragPoints, setDragPoints] = useState<CurvePoint[] | null>(null);
   const shownPoints = dragPoints ?? points;
 
-  const store = (
-    next: readonly CurvePoint[],
-    mode: "commit" | "transient",
-  ) => {
+  const store = (next: readonly CurvePoint[], mode: "commit" | "transient") => {
     const nextCurves: LevelsCurves = { ...curves, [channel]: next };
     onSetParameter(device, parameter.key, formatCurves(nextCurves), mode);
   };
 
   const plotPosition = (event: { clientX: number; clientY: number }) => {
     const bounds = svg.current?.getBoundingClientRect();
-    if (!bounds || !bounds.width || !bounds.height) {
+    if (!bounds?.width || !bounds.height) {
       return null;
     }
     return [
@@ -265,12 +262,7 @@ export function CurveControl({
   const bins = histogram?.[HISTOGRAM_CHANNEL[channel]];
 
   return (
-    <div
-      className={`fx-curve fx-curve--${channel}`}
-      data-fx-no-drag
-      role="group"
-      aria-label={parameter.label}
-    >
+    <div className={`fx-curve fx-curve--${channel}`} data-fx-no-drag>
       <div className="fx-curve__header">
         <span className="fx-curve__label">{parameter.label}</span>
         <div className="fx-curve__tabs">
@@ -300,7 +292,6 @@ export function CurveControl({
           <ArrowPathIcon aria-hidden="true" />
         </button>
       </div>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: the points are focusable sliders with the keyboard equivalents */}
       <svg
         aria-label={`${CHANNEL_LABELS[channel]} curve plot`}
         className="fx-curve__plot"
@@ -341,7 +332,6 @@ export function CurveControl({
         />
         <path className="fx-curve__line" d={curvePath(shownPoints)} />
         {shownPoints.map(([x, y], index) => (
-          // biome-ignore lint/a11y/useSemanticElements: an SVG point has no native slider element
           <circle
             aria-label={`${CHANNEL_LABELS[channel]} curve point ${index + 1}`}
             aria-valuemax={1}

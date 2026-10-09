@@ -122,7 +122,7 @@ export function gradeLevel(
 ) {
   const shifted = level + offset;
   const mapped = Math.max(0, Math.min(1, lift + shifted * (gain - lift)));
-  return mapped ** 2 ** -gamma;
+  return mapped ** (2 ** -gamma);
 }
 
 // Where each of red, green and blue points in a wheel, x right and y down:

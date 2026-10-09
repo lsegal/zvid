@@ -105,11 +105,8 @@ export const pass: EffectPass = {
     gl.uniform3f(loc.uGain, gain[0], gain[1], gain[2]);
     gl.uniform3f(loc.uOffset, offset[0], offset[1], offset[2]);
     const { curves, lut } = readLevelsCurve(params);
-    const curveOn = !isIdentityCurves(curves);
-    gl.uniform1f(loc.uCurveOn, curveOn ? 1 : 0);
-    if (curveOn) {
-      gl.uniform3fv(loc.uCurve, lut);
-    }
+    gl.uniform1f(loc.uCurveOn, isIdentityCurves(curves) ? 0 : 1);
+    gl.uniform3fv(loc.uCurve, lut);
   },
   // The wheels at their defaults and straight curves leave the picture as
   // it is.

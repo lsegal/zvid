@@ -18,7 +18,9 @@ export const CURVE_CHANNELS: readonly CurveChannel[] = [
   "blue",
 ];
 
-export type LevelsCurves = Readonly<Record<CurveChannel, readonly CurvePoint[]>>;
+export type LevelsCurves = Readonly<
+  Record<CurveChannel, readonly CurvePoint[]>
+>;
 
 export const IDENTITY_POINTS: readonly CurvePoint[] = [
   [0, 0],
@@ -64,9 +66,7 @@ export function normalizePoints(
     }
     kept.push(point);
   }
-  return kept.length >= 2
-    ? kept.slice(0, MAX_CURVE_POINTS)
-    : IDENTITY_POINTS;
+  return kept.length >= 2 ? kept.slice(0, MAX_CURVE_POINTS) : IDENTITY_POINTS;
 }
 
 function parseChannel(text: string | undefined) {

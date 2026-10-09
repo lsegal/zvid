@@ -29,7 +29,7 @@ function round(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-function valueOf(parameter: FxDeviceParameter) {
+function channelValue(parameter: FxDeviceParameter) {
   return (
     parameter.numericValue ??
     (typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0)
@@ -37,7 +37,9 @@ function valueOf(parameter: FxDeviceParameter) {
 }
 
 function defaultOf(parameter: FxDeviceParameter) {
-  return typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
+  return typeof parameter.defaultValue === "number"
+    ? parameter.defaultValue
+    : 0;
 }
 
 // A typed value for one of the wheel's numbers, committed on Enter or blur
@@ -132,7 +134,7 @@ export function ColorWheelControl({
   };
 
   const colors = red && green && blue ? [red, green, blue] : [];
-  const rgb = colors.map(valueOf) as [number, number, number];
+  const rgb = colors.map(channelValue) as [number, number, number];
   const [puckX, puckY] = colors.length ? puckPosition(rgb, reach) : [0, 0];
   const puckLength = Math.hypot(puckX, puckY);
   const shown = puckLength > 1 ? 1 / puckLength : 1;
@@ -235,7 +237,7 @@ export function ColorWheelControl({
     );
 
   const masterRange = master.max - master.min;
-  const masterValue = valueOf(master);
+  const masterValue = channelValue(master);
   const masterPosition = masterRange
     ? (masterValue - master.min) / masterRange
     : 0;
@@ -262,7 +264,8 @@ export function ColorWheelControl({
     }
     const factor = event.shiftKey ? 1 / FINE_FACTOR : 1;
     return (
-      state.start + ((event.clientX - state.x) / JOG_PIXELS) * masterRange * factor
+      state.start +
+      ((event.clientX - state.x) / JOG_PIXELS) * masterRange * factor
     );
   };
 
@@ -308,19 +311,13 @@ export function ColorWheelControl({
   const tint = colors.length
     ? `rgb(${rgb
         .map((value) =>
-          Math.round(
-            clamp(128 + ((value - meanOf()) / reach) * 127, 0, 255),
-          ),
+          Math.round(clamp(128 + ((value - meanOf()) / reach) * 127, 0, 255)),
         )
         .join(", ")})`
     : "transparent";
 
   return (
-    <fieldset
-      className="fx-wheel"
-      data-fx-wheel={name}
-      data-fx-no-drag
-    >
+    <fieldset className="fx-wheel" data-fx-wheel={name} data-fx-no-drag>
       <legend className="fx-wheel__header">
         <span className="fx-wheel__label">{name}</span>
         <button
@@ -333,10 +330,12 @@ export function ColorWheelControl({
           <ArrowPathIcon aria-hidden="true" />
         </button>
       </legend>
-      {/* biome-ignore lint/a11y/useSemanticElements: a two-dimensional puck has no native element */}
       <div
         aria-label={`${name} color`}
         aria-roledescription="color wheel"
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(Math.min(1, puckLength) * 100)}
         aria-valuetext={`R ${red?.display ?? ""}, G ${green?.display ?? ""}, B ${blue?.display ?? ""}`}
         className="fx-wheel__disc"
         onDoubleClick={resetColors}
@@ -347,7 +346,7 @@ export function ColorWheelControl({
         onPointerDown={onWheelPointerDown}
         onPointerMove={onWheelPointerMove}
         onPointerUp={onWheelPointerUp}
-        role="application"
+        role="slider"
         tabIndex={0}
         title={`Drag to tint ${name}; double-click to center`}
       >
