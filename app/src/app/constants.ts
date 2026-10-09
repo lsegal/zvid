@@ -67,6 +67,8 @@ export const PREVIEW_VOLUME_STORAGE_KEY = "zvid-preview-volume";
 
 export const PREVIEW_TAB_STORAGE_KEY = "zvid-preview-tab";
 
+export const AUDIO_ANALYSIS_STORAGE_KEY = "zvid-audio-analysis";
+
 export const PREVIEW_DEFAULT_WIDTH = 280;
 
 export const PREVIEW_MIN_WIDTH = 240;
