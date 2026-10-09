@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { toggleLayerId } from "./composition-order.ts";
 import {
   addableEffectsFor,
+  canMoveDevice,
   canStartFxChainPan,
   describeArrangedLayers,
   describeDeviceMove,
@@ -18,9 +19,11 @@ import {
   getFxClipName,
   getFxPanelTitle,
   getParameterFormat,
+  getStackMoveIndex,
   groupAddableEffects,
   groupChainDevices,
   isNoopDropSlot,
+  isPinnedDevice,
   knobColumnCount,
   readCollapsedDevices,
   resolveSelectedLaneId,
@@ -34,6 +37,7 @@ import {
 import { FX_EFFECT_DEFINITIONS } from "./fx-registry.ts";
 import {
   clipEffectTrackId,
+  type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
   mapSessionEffectsToDevices,
   moveEffect,
@@ -705,6 +709,84 @@ describe("drag reordering", () => {
     assert.equal(
       describeDeviceMove(global, 0, 1),
       "Moved Colorize to position 1 of 1 in Global",
+    );
+  });
+});
+
+describe("moving devices between stacks", () => {
+  const clip = clipEffectTrackId("c1");
+  const groups = groupChainDevices(
+    mapSessionEffectsToDevices(
+      [
+        ...DOGFOOD_EFFECTS,
+        effect("order", GLOBAL_EFFECT_TRACK_ID, "Order"),
+        effect("move", "3", "Transform"),
+        effect("text", clip, "Text"),
+        effect("blur", clip, "GaussianBlur"),
+        effect("reverse", clip, "Reverse"),
+      ],
+      "3",
+      "Layer 3",
+      [],
+      new Set(),
+      clip,
+    ),
+    "video",
+  );
+  const find = (id: string) =>
+    [...groups.global, ...groups.layer, ...groups.clip].find(
+      (device) => device.id === id,
+    ) as FxDevice;
+
+  it("pins a clip's content device", () => {
+    assert.ok(isPinnedDevice(find("text")));
+    assert.ok(!isPinnedDevice(find("blur")));
+    // A layer's Layout still reorders within its stack.
+    assert.ok(!isPinnedDevice(find("fx-layout")));
+  });
+
+  it("reorders within a stack, but never ahead of the content device", () => {
+    assert.ok(canMoveDevice(groups, find("fx-2"), "layer", 0, "clip"));
+    assert.ok(canMoveDevice(groups, find("fx-layout"), "layer", 3, "clip"));
+    assert.ok(!canMoveDevice(groups, find("fx-2"), "layer", 6, "clip"));
+    assert.ok(canMoveDevice(groups, find("reverse"), "clip", 1, "clip"));
+    assert.ok(!canMoveDevice(groups, find("reverse"), "clip", 0, "clip"));
+    assert.ok(!canMoveDevice(groups, find("text"), "clip", 1, "clip"));
+  });
+
+  it("moves devices to stacks their effect is designed for", () => {
+    // Colorize works everywhere.
+    assert.ok(canMoveDevice(groups, find("fx-global"), "layer", 0, "clip"));
+    assert.ok(canMoveDevice(groups, find("fx-global"), "clip", 3, "clip"));
+    assert.ok(canMoveDevice(groups, find("fx-2"), "global", 0, "clip"));
+    assert.ok(canMoveDevice(groups, find("blur"), "global", 2, "clip"));
+    // Nothing goes ahead of the clip's Text, or past a stack's end.
+    assert.ok(!canMoveDevice(groups, find("fx-global"), "clip", 0, "clip"));
+    assert.ok(!canMoveDevice(groups, find("fx-global"), "clip", 4, "clip"));
+    // Transform never goes on the Global stack; Reverse is clip-only.
+    assert.ok(!canMoveDevice(groups, find("move"), "global", 0, "clip"));
+    assert.ok(canMoveDevice(groups, find("move"), "clip", 1, "clip"));
+    assert.ok(!canMoveDevice(groups, find("reverse"), "layer", 0, "clip"));
+    assert.ok(!canMoveDevice(groups, find("reverse"), "global", 0, "clip"));
+    // Order goes on an FX clip's stack only.
+    assert.ok(!canMoveDevice(groups, find("order"), "clip", 1, "clip"));
+    assert.ok(canMoveDevice(groups, find("order"), "clip", 1, "fxClip"));
+    // Content devices stay on their stack.
+    assert.ok(!canMoveDevice(groups, find("fx-layout"), "clip", 1, "clip"));
+    assert.ok(!canMoveDevice(groups, find("text"), "layer", 0, "clip"));
+  });
+
+  it("sends a device to the near end of another stack", () => {
+    assert.equal(getStackMoveIndex(groups, find("fx-2"), "global"), 2);
+    assert.equal(getStackMoveIndex(groups, find("fx-2"), "clip"), 1);
+    assert.equal(getStackMoveIndex(groups, find("fx-global"), "layer"), 0);
+    assert.equal(getStackMoveIndex(groups, find("blur"), "layer"), 6);
+  });
+
+  it("announces a move to another stack by its name", () => {
+    assert.equal(
+      describeDeviceMove(find("fx-2"), 1, 3, "Clip"),
+      "Moved Colorize to position 2 of 3 in Clip",
     );
   });
 });

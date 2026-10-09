@@ -33,6 +33,7 @@ export type FxPanelProps = Pick<
     | "addFxDevice"
     | "duplicateFxDevice"
     | "moveFxDevice"
+    | "moveFxDeviceToStack"
     | "removeFxDevice"
     | "resetFxDevice"
     | "setFxDeviceAnimation"
@@ -72,6 +73,7 @@ export function FxPanel({
   fxSourceTrackId,
   isInspectorCollapsed,
   moveFxDevice,
+  moveFxDeviceToStack,
   orderLayerOptions,
   removeFxDevice,
   resetFxDevice,
@@ -140,6 +142,7 @@ export function FxPanel({
           onAdd={addFxDevice}
           onDuplicate={duplicateFxDevice}
           onMove={moveFxDevice}
+          onMoveToStack={moveFxDeviceToStack}
           onRemove={removeFxDevice}
           onReset={resetFxDevice}
           onSetLayerFxEnabled={(enabled) => {

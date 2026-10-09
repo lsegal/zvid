@@ -1,13 +1,19 @@
-import type { FxDevice } from "../../fx-stack";
+import type { FxDevice, FxDeviceGroup } from "../../fx-stack";
 import type { ContextMenuEntry } from "../ContextMenu";
 
 // The device a context menu was opened on, and where.
 export type DeviceMenuState = {
   device: FxDevice;
   index: number;
-  stackSize: number;
   x: number;
   y: number;
+};
+
+// Another stack a device can be sent to, and where it would land there.
+export type DeviceStackTarget = {
+  group: FxDeviceGroup;
+  label: string;
+  index: number;
 };
 
 type DeviceMenuActions = {
@@ -16,10 +22,16 @@ type DeviceMenuActions = {
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   moveDevice: (
     device: FxDevice,
-    fromIndex: number,
+    toGroup: FxDeviceGroup,
     toIndex: number,
-    stackSize: number,
   ) => void;
+  canMoveDevice: (
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) => boolean;
+  // The other stacks the device can be sent to, left to right.
+  stackTargets: readonly DeviceStackTarget[];
   resetDevice: (device: FxDevice) => void;
   duplicateDevice: (device: FxDevice) => void;
   removeDevice: (device: FxDevice) => void;
@@ -33,6 +45,8 @@ export function getDeviceMenuEntries(
     toggleCollapsed,
     onSetEnabled,
     moveDevice,
+    canMoveDevice,
+    stackTargets,
     resetDevice,
     duplicateDevice,
     removeDevice,
@@ -58,19 +72,27 @@ export function getDeviceMenuEntries(
       id: "move-left",
       label: "Move Left",
       shortcut: "Alt+←",
-      disabled: menu.index === 0,
-      onSelect: () =>
-        moveDevice(device, menu.index, menu.index - 1, menu.stackSize),
+      disabled: !canMoveDevice(device, device.group, menu.index - 1),
+      onSelect: () => moveDevice(device, device.group, menu.index - 1),
     },
     {
       type: "item",
       id: "move-right",
       label: "Move Right",
       shortcut: "Alt+→",
-      disabled: menu.index >= menu.stackSize - 1,
-      onSelect: () =>
-        moveDevice(device, menu.index, menu.index + 1, menu.stackSize),
+      disabled: !canMoveDevice(device, device.group, menu.index + 1),
+      onSelect: () => moveDevice(device, device.group, menu.index + 1),
     },
+    ...stackTargets.map(
+      (target) =>
+        ({
+          type: "item",
+          id: `move-to-${target.group}`,
+          label: `Move to ${target.label}`,
+          disabled: !canMoveDevice(device, target.group, target.index),
+          onSelect: () => moveDevice(device, target.group, target.index),
+        }) satisfies ContextMenuEntry,
+    ),
     { type: "separator" },
     ...(device.layerDefault
       ? [

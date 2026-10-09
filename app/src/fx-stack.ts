@@ -50,6 +50,7 @@ export {
   getEffectDisplayName,
   hasGlobalOrder,
   moveEffect,
+  moveEffectToStack,
   pruneExcludedLayers,
   removeEffect,
   resetEffect,
