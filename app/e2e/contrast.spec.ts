@@ -121,11 +121,10 @@ test("Contrast is added from a layer's Video → Color menu and changes the prev
     "aria-valuetext",
     "0.435",
   );
-  const animation = device.getByRole("button", {
-    name: "Turn Animation Off for Contrast",
-  });
-  await expect(animation).toHaveAttribute("aria-pressed", "true");
-  await animation.click();
+  // A static grading tool, it comes with Animation off.
+  await expect(
+    device.getByRole("button", { name: "Turn Animation On for Contrast" }),
+  ).toHaveAttribute("aria-pressed", "false");
 
   // The default Contrast of 1 leaves the picture as it was.
   await expect

@@ -12,6 +12,7 @@ import {
 } from "../../composition-order.ts";
 import {
   createDefaultAnimation,
+  createNewDeviceAnimation,
   type EffectAnimation,
   normalizeEffectAnimation,
   supportsAnimation,
@@ -274,14 +275,15 @@ export function moveEffect(
 }
 
 // A new effect with the registry defaults. Effects that support animation
-// come with their Animation modifier turned on, at its defaults.
+// come with their Animation modifier at its defaults, turned on unless the
+// effect is added with it off (see `createNewDeviceAnimation`).
 export function createEffect(
   trackId: string,
   effectName: string,
   id: string = crypto.randomUUID(),
 ): SessionEffect {
   const definition = getEffectDefinition(effectName);
-  const animation = createDefaultAnimation(effectName);
+  const animation = createNewDeviceAnimation(effectName);
   return {
     id,
     trackId,
@@ -379,7 +381,7 @@ export function duplicateEffect(
   const source = effects[index];
   const animation = source.animation
     ? cloneAnimation(source.animation)
-    : createDefaultAnimation(source.effectName);
+    : createNewDeviceAnimation(source.effectName);
   const { defaulted: _defaulted, ...rest } = source;
   const copy: SessionEffect = {
     ...rest,

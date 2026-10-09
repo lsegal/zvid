@@ -149,6 +149,9 @@ export type FxAnimationDefaults = {
   reactiveFrames: AnimationTimingFrames;
   // Absent when the effect doesn't support LFO mode.
   lfo?: Readonly<LfoAnimation>;
+  // A new device comes with its Animation off, as for static grading tools,
+  // rather than on.
+  offWhenAdded?: boolean;
 };
 
 export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
@@ -214,6 +217,11 @@ function withTransition(
   };
 }
 
+// `effectDefaults` for an effect whose new devices come with Animation off.
+function offWhenAdded(effectDefaults: FxAnimationDefaults): FxAnimationDefaults {
+  return { ...effectDefaults, offWhenAdded: true };
+}
+
 function withClipTiming(
   effectDefaults: FxAnimationDefaults,
   timing: ClipTiming,
@@ -262,18 +270,30 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     "Colorize",
     defaults("Ease Out", "Ease In", [12, 8, 4], "Wobble", 0.5, ["_HueOffset"]),
   ],
+  // Exposure, Contrast, LUT and Levels are static grading tools, so their
+  // new devices come with Animation off.
   [
     "Exposure",
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Stops"]),
+    offWhenAdded(
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Stops"]),
+    ),
   ],
   // Pivot is animatable too, but the music moves Contrast by default.
   [
     "Contrast",
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["_Contrast"]),
+    offWhenAdded(
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
+        "_Contrast",
+      ]),
+    ),
   ],
   [
     "LUT",
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Intensity"]),
+    offWhenAdded(
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, [
+        "_Intensity",
+      ]),
+    ),
   ],
   [
     "Pixelate",
@@ -325,7 +345,9 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   ],
   [
     LEVELS_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["GainY"]),
+    offWhenAdded(
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["GainY"]),
+    ),
   ],
   [
     COLOR_EFFECT_NAME,
@@ -396,6 +418,18 @@ export function createDefaultAnimation(
       : {}),
     ...(lfo ? { lfo: { ...lfo, parameters: [...lfo.parameters] } } : {}),
   };
+}
+
+// The animation a new device of the effect comes with: its defaults, off
+// for an effect whose devices are added with Animation off. Undefined when
+// the effect doesn't support animation.
+export function createNewDeviceAnimation(
+  effectName: string,
+): EffectAnimation | undefined {
+  const animation = createDefaultAnimation(effectName);
+  return animation && getAnimationDefaults(effectName)?.offWhenAdded
+    ? { ...animation, enabled: false }
+    : animation;
 }
 
 // Frames each side of a Clip-mode animation takes. Full is unbounded, so
