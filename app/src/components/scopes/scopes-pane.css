@@ -1,24 +1,21 @@
-/* Over the bottom of the picture: the program monitor on the Timeline tab,
-   the media's picture above its transport on the Media tab. Above the
-   transform overlay and the Media tab, which sit at z-index 3 at most. */
+/* Its own panel between the monitor and the audio analysis panel. It shares
+   the room evenly with the monitor until its splitter is dragged, which sets
+   an inline height. The monitor keeps at least its own min-height. */
 .scopes-pane {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 4;
+  position: relative;
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
-  min-height: min(96px, 100%);
-  max-height: 90%;
-  border-top: 1px solid var(--line);
+  min-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   background: rgba(7, 8, 13, 0.94);
 }
 
-/* The top edge, dragged to resize the pane. */
+/* The splitter, filling the panel's gap below the monitor. */
 .scopes-pane__resize {
   position: absolute;
-  top: -4px;
+  top: -9px;
   right: 0;
   left: 0;
   z-index: 1;
@@ -75,6 +72,8 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+  border-radius: 0 0 13px 13px;
 }
 
 .scopes-pane__canvas {

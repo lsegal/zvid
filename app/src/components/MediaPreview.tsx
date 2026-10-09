@@ -44,8 +44,6 @@ type MediaPreviewProps = {
   mediaRange: MediaRangeActions;
   // Told about the player's media element, for the audio analysis pane.
   onMediaElement?: (element: HTMLMediaElement | null) => void;
-  // The Scopes pane, over the bottom of the picture, when it is open.
-  scopes?: ReactNode;
 };
 
 // The Media tab's player: the selected media on its own, with a transport
@@ -59,13 +57,11 @@ export function MediaPreview({
   projectFps,
   mediaRange,
   onMediaElement,
-  scopes,
 }: MediaPreviewProps) {
   if (!media) {
     return (
       <div className="media-preview media-preview--empty">
         <span>Select media to preview</span>
-        {scopes}
       </div>
     );
   }
@@ -81,7 +77,6 @@ export function MediaPreview({
             <span>{detail}</span>
           </div>
         </div>
-        {scopes}
       </div>
     );
   }
@@ -98,7 +93,6 @@ export function MediaPreview({
       projectFps={projectFps}
       mediaRange={mediaRange}
       onMediaElement={onMediaElement}
-      scopes={scopes}
     />
   );
 }
@@ -112,7 +106,6 @@ function MediaPlayer({
   projectFps,
   mediaRange,
   onMediaElement,
-  scopes,
 }: MediaPreviewProps & { media: MediaItem }) {
   const elementRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -233,7 +226,6 @@ function MediaPlayer({
             <MediaWaveform media={media} duration={duration} />
           </>
         )}
-        {scopes}
       </div>
 
       <div className="media-preview__transport">
