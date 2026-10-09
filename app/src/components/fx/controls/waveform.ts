@@ -2,7 +2,7 @@ import {
   FRAME_LEVELS,
   type FrameSample,
   waveformCounts,
-} from "../../../fx-shaders/frame-analysis";
+} from "../../../fx-shaders/frame-analysis.ts";
 
 // The waveform's scale: 10-bit levels, labeled every 128.
 export const WAVEFORM_MAX_LEVEL = 1023;

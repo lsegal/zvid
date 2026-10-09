@@ -7,8 +7,6 @@ import {
   useRef,
 } from "react";
 import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
-import { audioMixEndSeconds } from "./audio-mix/mix.ts";
-import { renderAudioMixOffline } from "./audio-mix/offline.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
 import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
 import {
@@ -47,6 +45,7 @@ import {
   indexEffects,
   stackEffects,
 } from "./composition-effect-index.ts";
+import { renderOfflineAudioBands } from "./composition-offline-bands.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
 import { findTransitionClips } from "./composition-transition.ts";
@@ -55,7 +54,7 @@ import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
-  OfflineAudioBands,
+  type OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
 import type { FrameAnalysisHub } from "./fx-shaders/frame-analysis.ts";
@@ -120,9 +119,6 @@ export type CompositionPlayerHandle = {
   setVolume(volume: number, muted: boolean): void;
   getMasterMeterTap(): MasterMeterTap | null;
 };
-
-// Export measures audio-reactive effects on the mix at this rate.
-const OFFLINE_BANDS_SAMPLE_RATE = 48000;
 
 // "live" plays the audio mix and measures it as it plays (preview).
 // "offline" renders the mix and measures it at each rendered frame (export).
@@ -439,24 +435,9 @@ export class CompositionRenderer {
 
     // A mix resolved again, after an edit, is measured again.
     if (this.offlineAudioBands?.mix !== mix) {
-      const sampleRate = OFFLINE_BANDS_SAMPLE_RATE;
       this.offlineAudioBands = {
         mix,
-        bands: renderAudioMixOffline(mix, this.state.mediaItems, {
-          sampleRate,
-          numberOfChannels: 2,
-          startSeconds: 0,
-          length: Math.ceil(audioMixEndSeconds(mix) * sampleRate),
-        })
-          .then((channels) =>
-            channels
-              ? OfflineAudioBands.fromChannels(channels, sampleRate)
-              : null,
-          )
-          .catch((error) => {
-            console.warn("Export renders effects without audio bands.", error);
-            return null;
-          }),
+        bands: renderOfflineAudioBands(mix, this.state.mediaItems),
       };
     }
 
