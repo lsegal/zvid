@@ -6,11 +6,11 @@ import {
   useState,
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
-import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
 import {
   readAudioAnalysisOpen,
   writeAudioAnalysisOpen,
 } from "../app/spectrogram.ts";
+import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
 import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
   CompositionPlayer,
@@ -22,8 +22,8 @@ import {
 } from "../clip-media-state";
 import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
-import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
+import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";

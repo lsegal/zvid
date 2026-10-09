@@ -48,7 +48,9 @@ describe("frequencyToPosition", () => {
 
   it("is the inverse of positionToFrequency", () => {
     for (const hz of [20, 100, 440, 1000, 8000, 20_000]) {
-      assert.ok(Math.abs(positionToFrequency(frequencyToPosition(hz)) - hz) < 1e-6);
+      assert.ok(
+        Math.abs(positionToFrequency(frequencyToPosition(hz)) - hz) < 1e-6,
+      );
     }
   });
 });
@@ -77,7 +79,11 @@ describe("dbToIntensity", () => {
 
 describe("mergeChannelsDb", () => {
   it("power-averages the channels", () => {
-    const out = mergeChannelsDb([-20, -40, -Infinity], [-20, -Infinity, -Infinity], new Float32Array(3));
+    const out = mergeChannelsDb(
+      [-20, -40, -Infinity],
+      [-20, -Infinity, -Infinity],
+      new Float32Array(3),
+    );
     assert.ok(Math.abs(out[0] - -20) < 1e-4);
     // Half the power is 3.01 dB down.
     assert.ok(Math.abs(out[1] - (-40 - 10 * Math.log10(2))) < 1e-4);
@@ -122,7 +128,9 @@ describe("spectrumColumn", () => {
     // Low down, a tall picture has many rows per bin: every one gets a value.
     const bins = new Float32Array(FFT_SIZE / 2).fill(-50);
     const column = spectrumColumn(bins, BIN_HZ, new Float32Array(1000));
-    assert.ok(column.every((value) => Math.abs(value - dbToIntensity(-50)) < 1e-6));
+    assert.ok(
+      column.every((value) => Math.abs(value - dbToIntensity(-50)) < 1e-6),
+    );
   });
 });
 

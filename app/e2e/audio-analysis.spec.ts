@@ -68,7 +68,12 @@ async function newestColumn(page: Page) {
     if (!context) {
       throw new Error("No 2D context");
     }
-    const { data } = context.getImageData(canvas.width - 1, 0, 1, canvas.height);
+    const { data } = context.getImageData(
+      canvas.width - 1,
+      0,
+      1,
+      canvas.height,
+    );
     const rows: number[] = [];
     for (let index = 0; index < data.length; index += 4) {
       rows.push(data[index] + data[index + 1] + data[index + 2]);
@@ -120,9 +125,7 @@ test("the Audio toggle shows the meter and spectrogram below the preview", async
   await expect(pane(page)).toHaveCount(0);
 });
 
-test("the meter and spectrogram follow the master output", async ({
-  page,
-}) => {
+test("the meter and spectrogram follow the master output", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
@@ -131,7 +134,9 @@ test("the meter and spectrogram follow the master output", async ({
 
   await page.getByRole("button", { name: "Play timeline" }).click();
   await expect
-    .poll(async () => Number(await paneLevel(page).getAttribute("aria-valuenow")))
+    .poll(async () =>
+      Number(await paneLevel(page).getAttribute("aria-valuenow")),
+    )
     .toBeGreaterThan(-30);
 
   // The tone lights the spectrogram's newest column where 440 Hz sits on the

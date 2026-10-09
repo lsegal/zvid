@@ -164,7 +164,9 @@ export function VuMeter({
             aria-hidden="true"
             className="vu-meter__tick"
             key={db}
-            style={{ [vertical ? "bottom" : "left"]: `${dbToPosition(db) * 100}%` }}
+            style={{
+              [vertical ? "bottom" : "left"]: `${dbToPosition(db) * 100}%`,
+            }}
           >
             {vertical ? (
               <span className="vu-meter__label">{tickLabel(db)}</span>

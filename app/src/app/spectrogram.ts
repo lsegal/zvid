@@ -43,7 +43,9 @@ export function frequencyToPosition(hz: number) {
 
 // The frequency at `position` along the axis (see frequencyToPosition).
 export function positionToFrequency(position: number) {
-  return SPECTROGRAM_MIN_HZ * (SPECTROGRAM_MAX_HZ / SPECTROGRAM_MIN_HZ) ** position;
+  return (
+    SPECTROGRAM_MIN_HZ * (SPECTROGRAM_MAX_HZ / SPECTROGRAM_MIN_HZ) ** position
+  );
 }
 
 // An axis label: "100", "1k", "10k".
@@ -146,7 +148,8 @@ export class SpectrogramClock {
   advance(nowMs: number, columnsPerSecond: number) {
     const elapsedMs = this.lastMs === null ? 0 : nowMs - this.lastMs;
     this.lastMs = nowMs;
-    const exact = this.carry + (Math.max(0, elapsedMs) * columnsPerSecond) / 1000;
+    const exact =
+      this.carry + (Math.max(0, elapsedMs) * columnsPerSecond) / 1000;
     const columns = Math.floor(exact);
     this.carry = exact - columns;
     return columns;
