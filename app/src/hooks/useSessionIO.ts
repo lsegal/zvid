@@ -31,8 +31,8 @@ import { getHarness, type SaveTarget, type SessionSelection } from "../harness";
 import {
   buildFallbackMediaItem,
   isEffectMedia,
-  rejectMalformedLuts,
   type MediaItem,
+  rejectMalformedLuts,
   toShareableMediaItem,
 } from "../media";
 import { restoreMediaRanges } from "../media-range.ts";

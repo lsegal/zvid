@@ -34,6 +34,16 @@ export function customLutMediaPath(value: string | undefined) {
   return trimmed.slice(CUSTOM_PREFIX.length).trim() || undefined;
 }
 
+// A stored LUT value as people read it: None, a bundled LUT's name, or a
+// custom one's file name.
+export function describeLut(value: string | undefined) {
+  if (isNoLut(value)) {
+    return NO_LUT;
+  }
+  const path = customLutMediaPath(value);
+  return path ? (path.split(/[/\\]/).pop() ?? path) : (value?.trim() ?? "");
+}
+
 export function isNoLut(value: string | undefined) {
   const trimmed = value?.trim() ?? "";
   return !trimmed || trimmed.toLowerCase() === NO_LUT.toLowerCase();

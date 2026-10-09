@@ -53,7 +53,10 @@ export function textureCubeLut(lut: CubeLut) {
  * The RGBA bytes of `lut`'s tiled texture, top row first, its outputs
  * clamped to 0..1.
  */
-export function lutTexturePixels(lut: CubeLut, layout = lutTileLayout(lut.size)) {
+export function lutTexturePixels(
+  lut: CubeLut,
+  layout = lutTileLayout(lut.size),
+) {
   const pixels = new Uint8Array(layout.width * layout.height * 4);
   const { size } = lut;
   for (let b = 0; b < size; b++) {

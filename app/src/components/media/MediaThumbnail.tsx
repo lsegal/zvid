@@ -2,8 +2,9 @@ import {
   FilmIcon,
   PhotoIcon,
   SpeakerWaveIcon,
+  SwatchIcon,
 } from "@heroicons/react/24/solid";
-import { isImageMedia, type MediaItem } from "../../media";
+import { isImageMedia, isLutMedia, type MediaItem } from "../../media";
 import {
   getMediaSyncClassName,
   type MediaSyncView,
@@ -20,7 +21,7 @@ type MediaThumbnailProps = {
 };
 
 // A media item's picture: a video frame or the image itself, or a glyph for
-// audio-only media and pictures not loaded yet, with the media sync skeleton while it hydrates.
+// audio-only media, LUTs and pictures not loaded yet, with the media sync skeleton while it hydrates.
 export function MediaThumbnail({
   media,
   thumbnailUrl,
@@ -29,16 +30,25 @@ export function MediaThumbnail({
   badge,
 }: MediaThumbnailProps) {
   const image = isImageMedia(media);
-  const Glyph = image ? PhotoIcon : media.hasVideo ? FilmIcon : SpeakerWaveIcon;
+  const lut = isLutMedia(media);
+  const Glyph = image
+    ? PhotoIcon
+    : lut
+      ? SwatchIcon
+      : media.hasVideo
+        ? FilmIcon
+        : SpeakerWaveIcon;
   return (
     <span
       className={[
         "media-thumb",
         image
           ? "media-thumb--image"
-          : media.hasVideo
-            ? "media-thumb--video"
-            : "media-thumb--audio",
+          : lut
+            ? "media-thumb--lut"
+            : media.hasVideo
+              ? "media-thumb--video"
+              : "media-thumb--audio",
         mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : "",
       ]
         .filter(Boolean)

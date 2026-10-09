@@ -10,7 +10,7 @@ import {
 import { formatMediaTime } from "../../app/media-preview.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
-import { isImageMedia, type MediaItem } from "../../media";
+import { isEffectMedia, isImageMedia, type MediaItem } from "../../media";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
@@ -209,10 +209,10 @@ export function MediaDrawer({
       ?.scrollIntoView({ block: "nearest" });
   }
 
-  // Images have nothing to play in the media preview.
+  // Images and LUTs have nothing to play in the media preview.
   function openMedia(mediaId: string) {
     const media = mediaItems.find((item) => item.id === mediaId);
-    if (media && !isImageMedia(media)) {
+    if (media && !isEffectMedia(media)) {
       onOpenMedia(mediaId);
     }
   }
@@ -260,8 +260,9 @@ export function MediaDrawer({
     );
     const offline = media.availability === "offline" && !mediaSync;
     const hasRange = hasMediaRange(media);
-    const image = isImageMedia(media);
-    const duration = image ? "" : formatMediaDuration(media.durationSeconds);
+    const duration = isEffectMedia(media)
+      ? ""
+      : formatMediaDuration(media.durationSeconds);
     const className = [
       view === "icons" ? "media-tile" : "media-row",
       selected ? "is-selected" : "",
@@ -293,8 +294,8 @@ export function MediaDrawer({
         className={className}
         data-media-id={media.id}
         data-availability={media.availability}
-        // Images make no clips, so they don't drag onto source tracks.
-        draggable={!image}
+        // Images and LUTs make no clips, so they don't drag onto source tracks.
+        draggable={!isEffectMedia(media)}
         id={getOptionId(media.id)}
         key={media.id}
         onClick={() => {

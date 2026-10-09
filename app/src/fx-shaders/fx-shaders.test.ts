@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
+import { loadLutFiles, setLutMedia } from "../fx/effects/lut/lut-media.ts";
 import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
 import { applyClipAnimationWeight } from "../fx-animation-clip.ts";
 import {
@@ -216,15 +217,41 @@ describe("effect passes", () => {
 
   // Clip mode at weight 0 runs every knob back to its neutral value, which
   // must cost no pass.
-  it("changes nothing at Clip animation weight 0, and something at 0.5", () => {
+  it("changes nothing at Clip animation weight 0, and something at 0.5", async () => {
+    // A LUT effect grades only with a LUT picked and loaded.
+    const cube = `LUT_3D_SIZE 2\n${"0 0 0\n".repeat(8)}`;
+    setLutMedia([
+      {
+        id: "black.cube",
+        name: "black.cube",
+        kind: "lut",
+        durationSeconds: 0,
+        hasAudio: false,
+        hasVideo: false,
+        color: "#000",
+        accent: "#000",
+        previewUrl: `data:text/plain,${encodeURIComponent(cube)}`,
+        availability: "ready",
+      },
+    ]);
+    await loadLutFiles(["black.cube"]);
     for (const pass of EFFECT_PASSES) {
-      const parameters = params(
-        Object.fromEntries(
-          getEffectDefinition(pass.effectName)
-            .parameters.filter((parameter) => parameter.kind === "number")
-            .map((parameter) => [parameter.key, 0.5]),
+      const definitions = getEffectDefinition(pass.effectName).parameters;
+      const parameters = [
+        ...params(
+          Object.fromEntries(
+            definitions
+              .filter((parameter) => parameter.kind === "number")
+              .map((parameter) => [parameter.key, 0.5]),
+          ),
         ),
-      );
+        ...definitions
+          .filter((parameter) => parameter.kind === "lut")
+          .map((parameter) => ({
+            key: parameter.key,
+            value: "Custom:black.cube",
+          })),
+      ];
       // Effects without Animation, such as Shape, have no Clip weight.
       if (!supportsAnimation(pass.effectName)) {
         continue;
@@ -241,6 +268,7 @@ describe("effect passes", () => {
       );
       assert.equal(pass.isIdentity?.(neutral), true, pass.effectName);
     }
+    setLutMedia([]);
   });
 });
 

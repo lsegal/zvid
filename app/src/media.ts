@@ -273,8 +273,12 @@ export function describeEffectMediaImport(items: readonly MediaItem[]) {
   const images = items.filter(isImageMedia).length;
   const luts = items.filter(isLutMedia).length;
   return [
-    images ? `Imported ${images} image${images === 1 ? "" : "s"} for Shape ▸ Custom.` : "",
-    luts ? `Imported ${luts} LUT${luts === 1 ? "" : "s"} for the LUT effect.` : "",
+    images
+      ? `Imported ${images} image${images === 1 ? "" : "s"} for Shape ▸ Custom.`
+      : "",
+    luts
+      ? `Imported ${luts} LUT${luts === 1 ? "" : "s"} for the LUT effect.`
+      : "",
   ]
     .filter(Boolean)
     .join(" ");

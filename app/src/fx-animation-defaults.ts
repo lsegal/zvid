@@ -257,6 +257,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     defaults("Ease Out", "Ease In", [12, 8, 4], "Wobble", 0.5, ["_HueOffset"]),
   ],
   [
+    "LUT",
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Intensity"]),
+  ],
+  [
     "Pixelate",
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_NumPixels"]),
   ],
@@ -600,6 +604,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     },
   ],
   ["Colorize", { _HueOffset: { neutral: 0 } }],
+  // Intensity 0 leaves the picture as it is.
+  ["LUT", { _Intensity: { neutral: 0 } }],
   [
     "Pixelate",
     {

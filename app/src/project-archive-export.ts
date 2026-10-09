@@ -1,5 +1,11 @@
 import { pickMediaByPath } from "./app/session-project.ts";
 import { basename, normalizeMediaPath } from "./app/util.ts";
+import {
+  customLutMediaPath,
+  customLutValue,
+  isLutEffectName,
+  LUT_KEY,
+} from "./fx/effects/lut/lut.ts";
 import { isShapeEffectName, SHAPE_KEY } from "./fx/effects/shape/shape.ts";
 import {
   customShapeMediaPath,
@@ -11,7 +17,7 @@ import {
   type ProjectArchiveMediaInput,
   writeProjectArchive,
 } from "./project-archive.ts";
-import { collectShapeMediaPaths, type ProjectSession } from "./session.ts";
+import { collectEffectMediaPaths, type ProjectSession } from "./session.ts";
 
 // File ▸ Export ▸ Project…: the `.zvd` archive written from a session. With
 // media included, each file the session links goes in once under `media/`,
@@ -25,8 +31,8 @@ function isLinkedPath(value: unknown): value is string {
 }
 
 // Every media path the session links: its clips, its source tracks'
-// recordings, its Custom shapes' SVGs and, in an older session, its main
-// audio. Spellings of one
+// recordings, its Custom shapes' SVGs, its LUTs' .cube files and, in an
+// older session, its main audio. Spellings of one
 // path that differ only in case or separator count once.
 export function collectLinkedMediaPaths(session: ProjectSession) {
   const paths = new Map<string, string>();
@@ -40,7 +46,7 @@ export function collectLinkedMediaPaths(session: ProjectSession) {
   for (const track of session.tracks ?? []) {
     for (const recording of track.recordings ?? []) add(recording.filename);
   }
-  for (const path of collectShapeMediaPaths(session)) add(path);
+  for (const path of collectEffectMediaPaths(session)) add(path);
   add(session.audioFilename);
   return Array.from(paths.values());
 }
@@ -107,8 +113,25 @@ export function rewriteSessionMediaPaths(
     rewritten.audioFilename = rewrite(session.audioFilename);
   }
   if (session.effects) {
-    // A Custom shape names its SVG in its Shape parameter.
+    // A Custom shape names its SVG in its Shape parameter, and a custom LUT
+    // its .cube file in its LUT parameter.
     rewritten.effects = session.effects.map((effect) => {
+      const lut = effect.parameters?.[LUT_KEY];
+      const lutPath = isLutEffectName(effect.effectName)
+        ? customLutMediaPath(lut?.stringValue)
+        : undefined;
+      if (lutPath) {
+        return {
+          ...effect,
+          parameters: {
+            ...effect.parameters,
+            [LUT_KEY]: {
+              ...lut,
+              stringValue: customLutValue(rewrite(lutPath)),
+            },
+          },
+        };
+      }
       const shape = effect.parameters?.[SHAPE_KEY];
       const path = isShapeEffectName(effect.effectName)
         ? customShapeMediaPath(shape?.stringValue)

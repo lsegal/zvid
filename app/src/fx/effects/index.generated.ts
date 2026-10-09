@@ -30,6 +30,8 @@ import * as highCut from "./high-cut/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as limiter from "./limiter/definition.ts";
 import * as lowCut from "./low-cut/definition.ts";
+import * as lut from "./lut/definition.ts";
+import { pass as lutPass } from "./lut/pass.ts";
 import * as mask from "./mask/definition.ts";
 import * as mono from "./mono/definition.ts";
 import * as move from "./move/definition.ts";
@@ -78,6 +80,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   layout,
   limiter,
   lowCut,
+  lut,
   mask,
   mono,
   move,
@@ -109,6 +112,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   digitalGlitchPass,
   distortionPass,
   gaussianBlurPass,
+  lutPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,

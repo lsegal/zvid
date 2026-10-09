@@ -24,7 +24,10 @@ export class CubeParseError extends Error {
 
 function readNumbers(words: string[], count: number, line: number) {
   const values = words.map(Number);
-  if (values.length !== count || values.some((value) => !Number.isFinite(value))) {
+  if (
+    values.length !== count ||
+    values.some((value) => !Number.isFinite(value))
+  ) {
     throw new CubeParseError(
       `Line ${line}: expected ${count} number${count === 1 ? "" : "s"}.`,
     );
@@ -44,7 +47,9 @@ export function parseCubeLut(text: string): CubeLut {
   let domainMin: [number, number, number] = [0, 0, 0];
   let domainMax: [number, number, number] = [1, 1, 1];
   const values: number[] = [];
-  const lines = text.replace(/^﻿/, "").split(/\r\n|\r|\n/);
+  // A byte order mark some editors write isn't part of the first line.
+  const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const lines = body.split(/\r\n|\r|\n/);
   for (const [index, raw] of lines.entries()) {
     const line = index + 1;
     const content = raw.replace(/#.*$/, "").trim();

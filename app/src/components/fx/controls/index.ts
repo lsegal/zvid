@@ -6,6 +6,7 @@ import { FlagsControl } from "./FlagsControl";
 import { FontControl } from "./FontControl";
 import { LayerControl } from "./LayerControl";
 import { LayersControl } from "./LayersControl";
+import { LutControl } from "./LutControl";
 import { NumberControl } from "./NumberControl";
 import { PaintControl } from "./PaintControl";
 import { ShapeControl } from "./ShapeControl";
@@ -27,4 +28,5 @@ export const PARAMETER_CONTROLS: Record<
   layers: LayersControl,
   layer: LayerControl,
   shape: ShapeControl,
+  lut: LutControl,
 };

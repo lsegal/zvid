@@ -50,6 +50,8 @@ const MUSIC_CREDIT =
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
 const ICON_CREDIT = "The zvid logo, zvid's own artwork.";
+const LUT_CREDIT =
+  "An original warm film grade made for zvid (app/scripts/sample/render_lut.mjs).";
 
 const SOURCES = [
   { key: "orbit", name: "Orbit", file: "orbit.mp4" },
@@ -62,6 +64,7 @@ const MUSIC = {
   file: "just-nasty-30s.m4a",
 };
 const ICON = { key: "zvid-logo", file: "zvid-logo.svg" };
+const LUT = { key: "warm-film", file: "warm-film.cube" };
 
 // Layers, top first. The Transitions layer is layer 1, so each transition
 // renders above every other layer, titles and FX regions included. The
@@ -321,6 +324,11 @@ const PANEL_EFFECTS = new Map([
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
   ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
+  // The sample's own .cube grade, fading in and out with its clip.
+  [
+    "orbit 4.5",
+    ["LUT", { LUT: `Custom:${samplePath(LUT.file)}`, _Intensity: 1 }],
+  ],
   ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
   ["orbit 7.5", distortion("Ripple", { _Amount: 0.4, _Speed: 0.6 })],
   ["ribbon 16.5", distortion("Fisheye", { _Amount: 0.8, _Size: 1 })],
@@ -941,6 +949,7 @@ const manifest = {
     ...SOURCES.map((source) => asset(source, "video/mp4", VIDEO_CREDIT)),
     asset(MUSIC, "audio/mp4", MUSIC_CREDIT),
     asset(ICON, "image/svg+xml", ICON_CREDIT),
+    asset(LUT, "text/plain", LUT_CREDIT),
   ],
 };
 

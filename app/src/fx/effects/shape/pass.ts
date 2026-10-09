@@ -1,8 +1,8 @@
+import { effectTextureUnit } from "../../../fx-shaders/effect-texture-units.ts";
 import {
   type EffectPass,
   findEffectParameter,
 } from "../../../fx-shaders/types.ts";
-import { effectTextureUnit } from "../../../fx-shaders/effect-texture-units.ts";
 import { bindShapeMask, isShapeSvgReady } from "./custom-mask.ts";
 import { SHAPE_EFFECT_NAME, SHAPE_KEY } from "./shape.ts";
 import { custom, customShapeMediaPath } from "./shapes/custom.ts";

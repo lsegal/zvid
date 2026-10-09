@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  isEffectMedia,
-  type MediaItem,
-  probeMediaUrlDuration,
-} from "../media";
+import { isEffectMedia, type MediaItem, probeMediaUrlDuration } from "../media";
 import { getKnownMediaDurationSeconds } from "../source-clip-properties.ts";
 
 // The media's length in seconds, or 0 while it is offline, still loading or

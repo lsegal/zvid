@@ -27,3 +27,9 @@ arrangement, effect and title in the sample is built in zvid itself.
 
 `zvid-logo.svg` is the zvid logo, zvid's own artwork. The sample masks the
 1.5-second shot with it.
+
+## LUT
+
+`warm-film.cube` is an original warm film grade made for zvid by
+`app/scripts/sample/render_lut.mjs`. The sample grades one three-up panel
+with it through the LUT effect.

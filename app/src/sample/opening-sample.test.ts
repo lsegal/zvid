@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import { parseCubeLut } from "../fx/effects/lut/cube.ts";
 import { clipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
 import { FX_EFFECT_DEFINITIONS } from "../fx-registry.ts";
@@ -669,8 +670,8 @@ describe("zvid opening sample", () => {
 
   // The mix plays the layer clips with sound: the Audio layer's music.
   it("has video-only sources and an audio-only music file", () => {
-    for (const asset of OPENING_SAMPLE_MANIFEST.assets.filter(
-      (candidate) => candidate.mediaType !== "image/svg+xml",
+    for (const asset of OPENING_SAMPLE_MANIFEST.assets.filter((candidate) =>
+      /^(audio|video)\//.test(candidate.mediaType),
     )) {
       const bytes = readFileSync(
         new URL(`../../public${asset.url}`, import.meta.url),
@@ -722,6 +723,37 @@ describe("zvid opening sample", () => {
     );
     assert.match(credits, /^`zvid-logo\.svg` is the zvid logo/m);
     assert.doesNotMatch(credits, /movie-camera|game-icons|Attribution 3\.0/);
+  });
+
+  it("grades a panel with its own LUT, credited in the manifest and CREDITS.md", () => {
+    const lut = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.name === "warm-film.cube",
+    );
+    assert.match(
+      lut?.credit ?? "",
+      /^An original warm film grade made for zvid/,
+    );
+    const graded = (session.effects ?? []).filter(
+      (effect) => effect.effectName === "LUT",
+    );
+    assert.equal(graded.length, 1);
+    assert.equal(stringParameter(graded[0], "LUT"), `Custom:${lut?.path}`);
+    assert.deepEqual(
+      collectSessionMediaPaths(session).includes(lut?.path ?? ""),
+      true,
+    );
+    const cube = parseCubeLut(
+      readFileSync(new URL(`../../public${lut?.url}`, import.meta.url), "utf8"),
+    );
+    assert.equal(cube.size, 17);
+    const credits = readFileSync(
+      new URL(
+        `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(credits, /^`warm-film\.cube` is an original warm film grade/m);
   });
 
   // The mask's Color effect paints the logo, so its own fill only shows in

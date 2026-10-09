@@ -20,13 +20,13 @@ import { setLutMedia } from "../fx/effects/lut/lut-media.ts";
 import { setShapeImageMedia } from "../fx/effects/shape/custom-mask.ts";
 import { getHarness } from "../harness";
 import {
-  inferMediaKind,
   describeEffectMediaImport,
+  inferMediaKind,
   isEffectMedia,
-  rejectMalformedLuts,
   type MediaItem,
   type MediaProbeResult,
   probeMediaBlob,
+  rejectMalformedLuts,
   toShareableMediaItem,
   withMediaType,
 } from "../media";
@@ -483,17 +483,16 @@ export function useMediaLibraryCommands({
         setStatus(
           `Analyzing ${pluralize(files.length, "dropped media file")}...`,
         );
-        const { accepted: analyzed, message: rejected } =
-          rejectMalformedLuts(
-            await harness.analyzeMedia(
-              {
-                kind: "files",
-                files,
-              },
-              PALETTE,
-              projectMediaItems.length,
-            ),
-          );
+        const { accepted: analyzed, message: rejected } = rejectMalformedLuts(
+          await harness.analyzeMedia(
+            {
+              kind: "files",
+              files,
+            },
+            PALETTE,
+            projectMediaItems.length,
+          ),
+        );
         if (!analyzed.length) {
           setStatus(rejected ?? "No media imported.");
           return;

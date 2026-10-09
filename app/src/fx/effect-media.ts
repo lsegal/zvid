@@ -10,7 +10,7 @@ function normalizeMediaPath(value: string) {
 }
 
 function basename(value: string) {
-  return value.split(/[/\]/).pop() ?? value;
+  return value.split(/[/\\]/).pop() ?? value;
 }
 
 // The path an effect stores for `item`, as a clip stores its media's.

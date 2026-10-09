@@ -56,6 +56,16 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "bytes": 990,
       "sha256": "648a9bc458b73c7e70274e98f9f49dbc5707ed9b993590640240c4d72f789021",
       "credit": "The zvid logo, zvid's own artwork."
+    },
+    {
+      "id": "zvid-sample:opening-v2:warm-film",
+      "path": "zvid-sample://opening-v2/warm-film.cube",
+      "url": "/samples/opening-v2/warm-film.cube",
+      "name": "warm-film.cube",
+      "mediaType": "text/plain",
+      "bytes": 132819,
+      "sha256": "0d20015979dfaf1e5486b26d85d83fe7d34e4a3026f5d3897cd3f6b74dbfa61e",
+      "credit": "An original warm film grade made for zvid (app/scripts/sample/render_lut.mjs)."
     }
   ]
 };
