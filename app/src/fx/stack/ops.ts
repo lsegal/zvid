@@ -29,6 +29,7 @@ import {
   type FxParameterDefinition,
   getEffectDefinition,
   getFallbackParameterDefinition,
+  isDisplayParameter,
   isEffectSupportedIn,
 } from "../../fx-registry.ts";
 import {
@@ -285,9 +286,10 @@ export function createEffect(
     id,
     trackId,
     effectName,
-    parameters: definition.parameters.map((parameter) =>
-      createParameter(parameter, parameter.defaultValue),
-    ),
+    // A display, such as Scopes' waveform, stores nothing.
+    parameters: definition.parameters
+      .filter((parameter) => !isDisplayParameter(parameter))
+      .map((parameter) => createParameter(parameter, parameter.defaultValue)),
     enabled: true,
     ...(animation ? { animation } : {}),
   };

@@ -5204,6 +5204,12 @@
           "floatValue": 0.5
         }
       }
+    },
+    {
+      "id": "sample-fx-169",
+      "trackId": "clip:selection-45",
+      "effectName": "Scopes",
+      "parameters": {}
     }
   ],
   "timeline": {

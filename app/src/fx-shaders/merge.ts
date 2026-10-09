@@ -24,9 +24,14 @@ function stripComments(source: string) {
 }
 
 // Whether `pass`'s shader can be pasted into another: no stages, and no
-// preprocessor lines, which must start a shader.
+// preprocessor lines, which must start a shader. A view-only pass is never
+// drawn into the picture, so it is never merged either.
 export function canMergePass(pass: EffectPass) {
-  return !pass.stages?.length && !/^\s*#/m.test(pass.fragmentSource);
+  return (
+    !pass.analyzes &&
+    !pass.stages?.length &&
+    !/^\s*#/m.test(pass.fragmentSource)
+  );
 }
 
 const perPixelPasses = new WeakMap<EffectPass, boolean>();

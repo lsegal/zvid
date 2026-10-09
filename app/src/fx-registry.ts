@@ -29,6 +29,7 @@ export {
   zoomToUnit,
 } from "./fx/params.ts";
 export type {
+  FxDisplayParameterDefinition,
   FxEffectCategory,
   FxEffectDefinition,
   FxEffectDomain,
@@ -44,6 +45,7 @@ export type {
   FxScaleTick,
   FxStringParameterDefinition,
 } from "./fx/types.ts";
+export { isDisplayParameter } from "./fx/types.ts";
 
 const HIDDEN_PARAMETER_PREFIX = "_LAYERS_";
 

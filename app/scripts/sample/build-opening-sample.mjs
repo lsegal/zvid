@@ -889,6 +889,11 @@ MUSIC_SECTIONS.forEach(([name, parameters], index) => {
   }
 });
 
+// Scopes changes nothing it shows, so it sits on the full-frame ribbon,
+// where its panel shows the shot's waveform. Added last, it leaves the ids
+// of the effects before it as they were.
+addEffect(ribbonShot, "Scopes", {});
+
 // ---- session -------------------------------------------------------------
 
 const session = {

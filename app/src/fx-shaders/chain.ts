@@ -1,4 +1,5 @@
 import { renderStats } from "../render-stats.ts";
+import { type FrameAnalysisHub, frameSampleSize } from "./frame-analysis.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   finishProgram,
@@ -10,6 +11,14 @@ import {
 import { canMergePass, isPerPixelPass, MergedPrograms } from "./merge.ts";
 import type { EffectChainStep } from "./registry.ts";
 import {
+  bucketTargetSize,
+  type RenderTarget,
+  TARGET_SIZE_BUCKET,
+  TargetPool,
+  type TextureRegion,
+  targetRegion,
+} from "./targets.ts";
+import {
   type EffectContext,
   type EffectParameter,
   type EffectPass,
@@ -18,6 +27,16 @@ import {
   effectPixelScale,
   stageSize,
 } from "./types.ts";
+
+export {
+  bucketTargetSize,
+  MAX_POOLED_TARGETS,
+  type RenderTarget,
+  TARGET_SIZE_BUCKET,
+  type TextureRegion,
+  targetRegion,
+  wholeTexture,
+} from "./targets.ts";
 
 // Pooled targets hold their picture in the corner at texture coordinate 0,
 // so every pass samples through `fxTexture2D`, which maps a coordinate over
@@ -55,15 +74,6 @@ function programSource(fragmentSource: string, stageNames: string[]) {
   return FRAGMENT_HEADER + (stageNames.length ? STAGE_HEADER : "") + source;
 }
 
-// Pooled targets are allocated with sides rounded up to a multiple of this,
-// so a slot whose size animates reuses a few targets rather than
-// allocating new ones every frame.
-export const TARGET_SIZE_BUCKET = 64;
-
-// Pooled sets of targets kept for reuse; the least recently used is freed
-// past this.
-export const MAX_POOLED_TARGETS = 8;
-
 type CompiledProgram = {
   program: WebGLProgram;
   texture: WebGLUniformLocation | null;
@@ -91,88 +101,11 @@ export type PreparedEffectStep = {
   parameters: EffectParameter[];
   // For a merged step, the parameters of each of its passes.
   partParameters?: EffectParameter[][];
+  // Set for a view-only pass's step (see `EffectPass.analyzes`): the id of
+  // the effect its picture is published under. It reads its input back
+  // rather than drawing over it.
+  analysis?: string;
 };
-
-export type RenderTarget = {
-  framebuffer: WebGLFramebuffer;
-  texture: WebGLTexture;
-  width: number;
-  height: number;
-};
-
-// A texture and the part of it a picture fills: `uvScale` of it from
-// texture coordinate 0, sampled no further than `uvMax`, the centers of its
-// last texels. A whole texture has both at 1.
-export type TextureRegion = {
-  texture: WebGLTexture;
-  uvScale: [number, number];
-  uvMax: [number, number];
-};
-
-export function wholeTexture(texture: WebGLTexture): TextureRegion {
-  return { texture, uvScale: [1, 1], uvMax: [1, 1] };
-}
-
-// The `width` × `height` corner of `target`.
-export function targetRegion(
-  target: RenderTarget,
-  width: number,
-  height: number,
-): TextureRegion {
-  const axis = (used: number, size: number) =>
-    used >= size ? 1 : (used - 0.5) / size;
-  return {
-    texture: target.texture,
-    uvScale: [width / target.width, height / target.height],
-    uvMax: [axis(width, target.width), axis(height, target.height)],
-  };
-}
-
-// A pooled target's side for a picture `size` pixels long.
-export function bucketTargetSize(
-  size: number,
-  maxSize: number,
-  bucket = TARGET_SIZE_BUCKET,
-) {
-  const whole = Math.max(1, Math.ceil(size));
-  return Math.max(whole, Math.min(maxSize, Math.ceil(whole / bucket) * bucket));
-}
-
-// Up to MAX_POOLED_TARGETS sets of same-sized targets, the most recently
-// used last. A request reuses the smallest set with room for its picture,
-// so a slot shrinking and growing again keeps drawing into the same few
-// targets, and the least recently used set is freed past the limit.
-class TargetPool {
-  private sets: RenderTarget[][] = [];
-  private readonly release: (set: RenderTarget[]) => void;
-
-  constructor(release: (set: RenderTarget[]) => void) {
-    this.release = release;
-  }
-
-  get(fits: (set: RenderTarget[]) => boolean, create: () => RenderTarget[]) {
-    const area = (set: RenderTarget[]) => set[0].width * set[0].height;
-    let best = -1;
-    for (const [index, set] of this.sets.entries()) {
-      if (fits(set) && (best < 0 || area(set) < area(this.sets[best]))) {
-        best = index;
-      }
-    }
-    const set = best < 0 ? create() : this.sets.splice(best, 1)[0];
-    this.sets.push(set);
-    while (this.sets.length > MAX_POOLED_TARGETS) {
-      this.release(this.sets.shift() as RenderTarget[]);
-    }
-    return set;
-  }
-
-  clear() {
-    for (const set of this.sets) {
-      this.release(set);
-    }
-    this.sets = [];
-  }
-}
 
 // Runs a layer's effect passes by ping-ponging between two framebuffers. One
 // instance belongs to one WebGL context: `precompile` starts every program
@@ -192,6 +125,7 @@ export class EffectChainRenderer {
   private readonly merged: MergedPrograms;
   private pingPongTargets: TargetPool;
   private stageTargets: TargetPool;
+  private analysisTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
   // One pool per slot, since a mask is carried between surfaces through
@@ -220,6 +154,9 @@ export class EffectChainRenderer {
   // once it has compiled; off draws every pass on its own, for tests to
   // compare against.
   mergePasses = true;
+  // Where view-only passes publish the picture at their position, for the
+  // preview; unset, as for export, they are skipped and read nothing back.
+  analysis: FrameAnalysisHub | null = null;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
@@ -233,6 +170,7 @@ export class EffectChainRenderer {
     };
     this.pingPongTargets = new TargetPool(this.release);
     this.stageTargets = new TargetPool(this.release);
+    this.analysisTargets = new TargetPool(this.release);
     this.layerTargets = new TargetPool(this.release);
     this.merged = new MergedPrograms(
       gl,
@@ -285,6 +223,22 @@ export class EffectChainRenderer {
   prepare(steps: EffectChainStep[]): PreparedEffectStep[] {
     const prepared: PreparedEffectStep[] = [];
     for (const step of steps) {
+      // A view-only pass changes nothing either, and costs nothing unless a
+      // panel wants the picture at its position in this frame.
+      if (step.pass.analyzes) {
+        const compiled =
+          step.effectId !== undefined && this.analysis?.wants(step.effectId)
+            ? this.getCompiledPass(step.pass)
+            : null;
+        if (compiled && step.effectId !== undefined) {
+          prepared.push({
+            compiled,
+            parameters: step.parameters,
+            analysis: step.effectId,
+          });
+        }
+        continue;
+      }
       // A pass at its neutral settings changes nothing, so it costs nothing.
       if (step.pass.isIdentity?.(step.parameters)) {
         continue;
@@ -308,6 +262,8 @@ export class EffectChainRenderer {
     let start = 0;
     while (start < steps.length) {
       let end = start + 1;
+      // A view-only step is never merged (see `canMergePass`), so it reads
+      // the picture between the passes around it.
       if (canMergePass(steps[start].compiled.pass)) {
         while (end < steps.length && isPerPixelPass(steps[end].compiled.pass)) {
           end++;
@@ -441,6 +397,14 @@ export class EffectChainRenderer {
     let input = source;
     for (const [index, step] of steps.entries()) {
       const isLast = index === steps.length - 1;
+      if (step.analysis !== undefined) {
+        this.readBack(input, step, stepContext);
+        // Last on the way to the screen, it copies its input there, since
+        // nothing after it does.
+        if (!isLast || output !== "screen") {
+          continue;
+        }
+      }
       const target = isLast && output === "screen" ? null : targets[index % 2];
       const { compiled, parameters } = step;
       const stages = this.runStages(input, compiled, parameters, stepContext);
@@ -491,6 +455,39 @@ export class EffectChainRenderer {
     }
     this.pending.clear();
     this.merged.dispose();
+  }
+
+  // Draws `input` at a sample's size with view-only `step`'s copy shader,
+  // reads it back and publishes it under the step's effect id.
+  private readBack(
+    input: TextureRegion,
+    step: PreparedEffectStep,
+    ctx: EffectContext,
+  ) {
+    const { gl, analysis } = this;
+    if (!analysis || step.analysis === undefined) {
+      return;
+    }
+    const { width, height } = frameSampleSize(...ctx.resolution);
+    const [target] = this.getPooledTargets(
+      this.analysisTargets,
+      width,
+      height,
+      1,
+    );
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+    gl.viewport(0, 0, width, height);
+    this.bindProgram(step.compiled, input, null);
+    step.compiled.pass.setUniforms(
+      gl,
+      step.compiled.locations,
+      step.parameters,
+      ctx,
+    );
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    analysis.publish(step.analysis, { width, height, pixels });
   }
 
   // Draws `compiled`'s stages from `input` into pooled stage targets and
@@ -766,6 +763,7 @@ export class EffectChainRenderer {
   private releaseTargets() {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
+    this.analysisTargets.clear();
     this.layerTargets.clear();
     for (const pool of this.maskTargets.values()) {
       pool.clear();

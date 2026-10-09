@@ -15,7 +15,7 @@ const PADDING = 2.5;
 
 // Whether `ref`'s element is on screen: scrolled into the FX chain's view,
 // in an expanded FX panel.
-function useOnScreen(ref: RefObject<Element | null>) {
+export function useOnScreen(ref: RefObject<Element | null>) {
   const [onScreen, setOnScreen] = useState(false);
   useEffect(() => {
     const element = ref.current;
