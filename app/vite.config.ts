@@ -17,9 +17,9 @@ import {
   resolveAlsMedia,
 } from "./src/als-import.ts";
 import { resolveAppCommit } from "./src/build-info.ts";
-import { collectShapeMediaPaths } from "./src/session.ts";
+import { collectEffectMediaPaths } from "./src/session.ts";
 
-type ProjectSession = Parameters<typeof collectShapeMediaPaths>[0] & {
+type ProjectSession = Parameters<typeof collectEffectMediaPaths>[0] & {
   clips?: Array<{ filePath: string }>;
   audioFilename?: string;
 };
@@ -94,8 +94,8 @@ function collectSessionMedia(session: ProjectSession) {
     mediaPaths.add(normalizeMediaPath(session.audioFilename));
   }
 
-  for (const shapePath of collectShapeMediaPaths(session)) {
-    mediaPaths.add(normalizeMediaPath(shapePath));
+  for (const effectPath of collectEffectMediaPaths(session)) {
+    mediaPaths.add(normalizeMediaPath(effectPath));
   }
 
   mediaRegistry.clear();

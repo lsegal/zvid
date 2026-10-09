@@ -178,6 +178,9 @@ export function describeMediaKind(
   if (item.kind === "image") {
     return "Image";
   }
+  if (item.kind === "lut") {
+    return "LUT";
+  }
   const hasVideo = item.hasVideo || item.kind === "video";
   if (hasVideo && item.hasAudio) {
     return "Video + Audio";

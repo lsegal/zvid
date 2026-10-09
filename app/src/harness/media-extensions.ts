@@ -17,6 +17,8 @@ export const MEDIA_EXTENSIONS = [
   "oga",
   // Images, used by effects such as Shape ▸ Custom rather than as clips.
   "svg",
+  // 3D LUTs, used by the LUT effect.
+  "cube",
 ];
 
 export function hasMediaExtension(name: string) {

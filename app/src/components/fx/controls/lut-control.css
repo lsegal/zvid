@@ -1,0 +1,52 @@
+/* The LUT effect's picker: a button naming the LUT over a menu of None, the
+   bundled looks and the session's .cube media. */
+.fx-lut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fx-lut__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-lut__trigger {
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fx-lut__trigger.is-offline {
+  border-color: var(--amber);
+  color: var(--muted);
+}
+
+.dropdown-menu-content.fx-layers-menu .fx-lut__heading {
+  padding: 4px 10px 2px 28px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-lut__badge {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.fx-lut__empty {
+  margin: 0;
+  padding: 4px 10px 6px 28px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: normal;
+}

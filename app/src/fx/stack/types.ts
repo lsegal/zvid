@@ -46,7 +46,8 @@ export type FxDeviceParameter = {
     | "layers"
     | "layer"
     | "shape"
-    | "waveform";
+    | "waveform"
+    | "lut";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;

@@ -1,4 +1,5 @@
 import type { RecordingProbe } from "../als-import";
+import { readCubeLut } from "../fx/effects/lut/lut-media.ts";
 import {
   createMediaId,
   inferMediaKind,
@@ -485,6 +486,38 @@ async function analyzeImageMedia(
   };
 }
 
+// A LUT has no tracks either; it is read and checked here, so a malformed
+// one is kept offline with the reason rather than failing later.
+async function analyzeLutMedia(
+  options: MediaAnalysisOptions,
+): Promise<MediaItem> {
+  let lastError: string | undefined;
+  try {
+    await readCubeLut(options.previewUrl);
+  } catch (error) {
+    lastError = `Not a valid .cube LUT: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+  }
+  return {
+    id: options.id,
+    name: options.name,
+    kind: "lut",
+    durationSeconds: 0,
+    hasAudio: false,
+    hasVideo: false,
+    fileSizeBytes: options.fileSizeBytes,
+    container: "Cube LUT",
+    lastModified: options.lastModified,
+    color: options.palette.color,
+    accent: options.palette.accent,
+    previewUrl: options.previewUrl,
+    sourcePath: options.sourcePath,
+    availability: lastError ? "offline" : "ready",
+    ...(lastError ? { lastError } : {}),
+  };
+}
+
 async function analyzeLocalMediaFile(
   file: File,
   palette: Palette,
@@ -505,6 +538,9 @@ async function analyzeLocalMediaFile(
   };
   if (image) {
     return analyzeImageMedia(options);
+  }
+  if (inferMediaKind(file.name) === "lut") {
+    return analyzeLutMedia(options);
   }
   const { ALL_FORMATS, BlobSource, Input } = runtime.mediabunny;
 
@@ -544,6 +580,9 @@ async function analyzeServerMediaRef(
   };
   if (inferMediaKind(ref.name) === "image") {
     return analyzeImageMedia(options);
+  }
+  if (inferMediaKind(ref.name) === "lut") {
+    return analyzeLutMedia(options);
   }
 
   try {

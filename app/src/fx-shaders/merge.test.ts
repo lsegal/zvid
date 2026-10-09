@@ -105,7 +105,7 @@ describe("isPerPixelPass", () => {
       EFFECT_PASSES.filter(isPerPixelPass)
         .map((pass) => pass.effectName)
         .sort(),
-      ["Colorize", "Contrast", "Exposure", "NegativeSplit", "Shape"],
+      ["Colorize", "Contrast", "Exposure", "LUT", "NegativeSplit", "Shape"],
     );
   });
 });

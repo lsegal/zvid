@@ -6,7 +6,7 @@ import type {
 } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
 import { addDefaultGain } from "./default-gain.ts";
-import { isImageMedia, type MediaItem } from "./media.ts";
+import { isEffectMedia, type MediaItem } from "./media.ts";
 import { mediaRangeOf } from "./media-range.ts";
 import {
   getDroppedSourceSpanStartQ,
@@ -63,8 +63,9 @@ export function addMediaToSourceTrack(
   allItems: readonly MediaItem[],
   target: SourceTrackDropTarget,
 ): SourceTrackMediaPlacement {
-  // Images make no clips; they stay in the Media drawer for effects to use.
-  const items = allItems.filter((item) => !isImageMedia(item));
+  // Images and LUTs make no clips; they stay in the Media drawer for
+  // effects to use.
+  const items = allItems.filter((item) => !isEffectMedia(item));
   if (!items.length) {
     return {
       sourceTracks: current.sourceTracks,
