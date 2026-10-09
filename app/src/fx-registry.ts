@@ -44,6 +44,7 @@ export type {
   FxParameterVisibility,
   FxScaleTick,
   FxStringParameterDefinition,
+  FxWheelChannel,
 } from "./fx/types.ts";
 export { isDisplayParameter } from "./fx/types.ts";
 

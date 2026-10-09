@@ -285,3 +285,53 @@ describe("Scopes in the effect chain", () => {
     assert.equal(draws[1], null);
   });
 });
+
+describe("Levels in the effect chain", () => {
+  it("reads back the picture reaching it, then grades it", () => {
+    const { hub } = createHub();
+    const samples: FrameSample[] = [];
+    hub.subscribe("levels", (sample) => samples.push(sample));
+    const { renderer, draws, reads } = createRenderer(hub);
+    const steps = renderer.prepare(
+      chain([
+        ["c", "Colorize", { _HueOffset: 0.25 }],
+        ["levels", "Levels", { GainY: 2 }],
+      ]),
+    );
+    assert.deepEqual(
+      steps.map((step) => step.analysis ?? step.compiled.pass.effectName),
+      ["Colorize", "levels", "Levels"],
+    );
+    renderer.run(SOURCE, 1920, 1080, steps, CONTEXT);
+    assert.deepEqual(reads, [[256, 144]]);
+    assert.equal(samples.length, 1);
+    // Colorize, the readback, then Levels.
+    assert.equal(draws.length, 3);
+  });
+
+  it("still reads back its input at its defaults, where it draws nothing", () => {
+    const { hub } = createHub();
+    hub.subscribe("levels", () => {});
+    const { renderer } = createRenderer(hub);
+    const steps = renderer.prepare(chain([["levels", "Levels", {}]]));
+    assert.deepEqual(
+      steps.map((step) => step.analysis ?? step.compiled.pass.effectName),
+      ["levels"],
+    );
+  });
+
+  it("reads nothing back while no panel shows it, or without a hub", () => {
+    const { hub } = createHub();
+    const effects = chain([
+      ["c", "Colorize", { _HueOffset: 0.25 }],
+      ["levels", "Levels", { GainY: 2 }],
+    ]);
+    for (const analysis of [hub, null]) {
+      const { renderer, reads } = createRenderer(analysis);
+      const steps = renderer.prepare(effects);
+      assert.ok(steps.every((step) => step.analysis === undefined));
+      renderer.run(SOURCE, 1920, 1080, steps, CONTEXT);
+      assert.equal(reads.length, 0);
+    }
+  });
+});

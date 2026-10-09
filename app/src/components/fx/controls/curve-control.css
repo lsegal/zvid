@@ -1,0 +1,149 @@
+/* Levels' tone curves: channel tabs over a plot of the shown curve drawn on
+   a histogram of the picture reaching the effect. */
+.fx-curve {
+  --fx-curve-ink: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.fx-curve--red {
+  --fx-curve-ink: #f87171;
+}
+
+.fx-curve--green {
+  --fx-curve-ink: #4ade80;
+}
+
+.fx-curve--blue {
+  --fx-curve-ink: #60a5fa;
+}
+
+.fx-curve__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fx-curve__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-curve__tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.fx-curve__tab {
+  position: relative;
+  min-width: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.fx-curve__tab[aria-pressed="true"] {
+  border-color: var(--fx-accent);
+  color: var(--ink);
+}
+
+.fx-curve__tab--red {
+  color: #f87171;
+}
+
+.fx-curve__tab--green {
+  color: #4ade80;
+}
+
+.fx-curve__tab--blue {
+  color: #60a5fa;
+}
+
+/* A dot on the tab of a channel whose curve isn't straight. */
+.fx-curve__edited {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--fx-accent);
+}
+
+.fx-curve__reset {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.fx-curve__reset:hover,
+.fx-curve__reset:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  outline: none;
+}
+
+.fx-curve__reset svg {
+  width: 100%;
+  height: 100%;
+}
+
+.fx-curve__plot {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(11, 13, 19, 0.55);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.fx-curve__grid line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.fx-curve__histogram {
+  fill: color-mix(in srgb, var(--fx-curve-ink) 22%, transparent);
+  stroke: none;
+}
+
+.fx-curve__diagonal {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-dasharray: 3 3;
+  stroke-width: 1;
+}
+
+.fx-curve__line {
+  fill: none;
+  stroke: var(--fx-curve-ink);
+  stroke-width: 1.5;
+}
+
+.fx-curve__point {
+  fill: var(--bg-soft, #383b50);
+  stroke: var(--fx-curve-ink);
+  stroke-width: 1.5;
+  cursor: grab;
+}
+
+.fx-curve__point:focus-visible {
+  outline: none;
+  fill: var(--fx-accent);
+}

@@ -89,6 +89,11 @@ export type EffectPass = {
   // instead (see frame-analysis.ts), drawing it there with this shader at a
   // reduced size, so the shader must copy its input as it is.
   analyzes?: boolean;
+  // True for a pass whose panel shows the picture reaching it, such as the
+  // histogram behind Levels' curve. In the preview, while that panel asks,
+  // the chain reads the picture back just before the pass, as it does for a
+  // view-only pass, then draws the pass as usual.
+  analyzesInput?: boolean;
 };
 
 // A stage's side, for a picture side `size` pixels long.

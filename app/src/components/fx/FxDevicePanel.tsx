@@ -326,7 +326,7 @@ export function FxDevicePanel({
         <div
           className="fx-device-panel__body"
           style={{
-            gridTemplateColumns: `repeat(${knobColumnCount(knobs.length)}, auto)`,
+            gridTemplateColumns: `repeat(${device.knobColumns ?? knobColumnCount(knobs.length)}, auto)`,
           }}
         >
           {device.parameters.length ? (

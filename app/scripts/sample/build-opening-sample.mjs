@@ -340,6 +340,21 @@ const PANEL_EFFECTS = new Map([
   ["corridor 16.5", refraction("Frosted Glass", { _Amount: 0.6 })],
   ["orbit 19.5", refraction("Reeded Glass", { _Scale: 0.35 })],
   ["ribbon 24", refraction("Glass Blocks", { _Scale: 0.4 })],
+  // A warm grade: cool blacks, warm whites and an S curve.
+  [
+    "corridor 18",
+    [
+      "Levels",
+      {
+        LiftY: 0.04,
+        LiftB: 0.06,
+        GammaY: 0.15,
+        GainR: 1.15,
+        GainB: 0.9,
+        Curve: "0,0 0.25,0.18 0.75,0.84 1,1|||",
+      },
+    ],
+  ],
   [
     "corridor 25.5",
     distortion("Turbulence", { _Amount: 0.4, _Size: 0.4, _Speed: 0.6 }),

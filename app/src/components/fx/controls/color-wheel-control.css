@@ -1,0 +1,192 @@
+/* Levels' color wheels: a hue disc with a puck, the wheel's Y, R, G and B
+   numbers, and a jog strip for its master. */
+.fx-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 112px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.fx-wheel__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.fx-wheel__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-wheel__reset {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.fx-wheel__reset:hover,
+.fx-wheel__reset:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  outline: none;
+}
+
+.fx-wheel__reset svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Red at the top, green a third of a turn clockwise and blue two thirds,
+   fading to gray at the center, as the puck moves the channels. */
+.fx-wheel__disc {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, #2a2c38 0%, rgba(42, 44, 56, 0.55) 55%, transparent 100%),
+    conic-gradient(#e0484c, #d8c640, #4ccc5a, #3fc6c8, #4a62e0, #c84ad6, #e0484c);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.fx-wheel__disc:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fx-accent) 60%, transparent);
+}
+
+.fx-wheel__disc::before,
+.fx-wheel__disc::after {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.18);
+  content: "";
+  pointer-events: none;
+}
+
+.fx-wheel__disc::before {
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+}
+
+.fx-wheel__disc::after {
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+}
+
+.fx-wheel__puck {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.fx-wheel__fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  width: 100%;
+}
+
+.fx-wheel__field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.fx-wheel__channel {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.fx-wheel__channel--R {
+  color: #f87171;
+}
+
+.fx-wheel__channel--G {
+  color: #4ade80;
+}
+
+.fx-wheel__channel--B {
+  color: #60a5fa;
+}
+
+.fx-wheel__field input {
+  width: 100%;
+  min-width: 0;
+  padding: 1px 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.fx-wheel__field input:focus {
+  border-color: var(--fx-accent);
+  outline: none;
+}
+
+.fx-wheel__jog {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.16) 0 1px,
+    transparent 1px 6px
+  );
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.fx-wheel__jog:focus-visible {
+  border-color: var(--fx-accent);
+  outline: none;
+}
+
+.fx-wheel__jog-mark {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--fx-accent);
+  transform: translateX(-50%);
+  pointer-events: none;
+}

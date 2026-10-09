@@ -5,6 +5,25 @@
 // is at most 256 × 256 pixels rather than a full frame, taken at most
 // FRAME_SAMPLE_RATE times a second per effect.
 
+import type { EffectPass } from "./types.ts";
+
+// The view-only step the chain puts before a pass that `analyzesInput`, to
+// read back the picture reaching it: it copies its input as it is.
+export const INPUT_SAMPLE_PASS: EffectPass = {
+  effectName: "InputSample",
+  analyzes: true,
+  fragmentSource: `
+    uniform sampler2D uTex;
+    varying vec2 vUv;
+
+    void main() {
+      gl_FragColor = texture2D(uTex, vUv);
+    }
+  `,
+  uniforms: [],
+  setUniforms() {},
+};
+
 // A picture read back at reduced size: `width` × `height` RGBA pixels,
 // bottom row first, as WebGL reads them.
 export type FrameSample = {

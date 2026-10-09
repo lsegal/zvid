@@ -26,11 +26,24 @@ export type FxNumberParameterDefinition = {
   taper?: FxNumberTaper;
   // Scale marks beside a fader.
   ticks?: readonly FxScaleTick[];
+  // For `control: "wheel"`, the color wheel the number is a channel of.
+  wheel?: FxWheelChannel;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
 };
 
-export type FxNumberControl = "knob" | "fader" | "toggle";
+// How a number is edited: a knob, a vertical fader, an on/off toggle, or a
+// channel of a color wheel, which shows its Y, R, G and B numbers together.
+export type FxNumberControl = "knob" | "fader" | "toggle" | "wheel";
+
+// One of a color wheel's numbers: its master (`y`), moved by the wheel's
+// jog, or a color channel, moved by its puck. `reach` is how far the puck
+// at the wheel's edge moves a color channel from the channels' mean.
+export type FxWheelChannel = {
+  name: string;
+  channel: "y" | "r" | "g" | "b";
+  reach: number;
+};
 
 export type FxNumberTaper = "linear" | "log";
 
@@ -66,8 +79,9 @@ export type FxFlagOption = { value: string; label: string; title: string };
 // toggles (`flags`) stored comma-separated, a set of layers (`layers`)
 // stored as comma-separated layer ids, one layer (`layer`) stored as its id,
 // empty for none, a shape (`shape`) by name, from the Shape effect's
-// shapes, and a LUT (`lut`), bundled by name or from the media library (see
-// effects/lut/lut.ts).
+// shapes, a LUT (`lut`), bundled by name or from the media library (see
+// effects/lut/lut.ts), and a tone curve (`curve`), stored as its points
+// (see effects/levels/curve.ts).
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -88,6 +102,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "layer" })
   | (FxStringParameterFields & { kind: "shape" })
   | (FxStringParameterFields & { kind: "lut" })
+  | (FxStringParameterFields & { kind: "curve" })
   | (FxStringParameterFields & {
       kind: "flags";
       options: readonly FxFlagOption[];
@@ -169,6 +184,9 @@ export type FxEffectDefinition = {
   // Labels for the knob rows, when the knobs split evenly into labeled
   // rows (a Move's Start and End) instead of filling two rows freely.
   knobRows?: readonly string[];
+  // How many columns the knobs fill, when not the usual two rows: Levels'
+  // four color wheels and its curve in one row.
+  knobColumns?: number;
   // Keys of parameters the effect no longer has. Collaboration peers on
   // older builds still publish them, so the device does not list them as
   // unknown raw parameters.

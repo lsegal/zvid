@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { FxDeviceParameter } from "../../../fx-stack";
 import type { FxParameterControlProps } from "../types";
+import { CurveControl } from "./CurveControl";
 import { EnumControl } from "./EnumControl";
 import { FlagsControl } from "./FlagsControl";
 import { FontControl } from "./FontControl";
@@ -31,4 +32,5 @@ export const PARAMETER_CONTROLS: Record<
   shape: ShapeControl,
   waveform: WaveformControl,
   lut: LutControl,
+  curve: CurveControl,
 };

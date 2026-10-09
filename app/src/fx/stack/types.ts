@@ -6,6 +6,7 @@ import type {
   FxNumberControl,
   FxNumberTaper,
   FxScaleTick,
+  FxWheelChannel,
 } from "../../fx-registry.ts";
 
 export type EffectParameter = {
@@ -47,7 +48,8 @@ export type FxDeviceParameter = {
     | "layer"
     | "shape"
     | "waveform"
-    | "lut";
+    | "lut"
+    | "curve";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -61,6 +63,10 @@ export type FxDeviceParameter = {
   // A knob's taper, when not linear.
   taper?: FxNumberTaper;
   ticks?: readonly FxScaleTick[];
+  // A color wheel's channel, and on the wheel's master, the wheel's Y, R, G
+  // and B numbers in that order, which its control edits together.
+  wheel?: FxWheelChannel;
+  channels?: readonly FxDeviceParameter[];
   options?: readonly string[];
   // The toggles of a `flags` parameter.
   flags?: readonly FxFlagOption[];
@@ -99,6 +105,8 @@ export type FxDevice = {
   // Labels for the knob rows, when the knobs split evenly into labeled
   // rows, such as a Move's Start and End.
   knobRows?: readonly string[];
+  // How many columns the knobs fill, when not the usual two rows.
+  knobColumns?: number;
   // True for a device on a stack its effect isn't designed for, such as a
   // Global Layout from an older session. It still loads and can be removed.
   unsupported?: boolean;

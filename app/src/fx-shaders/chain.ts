@@ -1,5 +1,9 @@
 import { renderStats } from "../render-stats.ts";
-import { type FrameAnalysisHub, frameSampleSize } from "./frame-analysis.ts";
+import {
+  type FrameAnalysisHub,
+  frameSampleSize,
+  INPUT_SAMPLE_PASS,
+} from "./frame-analysis.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   finishProgram,
@@ -238,6 +242,21 @@ export class EffectChainRenderer {
           });
         }
         continue;
+      }
+      // A pass that `analyzesInput` reads its input back in a step before it.
+      if (
+        step.pass.analyzesInput &&
+        step.effectId !== undefined &&
+        this.analysis?.wants(step.effectId)
+      ) {
+        const copy = this.getCompiledPass(INPUT_SAMPLE_PASS);
+        if (copy) {
+          prepared.push({
+            compiled: copy,
+            parameters: [],
+            analysis: step.effectId,
+          });
+        }
       }
       // A pass at its neutral settings changes nothing, so it costs nothing.
       if (step.pass.isIdentity?.(step.parameters)) {
