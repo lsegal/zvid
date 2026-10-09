@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  bundledLutsIn,
   customLutMediaPath,
   customLutMediaPaths,
   customLutValue,
@@ -22,6 +23,7 @@ describe("LUT values", () => {
     assert.equal(describeLut(""), "None");
     assert.equal(describeLut("none"), "None");
     assert.equal(describeLut("Kodachrome"), "Kodachrome");
+    assert.equal(describeLut("builtin:warm-70s"), "Warm 70s Film");
     assert.equal(describeLut("Custom:/a/b/teal.cube"), "teal.cube");
     assert.equal(describeLut("Custom:C:\\a\\warm.cube"), "warm.cube");
     assert.equal(isNoLut(" None "), true);
@@ -48,6 +50,25 @@ describe("LUT values", () => {
         lut("Custom:d.cube"),
       ]),
       ["a.cube", "d.cube"],
+    );
+  });
+
+  it("lists the bundled LUTs enabled LUTs use once", () => {
+    const lut = (value: string, enabled = true) => ({
+      effectName: "LUT",
+      enabled,
+      parameters: [{ key: "LUT", value }],
+    });
+    assert.deepEqual(
+      bundledLutsIn([
+        lut("builtin:sepia"),
+        lut(" BUILTIN:SEPIA "),
+        lut("builtin:bw-film", false),
+        lut("builtin:missing"),
+        lut("Custom:builtin:teal-orange"),
+        lut("builtin:teal-orange"),
+      ]).map((entry) => entry.id),
+      ["builtin:sepia", "builtin:teal-orange"],
     );
   });
 });

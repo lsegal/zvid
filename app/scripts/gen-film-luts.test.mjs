@@ -3,11 +3,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
-  BUILTIN_LUTS,
-  builtinLutUrl,
-  findBuiltinLut,
-  isBuiltinLutId,
-} from "../src/fx/effects/lut/builtin-luts.ts";
+  BUNDLED_LUT_GROUP,
+  BUNDLED_LUTS,
+  bundledLutUrl,
+  findBundledLut,
+} from "../src/fx/effects/lut/bundled.ts";
+import { parseCubeLut, sampleCubeLut } from "../src/fx/effects/lut/cube.ts";
 import {
   CREDITS_PATH,
   LOOKS,
@@ -17,6 +18,7 @@ import {
 } from "./gen-film-luts.mjs";
 
 const read = (file) => readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+const parse = (lut) => parseCubeLut(read(join(LUTS_DIR, lut.file)));
 
 // Samples a look at a few representative colors.
 const PROBES = [
@@ -32,30 +34,36 @@ const sample = (look) => PROBES.flatMap((rgb) => look(rgb));
 const distance = (a, b) =>
   Math.max(...a.map((value, index) => Math.abs(value - b[index])));
 
-describe("built-in LUTs", () => {
+describe("bundled LUTs", () => {
   it("have unique stable ids, names and files", () => {
-    const ids = BUILTIN_LUTS.map((lut) => lut.id);
+    const ids = BUNDLED_LUTS.map((lut) => lut.id);
     assert.equal(new Set(ids).size, ids.length);
-    assert.equal(new Set(BUILTIN_LUTS.map((lut) => lut.name)).size, ids.length);
-    assert.equal(new Set(BUILTIN_LUTS.map((lut) => lut.file)).size, ids.length);
-    for (const lut of BUILTIN_LUTS) {
+    assert.equal(new Set(BUNDLED_LUTS.map((lut) => lut.name)).size, ids.length);
+    assert.equal(new Set(BUNDLED_LUTS.map((lut) => lut.file)).size, ids.length);
+    for (const lut of BUNDLED_LUTS) {
       assert.match(lut.id, /^builtin:[a-z0-9-]+$/);
-      assert.ok(isBuiltinLutId(lut.id));
-      assert.equal(findBuiltinLut(lut.id), lut);
+      assert.equal(findBundledLut(lut.id), lut);
+      assert.equal(findBundledLut(` ${lut.id.toUpperCase()} `), lut);
     }
-    assert.equal(findBuiltinLut("builtin:missing"), undefined);
-    assert.equal(isBuiltinLutId("media:abc"), false);
+    assert.equal(BUNDLED_LUT_GROUP, "Built-in");
+    assert.equal(findBundledLut("builtin:missing"), undefined);
+    assert.equal(findBundledLut("Sepia"), undefined);
+    assert.equal(findBundledLut(undefined), undefined);
   });
 
-  it("resolve every id to a bundled file URL", () => {
-    const lut = findBuiltinLut("builtin:sepia");
-    assert.equal(builtinLutUrl(lut), "/luts/sepia.cube");
-    assert.equal(builtinLutUrl(lut, "/app"), "/app/luts/sepia.cube");
+  it("resolve every id to its bundled file", () => {
+    for (const lut of BUNDLED_LUTS) {
+      assert.equal(bundledLutUrl(lut), `/luts/${lut.file}`);
+    }
+    assert.equal(
+      bundledLutUrl(findBundledLut("builtin:sepia")),
+      "/luts/sepia.cube",
+    );
   });
 
   it("bundle exactly one file per id plus CREDITS.md", () => {
     const files = readdirSync(LUTS_DIR).sort();
-    const expected = [...BUILTIN_LUTS.map((lut) => lut.file), "CREDITS.md"];
+    const expected = [...BUNDLED_LUTS.map((lut) => lut.file), "CREDITS.md"];
     assert.deepEqual(files, expected.sort());
   });
 
@@ -65,24 +73,30 @@ describe("built-in LUTs", () => {
     }
   });
 
-  it("are well-formed .cube files of at most 33³", () => {
-    for (const lut of BUILTIN_LUTS) {
-      const lines = read(join(LUTS_DIR, lut.file)).trimEnd().split("\n");
-      assert.ok(lines.includes(`LUT_3D_SIZE ${LUT_SIZE}`));
-      assert.ok(LUT_SIZE <= 33);
-      const rows = lines.filter((line) => /^[\d.]+ [\d.]+ [\d.]+$/.test(line));
-      assert.equal(rows.length, LUT_SIZE ** 3, lut.file);
-      for (const row of rows) {
-        for (const value of row.split(" ").map(Number)) {
-          assert.ok(value >= 0 && value <= 1, `${lut.file}: ${row}`);
-        }
-      }
+  it("parse with the .cube parser at 33³ or smaller", () => {
+    assert.ok(LUT_SIZE <= 33);
+    for (const lut of BUNDLED_LUTS) {
+      const cube = parse(lut);
+      assert.equal(cube.title, lut.name);
+      assert.equal(cube.size, LUT_SIZE);
+      assert.equal(cube.data.length, LUT_SIZE ** 3 * 3);
+    }
+  });
+
+  it("grade like their looks through the LUT's interpolation", () => {
+    for (const lut of BUNDLED_LUTS) {
+      const cube = parse(lut);
+      const graded = PROBES.flatMap((rgb) => sampleCubeLut(cube, rgb));
+      assert.ok(
+        distance(graded, sample(LOOKS[lut.id])) < 0.02,
+        `${lut.id} drifts from its look`,
+      );
     }
   });
 
   it("each visibly and distinctly grade the picture", () => {
     const identity = sample((rgb) => rgb);
-    const samples = BUILTIN_LUTS.map((lut) => [lut.id, sample(LOOKS[lut.id])]);
+    const samples = BUNDLED_LUTS.map((lut) => [lut.id, sample(LOOKS[lut.id])]);
     for (const [id, values] of samples) {
       assert.ok(
         distance(values, identity) > 0.05,
@@ -101,7 +115,7 @@ describe("built-in LUTs", () => {
 
   it("list every file in CREDITS.md with its license", () => {
     const credits = read(CREDITS_PATH);
-    for (const lut of BUILTIN_LUTS) {
+    for (const lut of BUNDLED_LUTS) {
       const row = credits
         .split("\n")
         .find((line) => line.startsWith(`| \`${lut.file}\` |`));
