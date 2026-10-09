@@ -414,6 +414,10 @@ export class EffectChainRenderer {
     stepContext.pixelScale = ctx.pixelScale;
 
     let input = source;
+    // Draws so far, which pick the ping-pong target: a readback draws
+    // nothing into either, so counting it would have the next pass draw
+    // into the target it reads.
+    let drawn = 0;
     for (const [index, step] of steps.entries()) {
       const isLast = index === steps.length - 1;
       if (step.analysis !== undefined) {
@@ -424,7 +428,8 @@ export class EffectChainRenderer {
           continue;
         }
       }
-      const target = isLast && output === "screen" ? null : targets[index % 2];
+      const target =
+        isLast && output === "screen" ? null : targets[drawn++ % 2];
       const { compiled, parameters } = step;
       const stages = this.runStages(input, compiled, parameters, stepContext);
       gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);
