@@ -2,6 +2,7 @@ import { ArrowPathIcon } from "@heroicons/react/24/solid";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useEffect,
   useRef,
   useState,
@@ -20,10 +21,13 @@ import {
   parseCurves,
 } from "../../../fx/effects/levels/curve.ts";
 import {
-  type FrameHistogram,
+  type CurveHistogram,
+  curveHistogram,
   HISTOGRAM_BINS,
-  watchFrameHistogram,
-} from "../../../fx-shaders/frame-analysis.ts";
+} from "../../../fx/effects/levels/histogram.ts";
+import { previewFrameAnalysis } from "../../../fx-shaders/frame-analysis.ts";
+import type { FxDevice } from "../../../fx-stack";
+import { useOnScreen } from "../FxTraceGraph";
 import type { FxParameterControlProps } from "../types";
 import "./curve-control.css";
 
@@ -45,7 +49,7 @@ const CHANNEL_LABELS: Record<CurveChannel, string> = {
   blue: "B",
 };
 
-const HISTOGRAM_CHANNEL: Record<CurveChannel, keyof FrameHistogram> = {
+const HISTOGRAM_CHANNEL: Record<CurveChannel, keyof CurveHistogram> = {
   master: "luma",
   red: "red",
   green: "green",
@@ -60,11 +64,23 @@ function round(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-// The latest histogram of the picture reaching the effect `effectId`, read
-// back by the preview while this is shown.
-function useFrameHistogram(effectId: string) {
-  const [histogram, setHistogram] = useState<FrameHistogram | null>(null);
-  useEffect(() => watchFrameHistogram(effectId, setHistogram), [effectId]);
+// The latest histogram of the picture reaching `device`'s effect, read back
+// by the preview while `plot` is on screen and the device is on.
+function useCurveHistogram(
+  device: FxDevice,
+  plot: RefObject<SVGSVGElement | null>,
+) {
+  const [histogram, setHistogram] = useState<CurveHistogram | null>(null);
+  const sampling = useOnScreen(plot) && device.enabled;
+  useEffect(
+    () =>
+      sampling
+        ? previewFrameAnalysis.subscribe(device.id, (sample) =>
+            setHistogram(curveHistogram(sample)),
+          )
+        : undefined,
+    [device.id, sampling],
+  );
   return histogram;
 }
 
@@ -131,8 +147,8 @@ export function CurveControl({
   const [channel, setChannel] = useState<CurveChannel>("master");
   const curves = parseCurves(parameter.stringValue);
   const points = curves[channel];
-  const histogram = useFrameHistogram(device.id);
   const svg = useRef<SVGSVGElement | null>(null);
+  const histogram = useCurveHistogram(device, svg);
   const drag = useRef<{ pointerId: number; index: number } | null>(null);
   // The points of a drag in progress, which the stored value catches up to.
   const [dragPoints, setDragPoints] = useState<CurvePoint[] | null>(null);

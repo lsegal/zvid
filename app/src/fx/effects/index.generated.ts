@@ -16,6 +16,8 @@ import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
+import * as contrast from "./contrast/definition.ts";
+import { pass as contrastPass } from "./contrast/pass.ts";
 import * as deEss from "./de-ess/definition.ts";
 import * as delay from "./delay/definition.ts";
 import * as digitalGlitch from "./digital-glitch/definition.ts";
@@ -23,6 +25,8 @@ import { pass as digitalGlitchPass } from "./digital-glitch/pass.ts";
 import * as distortion from "./distortion/definition.ts";
 import { pass as distortionPass } from "./distortion/pass.ts";
 import * as eq from "./eq/definition.ts";
+import * as exposure from "./exposure/definition.ts";
+import { pass as exposurePass } from "./exposure/pass.ts";
 import * as gain from "./gain/definition.ts";
 import * as gaussianBlur from "./gaussian-blur/definition.ts";
 import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
@@ -47,6 +51,8 @@ import { pass as refractionPass } from "./refraction/pass.ts";
 import * as reverb from "./reverb/definition.ts";
 import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
+import * as scopes from "./scopes/definition.ts";
+import { pass as scopesPass } from "./scopes/pass.ts";
 import * as shape from "./shape/definition.ts";
 import { pass as shapePass } from "./shape/pass.ts";
 import * as stereo from "./stereo/definition.ts";
@@ -69,11 +75,13 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   color,
   colorize,
   compressor,
+  contrast,
   deEss,
   delay,
   digitalGlitch,
   distortion,
   eq,
+  exposure,
   gain,
   gaussianBlur,
   highCut,
@@ -93,6 +101,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   reverb,
   reverse,
   saturation,
+  scopes,
   shape,
   stereo,
   text,
@@ -109,13 +118,16 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   bloomPass,
   causticsPass,
   colorizePass,
+  contrastPass,
   digitalGlitchPass,
   distortionPass,
+  exposurePass,
   gaussianBlurPass,
   levelsPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,
+  scopesPass,
   shapePass,
   zoomAndPanPass,
 ];

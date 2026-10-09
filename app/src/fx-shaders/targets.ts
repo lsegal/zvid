@@ -1,6 +1,5 @@
-// The render targets the effect chain draws into: pooled sets of
-// framebuffers whose sides are bucketed, each picture drawn into the corner
-// of one, and the texture regions passes read those pictures through.
+// Pooled render targets for the effect chain, and the regions of them a
+// picture fills.
 
 // Pooled targets are allocated with sides rounded up to a multiple of this,
 // so a slot whose size animates reuses a few targets rather than

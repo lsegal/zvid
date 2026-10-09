@@ -319,9 +319,13 @@ const refraction = (type, parameters) => [
 const PANEL_EFFECTS = new Map([
   // A focus pull: the panel blurs in and out of focus over its cut.
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
+  // The panel's tones punch out from the pivot gray and settle back.
+  ["orbit 4.5", ["Contrast", { _Contrast: 1.6 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
   ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
   ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
+  // A flash of light: the panel brightens a stop and a half over its cut.
+  ["orbit 18", ["Exposure", { _Stops: 1.5 }]],
   ["orbit 7.5", distortion("Ripple", { _Amount: 0.4, _Speed: 0.6 })],
   ["ribbon 16.5", distortion("Fisheye", { _Amount: 0.8, _Size: 1 })],
   ["corridor 16.5", refraction("Frosted Glass", { _Amount: 0.6 })],
@@ -329,7 +333,7 @@ const PANEL_EFFECTS = new Map([
   ["ribbon 24", refraction("Glass Blocks", { _Scale: 0.4 })],
   // A warm grade: cool blacks, warm whites and an S curve.
   [
-    "orbit 18",
+    "corridor 18",
     [
       "Levels",
       {
@@ -899,6 +903,11 @@ MUSIC_SECTIONS.forEach(([name, parameters], index) => {
     addEffect(clip, name, parameters);
   }
 });
+
+// Scopes changes nothing it shows, so it sits on the full-frame ribbon,
+// where its panel shows the shot's waveform. Added last, it leaves the ids
+// of the effects before it as they were.
+addEffect(ribbonShot, "Scopes", {});
 
 // ---- session -------------------------------------------------------------
 

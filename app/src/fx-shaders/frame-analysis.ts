@@ -1,22 +1,17 @@
-// Histograms of the picture as it reaches an effect, read back from the
-// preview for the device panels that show one, such as the Levels curve's.
-// A panel watches its effect while it is shown; the preview's chain reads
-// the picture back only for watched effects, at a reduced size and rate,
-// and export never does.
+// Reads the picture back at a view-only pass's position in the chain (see
+// `EffectPass.analyzes`), for panels that show it, such as Scopes'
+// waveform. Only the preview reads back, and only while a panel asks: the
+// chain draws the picture into a small target and reads that, so a sample
+// is at most 256 × 256 pixels rather than a full frame, taken at most
+// FRAME_SAMPLE_RATE times a second per effect.
 
 import type { EffectPass } from "./types.ts";
 
-export const HISTOGRAM_BINS = 64;
-
-// The longest side, in pixels, of the copy a histogram is counted from.
-export const ANALYSIS_SIZE = 128;
-
-// The least time between two readbacks of one effect's picture.
-export const ANALYSIS_INTERVAL_MS = 100;
-
-// Draws the picture as it is, into the small copy a histogram is read from.
-export const COPY_PASS: EffectPass = {
-  effectName: "FrameAnalysisCopy",
+// The view-only step the chain puts before a pass that `analyzesInput`, to
+// read back the picture reaching it: it copies its input as it is.
+export const INPUT_SAMPLE_PASS: EffectPass = {
+  effectName: "InputSample",
+  analyzes: true,
   fragmentSource: `
     uniform sampler2D uTex;
     varying vec2 vUv;
@@ -29,121 +24,167 @@ export const COPY_PASS: EffectPass = {
   setUniforms() {},
 };
 
-// Each bin's share of the picture's pixels, weighted by their alpha, so
-// transparent areas count for nothing. `luma` bins Rec. 709 luminance.
-export type FrameHistogram = {
-  red: Float32Array;
-  green: Float32Array;
-  blue: Float32Array;
-  luma: Float32Array;
+// A picture read back at reduced size: `width` × `height` RGBA pixels,
+// bottom row first, as WebGL reads them.
+export type FrameSample = {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
 };
 
-type Listener = (histogram: FrameHistogram) => void;
+export type FrameSampleListener = (sample: FrameSample) => void;
 
-const watchers = new Map<string, Set<Listener>>();
-const latest = new Map<string, FrameHistogram>();
-const watchListeners = new Set<() => void>();
+// Columns a sample is read back at; its rows keep the picture's aspect.
+export const FRAME_SAMPLE_COLUMNS = 256;
+export const MAX_FRAME_SAMPLE_ROWS = 256;
 
-// Calls `listener` with each new histogram of the picture reaching the
-// effect `effectId`, and with the last one now, if there is one. Returns a
-// function that stops watching.
-export function watchFrameHistogram(effectId: string, listener: Listener) {
-  let set = watchers.get(effectId);
-  if (!set) {
-    set = new Set();
-    watchers.set(effectId, set);
-  }
-  set.add(listener);
-  const last = latest.get(effectId);
-  if (last) {
-    listener(last);
-  }
-  notifyWatchListeners();
-  return () => {
-    set.delete(listener);
-    if (!set.size && watchers.get(effectId) === set) {
-      watchers.delete(effectId);
-      latest.delete(effectId);
-    }
+// Samples a second, at most, for each effect.
+export const FRAME_SAMPLE_RATE = 20;
+
+// The size a `width` × `height` picture is read back at.
+export function frameSampleSize(width: number, height: number) {
+  const columns = Math.max(
+    1,
+    Math.min(FRAME_SAMPLE_COLUMNS, Math.round(width)),
+  );
+  const rows = Math.round((columns * height) / Math.max(1, width));
+  return {
+    width: columns,
+    height: Math.max(
+      1,
+      Math.min(MAX_FRAME_SAMPLE_ROWS, Math.round(height), rows),
+    ),
   };
 }
 
-export function isFrameHistogramWatched(effectId: string) {
-  return watchers.has(effectId);
-}
+type Subscription = {
+  listeners: Set<FrameSampleListener>;
+  // When the effect was last sampled, or -Infinity for a new subscription.
+  sampledAt: number;
+};
 
-function notifyWatchListeners() {
-  for (const watchListener of watchListeners) {
-    watchListener();
+// Who wants which effect's picture. The preview's chain asks `wants` as it
+// prepares a view-only step and `publish`es what it reads back; panels
+// `subscribe` while they are visible.
+export class FrameAnalysisHub {
+  private subscriptions = new Map<string, Subscription>();
+  private readonly interval: number;
+  private readonly now: () => number;
+  private frameRequests = new Set<() => void>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(options: { rate?: number; now?: () => number } = {}) {
+    this.interval = 1000 / (options.rate ?? FRAME_SAMPLE_RATE);
+    this.now = options.now ?? (() => performance.now());
   }
-}
 
-let redrawTimer: ReturnType<typeof setTimeout> | null = null;
+  // Calls `listener` with each sample of effect `effectId`'s picture until
+  // the returned function is called. A paused preview draws a frame for it.
+  subscribe(effectId: string, listener: FrameSampleListener) {
+    let subscription = this.subscriptions.get(effectId);
+    if (!subscription) {
+      subscription = { listeners: new Set(), sampledAt: -Infinity };
+      this.subscriptions.set(effectId, subscription);
+    }
+    subscription.listeners.add(listener);
+    subscription.sampledAt = -Infinity;
+    this.requestFrame();
+    return () => {
+      const current = this.subscriptions.get(effectId);
+      current?.listeners.delete(listener);
+      if (current && !current.listeners.size) {
+        this.subscriptions.delete(effectId);
+      }
+    };
+  }
 
-// Asks a paused preview for another frame in `delay` ms, once a readback
-// was skipped to keep to ANALYSIS_INTERVAL_MS, so the histogram ends on the
-// frame left showing after a scrub.
-export function requestFrameHistogramRedraw(delay: number) {
-  if (redrawTimer === null) {
-    redrawTimer = setTimeout(() => {
-      redrawTimer = null;
-      notifyWatchListeners();
+  // Whether anything is subscribed at all, so the chain can skip asking.
+  get active() {
+    return this.subscriptions.size > 0;
+  }
+
+  // True when effect `effectId` should be sampled in the frame being drawn:
+  // something is subscribed to it and its last sample is old enough. A
+  // sample put off for its age is taken in a frame requested for when it is
+  // due, so a paused preview still shows its last edit.
+  wants(effectId: string) {
+    const subscription = this.subscriptions.get(effectId);
+    if (!subscription) {
+      return false;
+    }
+    const now = this.now();
+    const due = subscription.sampledAt + this.interval;
+    if (now < due) {
+      this.requestFrame(due - now);
+      return false;
+    }
+    subscription.sampledAt = now;
+    return true;
+  }
+
+  publish(effectId: string, sample: FrameSample) {
+    for (const listener of this.subscriptions.get(effectId)?.listeners ?? []) {
+      listener(sample);
+    }
+  }
+
+  // Calls `request` when a paused preview should draw a frame for a sample.
+  // The preview passes one that does nothing while it plays, since playback
+  // draws frames anyway.
+  onFrameRequest(request: () => void) {
+    this.frameRequests.add(request);
+    return () => {
+      this.frameRequests.delete(request);
+    };
+  }
+
+  private requestFrame(delay = 0) {
+    if (!this.frameRequests.size || this.timer !== null) {
+      return;
+    }
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      for (const request of this.frameRequests) {
+        request();
+      }
     }, delay);
   }
 }
 
-// Calls `listener` whenever an effect starts being watched, or a skipped
-// readback is due, so a paused preview can draw a frame to read back.
-// Returns a function that stops it.
-export function onFrameHistogramWatch(listener: () => void) {
-  watchListeners.add(listener);
-  return () => {
-    watchListeners.delete(listener);
-  };
-}
+// The preview's hub. Export never uses one, so it never reads back.
+export const previewFrameAnalysis = new FrameAnalysisHub();
 
-// The histogram of RGBA `pixels`, 8 bits a channel.
-export function countHistogram(pixels: Uint8Array): FrameHistogram {
-  const red = new Float32Array(HISTOGRAM_BINS);
-  const green = new Float32Array(HISTOGRAM_BINS);
-  const blue = new Float32Array(HISTOGRAM_BINS);
-  const luma = new Float32Array(HISTOGRAM_BINS);
-  const scale = HISTOGRAM_BINS / 256;
-  let total = 0;
-  for (let index = 0; index + 3 < pixels.length; index += 4) {
-    const weight = pixels[index + 3] / 255;
-    if (weight <= 0) {
-      continue;
-    }
-    const r = pixels[index];
-    const g = pixels[index + 1];
-    const b = pixels[index + 2];
-    red[Math.floor(r * scale)] += weight;
-    green[Math.floor(g * scale)] += weight;
-    blue[Math.floor(b * scale)] += weight;
-    luma[Math.floor((0.2126 * r + 0.7152 * g + 0.0722 * b) * scale)] += weight;
-    total += weight;
-  }
-  if (total > 0) {
-    for (const bins of [red, green, blue, luma]) {
-      for (let bin = 0; bin < HISTOGRAM_BINS; bin++) {
-        bins[bin] /= total;
-      }
+// The levels a sample's channels are binned into: 8-bit values.
+export const FRAME_LEVELS = 256;
+
+// For each channel (red, green, blue) and column of `sample`, how many of
+// the column's pixels sit at each level, at
+// `((channel * sample.width) + column) * FRAME_LEVELS + level`.
+export function waveformCounts(sample: FrameSample) {
+  const { width, height, pixels } = sample;
+  const counts = new Uint16Array(3 * width * FRAME_LEVELS);
+  const channelStride = width * FRAME_LEVELS;
+  for (let row = 0; row < height; row++) {
+    for (let column = 0; column < width; column++) {
+      const pixel = (row * width + column) * 4;
+      const base = column * FRAME_LEVELS;
+      counts[base + pixels[pixel]]++;
+      counts[channelStride + base + pixels[pixel + 1]]++;
+      counts[2 * channelStride + base + pixels[pixel + 2]]++;
     }
   }
-  return { red, green, blue, luma };
+  return counts;
 }
 
-// Hands the RGBA `pixels` of the picture reaching `effectId` to its
-// watchers as a histogram.
-export function publishFrameHistogram(effectId: string, pixels: Uint8Array) {
-  const set = watchers.get(effectId);
-  if (!set) {
-    return;
+// For each channel (red, green, blue), how many of `sample`'s pixels sit at
+// each level, at `channel * FRAME_LEVELS + level`.
+export function histogramCounts(sample: FrameSample) {
+  const { width, height, pixels } = sample;
+  const counts = new Uint32Array(3 * FRAME_LEVELS);
+  for (let pixel = 0; pixel < width * height * 4; pixel += 4) {
+    counts[pixels[pixel]]++;
+    counts[FRAME_LEVELS + pixels[pixel + 1]]++;
+    counts[2 * FRAME_LEVELS + pixels[pixel + 2]]++;
   }
-  const histogram = countHistogram(pixels);
-  latest.set(effectId, histogram);
-  for (const listener of set) {
-    listener(histogram);
-  }
+  return counts;
 }

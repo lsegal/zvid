@@ -1,0 +1,13 @@
+/* Scopes' waveform, a full row of its device panel. */
+.fx-device-panel__body > .fx-waveform {
+  grid-column: 1 / -1;
+}
+
+.fx-waveform__scope {
+  display: block;
+  width: 288px;
+  height: 168px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #000;
+}

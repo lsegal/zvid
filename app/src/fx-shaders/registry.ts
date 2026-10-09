@@ -8,7 +8,7 @@ import {
 } from "./types.ts";
 
 export type ChainEffect = {
-  // The session effect's id, for reading back the picture reaching it.
+  // The effect's id, which a view-only pass's readback is published under.
   id?: string;
   trackId: string;
   effectName: string;

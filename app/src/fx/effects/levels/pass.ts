@@ -63,9 +63,12 @@ export function readLevelsCurve(params: EffectParameter[]) {
 // it, with the Lift, Gamma, Gain and Offset wheels (see `gradeLevel`), then
 // the tone curves, baked into a lookup table of the master curve followed
 // by each channel's own. Alpha is left as it is. Nothing depends on time or
-// the output size, so preview and export match.
+// the output size, so preview and export match. The preview reads back the
+// picture reaching it for the curve's histogram (see `analyzesInput`).
 export const pass: EffectPass = {
   effectName: "Levels",
+  // Its curve is drawn over a histogram of the picture reaching it.
+  analyzesInput: true,
   fragmentSource: `
     uniform sampler2D uTex;
     uniform vec3 uLift;

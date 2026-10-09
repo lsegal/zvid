@@ -326,7 +326,10 @@ describe("addableEffectsFor", () => {
       withAudio("global", [
         "ZoomAndPan",
         "Colorize",
+        "Exposure",
+        "Contrast",
         "Levels",
+        "Scopes",
         "Pixelate",
         "NegativeSplit",
         "AnalogGlitch",
@@ -352,7 +355,10 @@ describe("addableEffectsFor", () => {
       withAudio("layer", [
         "ZoomAndPan",
         "Colorize",
+        "Exposure",
+        "Contrast",
         "Levels",
+        "Scopes",
         "Pixelate",
         "NegativeSplit",
         "AnalogGlitch",

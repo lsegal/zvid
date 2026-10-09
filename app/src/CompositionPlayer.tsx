@@ -7,8 +7,6 @@ import {
   useRef,
 } from "react";
 import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
-import { audioMixEndSeconds } from "./audio-mix/mix.ts";
-import { renderAudioMixOffline } from "./audio-mix/offline.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
 import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
 import {
@@ -47,6 +45,7 @@ import {
   indexEffects,
   stackEffects,
 } from "./composition-effect-index.ts";
+import { renderOfflineAudioBands } from "./composition-offline-bands.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
 import { findTransitionClips } from "./composition-transition.ts";
@@ -55,9 +54,10 @@ import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
-  OfflineAudioBands,
+  type OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
+import type { FrameAnalysisHub } from "./fx-shaders/frame-analysis.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";
@@ -99,6 +99,9 @@ type CompositionPlayerProps = {
   // A text clip being typed on in the preview, whose text the on-canvas
   // editor shows instead.
   hiddenTextClipId?: string;
+  // Where view-only effects such as Scopes publish the picture at their
+  // position, for their panels. Only the main preview passes one.
+  frameAnalysis?: FrameAnalysisHub;
 };
 
 type CompositionPlaybackState = {
@@ -116,9 +119,6 @@ export type CompositionPlayerHandle = {
   setVolume(volume: number, muted: boolean): void;
   getMasterMeterTap(): MasterMeterTap | null;
 };
-
-// Export measures audio-reactive effects on the mix at this rate.
-const OFFLINE_BANDS_SAMPLE_RATE = 48000;
 
 // "live" plays the audio mix and measures it as it plays (preview).
 // "offline" renders the mix and measures it at each rendered frame (export).
@@ -150,6 +150,7 @@ export class CompositionRenderer {
   private transitionClips: ArrangementClip[] = [];
   private readonly audioAnalysis: AudioAnalysisMode;
   private readonly contextAttributes: WebGLContextAttributes;
+  private readonly frameAnalysis: FrameAnalysisHub | null;
   private liveAudioBands = new LiveAudioBands();
   private offlineAudioBands: {
     mix: AudioMix;
@@ -163,12 +164,15 @@ export class CompositionRenderer {
       audioAnalysis?: AudioAnalysisMode;
       // The preview passes its own; export keeps the default.
       contextAttributes?: WebGLContextAttributes;
+      // Unset, as for export, view-only effects read nothing back.
+      frameAnalysis?: FrameAnalysisHub;
     } = {},
   ) {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
     this.contextAttributes =
       options.contextAttributes ?? EXPORT_CONTEXT_ATTRIBUTES;
+    this.frameAnalysis = options.frameAnalysis ?? null;
     if (this.audioAnalysis === "live") {
       this.mixer = new PreviewAudioMixer({
         workletUrl: CHAIN_WORKLET_URL,
@@ -339,12 +343,13 @@ export class CompositionRenderer {
   }
 
   private ensureResources() {
-    this.resources ??= ensureWebGlResources(
-      this.canvas,
-      this.contextAttributes,
-      // Only the preview reads pictures back for histograms.
-      this.audioAnalysis === "live",
-    );
+    if (!this.resources) {
+      this.resources = ensureWebGlResources(
+        this.canvas,
+        this.contextAttributes,
+      );
+      this.resources.effectChain.analysis = this.frameAnalysis;
+    }
   }
 
   private computeActiveClips(
@@ -430,24 +435,9 @@ export class CompositionRenderer {
 
     // A mix resolved again, after an edit, is measured again.
     if (this.offlineAudioBands?.mix !== mix) {
-      const sampleRate = OFFLINE_BANDS_SAMPLE_RATE;
       this.offlineAudioBands = {
         mix,
-        bands: renderAudioMixOffline(mix, this.state.mediaItems, {
-          sampleRate,
-          numberOfChannels: 2,
-          startSeconds: 0,
-          length: Math.ceil(audioMixEndSeconds(mix) * sampleRate),
-        })
-          .then((channels) =>
-            channels
-              ? OfflineAudioBands.fromChannels(channels, sampleRate)
-              : null,
-          )
-          .catch((error) => {
-            console.warn("Export renders effects without audio bands.", error);
-            return null;
-          }),
+        bands: renderOfflineAudioBands(mix, this.state.mediaItems),
       };
     }
 
@@ -559,6 +549,7 @@ export const CompositionPlayer = forwardRef<
     playheadSignal,
     audioMix,
     hiddenTextClipId,
+    frameAnalysis,
   },
   ref,
 ) {
@@ -606,6 +597,13 @@ export const CompositionPlayer = forwardRef<
       scheduleDrawRef.current();
     }
   }, []);
+  // A paused preview draws a frame when a view-only effect's panel needs
+  // a new picture; playback draws them anyway.
+  const frameAnalysisRef = useRef(frameAnalysis);
+  useEffect(
+    () => frameAnalysis?.onFrameRequest(redrawIfPaused),
+    [frameAnalysis, redrawIfPaused],
+  );
   const previewPixelRatio = usePreviewPixelRatio(
     canvasRef,
     { width: canvasWidth, height: canvasHeight },
@@ -688,6 +686,7 @@ export const CompositionPlayer = forwardRef<
     rendererRef.current = new CompositionRenderer(rendererStateRef.current, {
       canvas,
       contextAttributes: PREVIEW_CONTEXT_ATTRIBUTES,
+      frameAnalysis: frameAnalysisRef.current,
     });
 
     return () => {
@@ -774,8 +773,7 @@ export const CompositionPlayer = forwardRef<
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
-  // A paused preview redraws once a font or Custom shape loads, or a panel
-  // starts showing a histogram, which is read from a drawn frame.
+  // A paused preview redraws once a text font or Custom shape SVG loads.
   useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
