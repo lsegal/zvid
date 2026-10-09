@@ -11,10 +11,13 @@ import type { EffectAnimation } from "../../fx-animation-defaults";
 import {
   addableEffectsFor,
   animationCollapseKey,
+  canMoveDevice as canMoveDeviceIn,
   canStartFxChainPan,
   describeDeviceMove,
   deviceLayerOptions,
+  FX_CHAIN_SECTIONS,
   type FxLayerOption,
+  getStackMoveIndex,
   groupChainDevices,
   modulationCollapseKey,
   readCollapsedDevices,
@@ -33,7 +36,11 @@ import { useDragScroll } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
 import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
 import { AddDeviceMenu } from "./AddDeviceMenu";
-import { type DeviceMenuState, getDeviceMenuEntries } from "./device-menu";
+import {
+  type DeviceMenuState,
+  type DeviceStackTarget,
+  getDeviceMenuEntries,
+} from "./device-menu";
 import { FxAnimationPanel } from "./FxAnimationPanel";
 import { FxDevicePanel } from "./FxDevicePanel";
 import { FxModulationPanel } from "./FxModulationPanel";
@@ -88,6 +95,14 @@ export type FxChainProps = {
   ) => void;
   onSetParameter: FxSetParameter;
   onMove: (device: FxDevice, toIndex: number) => void;
+  // Moves a device onto another stack, ahead of `beforeId` or else at its
+  // end.
+  onMoveToStack: (
+    device: FxDevice,
+    trackId: string,
+    scope: FxEffectScope,
+    beforeId: string | undefined,
+  ) => void;
   onAdd: (trackId: string, effectName: string, id: string) => void;
   onRemove: (device: FxDevice) => void;
   onDuplicate: (device: FxDevice, id: string) => void;
@@ -159,6 +174,7 @@ export function FxChain({
   onSetModulation,
   onSetParameter,
   onMove,
+  onMoveToStack,
   onAdd,
   onRemove,
   onDuplicate,
@@ -178,13 +194,22 @@ export function FxChain({
   const [menu, setMenu] = useState<DeviceMenuState | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
+  const canEdit = layerTrackId !== undefined;
+  const showClip = canEdit && clipTrackId !== undefined;
+  // The stacks shown with a track to move devices onto.
+  const movableSections = FX_CHAIN_SECTIONS.filter((group) =>
+    group === "global"
+      ? canEdit
+      : group === "layer"
+        ? canEdit && layerName !== undefined
+        : showClip,
+  );
   const { drag, beginDrag, suppressClickRef } = useDeviceDrag({
     scrollRef,
-    groups,
     moveDevice,
+    canMoveDevice,
     setAnnouncement,
   });
-  const canEdit = layerTrackId !== undefined;
   const layerOptions = useMemo(
     () => ({
       global: layers,
@@ -205,7 +230,6 @@ export function FxChain({
     }),
     [clipLayers, clipScope, layerTrackId, layers],
   );
-  const showClip = canEdit && clipTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -264,19 +288,80 @@ export function FxChain({
     });
   }
 
+  function canMoveDevice(
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) {
+    return (
+      (toGroup === device.group || movableSections.includes(toGroup)) &&
+      canMoveDeviceIn(groups, device, toGroup, toIndex, clipScope)
+    );
+  }
+
+  // Moves a device to `toIndex` of the `toGroup` stack, counted without the
+  // device itself.
   function moveDevice(
     device: FxDevice,
-    fromIndex: number,
+    toGroup: FxDeviceGroup,
     toIndex: number,
-    stackSize: number,
   ) {
-    if (toIndex < 0 || toIndex >= stackSize || toIndex === fromIndex) {
+    const stack = groups[toGroup];
+    if (!canMoveDevice(device, toGroup, toIndex)) {
+      return;
+    }
+
+    if (toGroup === device.group) {
+      if (stack[toIndex]?.id === device.id) {
+        return;
+      }
+
+      requestFocus(device.id);
+      onMove(device, toIndex);
+      setAnnouncement(describeDeviceMove(device, toIndex, stack.length));
+      return;
+    }
+
+    const trackId = getTrackId(toGroup, layerTrackId, clipTrackId);
+    if (!trackId) {
       return;
     }
 
     requestFocus(device.id);
-    onMove(device, toIndex);
-    setAnnouncement(describeDeviceMove(device, toIndex, stackSize));
+    onMoveToStack(device, trackId, scopeOf(toGroup), stack[toIndex]?.id);
+    setAnnouncement(
+      describeDeviceMove(
+        device,
+        toIndex,
+        stack.length + 1,
+        toGroup === "layer" ? (layerName ?? layerLabel) : sectionLabel(toGroup, layerLabel),
+      ),
+    );
+  }
+
+  // The other stacks shown that a device can be sent to, left to right.
+  function getStackTargets(device: FxDevice): DeviceStackTarget[] {
+    return movableSections
+      .filter((group) => group !== device.group)
+      .map((group) => ({
+        group,
+        label: sectionLabel(group, layerLabel),
+        index: getStackMoveIndex(groups, device, group),
+      }));
+  }
+
+  // Sends a device to the nearest stack on one side that takes it.
+  function moveDeviceToNextStack(device: FxDevice, direction: -1 | 1) {
+    const from = FX_CHAIN_SECTIONS.indexOf(device.group);
+    const targets = getStackTargets(device).filter(
+      (target) =>
+        Math.sign(FX_CHAIN_SECTIONS.indexOf(target.group) - from) ===
+          direction && canMoveDevice(device, target.group, target.index),
+    );
+    const target = direction < 0 ? targets.at(-1) : targets[0];
+    if (target) {
+      moveDevice(device, target.group, target.index);
+    }
   }
 
   function removeDevice(device: FxDevice) {
@@ -329,7 +414,6 @@ export function FxChain({
     event: ReactKeyboardEvent<HTMLElement>,
     device: FxDevice,
     index: number,
-    stackSize: number,
   ) {
     if (
       event.altKey &&
@@ -339,12 +423,13 @@ export function FxChain({
     ) {
       event.preventDefault();
       event.stopPropagation();
-      moveDevice(
-        device,
-        index,
-        index + (event.key === "ArrowLeft" ? -1 : 1),
-        stackSize,
-      );
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      // Shift sends the device to the neighboring stack instead.
+      if (event.shiftKey) {
+        moveDeviceToNextStack(device, direction);
+      } else {
+        moveDevice(device, device.group, index + direction);
+      }
       return;
     }
 
@@ -365,7 +450,6 @@ export function FxChain({
     event: ReactMouseEvent<HTMLElement>,
     device: FxDevice,
     index: number,
-    stackSize: number,
   ) {
     event.preventDefault();
     // The context-menu key and Shift+F10 report no pointer position.
@@ -377,7 +461,7 @@ export function FxChain({
     }
     menuDeviceIdRef.current = device.id;
     menuFocusRef.current = null;
-    setMenu({ device, index, stackSize, x, y });
+    setMenu({ device, index, x, y });
   }
 
   function renderStack(group: FxDeviceGroup) {
@@ -408,7 +492,7 @@ export function FxChain({
           device={device}
           dragging={dragging}
           onContextMenu={(event) =>
-            openContextMenu(event, device, index, stack.length)
+            openContextMenu(event, device, index)
           }
           onRemove={() => removeDevice(device)}
           layerBypassed={layerBypassed}
@@ -425,7 +509,7 @@ export function FxChain({
             toggleCollapsed(device.id);
           }}
           onTitleKeyDown={(event) =>
-            handleTitleKeyDown(event, device, index, stack.length)
+            handleTitleKeyDown(event, device, index)
           }
           onTitlePointerDown={(event) => beginDrag(event, device, index)}
           onToggleCollapsed={() => toggleCollapsed(device.id)}
@@ -508,6 +592,8 @@ export function FxChain({
         toggleCollapsed,
         onSetEnabled,
         moveDevice,
+        canMoveDevice,
+        stackTargets: getStackTargets(menu.device),
         resetDevice,
         duplicateDevice,
         removeDevice,

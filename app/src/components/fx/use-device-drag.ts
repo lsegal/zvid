@@ -8,15 +8,17 @@ import {
 import {
   dropSlotToStackIndex,
   FX_CHAIN_SECTIONS,
-  type FxChainGroups,
   getAutoScrollDelta,
   getDropSlot,
   isNoopDropSlot,
+  isPinnedDevice,
 } from "../../fx-chain";
 import type { FxDevice, FxDeviceGroup } from "../../fx-stack";
 
 // Pixels the pointer travels before a press on a title bar becomes a drag.
 const DRAG_THRESHOLD = 4;
+
+type DropTarget = { group: FxDeviceGroup; index: number };
 
 type DragSession = {
   device: FxDevice;
@@ -26,35 +28,42 @@ type DragSession = {
   startY: number;
   lastX: number;
   active: boolean;
-  slot: number | null;
+  target: DropTarget | null;
   frame: number;
 };
 
 type DragView = {
   deviceId: string;
   // Insertion marker position in scroll content coordinates, or null when
-  // the pointer is over the other stack and the drop would be rejected.
+  // the stack under the pointer won't take the device and the drop would be
+  // rejected.
   markerX: number | null;
 };
 
 type DeviceDragOptions = {
   scrollRef: RefObject<HTMLDivElement | null>;
-  groups: FxChainGroups;
   moveDevice: (
     device: FxDevice,
-    fromIndex: number,
+    toGroup: FxDeviceGroup,
     toIndex: number,
-    stackSize: number,
   ) => void;
+  // Whether the device can drop at `toIndex` of the `toGroup` stack, counted
+  // without the device itself.
+  canMoveDevice: (
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) => boolean;
   setAnnouncement: (announcement: string) => void;
 };
 
-// Dragging a device's title bar reorders it within its stack, with an
-// insertion marker and auto-scroll near the chain's edges.
+// Dragging a device's title bar reorders it within its stack or moves it to
+// another stack that takes it, with an insertion marker and auto-scroll near
+// the chain's edges.
 export function useDeviceDrag({
   scrollRef,
-  groups,
   moveDevice,
+  canMoveDevice,
   setAnnouncement,
 }: DeviceDragOptions) {
   const dragRef = useRef<DragSession | null>(null);
@@ -80,49 +89,68 @@ export function useDeviceDrag({
       return;
     }
 
-    const { group } = session.device;
+    const { device } = session;
     const pointerX = session.lastX;
-    // A stack spans from the middle of its own divider to the middle of the
-    // next one; devices only move within their stack.
-    const dividerX = (section: FxDeviceGroup | undefined) => {
-      const divider = section
-        ? scroller
-            .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
-            ?.getBoundingClientRect()
-        : undefined;
-      return divider ? divider.left + divider.width / 2 : undefined;
+    const reject = () => {
+      session.target = null;
+      setDrag({ deviceId: device.id, markerX: null });
     };
-    const sectionIndex = FX_CHAIN_SECTIONS.indexOf(group);
-    const startX = dividerX(group) ?? Number.NEGATIVE_INFINITY;
-    const endX =
-      dividerX(FX_CHAIN_SECTIONS[sectionIndex + 1]) ?? Number.POSITIVE_INFINITY;
-    const overOtherStack = pointerX < startX || pointerX > endX;
+    // A stack spans from the middle of its own divider to the middle of the
+    // next one. Left of the first divider are the leading devices, such as
+    // a source track's Record device, which nothing can displace.
+    const group = FX_CHAIN_SECTIONS.findLast((section) => {
+      const divider = scroller
+        .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
+        ?.getBoundingClientRect();
+      return divider !== undefined && divider.left + divider.width / 2 <= pointerX;
+    });
+    if (!group) {
+      reject();
+      return;
+    }
 
     const panels = getStackPanels(group).map((panel) =>
       panel.getBoundingClientRect(),
     );
-    if (overOtherStack || !panels.length) {
-      session.slot = null;
-      setDrag({ deviceId: session.device.id, markerX: null });
-      return;
-    }
-
+    const sameStack = group === device.group;
     const slot = getDropSlot(
       panels.map((rect) => rect.left + rect.width / 2),
       pointerX,
     );
-    session.slot = slot;
-    if (isNoopDropSlot(session.fromIndex, slot)) {
-      setDrag({ deviceId: session.device.id, markerX: null });
+    const index = sameStack ? dropSlotToStackIndex(session.fromIndex, slot) : slot;
+    if (!canMoveDevice(device, group, index)) {
+      reject();
+      return;
+    }
+
+    session.target = { group, index };
+    if (sameStack && isNoopDropSlot(session.fromIndex, slot)) {
+      setDrag({ deviceId: device.id, markerX: null });
       return;
     }
 
     const scrollerRect = scroller.getBoundingClientRect();
     const gap = Number.parseFloat(getComputedStyle(scroller).columnGap) || 0;
-    const edgeX =
-      slot === 0 ? panels[0].left - gap / 2 : panels[slot - 1].right + gap / 2;
+    let edgeX: number;
+    if (panels.length) {
+      edgeX =
+        slot === 0
+          ? panels[0].left - gap / 2
+          : panels[slot - 1].right + gap / 2;
+    } else {
+      // An empty stack takes the device ahead of its add slot.
+      const add = scroller
+        .querySelector<HTMLElement>(`[data-fx-focus="add-${group}"]`)
+        ?.getBoundingClientRect();
+      const divider = scroller
+        .querySelector<HTMLElement>(`[data-fx-divider="${group}"]`)
+        ?.getBoundingClientRect();
+      edgeX = add
+        ? add.left - gap / 2
+        : (divider?.right ?? pointerX) + gap / 2;
+    }
     setDrag({
-      deviceId: session.device.id,
+      deviceId: device.id,
       markerX: edgeX - scrollerRect.left + scroller.scrollLeft,
     });
   }
@@ -155,6 +183,7 @@ export function useDeviceDrag({
       event.button !== 0 ||
       !event.isPrimary ||
       dragRef.current ||
+      isPinnedDevice(device) ||
       (event.target as HTMLElement).closest("[data-fx-no-drag]")
     ) {
       return;
@@ -169,7 +198,7 @@ export function useDeviceDrag({
       startY: event.clientY,
       lastX: event.clientX,
       active: false,
-      slot: null,
+      target: null,
       frame: 0,
     };
 
@@ -203,17 +232,11 @@ export function useDeviceDrag({
     const finish = (commit: boolean) => {
       const session = dragRef.current;
       endDrag();
-      if (!commit || !session?.active || session.slot === null) {
+      if (!commit || !session?.active || !session.target) {
         return;
       }
 
-      const stackSize = groups[session.device.group].length;
-      moveDevice(
-        session.device,
-        session.fromIndex,
-        dropSlotToStackIndex(session.fromIndex, session.slot),
-        stackSize,
-      );
+      moveDevice(session.device, session.target.group, session.target.index);
     };
 
     const handleUp = (upEvent: PointerEvent) => {

@@ -11,6 +11,7 @@ import { isShapeEffectName } from "../fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
 import type { EffectModulation } from "../fx-modulation-defaults";
+import type { FxEffectScope } from "../fx-registry";
 import {
   addEffect,
   duplicateEffect,
@@ -18,6 +19,7 @@ import {
   type FxDevice,
   getEffectClipId,
   moveEffect,
+  moveEffectToStack,
   removeEffect,
   resetEffect,
   type SessionEffect,
@@ -200,6 +202,21 @@ export function useFxEditing({
     [editEffects],
   );
 
+  // Moves a device onto another stack, ahead of `beforeId` or else at its
+  // end, as one undoable edit.
+  const moveFxDeviceToStack = useCallback(
+    (
+      device: FxDevice,
+      trackId: string,
+      scope: FxEffectScope,
+      beforeId: string | undefined,
+    ) =>
+      editEffects(effectHistoryLabels.move(device.effectName), (current) =>
+        moveEffectToStack(current, device.id, trackId, beforeId, scope),
+      ),
+    [editEffects],
+  );
+
   const addFxDevice = useCallback(
     (trackId: string, effectName: string, id: string) => {
       // An FX clip's own stack takes the effects that work on a composite,
@@ -293,6 +310,7 @@ export function useFxEditing({
     setFxDeviceModulationEnabled,
     setFxDeviceModulation,
     moveFxDevice,
+    moveFxDeviceToStack,
     addFxDevice,
     removeFxDevice,
     resetFxDevice,
