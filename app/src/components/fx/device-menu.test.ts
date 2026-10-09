@@ -155,9 +155,12 @@ describe("getDeviceMenuEntries", () => {
   });
 
   it("offers a layer's own Layout Reset to Default but no Duplicate", () => {
-    const { entries } = open(device({ effectName: "Layout", layerDefault: true }), {
-      fixed: true,
-    });
+    const { entries } = open(
+      device({ effectName: "Layout", layerDefault: true }),
+      {
+        fixed: true,
+      },
+    );
     assert.deepEqual(summarize(entries), [
       "Collapse",
       "Bypass",

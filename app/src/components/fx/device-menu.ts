@@ -1,5 +1,5 @@
+import type { ContextMenuEntry } from "../../context-menu";
 import type { FxDevice, FxDeviceGroup } from "../../fx-stack";
-import type { ContextMenuEntry } from "../ContextMenu";
 
 // The device a context menu was opened on, and where.
 export type DeviceMenuState = {

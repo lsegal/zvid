@@ -127,18 +127,17 @@ describe("placeEffect", () => {
 
   it("refuses an id already in use", () => {
     const effects = load();
-    assert.equal(placeEffect(effects, { ...effects[1], trackId: CLIP }), effects);
+    assert.equal(
+      placeEffect(effects, { ...effects[1], trackId: CLIP }),
+      effects,
+    );
   });
 });
 
 describe("moveEffectToStack", () => {
   it("moves the effect to the end of another stack, keeping its id", () => {
     const effects = load();
-    const next = moveEffectToStack(
-      effects,
-      "colorize",
-      GLOBAL_EFFECT_TRACK_ID,
-    );
+    const next = moveEffectToStack(effects, "colorize", GLOBAL_EFFECT_TRACK_ID);
 
     assert.deepEqual(ids(next, "6"), ["pixelate", "negative", "glitch"]);
     assert.deepEqual(ids(next, GLOBAL_EFFECT_TRACK_ID), ["layout", "colorize"]);
@@ -212,14 +211,13 @@ describe("transfer history", () => {
 
   it("undoes each cut, paste, move and clear as one step", () => {
     const initial: State = { effects: load() };
-    const colorize = initial.effects.find(
-      (effect) => effect.id === "colorize",
-    );
+    const colorize = initial.effects.find((effect) => effect.id === "colorize");
     assert.ok(colorize);
     const steps: Array<(effects: SessionEffect[]) => SessionEffect[]> = [
       (effects) => removeEffect(effects, "colorize"),
       (effects) => placeEffect(effects, copyEffect(colorize, CLIP, "pasted")),
-      (effects) => moveEffectToStack(effects, "pixelate", GLOBAL_EFFECT_TRACK_ID),
+      (effects) =>
+        moveEffectToStack(effects, "pixelate", GLOBAL_EFFECT_TRACK_ID),
       (effects) => removeEffects(effects, ["negative", "glitch", "pasted"]),
     ];
     let history = createProjectHistoryState(initial);

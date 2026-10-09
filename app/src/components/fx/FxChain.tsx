@@ -683,6 +683,7 @@ export function FxChain({
       : "Device actions";
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-clicking a stack's empty space is a pointer shortcut; the context-menu key and Shift+F10 on a stack's add button open the same menu
     <div
       className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
         chainDragScroll.isGrabbing ? "fx-chain--grab-scrolling" : ""
