@@ -20,7 +20,11 @@ type DeviceMenuActions = {
   collapsed: ReadonlySet<string>;
   toggleCollapsed: (deviceId: string) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
-  moveDevice: (device: FxDevice, toGroup: FxDeviceGroup, toIndex: number) => void;
+  moveDevice: (
+    device: FxDevice,
+    toGroup: FxDeviceGroup,
+    toIndex: number,
+  ) => void;
   canMoveDevice: (
     device: FxDevice,
     toGroup: FxDeviceGroup,

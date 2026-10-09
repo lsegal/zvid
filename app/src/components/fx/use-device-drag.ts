@@ -102,7 +102,9 @@ export function useDeviceDrag({
       const divider = scroller
         .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
         ?.getBoundingClientRect();
-      return divider !== undefined && divider.left + divider.width / 2 <= pointerX;
+      return (
+        divider !== undefined && divider.left + divider.width / 2 <= pointerX
+      );
     });
     if (!group) {
       reject();
@@ -117,7 +119,9 @@ export function useDeviceDrag({
       panels.map((rect) => rect.left + rect.width / 2),
       pointerX,
     );
-    const index = sameStack ? dropSlotToStackIndex(session.fromIndex, slot) : slot;
+    const index = sameStack
+      ? dropSlotToStackIndex(session.fromIndex, slot)
+      : slot;
     if (!canMoveDevice(device, group, index)) {
       reject();
       return;
@@ -145,9 +149,7 @@ export function useDeviceDrag({
       const divider = scroller
         .querySelector<HTMLElement>(`[data-fx-divider="${group}"]`)
         ?.getBoundingClientRect();
-      edgeX = add
-        ? add.left - gap / 2
-        : (divider?.right ?? pointerX) + gap / 2;
+      edgeX = add ? add.left - gap / 2 : (divider?.right ?? pointerX) + gap / 2;
     }
     setDrag({
       deviceId: device.id,

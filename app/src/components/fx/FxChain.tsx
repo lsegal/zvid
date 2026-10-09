@@ -334,7 +334,9 @@ export function FxChain({
         device,
         toIndex,
         stack.length + 1,
-        toGroup === "layer" ? (layerName ?? layerLabel) : sectionLabel(toGroup, layerLabel),
+        toGroup === "layer"
+          ? (layerName ?? layerLabel)
+          : sectionLabel(toGroup, layerLabel),
       ),
     );
   }
@@ -491,9 +493,7 @@ export function FxChain({
           collapsed={collapsed.has(device.id)}
           device={device}
           dragging={dragging}
-          onContextMenu={(event) =>
-            openContextMenu(event, device, index)
-          }
+          onContextMenu={(event) => openContextMenu(event, device, index)}
           onRemove={() => removeDevice(device)}
           layerBypassed={layerBypassed}
           onSetEnabled={onSetEnabled}
@@ -508,9 +508,7 @@ export function FxChain({
             }
             toggleCollapsed(device.id);
           }}
-          onTitleKeyDown={(event) =>
-            handleTitleKeyDown(event, device, index)
-          }
+          onTitleKeyDown={(event) => handleTitleKeyDown(event, device, index)}
           onTitlePointerDown={(event) => beginDrag(event, device, index)}
           onToggleCollapsed={() => toggleCollapsed(device.id)}
         />
