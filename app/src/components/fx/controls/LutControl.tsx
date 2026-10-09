@@ -1,7 +1,11 @@
 import { CheckIcon } from "@heroicons/react/24/solid";
 import { useSyncExternalStore } from "react";
 import { effectMediaPath } from "../../../fx/effect-media.ts";
-import { BUNDLED_LUTS } from "../../../fx/effects/lut/bundled.ts";
+import {
+  BUNDLED_LUT_GROUP,
+  BUNDLED_LUTS,
+  findBundledLut,
+} from "../../../fx/effects/lut/bundled.ts";
 import {
   customLutMediaPath,
   customLutValue,
@@ -74,6 +78,7 @@ export function LutControl({
   const value = parameter.stringValue ?? NO_LUT;
   const selectedPath = customLutMediaPath(value);
   const selectedMedia = findLutMedia(selectedPath);
+  const selectedBundled = findBundledLut(value);
   const set = (next: string) => {
     if (next !== value) {
       onSetParameter(device, parameter.key, next, "commit");
@@ -123,16 +128,14 @@ export function LutControl({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="fx-lut__heading">
-                Looks
+                {BUNDLED_LUT_GROUP}
               </DropdownMenuLabel>
               {BUNDLED_LUTS.map((entry) => (
                 <MenuItem
-                  checked={
-                    value.trim().toLowerCase() === entry.name.toLowerCase()
-                  }
-                  key={entry.name}
+                  checked={entry === selectedBundled}
+                  key={entry.id}
                   label={entry.name}
-                  onPick={() => set(entry.name)}
+                  onPick={() => set(entry.id)}
                 />
               ))}
             </>

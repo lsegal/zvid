@@ -3,7 +3,7 @@
 
 import { isLutMedia, type MediaItem } from "../../../media.ts";
 import { findEffectMedia } from "../../effect-media.ts";
-import { findBundledLut } from "./bundled.ts";
+import { type BundledLut, bundledLutUrl, findBundledLut } from "./bundled.ts";
 import { type CubeLut, parseCubeLut } from "./cube.ts";
 import { customLutMediaPath, isNoLut } from "./lut.ts";
 import {
@@ -94,11 +94,9 @@ type LoadedLut =
   | { status: "ready"; lut: CubeLut }
   | { status: "failed"; message: string };
 
-// By media URL. A relinked or re-hydrated file has a new URL, so it loads
-// again.
+// By URL: a medium's, or a bundled LUT's file. A relinked or re-hydrated
+// file has a new URL, so it loads again.
 const files = new Map<string, LoadedLut>();
-// Bundled LUTs, built on first use.
-const bundled = new Map<string, CubeLut>();
 
 /** Reads and parses the `.cube` file at `url`. */
 export async function readCubeLut(url: string) {
@@ -150,12 +148,9 @@ function resolveLut(value: string | undefined): ResolvedLut | undefined {
   if (!entry) {
     return undefined;
   }
-  let lut = bundled.get(entry.name);
-  if (!lut) {
-    lut = entry.lut();
-    bundled.set(entry.name, lut);
-  }
-  return { key: `bundled:${entry.name}`, lut };
+  const url = bundledLutUrl(entry);
+  const lut = loadedFile(url);
+  return lut ? { key: `file:${url}`, lut } : undefined;
 }
 
 /** Whether the LUT a stored value names can grade a picture now. */
@@ -177,11 +172,11 @@ export function getLutError(value: string | undefined) {
   return entry?.status === "failed" ? entry.message : undefined;
 }
 
-/** Loads the `.cube` files `paths` name, resolving once each is ready or failed. */
-export async function loadLutFiles(paths: Iterable<string>) {
+// Loads the `.cube` files at `urls`, resolving once each is ready or
+// failed.
+async function loadUrls(urls: Iterable<string | undefined>) {
   const pending: Promise<void>[] = [];
-  for (const path of paths) {
-    const url = readyUrl(findLutMedia(path));
+  for (const url of urls) {
     if (!url) {
       continue;
     }
@@ -192,6 +187,16 @@ export async function loadLutFiles(paths: Iterable<string>) {
     }
   }
   await Promise.all(pending);
+}
+
+/** Loads the `.cube` files `paths` name, resolving once each is ready or failed. */
+export async function loadLutFiles(paths: Iterable<string>) {
+  await loadUrls(Array.from(paths, (path) => readyUrl(findLutMedia(path))));
+}
+
+/** Loads the files of bundled `luts`, resolving once each is ready or failed. */
+export async function loadBundledLuts(luts: Iterable<BundledLut>) {
+  await loadUrls(Array.from(luts, bundledLutUrl));
 }
 
 export type BoundLut = {

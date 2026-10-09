@@ -1,10 +1,14 @@
 // What an exact frame waits for besides its media: text fonts, the SVGs of
-// Custom shapes and LUTs' .cube files. A paused preview redraws when any of
-// them loads.
+// Custom shapes and LUTs' .cube files, bundled or from the media library. A
+// paused preview redraws when any of them loads.
 
 import type { ActiveClip, SessionEffect } from "./composition-active-clips.ts";
-import { customLutMediaPaths } from "./fx/effects/lut/lut.ts";
-import { loadLutFiles, subscribeLutMedia } from "./fx/effects/lut/lut-media.ts";
+import { bundledLutsIn, customLutMediaPaths } from "./fx/effects/lut/lut.ts";
+import {
+  loadBundledLuts,
+  loadLutFiles,
+  subscribeLutMedia,
+} from "./fx/effects/lut/lut-media.ts";
 import {
   loadShapeSvgs,
   subscribeShapeImages,
@@ -20,6 +24,7 @@ export async function loadFrameAssets(
     loadTextFaces(clips.map((entry) => entry.text)),
     loadShapeSvgs(customShapeMediaPaths(effects)),
     loadLutFiles(customLutMediaPaths(effects)),
+    loadBundledLuts(bundledLutsIn(effects)),
   ]);
 }
 
