@@ -188,3 +188,58 @@ export function histogramCounts(sample: FrameSample) {
   }
   return counts;
 }
+
+// The ids the preview monitor's Scopes pane subscribes to instead of an
+// effect's: the program frame the compositor draws, and the media the Media
+// tab plays.
+export const PROGRAM_FRAME_ID = "@program";
+export const MEDIA_FRAME_ID = "@media";
+
+// Draws pictures into a sample's size to read them back.
+let readback: CanvasRenderingContext2D | null = null;
+
+// Publishes `source`'s current picture as `id`'s sample when `hub` wants
+// one. A WebGL canvas is read in the task that drew it, before its drawing
+// buffer is cleared; a video without a frame yet publishes nothing.
+export function publishFrame(
+  hub: FrameAnalysisHub | null,
+  id: string,
+  source: HTMLCanvasElement | OffscreenCanvas | HTMLVideoElement,
+) {
+  if (!hub?.active) {
+    return;
+  }
+  const isVideo = "videoWidth" in source;
+  const width = isVideo ? source.videoWidth : source.width;
+  const height = isVideo ? source.videoHeight : source.height;
+  if (!width || !height || !hub.wants(id)) {
+    return;
+  }
+  readback ??= document
+    .createElement("canvas")
+    .getContext("2d", { willReadFrequently: true });
+  if (!readback) {
+    return;
+  }
+  const size = frameSampleSize(width, height);
+  readback.canvas.width = size.width;
+  readback.canvas.height = size.height;
+  let data: Uint8ClampedArray;
+  try {
+    readback.drawImage(source, 0, 0, size.width, size.height);
+    ({ data } = readback.getImageData(0, 0, size.width, size.height));
+  } catch {
+    // A cross-origin picture can't be read back.
+    return;
+  }
+  // Bottom row first, as WebGL reads them.
+  const pixels = new Uint8Array(data.length);
+  const stride = size.width * 4;
+  for (let row = 0; row < size.height; row++) {
+    pixels.set(
+      data.subarray(row * stride, (row + 1) * stride),
+      (size.height - 1 - row) * stride,
+    );
+  }
+  hub.publish(id, { ...size, pixels });
+}

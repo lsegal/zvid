@@ -76,6 +76,16 @@
   font-size: 0.62rem;
 }
 
+/* The title and the clip at the playhead, which give up their room first
+   in a narrow preview. */
+.preview-panel__heading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .preview-panel__title {
   min-width: 0;
   overflow: hidden;
@@ -101,7 +111,6 @@
 
 .preview-panel__mode {
   flex: none;
-  margin-left: auto;
   padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid rgba(124, 161, 255, 0.4);
@@ -169,4 +178,43 @@
     flex: none;
     height: min(70vh, 640px);
   }
+}
+
+/* The Scopes toggle and the Audio/Video badge, right-aligned together. */
+.preview-panel__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* An icon, so the header still fits the narrowest preview. */
+.preview-panel__scopes {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.preview-panel__scopes svg {
+  width: 12px;
+  height: 12px;
+}
+
+.preview-panel__scopes:hover {
+  color: var(--ink);
+}
+
+.preview-panel__scopes[aria-pressed='true'] {
+  background: rgba(242, 209, 75, 0.18);
+  color: #f2d14b;
 }
