@@ -146,7 +146,9 @@ test("an imported .cube grades the layer through LUT and survives a reload", asy
     // A malformed file is turned away with the reason.
     await importMedia(page, badPath);
     await expect(
-      page.getByText(/Skipped broken\.cube \(Not a valid \.cube LUT: .*8 points/),
+      page.getByText(
+        /Skipped broken\.cube \(Not a valid \.cube LUT: .*8 points/,
+      ),
     ).toBeVisible();
 
     // Importing only a LUT adds it to the media and keeps the timeline.
@@ -156,15 +158,11 @@ test("an imported .cube grades the layer through LUT and survives a reload", asy
     await expect(page.locator(".track-label--source")).toHaveCount(0);
 
     await trigger.click();
-    await page
-      .getByRole("menuitemcheckbox", { name: "red.cube" })
-      .click();
+    await page.getByRole("menuitemcheckbox", { name: "red.cube" }).click();
     await expect(trigger).toHaveAccessibleName("LUT: red.cube");
 
     await page.mouse.move(0, 0);
-    await expect
-      .poll(async () => isRed(await previewColor(page)))
-      .toBe(true);
+    await expect.poll(async () => isRed(await previewColor(page))).toBe(true);
 
     // Saved, closed and reopened from Sessions, it still has the LUT picked
     // and grading from its media.
@@ -191,9 +189,7 @@ test("an imported .cube grades the layer through LUT and survives a reload", asy
         .getByRole("button", { name: /^LUT: / }),
     ).toHaveAccessibleName("LUT: red.cube");
     await page.mouse.move(0, 0);
-    await expect
-      .poll(async () => isRed(await previewColor(page)))
-      .toBe(true);
+    await expect.poll(async () => isRed(await previewColor(page))).toBe(true);
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
@@ -360,9 +356,7 @@ test.describe("LUT rendering", () => {
       "rgba(77,128,230,1)",
       1,
     );
-    const expected = [77, 128, 230].map(
-      (value) => ((value / 255) ** 2) * 255,
-    );
+    const expected = [77, 128, 230].map((value) => (value / 255) ** 2 * 255);
     expect(near(squared, expected, 5), `${squared} vs ${expected}`).toBe(true);
   });
 
