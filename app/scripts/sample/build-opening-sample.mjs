@@ -319,6 +319,8 @@ const refraction = (type, parameters) => [
 const PANEL_EFFECTS = new Map([
   // A focus pull: the panel blurs in and out of focus over its cut.
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
+  // The panel's tones punch out from the pivot gray and settle back.
+  ["orbit 4.5", ["Contrast", { _Contrast: 1.6 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
   ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
   ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
