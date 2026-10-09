@@ -1,108 +1,37 @@
 name: Desktop app
 
-# Release the zvid desktop app installers for every merge to main that
-# changes a desktop app input (see the changes job), and publish them to the
+# Release the zvid desktop app installers only when someone runs this
+# workflow by hand (workflow_dispatch: the Run workflow button in the Actions
+# tab, or `gh workflow run desktop.yml`); merges to main and pull requests
+# never start it. A run on main publishes the installers to the
 # zvid-downloads R2 bucket under fixed names, overwriting the previous
-# build's, where the app's Worker serves them at /downloads/desktop; other
-# merges leave the published desktop installers and manifest as they were.
-# Running the workflow by hand (workflow_dispatch) always builds and
-# publishes them. The ZVID Capture plugin installers build separately, in the
-# DAW bundles workflow (daw-bundle.yml), and only when a DAW input changes.
-# Pull requests that touch the desktop app's Tauri shell or this workflow
-# build the same installers, so a broken release-only build fails the PR
-# rather than main; PR runs publish nothing. macOS builds are Apple silicon
-# (arm64) only, and Developer ID signed and notarized when the Apple secrets
-# below are configured, and unsigned otherwise.
+# build's, where the app's Worker serves them at /downloads/desktop; a run on
+# any other branch builds and verifies them but publishes nothing. The ZVID
+# Capture plugin installers build separately, in the DAW bundles workflow
+# (daw-bundle.yml), and only when a DAW input changes. macOS builds are Apple
+# silicon (arm64) only, and Developer ID signed and notarized when the Apple
+# secrets below are configured, and unsigned otherwise.
 #
 # Publishing uses the same CLOUDFLARE_API_TOKEN secret and
 # CLOUDFLARE_ACCOUNT_ID variable as the Deploy workflow. The token needs
 # Account > Workers R2 Storage > Edit on the account that owns the
 # zvid-downloads bucket.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-    paths:
-      - app/src-tauri/**
-      - .github/workflows/desktop.yml
   workflow_dispatch:
 
-# Superseded PR runs are canceled; main runs always finish, one at a time,
-# so every merge publishes its installers and they never interleave. The
-# group is separate from the DAW bundles workflow's, so desktop runs never
-# queue behind plugin runs.
+# Runs of the same branch finish one at a time, so their uploads never
+# interleave. The group is separate from the DAW bundles workflow's, so
+# desktop runs never queue behind plugin runs.
 concurrency:
   group: desktop-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Whether a push to main changed anything the desktop app is built from:
-  # the shipped web app (app/src without its tests, public, index.html and
-  # the build config), its Tauri shell, the export bridge, the design tokens
-  # and this workflow; e2e specs, other app scripts, the Worker, CI config
-  # and /daw don't ship in it. The push is compared against the commit main
-  # pointed at before it (the push's `before` SHA), so a multi-commit push
-  # that changed an input in any of its commits still builds. When the
-  # changed files can't be determined (a new branch, a force-push whose old
-  # head can't be fetched, a filter error, or this job failing), the app
-  # builds anyway. Pull requests are already filtered by the trigger's paths
-  # above, and workflow_dispatch always builds, so only pushes consult it.
-  changes:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    outputs:
-      desktop: ${{ steps.filter.outcome != 'success' || steps.app-src.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.desktop == 'true' || steps.app-src.outputs.desktop == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        continue-on-error: true
-        with:
-          base: ${{ github.event.before }}
-          filters: |
-            desktop:
-              - app/src-tauri/**
-              - app/export-bridge/**
-              - app/public/**
-              - app/index.html
-              - app/package.json
-              - app/pnpm-lock.yaml
-              - app/vite.config.ts
-              - app/tsconfig*.json
-              - app/scripts/gen-fx-index.mjs
-              - packages/tokens/**
-              - .github/workflows/desktop.yml
-
-      # app/src minus its colocated unit tests. A file must match every
-      # pattern here, so the exclusion can't share the filter above, where
-      # matching any pattern is enough.
-      - uses: dorny/paths-filter@v3
-        id: app-src
-        continue-on-error: true
-        with:
-          base: ${{ github.event.before }}
-          predicate-quantifier: every
-          filters: |
-            desktop:
-              - app/src/**
-              - '!app/src/**/*.test.*'
-
   # The zvid desktop app on its own, packaged by Tauri's bundler: a .dmg for
   # Apple silicon Macs, and an NSIS installer on Windows, which downloads the
   # WebView2 Runtime when Windows lacks it. On main, publishes them to R2
   # under desktop/ with fixed names, beside the plugin's capture/ installers.
-  # Skipped on pushes that changed no desktop app input (see the changes job).
   desktop:
     name: desktop (${{ matrix.platform }})
-    needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'push' || needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -145,14 +74,12 @@ jobs:
             rustup target add aarch64-apple-darwin
           fi
 
-      # PR runs restore main's release cache but don't save their own. The
-      # export bridge's wasm build has its own target directory.
+      # The export bridge's wasm build has its own target directory.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             app/src-tauri -> target
             app/export-bridge -> target
-          save-if: ${{ github.event_name != 'pull_request' }}
 
       # After rust-cache so this saves before rust-cache's post step prunes
       # ~/.cargo/bin of anything `cargo install` didn't put there.
@@ -223,7 +150,7 @@ jobs:
           INSTALLER: target/desktop/${{ matrix.installer }}
           SIGNED: ${{ steps.build.outputs.signed }}
           NOTARIZED: ${{ steps.build.outputs.notarized }}
-          REQUIRE_NOTARIZED: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          REQUIRE_NOTARIZED: ${{ github.ref == 'refs/heads/main' }}
         run: |
           if [ "$REQUIRE_NOTARIZED" = true ] && [ "$NOTARIZED" != true ]; then
             echo "::error::main builds must be signed and notarized; check the APPLE_* signing secrets"
@@ -274,7 +201,7 @@ jobs:
       # for the manifest the publish-desktop job writes once both platforms
       # have uploaded.
       - name: Upload the installer to R2
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         working-directory: app/target/desktop
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -299,7 +226,7 @@ jobs:
 
       # The published installer's manifest entry, not the installer itself.
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         with:
           name: desktop-installer-${{ matrix.desktop-platform }}
           path: app/target/published/${{ matrix.desktop-platform }}.json
@@ -308,13 +235,11 @@ jobs:
 
   # Writes desktop/manifest.json, which the app's Download Desktop App dialog
   # reads, only after every platform's installer uploaded. Same format as
-  # capture/manifest.json; the version is app/package.json's. Skipped with the
-  # desktop jobs when a push changed no desktop app input, so the manifest
-  # keeps describing the installers last built.
+  # capture/manifest.json; the version is app/package.json's.
   publish-desktop:
     name: publish desktop manifest
     needs: desktop
-    if: ${{ !cancelled() && needs.desktop.result == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    if: ${{ !cancelled() && needs.desktop.result == 'success' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
