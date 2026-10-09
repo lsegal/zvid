@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { patchProjectState } from "../app/session-project.ts";
 import type {
   ArrangementClip,
@@ -14,13 +14,16 @@ import type { EffectModulation } from "../fx-modulation-defaults";
 import type { FxEffectScope } from "../fx-registry";
 import {
   addEffect,
+  copyEffect,
   duplicateEffect,
   effectHistoryLabels,
   type FxDevice,
   getEffectClipId,
   moveEffect,
   moveEffectToStack,
+  placeEffect,
   removeEffect,
+  removeEffects,
   resetEffect,
   type SessionEffect,
   setEffectAnimation,
@@ -47,6 +50,8 @@ export type FxEditingInputs = {
   lanes: Lane[];
   sourceTracks: SourceTrack[];
   timelineClipsRef: { current: ArrangementClip[] };
+  // The current project, which Cut and Copy read the device's effect from.
+  projectSnapshotRef: { current: ProjectState };
 };
 
 // The FX chain's edits to layer and clip effect stacks.
@@ -56,7 +61,11 @@ export function useFxEditing({
   lanes,
   sourceTracks,
   timelineClipsRef,
+  projectSnapshotRef,
 }: FxEditingInputs) {
+  // The effect the FX panel last cut or copied, as it was then.
+  const [fxClipboard, setFxClipboard] = useState<SessionEffect | null>(null);
+
   // Applies an effect-stack edit. Live gestures such as slider drags send
   // `transient` updates, and the `commit` that ends the gesture records the
   // whole gesture as one history entry.
@@ -278,6 +287,66 @@ export function useFxEditing({
     [editEffects],
   );
 
+  const findEffect = useCallback(
+    (device: FxDevice) =>
+      projectSnapshotRef.current.effects.find(
+        (effect) => effect.id === device.id,
+      ),
+    [projectSnapshotRef],
+  );
+
+  const copyFxDevice = useCallback(
+    (device: FxDevice) => {
+      const effect = findEffect(device);
+      if (effect) {
+        setFxClipboard(effect);
+      }
+    },
+    [findEffect],
+  );
+
+  const cutFxDevice = useCallback(
+    (device: FxDevice) => {
+      const effect = findEffect(device);
+      if (!effect) {
+        return;
+      }
+
+      setFxClipboard(effect);
+      editEffects(effectHistoryLabels.cut(device.effectName), (current) =>
+        removeEffect(current, device.id),
+      );
+    },
+    [editEffects, findEffect],
+  );
+
+  // Adds a copy of the cut or copied effect, under the new `id`, to the end
+  // of the `trackId` stack.
+  const pasteFxDevice = useCallback(
+    (trackId: string, scope: FxEffectScope, id: string) => {
+      if (!fxClipboard) {
+        return;
+      }
+
+      const copy = copyEffect(fxClipboard, trackId, id);
+      editEffects(effectHistoryLabels.paste(copy.effectName), (current) =>
+        placeEffect(current, copy, scope),
+      );
+    },
+    [editEffects, fxClipboard],
+  );
+
+  const clearFxDevices = useCallback(
+    (devices: readonly FxDevice[]) =>
+      editEffects(effectHistoryLabels.clearAll(), (current) =>
+        removeEffects(
+          current,
+          devices.map((device) => device.id),
+        ),
+      ),
+    [editEffects],
+  );
+
   const setFxDeviceModulationEnabled = useCallback(
     (device: FxDevice, enabled: boolean) =>
       editEffects(
@@ -315,5 +384,10 @@ export function useFxEditing({
     removeFxDevice,
     resetFxDevice,
     duplicateFxDevice,
+    fxClipboard,
+    copyFxDevice,
+    cutFxDevice,
+    pasteFxDevice,
+    clearFxDevices,
   };
 }

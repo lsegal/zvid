@@ -46,7 +46,7 @@ function headerLayout(page: Page) {
 test("the preview header strip has even insets and gaps", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
-  await expect(page.locator(".preview-panel__clip")).toBeVisible();
+  await expect(page.locator(".preview-panel__title")).toBeVisible();
 
   const layout = await headerLayout(page);
   expect(layout.height).toBeGreaterThanOrEqual(HEADER_MIN_HEIGHT);
@@ -54,7 +54,7 @@ test("the preview header strip has even insets and gaps", async ({ page }) => {
   const tabs = layout.items[0];
   const chip = layout.items[layout.items.length - 1];
   expect(tabs.className).toContain("preview-panel__tabs");
-  expect(chip.className).toContain("preview-panel__mode");
+  expect(chip.className).toContain("preview-panel__actions");
   expect(Math.abs(tabs.left - layout.innerLeft - HEADER_INSET)).toBeLessThan(
     1.01,
   );

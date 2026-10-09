@@ -1,3 +1,4 @@
+import { ChartBarIcon } from "@heroicons/react/16/solid";
 import {
   type ComponentProps,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -20,7 +21,11 @@ import {
   type ClipMediaState,
   describePreviewMediaState,
 } from "../clip-media-state";
-import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
+import {
+  MEDIA_FRAME_ID,
+  PROGRAM_FRAME_ID,
+  previewFrameAnalysis,
+} from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
@@ -36,6 +41,7 @@ import { AudioAnalysisPane } from "./audio-analysis/AudioAnalysisPane";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
+import { ScopesPane, useScopesPane } from "./scopes/ScopesPane";
 import "./preview-panel.css";
 
 type PreviewEditing = ReturnType<typeof usePreviewEditing>;
@@ -86,6 +92,7 @@ export type PreviewPanelProps = Pick<
     typeof usePreview
   >["resolvePreviewLayersAt"];
   previewMaxWidth: number;
+  previewMedia: MediaItem | undefined;
   previewMediaState: ClipMediaState;
   previewVolume: { volume: number; muted: boolean };
   projectDurationFrames: number | undefined;
@@ -126,6 +133,24 @@ function LivePreviewTransformOverlay({
   return <PreviewTransformOverlay {...props} layers={liveLayers} />;
 }
 
+// What the Scopes pane analyzes: the media the Media tab plays, or the
+// program frame the compositor draws. Audio has no picture to analyze.
+function scopesSource(isMediaTab: boolean, media: MediaItem | undefined) {
+  if (isMediaTab && !media) {
+    return { frameId: null, emptyMessage: "Select media to see its scopes." };
+  }
+  if (isMediaTab ? !media?.hasVideo : media?.kind === "audio") {
+    return {
+      frameId: null,
+      emptyMessage: "Audio only: there is no picture to analyze.",
+    };
+  }
+  return {
+    frameId: isMediaTab ? MEDIA_FRAME_ID : PROGRAM_FRAME_ID,
+    emptyMessage: "",
+  };
+}
+
 // The preview pane beside the timeline, with the handle that resizes it. Its
 // Timeline tab is the Program monitor: the composition player, the transform
 // and text overlays, and the placeholder shown when nothing at the playhead
@@ -159,6 +184,7 @@ export function PreviewPanel({
   previewLaneId,
   previewLayers,
   previewMaxWidth,
+  previewMedia,
   previewMediaState,
   previewTextEdit,
   previewVolume,
@@ -186,6 +212,14 @@ export function PreviewPanel({
     setAudioAnalysisOpen(open);
     writeAudioAnalysisOpen(open);
   };
+  const scopesPane = useScopesPane();
+  const previewedMedia = isMediaTab ? mediaItem : previewMedia;
+  const scopes = scopesPane.open ? (
+    <ScopesPane
+      pane={scopesPane}
+      {...scopesSource(isMediaTab, previewedMedia)}
+    />
+  ) : null;
   return (
     <>
       <hr
@@ -225,31 +259,45 @@ export function PreviewPanel({
               </button>
             ))}
           </div>
-          {isMediaTab ? (
-            <strong className="preview-panel__title">
-              {mediaItem?.name ?? "Media"}
-            </strong>
-          ) : (
-            <>
-              <strong className="preview-panel__title">Program</strong>
-              <span className="preview-panel__clip">
-                {previewClip ? previewClip.label : "No clip at playhead"}
-              </span>
-            </>
-          )}
-          <button
-            type="button"
-            className="preview-panel__mode"
-            aria-pressed={isAudioAnalysisOpen}
-            title={
-              isAudioAnalysisOpen
-                ? "Hide the audio meter and spectrogram"
-                : "Show the audio meter and spectrogram"
-            }
-            onClick={toggleAudioAnalysis}
-          >
-            Audio
-          </button>
+          <div className="preview-panel__heading">
+            {isMediaTab ? (
+              <strong className="preview-panel__title">
+                {mediaItem?.name ?? "Media"}
+              </strong>
+            ) : (
+              <>
+                <strong className="preview-panel__title">Program</strong>
+                <span className="preview-panel__clip">
+                  {previewClip ? previewClip.label : "No clip at playhead"}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="preview-panel__actions">
+            <button
+              type="button"
+              className="preview-panel__scopes"
+              aria-label="Scopes"
+              aria-pressed={scopesPane.open}
+              title={scopesPane.open ? "Hide scopes" : "Show scopes"}
+              onClick={scopesPane.toggle}
+            >
+              <ChartBarIcon aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="preview-panel__mode"
+              aria-pressed={isAudioAnalysisOpen}
+              title={
+                isAudioAnalysisOpen
+                  ? "Hide the audio meter and spectrogram"
+                  : "Show the audio meter and spectrogram"
+              }
+              onClick={toggleAudioAnalysis}
+            >
+              Audio
+            </button>
+          </div>
         </div>
 
         <div
@@ -324,8 +372,10 @@ export function PreviewPanel({
               projectFps={mediaTimeFormat.fps}
               mediaRange={mediaRange}
               onMediaElement={mediaMeterTap.setElement}
+              scopes={scopes}
             />
           ) : null}
+          {isMediaTab ? null : scopes}
         </div>
         {isAudioAnalysisOpen ? (
           // On the Media tab it follows the media playing there instead.

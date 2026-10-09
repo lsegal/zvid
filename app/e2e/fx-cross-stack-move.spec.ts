@@ -176,10 +176,12 @@ test("the keyboard and context menu move a device to another stack", async ({
   // Alt+Shift+Left skips over Global to the layer.
   await device(page, "clip", "Transform").click({ button: "right" });
   const menu = page.getByRole("menu", { name: "Transform actions" });
+  await menu.getByRole("menuitem", { name: "Move", exact: true }).hover();
+  const move = page.getByRole("menu", { name: "Move" });
   await expect(
-    menu.getByRole("menuitem", { name: "Move to Global" }),
+    move.getByRole("menuitem", { name: "to Global" }),
   ).toBeDisabled();
-  await menu.getByRole("menuitem", { name: "Move to Layer" }).click();
+  await move.getByRole("menuitem", { name: "to Layer" }).click();
   await expect(device(page, "layer", "Transform")).toHaveCount(1);
   await expect(page.locator(".fx-chain__status")).toHaveText(
     "Moved Transform to position 2 of 2 in Layer 2",
@@ -188,12 +190,8 @@ test("the keyboard and context menu move a device to another stack", async ({
   // The Text has no move actions.
   await device(page, "clip", "Text").click({ button: "right" });
   const textMenu = page.getByRole("menu", { name: "Text actions" });
-  for (const name of [
-    "Move Left",
-    "Move Right",
-    "Move to Global",
-    "Move to Layer",
-  ]) {
-    await expect(textMenu.getByRole("menuitem", { name })).toBeDisabled();
+  await textMenu.getByRole("menuitem", { name: "Move", exact: true }).hover();
+  for (const name of ["Left", "Right", "to Global", "to Layer", "to Clip"]) {
+    await expect(move.getByRole("menuitem", { name })).toBeDisabled();
   }
 });

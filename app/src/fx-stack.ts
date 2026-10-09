@@ -62,6 +62,12 @@ export {
   setEffectParameter,
 } from "./fx/stack/ops.ts";
 export { mapEffects } from "./fx/stack/session-mapping.ts";
+export {
+  canPlaceEffect,
+  copyEffect,
+  placeEffect,
+  removeEffects,
+} from "./fx/stack/transfer.ts";
 export type {
   EffectParameter,
   FxDevice,

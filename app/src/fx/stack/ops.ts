@@ -595,6 +595,9 @@ export const effectHistoryLabels = {
   reset: (effectName: string) => `Reset ${getEffectDisplayName(effectName)}`,
   duplicate: (effectName: string) =>
     `Duplicate ${getEffectDisplayName(effectName)}`,
+  cut: (effectName: string) => `Cut ${getEffectDisplayName(effectName)}`,
+  paste: (effectName: string) => `Paste ${getEffectDisplayName(effectName)}`,
+  clearAll: () => "Clear All Effects",
   enabled: (effectName: string, enabled: boolean) =>
     `${enabled ? "Enable" : "Bypass"} ${getEffectDisplayName(effectName)}`,
   animationEnabled: (effectName: string, enabled: boolean) =>

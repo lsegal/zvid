@@ -57,6 +57,19 @@ type DeviceDragOptions = {
   setAnnouncement: (announcement: string) => void;
 };
 
+// The stack whose section holds viewport point `x` in the `chain`. A stack
+// spans from the middle of its own divider to the middle of the next one.
+// Left of the first divider are the leading devices, such as a source
+// track's Record device, which belong to no stack.
+export function findStackAt(chain: HTMLElement, x: number) {
+  return FX_CHAIN_SECTIONS.findLast((section) => {
+    const divider = chain
+      .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
+      ?.getBoundingClientRect();
+    return divider !== undefined && divider.left + divider.width / 2 <= x;
+  });
+}
+
 // Dragging a device's title bar reorders it within its stack or moves it to
 // another stack that takes it, with an insertion marker and auto-scroll near
 // the chain's edges.
@@ -95,17 +108,7 @@ export function useDeviceDrag({
       session.target = null;
       setDrag({ deviceId: device.id, markerX: null });
     };
-    // A stack spans from the middle of its own divider to the middle of the
-    // next one. Left of the first divider are the leading devices, such as
-    // a source track's Record device, which nothing can displace.
-    const group = FX_CHAIN_SECTIONS.findLast((section) => {
-      const divider = scroller
-        .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
-        ?.getBoundingClientRect();
-      return (
-        divider !== undefined && divider.left + divider.width / 2 <= pointerX
-      );
-    });
+    const group = findStackAt(scroller, pointerX);
     if (!group) {
       reject();
       return;

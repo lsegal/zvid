@@ -87,7 +87,7 @@ test("the Audio toggle shows the meter and spectrogram below the preview", async
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
-  await expect(page.locator(".preview-panel__clip")).toBeVisible();
+  await expect(audioToggle(page)).toBeVisible();
 
   await expect(audioToggle(page)).toHaveAttribute("aria-pressed", "false");
   await expect(pane(page)).toHaveCount(0);
