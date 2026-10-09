@@ -2,7 +2,7 @@
 // `EffectPass.analyzes`), for panels that show it, such as Scopes'
 // waveform. Only the preview reads back, and only while a panel asks: the
 // chain draws the picture into a small target and reads that, so a sample
-// costs a few hundred kilobytes rather than a full frame, at most
+// is at most 256 × 256 pixels rather than a full frame, taken at most
 // FRAME_SAMPLE_RATE times a second per effect.
 
 // A picture read back at reduced size: `width` × `height` RGBA pixels,
