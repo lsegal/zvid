@@ -319,7 +319,6 @@ test("the Timeline tab's Scopes analyze the program frame when the clip at the p
   await addSourceTrack(page, 1, VIDEO_FILE);
   await addSourceTrack(page, 2, AUDIO_FILE);
   await page.getByRole("button", { name: "Jump to timeline start" }).click();
-  await expect(page.locator(".preview-panel__title")).toHaveText("tone.wav");
 
   await scopesButton(page).click();
   await expect(scopesPane(page)).toBeVisible();

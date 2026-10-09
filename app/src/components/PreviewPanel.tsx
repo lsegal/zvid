@@ -217,10 +217,7 @@ export function PreviewPanel({
   };
   const scopesPane = useScopesPane();
   const scopes = scopesPane.open ? (
-    <ScopesPane
-      pane={scopesPane}
-      {...scopesSource(isMediaTab, mediaItem)}
-    />
+    <ScopesPane pane={scopesPane} {...scopesSource(isMediaTab, mediaItem)} />
   ) : null;
   return (
     <>
