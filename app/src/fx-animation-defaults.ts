@@ -256,6 +256,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     "Colorize",
     defaults("Ease Out", "Ease In", [12, 8, 4], "Wobble", 0.5, ["_HueOffset"]),
   ],
+  [
+    "Exposure",
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Stops"]),
+  ],
   // Pivot is animatable too, but the music moves Contrast by default.
   [
     "Contrast",
@@ -605,6 +609,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     },
   ],
   ["Colorize", { _HueOffset: { neutral: 0 } }],
+  // 0 stops leaves the light as it is.
+  ["Exposure", { _Stops: { neutral: 0 } }],
   // Contrast 1 leaves the picture as it is, whatever the Pivot.
   ["Contrast", { _Contrast: { neutral: 1 } }],
   [
