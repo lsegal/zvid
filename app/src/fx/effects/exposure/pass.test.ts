@@ -9,12 +9,7 @@ import {
 } from "../../../fx-registry.ts";
 import { params, uniformValues } from "../../pass-test-utils.ts";
 import { ALL_SCOPES } from "../../types.ts";
-import {
-  exposePixel,
-  linearToSrgb,
-  pass,
-  srgbToLinear,
-} from "./pass.ts";
+import { exposePixel, linearToSrgb, pass, srgbToLinear } from "./pass.ts";
 
 type Rgba = [number, number, number, number];
 
@@ -39,10 +34,7 @@ describe("Exposure pass", () => {
     if (stops.kind === "number") {
       assert.equal(stops.key, "_Stops");
       assert.equal(stops.label, "Exposure");
-      assert.deepEqual(
-        [stops.min, stops.max, stops.defaultValue],
-        [-4, 4, 0],
-      );
+      assert.deepEqual([stops.min, stops.max, stops.defaultValue], [-4, 4, 0]);
       assert.equal(stops.format(1), "+1.0 EV");
       assert.equal(stops.format(-2.5), "-2.5 EV");
       assert.equal(stops.format(0), "0.0 EV");
@@ -118,8 +110,14 @@ describe("Exposure pass", () => {
     for (const gray of GRAYS) {
       assertClose(linearToSrgb(srgbToLinear(gray)), gray);
     }
-    assert.match(pass.fragmentSource, /toLinear\(c\.rgb\) \* uGain, 0\.0, 1\.0/);
-    assert.match(pass.fragmentSource, /gl_FragColor = vec4\(toSrgb\(exposed\), c\.a\);/);
+    assert.match(
+      pass.fragmentSource,
+      /toLinear\(c\.rgb\) \* uGain, 0\.0, 1\.0/,
+    );
+    assert.match(
+      pass.fragmentSource,
+      /gl_FragColor = vec4\(toSrgb\(exposed\), c\.a\);/,
+    );
     assert.match(pass.fragmentSource, /step\(vec3\(0\.04045\), c\)/);
     assert.match(pass.fragmentSource, /step\(vec3\(0\.0031308\), c\)/);
   });
@@ -127,7 +125,7 @@ describe("Exposure pass", () => {
   it("supports the Animation modifier's Clip, Reactive and LFO modes", () => {
     const defaults = getAnimationDefaults("Exposure");
     assert.deepEqual(defaults?.modes, ["clip", "reactive", "lfo"]);
-    assert.deepEqual(defaults?.reactive.parameters, ["_Stops"]);
-    assert.deepEqual(defaults?.lfo.parameters, ["_Stops"]);
+    assert.deepEqual(defaults?.reactive?.parameters, ["_Stops"]);
+    assert.deepEqual(defaults?.lfo?.parameters, ["_Stops"]);
   });
 });

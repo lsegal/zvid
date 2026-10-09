@@ -322,6 +322,8 @@ const PANEL_EFFECTS = new Map([
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
   ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
   ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
+  // A flash of light: the panel brightens a stop and a half over its cut.
+  ["orbit 18", ["Exposure", { _Stops: 1.5 }]],
   ["orbit 7.5", distortion("Ripple", { _Amount: 0.4, _Speed: 0.6 })],
   ["ribbon 16.5", distortion("Fisheye", { _Amount: 0.8, _Size: 1 })],
   ["corridor 16.5", refraction("Frosted Glass", { _Amount: 0.6 })],
