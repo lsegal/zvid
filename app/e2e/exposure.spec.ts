@@ -105,11 +105,10 @@ test("Exposure is added from a layer's Video → Color menu and brightens the pr
   await expect(
     device.getByRole("slider", { name: "Exposure" }),
   ).toHaveAttribute("aria-valuetext", "0.0 EV");
-  const animation = device.getByRole("button", {
-    name: "Turn Animation Off for Exposure",
-  });
-  await expect(animation).toHaveAttribute("aria-pressed", "true");
-  await animation.click();
+  // A static grading tool, it comes with Animation off.
+  await expect(
+    device.getByRole("button", { name: "Turn Animation On for Exposure" }),
+  ).toHaveAttribute("aria-pressed", "false");
 
   // 0 stops leaves the preview as it was.
   await expect

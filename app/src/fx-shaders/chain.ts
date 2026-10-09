@@ -21,6 +21,7 @@ import {
   TargetPool,
   type TextureRegion,
   targetRegion,
+  unreadTarget,
 } from "./targets.ts";
 import {
   type EffectContext,
@@ -415,16 +416,15 @@ export class EffectChainRenderer {
 
     let input = source;
     for (const [index, step] of steps.entries()) {
-      const isLast = index === steps.length - 1;
+      const toScreen = index === steps.length - 1 && output === "screen";
       if (step.analysis !== undefined) {
         this.readBack(input, step, stepContext);
-        // Last on the way to the screen, it copies its input there, since
-        // nothing after it does.
-        if (!isLast || output !== "screen") {
+        // Last on the way to the screen, it copies its input there too.
+        if (!toScreen) {
           continue;
         }
       }
-      const target = isLast && output === "screen" ? null : targets[index % 2];
+      const target = toScreen ? null : unreadTarget(targets, input);
       const { compiled, parameters } = step;
       const stages = this.runStages(input, compiled, parameters, stepContext);
       gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);

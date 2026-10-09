@@ -586,9 +586,14 @@ describe("normalizeEffectAnimation", () => {
   });
 });
 
+// The static grading tools, whose new devices come with Animation off.
+const ADDED_OFF = ["Levels", "Contrast", "Exposure", "LUT"];
+
 describe("animation on new devices", () => {
-  it("is on, at the effect's defaults, for every effect that supports it", () => {
-    for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
+  it("is on, at the effect's defaults, for every other effect that supports it", () => {
+    for (const effectName of KNOWN_EFFECTS.filter(
+      (name) => supportsAnimation(name) && !ADDED_OFF.includes(name),
+    )) {
       const effect = createEffect("6", effectName, "e");
       assert.equal(effect.animation?.enabled, true, effectName);
       assert.equal(effect.animation?.mode, "clip", effectName);
@@ -599,6 +604,40 @@ describe("animation on new devices", () => {
       );
     }
   });
+
+  for (const effectName of ADDED_OFF) {
+    it(`is off, at the effect's defaults, for ${effectName}`, () => {
+      assert.ok(KNOWN_EFFECTS.includes(effectName));
+      const effect = createEffect("6", effectName, "e");
+      assert.deepEqual(effect.animation, {
+        ...createDefaultAnimation(effectName),
+        enabled: false,
+      });
+      const [added] = addEffect([], "6", effectName, undefined, "a");
+      assert.equal(added.animation?.enabled, false);
+    });
+
+    it(`starts from the effect's defaults when turned on for ${effectName}`, () => {
+      const on = animated(createEffect("6", effectName, "e"));
+      assert.deepEqual(on.animation, createDefaultAnimation(effectName));
+      assert.equal(on.animation?.enabled, true);
+    });
+
+    it(`keeps a saved ${effectName}'s Animation on, and resets it to off`, () => {
+      const [saved] = mapEffects([
+        {
+          id: "on",
+          trackId: "6",
+          effectName,
+          parameters: {},
+          animation: createDefaultAnimation(effectName),
+        },
+      ]);
+      assert.equal(saved.animation?.enabled, true);
+      const [reset] = resetEffect([saved], "on");
+      assert.equal(reset.animation?.enabled, false);
+    });
+  }
 
   it("comes with a device added to a stack", () => {
     for (const effectName of ["Colorize", "Transform", "Pixelate"]) {
