@@ -163,3 +163,28 @@ test("the meter and spectrogram follow the master output", async ({ page }) => {
   await page.waitForTimeout(300);
   expect((await newestColumn(page)).rows).toEqual(held.rows);
 });
+
+test("on the Media tab the meter follows the media playing there", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  await addSourceAudio(page);
+  await audioToggle(page).click();
+
+  await page.getByRole("button", { name: "Media", exact: true }).click();
+  await page.getByRole("option").filter({ hasText: "tone" }).dblclick();
+  await expect(page.locator(".preview-panel__title")).toHaveText("tone.wav");
+  await page.getByRole("button", { name: "Play media" }).click();
+  await expect
+    .poll(async () =>
+      Number(await paneLevel(page).getAttribute("aria-valuenow")),
+    )
+    .toBeGreaterThan(-30);
+
+  await page.getByRole("button", { name: "Pause media" }).click();
+  await expect(paneLevel(page)).toHaveAttribute("aria-valuenow", "-60", {
+    timeout: 10_000,
+  });
+});

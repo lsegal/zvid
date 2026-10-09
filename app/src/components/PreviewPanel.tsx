@@ -24,6 +24,7 @@ import { previewFrameAnalysis } from "../fx-shaders/frame-analysis.ts";
 import type { SessionEffect } from "../fx-stack";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
+import { useMediaElementMeterTap } from "../hooks/useMediaElementMeterTap.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
@@ -176,6 +177,7 @@ export function PreviewPanel({
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
   const isMediaTab = previewTab === "media";
   const getMeterTap = useMasterMeterTap(compositionPlayerRef);
+  const mediaMeterTap = useMediaElementMeterTap();
   const [isAudioAnalysisOpen, setAudioAnalysisOpen] = useState(
     readAudioAnalysisOpen,
   );
@@ -321,11 +323,16 @@ export function PreviewPanel({
               volume={previewVolume}
               projectFps={mediaTimeFormat.fps}
               mediaRange={mediaRange}
+              onMediaElement={mediaMeterTap.setElement}
             />
           ) : null}
         </div>
         {isAudioAnalysisOpen ? (
-          <AudioAnalysisPane isPlaying={isPlaying} getMeterTap={getMeterTap} />
+          // On the Media tab it follows the media playing there instead.
+          <AudioAnalysisPane
+            isPlaying={isMediaTab ? mediaPreview.isMediaPlaying : isPlaying}
+            getMeterTap={isMediaTab ? mediaMeterTap.getMeterTap : getMeterTap}
+          />
         ) : null}
       </aside>
     </>

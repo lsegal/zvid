@@ -36,6 +36,8 @@ type MediaPreviewProps = {
   volume: { volume: number; muted: boolean };
   projectFps: number;
   mediaRange: MediaRangeActions;
+  // Told about the player's media element, for the audio analysis pane.
+  onMediaElement?: (element: HTMLMediaElement | null) => void;
 };
 
 // The Media tab's player: the selected media on its own, with a transport
@@ -48,6 +50,7 @@ export function MediaPreview({
   volume,
   projectFps,
   mediaRange,
+  onMediaElement,
 }: MediaPreviewProps) {
   if (!media) {
     return (
@@ -83,6 +86,7 @@ export function MediaPreview({
       volume={volume}
       projectFps={projectFps}
       mediaRange={mediaRange}
+      onMediaElement={onMediaElement}
     />
   );
 }
@@ -95,6 +99,7 @@ function MediaPlayer({
   volume,
   projectFps,
   mediaRange,
+  onMediaElement,
 }: MediaPreviewProps & { media: MediaItem }) {
   const elementRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -119,6 +124,12 @@ function MediaPlayer({
     });
     return () => cancelAnimationFrame(frame);
   }, [isPlaying, setPlaying]);
+
+  // The element is fixed for the player's life (it is keyed by media).
+  useEffect(() => {
+    onMediaElement?.(elementRef.current);
+    return () => onMediaElement?.(null);
+  }, [onMediaElement]);
 
   useEffect(() => {
     const element = elementRef.current;
