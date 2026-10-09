@@ -16,6 +16,8 @@ import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
+import * as contrast from "./contrast/definition.ts";
+import { pass as contrastPass } from "./contrast/pass.ts";
 import * as deEss from "./de-ess/definition.ts";
 import * as delay from "./delay/definition.ts";
 import * as digitalGlitch from "./digital-glitch/definition.ts";
@@ -69,6 +71,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   color,
   colorize,
   compressor,
+  contrast,
   deEss,
   delay,
   digitalGlitch,
@@ -109,6 +112,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   bloomPass,
   causticsPass,
   colorizePass,
+  contrastPass,
   digitalGlitchPass,
   distortionPass,
   exposurePass,
