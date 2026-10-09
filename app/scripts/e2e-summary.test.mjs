@@ -66,10 +66,18 @@ describe("summarize", () => {
     assert.doesNotMatch(markdown, /Over budget/);
   });
 
+  it("passes a 96s shard within a 150s budget", () => {
+    const { markdown, overBudget } = summarize(report, "8/16", 96, 150);
+    assert.equal(overBudget, false);
+    assert.match(markdown, /in 96s \(budget 150s\)/);
+    assert.doesNotMatch(markdown, /Over budget/);
+  });
+
   it("flags a shard over its budget", () => {
-    const { markdown, overBudget } = summarize(report, "3/16", 91, 90);
+    const { markdown, overBudget } = summarize(report, "3/16", 151, 150);
     assert.equal(overBudget, true);
-    assert.match(markdown, /Over budget:\*\* the test step took 91s/);
+    assert.match(markdown, /Over budget:\*\* the test step took 151s/);
+    assert.match(markdown, /Refresh scripts\/e2e-durations\.json/);
   });
 
   it("notes a missing report", () => {
