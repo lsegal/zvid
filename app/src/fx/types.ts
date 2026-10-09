@@ -93,10 +93,29 @@ export type FxStringParameterDefinition =
       options: readonly FxFlagOption[];
     });
 
+// A display that stores nothing, such as Scopes' waveform (`waveform`) of
+// the picture at the effect's position. It has no value to edit, save or
+// animate, so no parameter is created for it.
+export type FxDisplayParameterDefinition = {
+  kind: "waveform";
+  key: string;
+  label: string;
+  defaultValue: "";
+  hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
+};
+
+export function isDisplayParameter(
+  definition: FxParameterDefinition,
+): definition is FxDisplayParameterDefinition {
+  return definition.kind === "waveform";
+}
+
 export type FxParameterDefinition =
   | FxNumberParameterDefinition
   | FxEnumParameterDefinition
-  | FxStringParameterDefinition;
+  | FxStringParameterDefinition
+  | FxDisplayParameterDefinition;
 
 // The stacks an effect is designed for: a clip's own stack, which processes
 // that clip before its layer does, a layer's own stack, the Global stack
