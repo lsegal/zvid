@@ -44,6 +44,21 @@ component. The harness lives in `src/component-test/`:
   `useTablet`, `setViewport` and `emulateTouch`. Touch emulation makes
   `(pointer: coarse)` and `(hover: none)` match. The setup file restores the
   desktop viewport and a mouse after each test.
+- `input.ts` sends trusted input through the Chrome DevTools Protocol, so
+  the browser hit tests, captures pointers and fires `click` and
+  `contextmenu` itself: a mouse with any button and modifiers whose moves
+  report the held buttons (drags, pointer capture), touches, keyboard
+  helpers (`undo`, `redo`, `pressShiftF10`) and menu helpers (`menuItem`,
+  `openLayerMenu`, `addLayers`). It releases buttons a test leaves down.
+- `editor.tsx` renders the desktop editor wired through App's hooks
+  (`renderEditor`), with sessions to open it with (`sessionWithLayers`,
+  `withTestPatternTrack`, `withMedia`); `preview: true` adds the
+  preview. `editor-steps.ts` holds steps several editor tests share, such
+  as inserting a text clip or creating a loop. Prefer rendering the single
+  component you test; render the editor only when the behavior needs App's
+  hooks wired together, such as undo, menus, keyboard shortcuts or drags
+  across rows. Such a test still imports the component it covers, and uses
+  `EDITOR_TEST_TIMEOUT`.
 
 To keep changed-only selection accurate:
 

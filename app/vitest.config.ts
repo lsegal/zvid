@@ -31,6 +31,22 @@ export default mergeConfig(
       // environment runs its own buildStart.
       perEnvironmentStartEndDuringDev: true,
     },
+    // Pre-bundles the React libraries the editor's menus, pickers and
+    // dialogs use. When Vite finds one mid-run, as with a cache from before
+    // a test first imported it, it re-optimizes and reloads, and tests then
+    // fail with "Invalid hook call" from a second copy of React.
+    optimizeDeps: {
+      include: [
+        "@heroicons/react/16/solid",
+        "@heroicons/react/24/solid",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-popover",
+        "@radix-ui/react-select",
+        "cmdk",
+        "react-best-gradient-color-picker",
+      ],
+    },
     test: {
       include: ["src/**/*.component.test.tsx"],
       // Imports the global CSS; see GLOBAL_TRIGGERS.

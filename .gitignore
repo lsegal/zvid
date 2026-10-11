@@ -40,5 +40,6 @@ e2e-results.json
 all-tests.json
 shard-tests.txt
 
-# Vitest browser-mode failure screenshots
+# Vitest browser-mode failure screenshots and attachments
 __screenshots__
+.vitest
