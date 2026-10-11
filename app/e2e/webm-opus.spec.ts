@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: real WebM/Opus import, decoding, playback and export need the whole app.
 // WebM with VP8 or VP9 video and Opus audio, and Opus audio files, import
 // like any other media: their details name the codecs and they play with
 // sound. Export can write WebM too: VP8 or VP9 video from the browser's

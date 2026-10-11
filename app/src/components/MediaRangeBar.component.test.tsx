@@ -30,7 +30,7 @@ const MEDIA: MediaItem = {
   color: "#000",
   accent: "#fff",
   previewUrl: "",
-  availability: "available",
+  availability: "ready",
 };
 
 // The Media tab's scrub bar and range controls as MediaPreview lays them
@@ -115,10 +115,11 @@ async function seekMedia(seconds: number) {
 test("In/Out points are set, dragged and cleared", async () => {
   const screen = await render(<MediaTab />);
   const readout = screen.getByTestId("media-range-readout");
+  const readoutText = () => readout.element().textContent;
   const clear = screen.getByRole("button", { name: "Clear", exact: true });
 
   // Without a range the whole file is used: nothing dimmed.
-  await expect.element(readout).toHaveTextContent(/In 00:00:00.*Out 00:03:00/);
+  await expect.poll(readoutText).toMatch(/In 00:00:00.*Out 00:03:00/);
   expect(dims()).toHaveLength(0);
   await expect.element(clear).toBeDisabled();
 
@@ -128,8 +129,8 @@ test("In/Out points are set, dragged and cleared", async () => {
   await seekMedia(2);
   await userEvent.keyboard("o");
   await expect
-    .element(readout)
-    .toHaveTextContent(/In 00:01:00.*Out 00:02:00.*Duration 00:01:00/);
+    .poll(readoutText)
+    .toMatch(/In 00:01:00.*Out 00:02:00.*Duration 00:01:00/);
   expect(dims()).toHaveLength(2);
   await expect.poll(() => markerSeconds("In")).toBe(1);
   await expect.poll(() => markerSeconds("Out")).toBe(2);
@@ -148,7 +149,7 @@ test("In/Out points are set, dragged and cleared", async () => {
   // Clear goes back to the whole file.
   await clear.click();
   expect(dims()).toHaveLength(0);
-  await expect.element(readout).toHaveTextContent(/In 00:00:00.*Out 00:03:00/);
+  await expect.poll(readoutText).toMatch(/In 00:00:00.*Out 00:03:00/);
 });
 
 test("I and O do nothing outside the Media tab", async () => {

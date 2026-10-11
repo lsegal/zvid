@@ -2,6 +2,10 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import { addLayers } from "./layers.ts";
 
+// Stays in Playwright: it checks the drags against the FX panel, the Edit
+// menu's undo history and clipboard, and the timeline's layer headers.
+// PreviewTransformOverlay.component.test.tsx covers the overlay's own drags.
+//
 // Clicking a layer in the preview selects and outlines its clip, and dragging
 // it writes the clip's own Transform effect as one undo step; with only the
 // layer selected, a drag writes the layer's Transform. The outline is drawn

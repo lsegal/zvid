@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it toggles the area in the app, reloads, and meters
+// real playback. AudioAnalysisPane.component.test.tsx covers the area's own
+// layout, which is plain CSS, so it needs no WebKit run.
+//
 // The Audio toggle in the preview header shows an audio analysis area below
 // the monitor: a spectrogram of the program mix with a vertical master VU
 // meter at its right edge.
@@ -108,18 +112,11 @@ test("the Audio toggle shows the meter and spectrogram below the preview", async
 
   const monitor = await page.locator(".preview-monitor").boundingBox();
   const area = await pane(page).boundingBox();
-  const spectrogram = await pane(page).locator(".spectrogram").boundingBox();
-  const bars = await pane(page).locator(".vu-meter__bars").boundingBox();
-  if (!monitor || !area || !spectrogram || !bars) {
+  if (!monitor || !area) {
     throw new Error("The audio analysis area is not laid out");
   }
-  // Below the monitor, with the meter at the right edge of the spectrogram.
+  // Below the monitor.
   expect(area.y).toBeGreaterThanOrEqual(monitor.y + monitor.height);
-  expect(bars.x).toBeGreaterThanOrEqual(spectrogram.x + spectrogram.width);
-  expect(area.x + area.width - (bars.x + bars.width)).toBeLessThan(40);
-  // The meter is vertical.
-  expect(bars.height).toBeGreaterThan(bars.width * 2);
-  await expect(paneLevel(page)).toHaveAttribute("aria-valuenow", "-60");
 
   // It stays open on the Media tab, and after a reload.
   await page
