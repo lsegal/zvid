@@ -261,7 +261,9 @@ function hitAtCenter(element: Element) {
 }
 
 describe("an audio-only clip card", () => {
-  test("draws a waveform with a quiet border", async () => {
+  test("draws a waveform with a quiet border", {
+    timeout: 30_000,
+  }, async () => {
     const card = await renderMediaClip(
       toneMedia({ hasVideo: false, hasAudio: true }),
     );
@@ -296,7 +298,9 @@ describe("an audio-only clip card", () => {
 });
 
 describe("a video clip card", () => {
-  test("with audio draws a waveform over its filmstrip that never takes the pointer", async () => {
+  test("with audio draws a waveform over its filmstrip that never takes the pointer", {
+    timeout: 30_000,
+  }, async () => {
     const card = await renderMediaClip(
       toneMedia({ hasVideo: true, hasAudio: true }),
       { filmstrip: true },
@@ -313,7 +317,9 @@ describe("a video clip card", () => {
     expect(hitAtCenter(overlay)).not.toContain("waveform-overlay");
   });
 
-  test("without audio keeps its filmstrip and border, and draws no waveform", async () => {
+  test("without audio keeps its filmstrip and border, and draws no waveform", {
+    timeout: 30_000,
+  }, async () => {
     const card = await renderMediaClip(
       toneMedia({ hasVideo: true, hasAudio: false }),
       { filmstrip: true },

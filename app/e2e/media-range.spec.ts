@@ -112,9 +112,9 @@ test("In/Out points are badged, undone, kept and cleared", async ({ page }) => {
   await expect.poll(() => markerSeconds(page, "Out")).toBe(2);
 
   // Moving the Out point is undoable.
-  await seekMedia(page, 2.5);
+  await seekMedia(page, 2.4);
   await page.keyboard.press("o");
-  await expect.poll(() => markerSeconds(page, "Out")).toBe(2.5);
+  await expect.poll(() => markerSeconds(page, "Out")).toBe(2.4);
 
   // Undo puts the Out point back.
   await page.locator(".media-preview__picture").click();

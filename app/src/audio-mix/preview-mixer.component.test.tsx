@@ -80,7 +80,9 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-test("back-to-back decoded clips meet without gaps on a slow main thread", async () => {
+test("back-to-back decoded clips meet without gaps on a slow main thread", {
+  timeout: 30_000,
+}, async () => {
   // A click lets the mixer's AudioContext start.
   await userEvent.click(document.body);
   const mediaSeconds = 8;

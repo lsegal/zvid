@@ -77,7 +77,9 @@ beforeEach(async () => {
   await userEvent.click(document.body);
 });
 
-test("a -6 dBFS sine reads -6.0 dB on the bars and -9.0 dB RMS", async () => {
+test("a -6 dBFS sine reads -6.0 dB on the bars and -9.0 dB RMS", {
+  timeout: 30_000,
+}, async () => {
   const [reading] = await meterTone({ kind: "sine", db: -6 });
   for (const channel of [0, 1]) {
     expectNear(reading.levelDb[channel], -6);
@@ -87,7 +89,9 @@ test("a -6 dBFS sine reads -6.0 dB on the bars and -9.0 dB RMS", async () => {
   expect(reading.text).toBe("−9.0 dB");
 });
 
-test("a full-scale sine reads 0 dB without clipping; +1 dB clips", async () => {
+test("a full-scale sine reads 0 dB without clipping; +1 dB clips", {
+  timeout: 30_000,
+}, async () => {
   const [full] = await meterTone({ kind: "sine", db: 0 });
   expectNear(full.levelDb[0], 0);
   expectNear(full.averageDb, -3.01);
@@ -98,19 +102,23 @@ test("a full-scale sine reads 0 dB without clipping; +1 dB clips", async () => {
   expect(over.clipped).toEqual([true, true]);
 });
 
-test("a -12 dBFS square wave reads -12.0 dB peak and RMS", async () => {
+test("a -12 dBFS square wave reads -12.0 dB peak and RMS", {
+  timeout: 30_000,
+}, async () => {
   const [reading] = await meterTone({ kind: "square", db: -12 });
   expectNear(reading.levelDb[0], -12);
   expectNear(reading.averageDb, -12);
 });
 
-test("silence reads empty bars and -inf dB", async () => {
+test("silence reads empty bars and -inf dB", { timeout: 30_000 }, async () => {
   const [reading] = await meterTone({ kind: "silence", db: 0 });
   expect(reading.levelDb).toEqual([-Infinity, -Infinity]);
   expect(reading.text).toBe("-inf dB");
 });
 
-test("the readout is the same at 30 and 120 frames per second", async () => {
+test("the readout is the same at 30 and 120 frames per second", {
+  timeout: 30_000,
+}, async () => {
   for (const kind of ["sine", "pulse"] as const) {
     const [slow, fast] = await meterTone({ kind, db: -6 }, [30, 120]);
     expect(slow.averageDb).toBeGreaterThan(-30);

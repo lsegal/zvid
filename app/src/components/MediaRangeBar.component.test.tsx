@@ -10,7 +10,7 @@ import { MediaRangeBar, MediaRangeControls } from "./MediaRangeBar";
 // the markers, shown on the scrub bar and the readout, cleared, and the I
 // and O keys scoped to the Media tab. Undo, the Media drawer's badge and
 // keeping the range across a reload stay in e2e/media-range.spec.ts. The
-// media matches that spec's fixture, a three-second 30 fps test pattern.
+// media matches that spec's fixture, a three-second 15 fps test pattern.
 const PROJECT_FPS = 30;
 const TIME_FORMAT = {
   timelineMode: "timecode",
@@ -24,7 +24,7 @@ const MEDIA: MediaItem = {
   name: "test-pattern-audio.webm",
   kind: "video",
   durationSeconds: 3,
-  fps: 30,
+  fps: 15,
   hasAudio: true,
   hasVideo: true,
   color: "#000",

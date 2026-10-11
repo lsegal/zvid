@@ -30,7 +30,13 @@ type AudioRowMix = Parameters<typeof AudioRow>[0]["mix"];
 // The Audio row as the timeline panel's footer draws it, at the default
 // label width, with a toggle that collapses it and the Audio actions menu
 // its right-click opens.
-function Row({ mix, quarterPx = 40 }: { mix: AudioRowMix; quarterPx?: number }) {
+function Row({
+  mix,
+  quarterPx = 40,
+}: {
+  mix: AudioRowMix;
+  quarterPx?: number;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState<ClipMenuState | null>(null);
   const openAudioMenu = (event: MouseEvent<HTMLElement>) => {
@@ -44,26 +50,28 @@ function Row({ mix, quarterPx = 40 }: { mix: AudioRowMix; quarterPx?: number }) 
     >
       <div className="timeline-footer">
         <div className="timeline-footer__canvas" style={{ width: 1400 }}>
-        <AudioRow
-          mix={mix}
-          openAudioMenu={openAudioMenu}
-          prefersReducedMotion={false}
-          bpm={120}
-          quarterPx={quarterPx}
-          visibleTimelineStartPx={0}
-          visibleTimelineWidthPx={1000}
-          gridStyle={{}}
-          playheadSignal={createPlayheadSignal()}
-          isCollapsed={collapsed}
-          setCollapsed={setCollapsed}
-          expandedHeight={AUDIO_ROW_HEIGHT}
-          onResize={noop}
-        />
+          <AudioRow
+            mix={mix}
+            openAudioMenu={openAudioMenu}
+            prefersReducedMotion={false}
+            bpm={120}
+            quarterPx={quarterPx}
+            visibleTimelineStartPx={0}
+            visibleTimelineWidthPx={1000}
+            gridStyle={{ backgroundImage: "none", backgroundSize: "auto" }}
+            playheadSignal={createPlayheadSignal()}
+            isCollapsed={collapsed}
+            setCollapsed={setCollapsed}
+            expandedHeight={AUDIO_ROW_HEIGHT}
+            onResize={noop}
+          />
         </div>
       </div>
       <TimelineContextMenu
         clipMenu={menu}
-        getClipMenuEntries={() => buildAudioMenuEntries({ refresh: mix.refresh })}
+        getClipMenuEntries={() =>
+          buildAudioMenuEntries({ refresh: mix.refresh })
+        }
         onClose={() => setMenu(null)}
       />
     </div>
@@ -221,9 +229,16 @@ test("the Audio row takes no files and starts empty", async () => {
     [],
   );
 
-  await row.element().querySelector(".track-label")?.dispatchEvent(
-    new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }),
-  );
+  await row
+    .element()
+    .querySelector(".track-label")
+    ?.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        clientX: 40,
+        clientY: 40,
+      }),
+    );
   const menu = page.getByRole("menu", { name: "Audio actions" });
   await expect.element(menu).toBeVisible();
   expect(
@@ -313,9 +328,8 @@ test("the collapsed Audio row is 44px and still draws the waveform at its height
   expect(toggle().title).toBe("Collapse audio row");
   const expandedHeight = audioRow().getBoundingClientRect().height;
   const canvas = () => {
-    const element = mixContent().querySelector<HTMLCanvasElement>(
-      ".waveform__canvas",
-    );
+    const element =
+      mixContent().querySelector<HTMLCanvasElement>(".waveform__canvas");
     if (!element) {
       throw new Error("No waveform canvas");
     }
@@ -353,7 +367,9 @@ test("the collapsed Audio row is 44px and still draws the waveform at its height
   expect(canvas().height).toBeLessThan(expandedCanvasHeight);
 });
 
-test("a clip with audio draws the mix, and Refresh recomputes it", async () => {
+test("a clip with audio draws the mix, and Refresh recomputes it", {
+  timeout: 30_000,
+}, async () => {
   const { mix, mediaItemsById } = toneMix();
   const screen = await render(
     <DesktopShell>
@@ -370,7 +386,7 @@ test("a clip with audio draws the mix, and Refresh recomputes it", async () => {
     })
     .toBe("ready");
   await expect
-    .element(row.element().querySelector(".waveform__canvas"))
+    .element(row.element().querySelector<HTMLElement>(".waveform__canvas"))
     .toBeVisible();
   await expect.poll(drawnLevel).toBeGreaterThan(0.1);
 

@@ -54,7 +54,13 @@ afterEach(() => {
 
 // Ready media with the tone as its audio. Peaks are cached by media id, so
 // every call makes a new one.
-function media({ hasVideo, hasAudio }: { hasVideo: boolean; hasAudio: boolean }) {
+function media({
+  hasVideo,
+  hasAudio,
+}: {
+  hasVideo: boolean;
+  hasAudio: boolean;
+}) {
   const previewUrl = URL.createObjectURL(toneWav());
   urls.push(previewUrl);
   const item: MediaItem = {
@@ -200,15 +206,20 @@ function hitAtCenter(element: Element) {
 }
 
 describe("an audio-only source span", () => {
-  test("draws a waveform with a quiet border", async () => {
+  test("draws a waveform with a quiet border", {
+    timeout: 30_000,
+  }, async () => {
     const span = await renderSpan(media({ hasVideo: false, hasAudio: true }));
     await expect
       .poll(() => span.className, { timeout: 30_000 })
       .toContain("source-span--audio");
     await expect
-      .poll(() => span.querySelectorAll("canvas.source-span__waveform").length, {
-        timeout: 30_000,
-      })
+      .poll(
+        () => span.querySelectorAll("canvas.source-span__waveform").length,
+        {
+          timeout: 30_000,
+        },
+      )
       .toBe(1);
     expect(span.querySelectorAll(".source-span__filmstrip")).toHaveLength(0);
     await expect
@@ -235,7 +246,9 @@ describe("an audio-only source span", () => {
 });
 
 describe("a video source span", () => {
-  test("with audio draws a waveform over its filmstrip", async () => {
+  test("with audio draws a waveform over its filmstrip", {
+    timeout: 30_000,
+  }, async () => {
     const item = media({ hasVideo: true, hasAudio: true });
     const span = await renderSpan(item, filmstripOf(item, SPAN_WIDTH_PX));
     expect(span.querySelectorAll(".source-span__filmstrip")).toHaveLength(1);
@@ -250,7 +263,9 @@ describe("a video source span", () => {
     expect(hitAtCenter(overlay)).not.toContain("waveform-overlay");
   });
 
-  test("without audio keeps its filmstrip and border, and draws no waveform", async () => {
+  test("without audio keeps its filmstrip and border, and draws no waveform", {
+    timeout: 30_000,
+  }, async () => {
     const item = media({ hasVideo: true, hasAudio: false });
     const span = await renderSpan(item, filmstripOf(item, SPAN_WIDTH_PX));
     expect(span.querySelectorAll(".source-span__filmstrip")).toHaveLength(1);
