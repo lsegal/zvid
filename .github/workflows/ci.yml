@@ -73,7 +73,7 @@ jobs:
 
   # The browser tests are slow, so they run on pushes to main and when a
   # pull request is marked ready for review; other pull request events skip
-  # them. The app suite runs as 16 shards on separate runners, each with a
+  # them. The app suite runs as 20 shards on separate runners, each with a
   # time budget; e2e-report merges their reports.
   export-bridge:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'ready_for_review')
@@ -96,18 +96,20 @@ jobs:
           retention-days: 1
 
   # Browser tests of the web harness. Each shard's test step must finish
-  # within E2E_BUDGET_SECONDS (aiming for well under it); past it the shard
-  # fails. When a shard runs long, refresh the recorded durations, or speed
-  # up or split the slowest specs.
+  # within E2E_BUDGET_SECONDS, not counting retries (aiming for well under
+  # it, so a slow runner fits too); past it the shard fails. When a shard
+  # runs long, refresh the recorded durations, add shards, or speed up or
+  # split the slowest specs.
   e2e:
-    name: e2e (${{ matrix.shard }}/16)
+    name: e2e (${{ matrix.shard }}/20)
     needs: export-bridge
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        shard:
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     env:
       E2E_BUDGET_SECONDS: 150
     steps:
@@ -130,7 +132,7 @@ jobs:
         working-directory: app
         run: |
           pnpm exec playwright test --list --reporter=json > all-tests.json
-          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 16 scripts/e2e-durations.json > shard-tests.txt
+          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 20 scripts/e2e-durations.json > shard-tests.txt
           cat shard-tests.txt
 
       - name: Browser tests
@@ -142,7 +144,7 @@ jobs:
           status=0
           pnpm exec playwright test --test-list shard-tests.txt --pass-with-no-tests || status=$?
           elapsed=$(( $(date +%s) - start ))
-          node scripts/e2e-summary.mjs e2e-results.json ${{ matrix.shard }}/16 "$elapsed" "$E2E_BUDGET_SECONDS" >> "$GITHUB_STEP_SUMMARY" || status=1
+          node scripts/e2e-summary.mjs e2e-results.json ${{ matrix.shard }}/20 "$elapsed" "$E2E_BUDGET_SECONDS" >> "$GITHUB_STEP_SUMMARY" || status=1
           exit "$status"
 
       - name: Upload test output

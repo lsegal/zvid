@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { collectProblems, summarize } from "./e2e-summary.mjs";
+import { collectProblems, retrySeconds, summarize } from "./e2e-summary.mjs";
 
 const report = {
   stats: { expected: 2, unexpected: 1, flaky: 1, skipped: 0 },
@@ -31,7 +31,15 @@ const report = {
               title: "trims the start",
               file: "clip.spec.ts",
               line: 20,
-              tests: [{ status: "flaky" }],
+              tests: [
+                {
+                  status: "flaky",
+                  results: [
+                    { retry: 0, status: "failed", duration: 28_000 },
+                    { retry: 1, status: "passed", duration: 27_400 },
+                  ],
+                },
+              ],
             },
             {
               title: "trims the end",
@@ -55,12 +63,25 @@ describe("collectProblems", () => {
   });
 });
 
+describe("retrySeconds", () => {
+  it("adds up the retries' durations, rounded up", () => {
+    assert.equal(retrySeconds(report), 28);
+  });
+
+  it("is zero without a report", () => {
+    assert.equal(retrySeconds(undefined), 0);
+  });
+});
+
 describe("summarize", () => {
   it("lists the problems and passes within budget", () => {
     const { markdown, overBudget } = summarize(report, "3/16", 42, 90);
     assert.equal(overBudget, false);
     assert.match(markdown, /### Browser tests, shard 3\/16/);
-    assert.match(markdown, /2 passed, 1 failed, 1 flaky, 0 skipped in 42s/);
+    assert.match(
+      markdown,
+      /2 passed, 1 failed, 1 flaky, 0 skipped in 42s, 28s of it retries/,
+    );
     assert.match(markdown, /- clip\.spec\.ts:4 › drags a clip/);
     assert.match(markdown, /- clip\.spec\.ts:20 › trim › trims the start/);
     assert.doesNotMatch(markdown, /Over budget/);
@@ -69,14 +90,24 @@ describe("summarize", () => {
   it("passes a 96s shard within a 150s budget", () => {
     const { markdown, overBudget } = summarize(report, "8/16", 96, 150);
     assert.equal(overBudget, false);
-    assert.match(markdown, /in 96s \(budget 150s\)/);
+    assert.match(markdown, /in 96s, 28s of it retries \(budget 150s\)/);
+    assert.doesNotMatch(markdown, /Over budget/);
+  });
+
+  it("leaves a flaky test's retry out of the budget", () => {
+    const { markdown, overBudget } = summarize(report, "6/20", 160, 150);
+    assert.equal(overBudget, false);
+    assert.match(markdown, /in 160s, 28s of it retries \(budget 150s\)/);
     assert.doesNotMatch(markdown, /Over budget/);
   });
 
   it("flags a shard over its budget", () => {
-    const { markdown, overBudget } = summarize(report, "3/16", 151, 150);
+    const { markdown, overBudget } = summarize(report, "3/16", 179, 150);
     assert.equal(overBudget, true);
-    assert.match(markdown, /Over budget:\*\* the test step took 151s/);
+    assert.match(
+      markdown,
+      /Over budget:\*\* the test step took 151s without retries/,
+    );
     assert.match(markdown, /Refresh scripts\/e2e-durations\.json/);
   });
 
