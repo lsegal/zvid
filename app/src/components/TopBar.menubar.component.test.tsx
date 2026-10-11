@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { TopBarHarness } from "./top-bar-test-harness.tsx";
 import "./TopBar";
@@ -14,6 +14,17 @@ function menubar() {
 
 function trigger(name: string) {
   return menubar().getByRole("menuitem", { name, exact: true });
+}
+
+// Moves the mouse to the window's top-left corner, off every menubar item.
+// Raw input, unlike userEvent.unhover, doesn't wait on the page's frames,
+// which other test files' iframes slow down.
+async function moveMouseToCorner() {
+  await cdp().send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: 0,
+    y: 0,
+  });
 }
 
 async function renderTopBar() {
@@ -67,7 +78,7 @@ describe("TopBar menubar", () => {
         border: style.borderTopWidth,
       };
     };
-    await userEvent.unhover(file);
+    await moveMouseToCorner();
     expect(styles()).toEqual({
       background: "rgba(0, 0, 0, 0)",
       border: "0px",
@@ -76,7 +87,7 @@ describe("TopBar menubar", () => {
     await file.click();
     await expect.element(page.getByRole("menu")).toBeVisible();
     await expect.element(file).toHaveAttribute("data-state", "open");
-    await userEvent.unhover(file);
+    await moveMouseToCorner();
     await expect.poll(() => styles().background).not.toBe("rgba(0, 0, 0, 0)");
   });
 
