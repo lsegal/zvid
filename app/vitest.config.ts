@@ -1,5 +1,11 @@
 import { playwright } from "@vitest/browser-playwright";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
+import {
+  mouseDown,
+  mouseMove,
+  mouseUp,
+  mouseWheel,
+} from "./src/component-test/commands.ts";
 import viteConfig from "./vite.config.ts";
 
 // Component tests (`pnpm test:component`): Vitest browser mode renders
@@ -47,6 +53,8 @@ export default mergeConfig(
         headless: true,
         provider: playwright(),
         instances: [{ browser: "chromium" }],
+        // Real mouse input for drag tests (component-test/app.tsx).
+        commands: { mouseDown, mouseMove, mouseUp, mouseWheel },
         // Matches the desktop layout the e2e specs default to; tests set
         // their own size with setViewport.
         viewport: { width: 1280, height: 720 },
