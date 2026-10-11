@@ -376,7 +376,11 @@ describe(MobileTopBar.name, { timeout: 60_000 }, () => {
       .mockImplementation(function (this: HTMLInputElement) {});
     await click("menuitem", "Import Media", inSheet());
     await expect
-      .poll(() => chooser.mock.contexts.some((input) => input.type === "file"))
+      .poll(() =>
+        chooser.mock.contexts.some(
+          (input) => (input as HTMLInputElement).type === "file",
+        ),
+      )
       .toBe(true);
     await expect.poll(() => shown(".mobile-menu-sheet")).toBe(false);
     await click("button", "More", { exact: true });
