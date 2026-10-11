@@ -44,6 +44,16 @@ component. The harness lives in `src/component-test/`:
   `useTablet`, `setViewport` and `emulateTouch`. Touch emulation makes
   `(pointer: coarse)` and `(hover: none)` match. The setup file restores the
   desktop viewport and a mouse after each test.
+- `app.tsx` renders the whole editor (`renderApp`) from a blank session,
+  for behavior that crosses App-level state: undo, global shortcuts,
+  context menus, and selection shared by the timeline, the FX panel and
+  the arrangement. It also drops media fixtures (`fixtureFile`,
+  `dropFiles`), presses Ctrl/Cmd shortcuts (`pressMod`) and drives the
+  real mouse (`mouse`, through the commands in `commands.ts`). A test that
+  renders the editor imports App, so any change under App selects it;
+  render the component itself when the test only needs its rendering and
+  styles. The editor imports the wasm export bridge, so build
+  `export-bridge/pkg` first.
 
 To keep changed-only selection accurate:
 

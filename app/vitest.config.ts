@@ -2,6 +2,12 @@ import { globSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { playwright } from "@vitest/browser-playwright";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
+import {
+  mouseDown,
+  mouseMove,
+  mouseUp,
+  mouseWheel,
+} from "./src/component-test/commands.ts";
 import { prebundledDependencies } from "./src/component-test/prebundle.ts";
 import viteConfig from "./vite.config.ts";
 
@@ -67,6 +73,8 @@ export default mergeConfig(
         headless: true,
         provider: playwright(),
         instances: [{ browser: "chromium" }],
+        // Real mouse input for drag tests (component-test/app.tsx).
+        commands: { mouseDown, mouseMove, mouseUp, mouseWheel },
         // Matches the desktop layout the e2e specs default to; tests set
         // their own size with setViewport.
         viewport: { width: 1280, height: 720 },
