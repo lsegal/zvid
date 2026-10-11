@@ -60,6 +60,7 @@ async function renderPixels(
       lanes,
       effects: [color, ...effects],
       bpm: 120,
+      fps: 30,
       canvasWidth: WIDTH,
       canvasHeight: HEIGHT,
     },

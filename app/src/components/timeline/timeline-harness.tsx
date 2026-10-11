@@ -6,7 +6,11 @@ import {
   useState,
 } from "react";
 import type { ClipClipboard } from "../../app/clip-ops.ts";
-import { signatureById } from "../../app/constants.ts";
+import {
+  INITIAL_PROJECT_STATE,
+  signatureById,
+} from "../../app/constants.ts";
+import { patchProjectState } from "../../app/session-project.ts";
 import { DEFAULT_PREVIEW_VOLUME } from "../../app/preview-volume.ts";
 import { selectSourceSpan } from "../../app/source-selection.ts";
 import type { ProjectState, SourceSpan } from "../../app/types.ts";
@@ -23,7 +27,10 @@ import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import { useTimeline } from "../../hooks/useTimeline.ts";
 import { useTimelineEditing } from "../../hooks/useTimelineEditing.ts";
 import { useTimelineSelection } from "../../hooks/useTimelineSelection.ts";
+import type { MediaItem } from "../../media";
+import { addMediaToSourceTrack } from "../../source-track-media.ts";
 import { createSpaceHold } from "../../space-shortcut";
+import testPatternUrl from "../../../e2e/fixtures/test-pattern.mp4?url";
 import { FxPanel } from "../FxPanel";
 import { TimelineContextMenu } from "../TimelineContextMenu";
 import { ArrangementLanes } from "./ArrangementLanes";
@@ -59,6 +66,38 @@ const NO_LIVE_TAKES = new Map();
 const NO_REMOTE_PROGRESS = new Map();
 const NO_REVEALED_MEDIA: ReadonlySet<string> = new Set();
 const noop = () => {};
+
+// The e2e specs' four-second, 160×90, 15 fps test pattern, without audio.
+export function testPatternVideo(id = "media-test-pattern"): MediaItem {
+  return {
+    id,
+    name: "test-pattern.mp4",
+    kind: "video",
+    durationSeconds: 4,
+    width: 160,
+    height: 90,
+    fps: 15,
+    hasAudio: false,
+    hasVideo: true,
+    color: "#3d4052",
+    accent: "#7ca1ff",
+    previewUrl: testPatternUrl,
+    availability: "ready",
+  };
+}
+
+// A new session with each of `items` dropped into a new source track of its
+// own, as dropping their files does.
+export function projectWithMedia(items: MediaItem[]): ProjectState {
+  return items.reduce(
+    (current, item) =>
+      patchProjectState(current, {
+        mediaItems: [...current.mediaItems, item],
+        ...addMediaToSourceTrack(current, [item], { kind: "new-track" }),
+      }),
+    INITIAL_PROJECT_STATE,
+  );
+}
 
 export type TimelineHarnessProps = {
   // The session to open, in place of a new one.
