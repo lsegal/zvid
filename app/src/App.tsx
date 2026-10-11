@@ -789,7 +789,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}
         onClose={() => selection.setClipMenu(null)}
-        asSheet={layout.isPhone}
       />
     </div>
   );
