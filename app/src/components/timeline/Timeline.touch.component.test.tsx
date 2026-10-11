@@ -57,7 +57,7 @@ describe(`${Timeline.name} on a phone`, {
     // Starting on the clip, which a swipe scrolls past instead of moving.
     await drag({ x: scroll.x + 100, y }, { x: scroll.x - 60, y });
     await expect.poll(playheadQ).toBeGreaterThan(1);
-    const line = boxOf(".timeline-playhead").left;
+    const line = boxOf(".timeline-playhead-marker").left;
     const view = boxOf(".timeline-scroll");
     expect(Math.abs(line - (view.left + view.width / 2))).toBeLessThan(4);
     // The clip scrolled with the timeline, and kept its time.
@@ -256,6 +256,37 @@ describe(`${Timeline.name} on a phone`, {
     await hold({ x: scroll.x + 150, y }, 50);
     await expect.poll(selection).toBeNull();
     expect(visibleByRole("toolbar", "Selection actions")).toEqual([]);
+  });
+
+  // #1255: the transport's Loop button loops the selection and drops it.
+  test("Loop loops a lane selection and clears it, else the playhead's bar", async () => {
+    await usePhone();
+    await renderApp();
+    const scroll = centerOf(".timeline-scroll");
+    const y = laneMiddleY();
+    await drag({ x: scroll.x, y }, { x: scroll.x + 120, y }, 600);
+    await expect.poll(() => isVisible(selection())).toBe(true);
+    const drawn = boxOf(".timeline-selection");
+
+    const loop = await findByRole("button", "Loop");
+    await tap(loop);
+    await expect.poll(selection).toBeNull();
+    expect(loop.getAttribute("aria-pressed")).toBe("true");
+    const looped = boxOf(".loop-overlay");
+    expect(Math.abs(looped.left - drawn.left)).toBeLessThan(1);
+    expect(Math.abs(looped.width - drawn.width)).toBeLessThan(1);
+
+    // Tapping it again drops the loop.
+    await tap(loop);
+    await expect.poll(() => document.querySelector(".loop-overlay")).toBeNull();
+
+    // With nothing selected, it loops the bar the playhead is in.
+    await tap(loop);
+    await expect.poll(() => isVisible(query(".loop-overlay"))).toBe(true);
+    const bar = boxOf(".loop-overlay");
+    const playhead = centerOf(".timeline-playhead-marker").x;
+    expect(bar.left).toBeLessThanOrEqual(playhead + 1);
+    expect(bar.right).toBeGreaterThan(playhead);
   });
 
   test("a double tap on empty lane space selects grid cells at least 64px wide", async () => {
