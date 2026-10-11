@@ -385,10 +385,10 @@ export class PreviewAudioMixer {
 
   // Browsers start an AudioContext suspended until a user gesture, and the
   // mix stays silent until it resumes. iOS only lets it resume inside the
-  // gesture, so a tap on Play creates the context if it doesn't exist yet.
-  resume() {
-    const { context } = this.ensureGraph();
-    if (context.state === "suspended") {
+  // gesture, so a tap on Play creates the context first (`create`).
+  resume(create = false) {
+    const context = create ? this.ensureGraph().context : this.graph?.context;
+    if (context?.state === "suspended") {
       context.resume().catch(() => {});
     }
   }

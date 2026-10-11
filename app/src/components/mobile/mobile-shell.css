@@ -22,8 +22,6 @@
   overscroll-behavior: none;
   padding-bottom: env(safe-area-inset-bottom);
   -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 /* The desktop containers step aside so their panels sit in the grid. */
@@ -553,10 +551,22 @@
   border-radius: 16px;
 }
 
+/* Stack dividers become headings across the sheet. */
 .app-shell--phone .fx-chain__divider {
-  width: auto;
-  height: 1px;
-  align-self: stretch;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line-strong);
+  border-left: none;
+}
+
+.app-shell--phone .fx-chain__divider:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.app-shell--phone .fx-chain__divider span {
+  padding-left: 0;
+  transform: none;
+  writing-mode: horizontal-tb;
 }
 
 /* Larger controls for fingers. */

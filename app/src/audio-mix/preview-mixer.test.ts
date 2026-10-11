@@ -324,6 +324,17 @@ describe("PreviewAudioMixer", () => {
     mixer.dispose();
   });
 
+  it("starts its context from a Play tap, before anything plays", () => {
+    const mixer = new PreviewAudioMixer();
+    mixer.resume();
+    assert.equal(FakeAudioContext.last, null);
+
+    // iOS only lets a context start inside the tap (#1168).
+    mixer.resume(true);
+    assert.equal(context().state, "running");
+    mixer.dispose();
+  });
+
   it("makes no element for a clip without Gain until it is turned up", () => {
     const mixer = new PreviewAudioMixer();
     mixer.update(mix([clip({ amplitude: 0 })]), media);

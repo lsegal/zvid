@@ -215,7 +215,7 @@ export class CompositionRenderer {
 
   // Starts the preview mix from inside a tap or click, which iOS requires.
   unlockAudio() {
-    this.mixer?.resume();
+    this.mixer?.resume(true);
   }
 
   // The program mix for the transport VU meter, before the preview volume.

@@ -145,9 +145,8 @@ test("the playhead stays centered while a swipe scrubs", async ({ page }) => {
   await drag(page, client, { x: scroll.x + 100, y }, { x: scroll.x - 60, y });
   await expect.poll(() => playheadQ(page)).toBeGreaterThan(1);
   const { line, view } = await page.evaluate(() => ({
-    line: document
-      .querySelector(".timeline-playhead")
-      ?.getBoundingClientRect().left,
+    line: document.querySelector(".timeline-playhead")?.getBoundingClientRect()
+      .left,
     view: document.querySelector(".timeline-scroll")?.getBoundingClientRect(),
   }));
   expect(
@@ -161,6 +160,28 @@ test("the playhead stays centered while a swipe scrubs", async ({ page }) => {
   expect(
     Math.abs((clipAfter?.x ?? 0) + scrolled - (clipBefore?.x ?? 0)),
   ).toBeLessThan(2);
+});
+
+test("pinching zooms the timeline", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addClip(page);
+  const before = (await page.locator(".clip-card").boundingBox())?.width ?? 0;
+  const { x, y } = await centerOf(page, ".timeline-scroll");
+  await touch(client, "touchStart", [
+    { x: x - 30, y },
+    { x: x + 30, y },
+  ]);
+  for (let step = 1; step <= 10; step += 1) {
+    await touch(client, "touchMove", [
+      { x: x - 30 - step * 6, y },
+      { x: x + 30 + step * 6, y },
+    ]);
+  }
+  await touch(client, "touchEnd", []);
+  await expect
+    .poll(async () => (await page.locator(".clip-card").boundingBox())?.width)
+    .toBeGreaterThan(before * 1.5);
 });
 
 test("a tap shows the selection toolbar and Split cuts at the center", async ({
@@ -179,13 +200,16 @@ test("a tap shows the selection toolbar and Split cuts at the center", async ({
   await toolbar.getByRole("button", { name: "Split at playhead" }).click();
   await expect(page.locator(".clip-card")).toHaveCount(2);
   // Tapping empty space drops the selection and the toolbar.
-  const lane = await page
-    .locator('[data-timeline-lane-id="1"]')
-    .boundingBox();
-  await hold(page, client, {
-    x: scroll.x * 2 - 8,
-    y: (lane?.y ?? 0) + (lane?.height ?? 0) - 6,
-  }, 50);
+  const lane = await page.locator('[data-timeline-lane-id="1"]').boundingBox();
+  await hold(
+    page,
+    client,
+    {
+      x: scroll.x * 2 - 8,
+      y: (lane?.y ?? 0) + (lane?.height ?? 0) - 6,
+    },
+    50,
+  );
   await expect(toolbar).toBeHidden();
 });
 
@@ -199,7 +223,9 @@ test("a long press opens the clip menu as a sheet; hold and drag moves", async (
   await hold(page, client, clip);
   const sheet = page.getByRole("menu", { name: "Clip actions" });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole("menuitem", { name: "Duplicate" })).toBeVisible();
+  await expect(
+    sheet.getByRole("menuitem", { name: "Duplicate" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Close menu" }).click();
   await expect(sheet).toBeHidden();
 
