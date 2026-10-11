@@ -4,6 +4,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  useRef,
   useState,
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
@@ -31,6 +32,7 @@ import { mediaAnalysisFallback } from "../hooks/media-analysis-mirror.ts";
 import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
 import { useMasterMeterTap } from "../hooks/useMasterMeterTap.ts";
 import { useMediaElementMeterTap } from "../hooks/useMediaElementMeterTap.ts";
+import { useShellKind } from "../hooks/useShellKind.ts";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreview } from "../hooks/usePreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
@@ -40,6 +42,7 @@ import type { PreviewLayer } from "../preview-edit.ts";
 import type { TimeValueFormat } from "../time-value.ts";
 import { AudioAnalysisPane } from "./audio-analysis/AudioAnalysisPane";
 import { MediaPreview } from "./MediaPreview";
+import { PreviewFocusShield, usePreviewFocus } from "./PreviewFocusShield";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
 import { ScopesPane, useScopesPane } from "./scopes/ScopesPane";
@@ -216,6 +219,12 @@ export function PreviewPanel({
     writeAudioAnalysisOpen(open);
   };
   const scopesPane = useScopesPane();
+  // Portrait phones need a tap on the program monitor before its layers move.
+  const monitorRef = useRef<HTMLDivElement | null>(null);
+  const previewFocus = usePreviewFocus(
+    useShellKind() === "phone" && !isMediaTab,
+    monitorRef,
+  );
   const scopes = scopesPane.open ? (
     <ScopesPane pane={scopesPane} {...scopesSource(isMediaTab, mediaItem)} />
   ) : null;
@@ -300,7 +309,12 @@ export function PreviewPanel({
         </div>
 
         <div
-          className="preview-monitor"
+          ref={monitorRef}
+          className={`preview-monitor${
+            previewFocus.requiresTap && previewFocus.focused
+              ? " preview-monitor--focused"
+              : ""
+          }`}
           data-preview-tab={previewTab}
           data-render-source={
             renderFromSourceTracks ? "source-tracks" : "layers"
@@ -342,6 +356,9 @@ export function PreviewPanel({
             onTransform={transformPreviewLayer}
             onActivate={activatePreviewLayer}
           />
+          {previewFocus.focused ? null : (
+            <PreviewFocusShield onFocus={previewFocus.focus} />
+          )}
           {!previewClip ||
           (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
             <div className="preview-placeholder">
