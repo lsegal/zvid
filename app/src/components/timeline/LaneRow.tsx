@@ -116,11 +116,7 @@ export const LaneRow = memo(function LaneRow({
     setDragPreviewClips(null);
     setDragState(null);
     setPendingSelection(
-      gridCellSelection(
-        lane.id,
-        pointerQ(timelineScroll, clientX),
-        gridCellQ,
-      ),
+      gridCellSelection(lane.id, pointerQ(timelineScroll, clientX), gridCellQ),
     );
   };
 
