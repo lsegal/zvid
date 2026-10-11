@@ -666,15 +666,13 @@ test("a grip dragged to the timeline's bottom edge scrolls past the visible rows
   await expect
     .poll(() => scroller.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
-  // Hold at the edge until the list has scrolled to its end.
+  // Hold at the edge until the last layer has scrolled into view.
   await expect
-    .poll(() =>
-      scroller.evaluate(
-        (element) =>
-          element.scrollHeight - element.clientHeight - element.scrollTop,
-      ),
-    )
-    .toBeLessThan(2);
+    .poll(async () => {
+      const bottom = await headers.last().boundingBox();
+      return (bottom?.y ?? Infinity) + (bottom?.height ?? 0);
+    })
+    .toBeLessThan(box.y + box.height);
   await touch(client, "touchMove", [{ x: edge.x, y: edge.y - 1 }]);
   await touch(client, "touchEnd", []);
   await expect(
