@@ -12,8 +12,8 @@ import { TransportBar } from "./TransportBar";
 
 // The transport bar's stereo VU meter, left of the preview volume. The
 // meter's own levels are checked against a real mix in vu-meter.spec.ts
-// and vu-meter-calibration.spec.ts; these tests cover its layout and
-// colors, fed by an oscillator where they need a level.
+// and against test tones in vu-meter.component.test.tsx; these tests cover
+// its layout and colors, fed by an oscillator where they need a level.
 const SILENT = "-inf dB";
 const noop = () => {};
 
