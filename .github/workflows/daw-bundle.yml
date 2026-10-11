@@ -31,7 +31,6 @@ on:
     paths:
       - daw/**
       - .github/workflows/daw-bundle.yml
-      - .github/workflows/ci.yml
       - app/export-bridge/Cargo.toml
   workflow_dispatch:
 
