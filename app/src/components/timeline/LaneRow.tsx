@@ -3,6 +3,7 @@ import {
   memo,
   type RefObject,
   type SetStateAction,
+  useRef,
 } from "react";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
@@ -19,8 +20,12 @@ import type {
 import { clamp } from "../../app/util.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
-import { startLaneSelectionGesture } from "../../lane-selection-gesture.ts";
+import {
+  gridCellSelection,
+  startLaneSelectionGesture,
+} from "../../lane-selection-gesture.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
+import { isDoubleTap, type TouchTap } from "../../mobile/timeline-touch.ts";
 import { ClipCard, type ClipCardContext } from "./ClipCard";
 import { arePropsEqualWithContexts } from "./memo-props.ts";
 import { SelectionOverlay } from "./SelectionOverlay";
@@ -36,6 +41,8 @@ export type LaneRowContext = {
   totalQuarters: number;
   snapUnit: number;
   snapEnabled: boolean;
+  // The finest grid cell drawn, which a double-click or double-tap selects.
+  gridCellQ: number;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   pendingSelection: TimelineSelection | null;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
@@ -57,7 +64,8 @@ type LaneRowProps = {
 
 // A layer's lane: its clips and range selection. Pressing empty lane space
 // selects the layer and starts a range selection, or seeks on a click;
-// pressing the selection moves or resizes it.
+// double-clicking or double-tapping it selects one grid cell; pressing the
+// selection moves or resizes it.
 export const LaneRow = memo(function LaneRow({
   lane,
   clips,
@@ -70,6 +78,7 @@ export const LaneRow = memo(function LaneRow({
   totalQuarters,
   snapUnit,
   snapEnabled,
+  gridCellQ,
   gridStyle,
   pendingSelection,
   setPendingSelection,
@@ -80,12 +89,52 @@ export const LaneRow = memo(function LaneRow({
   setDragState,
   clipCard,
 }: LaneRowProps) {
+  // Touch presses on a tablet, so a second tap can tell it's a double tap.
+  const lastTapRef = useRef<TouchTap | null>(null);
+
+  // The press's time on the timeline, unsnapped.
+  const pointerQ = (timelineScroll: HTMLDivElement, clientX: number) =>
+    clamp(
+      pointerToTimelineQ(
+        getTimelinePointerX(timelineScroll, clientX),
+        timelineScroll.scrollLeft,
+        labelWidth,
+        quarterPx,
+      ),
+      0,
+      totalQuarters,
+    );
+
+  // Selects the grid cell under `clientX`, as a drag would select a range.
+  const selectGridCell = (clientX: number) => {
+    const timelineScroll = timelineScrollRef.current;
+    if (!timelineScroll) {
+      return;
+    }
+    setSelectedClipId(undefined);
+    setSelectedLaneId(lane.id);
+    setDragPreviewClips(null);
+    setDragState(null);
+    setPendingSelection(
+      gridCellSelection(
+        lane.id,
+        pointerQ(timelineScroll, clientX),
+        gridCellQ,
+      ),
+    );
+  };
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected layer
     <div
       className="track-row__content track-row__content--arrangement"
       data-timeline-lane-id={lane.id}
       onContextMenu={(event) => openLaneMenu(event, lane.id)}
+      onDoubleClick={(event) => {
+        if (event.target === event.currentTarget && event.button === 0) {
+          selectGridCell(event.clientX);
+        }
+      }}
       onPointerDown={(event) => {
         // Right-click, or Ctrl-click on macOS, opens the lane menu instead.
         if (
@@ -96,9 +145,23 @@ export const LaneRow = memo(function LaneRow({
         }
 
         event.preventDefault();
+        setIsPlaying(false);
+        // Browsers don't all fire dblclick for a double tap.
+        if (event.pointerType === "touch") {
+          const tap = {
+            x: event.clientX,
+            y: event.clientY,
+            timeMs: event.timeStamp,
+          };
+          if (isDoubleTap(lastTapRef.current, tap)) {
+            lastTapRef.current = null;
+            selectGridCell(event.clientX);
+            return;
+          }
+          lastTapRef.current = tap;
+        }
         setSelectedClipId(undefined);
         setSelectedLaneId(lane.id);
-        setIsPlaying(false);
         setDragPreviewClips(null);
 
         const timelineScroll = timelineScrollRef.current;
@@ -106,18 +169,8 @@ export const LaneRow = memo(function LaneRow({
           return;
         }
 
-        const pointerX = getTimelinePointerX(timelineScroll, event.clientX);
         const anchorQ = snapQuarterValue(
-          clamp(
-            pointerToTimelineQ(
-              pointerX,
-              timelineScroll.scrollLeft,
-              labelWidth,
-              quarterPx,
-            ),
-            0,
-            totalQuarters,
-          ),
+          pointerQ(timelineScroll, event.clientX),
           snapUnit,
           snapEnabled && !event.shiftKey,
         );

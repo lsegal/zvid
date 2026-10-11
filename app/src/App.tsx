@@ -586,6 +586,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     totalQuarters,
                     snapUnit: timeline.snapUnit,
                     snapEnabled: project.snapEnabled,
+                    gridCellQ: timeline.gridCellQ,
                     gridStyle,
                     pendingSelection,
                     setPendingSelection,

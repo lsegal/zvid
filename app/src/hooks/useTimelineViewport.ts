@@ -30,6 +30,7 @@ import {
   divisionQuarters,
   type GridDivision,
   getBarStep,
+  getFinestGridQ,
   getGridLayers,
   getRulerBars,
   RULER_LABEL_MIN_PX,
@@ -112,6 +113,9 @@ export function useTimelineViewport({
   // Snapping and the grid both follow the zoom-adaptive division.
   const snapUnit = divisionQuarters(adaptiveDivision);
   const gridUnit = snapUnit;
+  // A double-click or double-tap on empty lane space selects one cell of
+  // the finest grid drawn, which zoomed far out is a run of bars.
+  const gridCellQ = getFinestGridQ(gridUnit, signature, quarterPx);
   const totalQuarters = useMemo(() => {
     let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
@@ -297,6 +301,7 @@ export function useTimelineViewport({
     barLength,
     quarterPx,
     snapUnit,
+    gridCellQ,
     totalQuarters,
     timelineWidth,
     gridStyle,

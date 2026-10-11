@@ -119,3 +119,12 @@ export function getGridLayers(
   });
   return layers;
 }
+
+/** The spacing of the finest grid lines `getGridLayers` draws. */
+export function getFinestGridQ(
+  gridUnit: number,
+  signature: GridSignature,
+  quarterPx = Number.POSITIVE_INFINITY,
+) {
+  return getGridLayers(gridUnit, signature, quarterPx)[0].spacingQ;
+}

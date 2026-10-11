@@ -12,8 +12,16 @@ import type {
   TimelineSelection,
 } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
-import { buildSelection } from "../lane-selection-gesture.ts";
-import { exceedsTouchSlop, LONG_PRESS_MS } from "../mobile/timeline-touch.ts";
+import {
+  buildSelection,
+  gridCellSelection,
+} from "../lane-selection-gesture.ts";
+import {
+  exceedsTouchSlop,
+  isDoubleTap,
+  LONG_PRESS_MS,
+  type TouchTap,
+} from "../mobile/timeline-touch.ts";
 
 // The layer rows' timeline space, where touches are taken over. Labels,
 // trim handles, the ruler and the source tracks keep their own handling.
@@ -34,6 +42,8 @@ export type TouchClipGesturesInputs = {
   totalQuarters: number;
   snapUnit: number;
   snapEnabled: boolean;
+  // The finest grid cell drawn, which a double tap selects.
+  gridCellQ: number;
   // The shortest selection, as a drag on desktop draws.
   minimumSelectionQ: number;
   setSelectedClipId: (clipId: string | undefined) => void;
@@ -75,6 +85,7 @@ export function useTouchClipGestures({
   totalQuarters,
   snapUnit,
   snapEnabled,
+  gridCellQ,
   minimumSelectionQ,
   setSelectedClipId,
   setSelectedLaneId,
@@ -92,6 +103,7 @@ export function useTouchClipGestures({
     totalQuarters,
     snapUnit,
     snapEnabled,
+    gridCellQ,
     minimumSelectionQ,
     setSelectedClipId,
     setSelectedLaneId,
@@ -109,6 +121,7 @@ export function useTouchClipGestures({
     totalQuarters,
     snapUnit,
     snapEnabled,
+    gridCellQ,
     minimumSelectionQ,
     setSelectedClipId,
     setSelectedLaneId,
@@ -131,6 +144,8 @@ export function useTouchClipGestures({
     // A held press opens a sheet on release; the click the browser would
     // follow it with would land on the sheet's backdrop and close it.
     let suppressClick = false;
+    // The last tap on empty lane space, so the next can make a double tap.
+    let lastTap: (TouchTap & { laneId: string | undefined }) | null = null;
 
     const liftedCard = (clipId: string | undefined) =>
       clipId
@@ -167,21 +182,27 @@ export function useTouchClipGestures({
       }
     };
 
+    // The time under the finger where the press touched down, unsnapped.
+    const pressQ = (current: Press) => {
+      const latest = latestRef.current;
+      return clamp(
+        pointerToTimelineQ(
+          getTimelinePointerX(scroll, current.startX),
+          scroll.scrollLeft,
+          latest.labelWidth,
+          latest.quarterPx,
+        ),
+        0,
+        latest.totalQuarters,
+      );
+    };
+
     // The selection starts as the shortest one at the snapped time under
     // the finger, so the hold shows at once, and stretches as it drags.
     const startSelection = (current: Press, laneId: string) => {
       const latest = latestRef.current;
       const anchorQ = snapQuarterValue(
-        clamp(
-          pointerToTimelineQ(
-            getTimelinePointerX(scroll, current.startX),
-            scroll.scrollLeft,
-            latest.labelWidth,
-            latest.quarterPx,
-          ),
-          0,
-          latest.totalQuarters,
-        ),
+        pressQ(current),
         latest.snapUnit,
         latest.snapEnabled,
       );
@@ -200,6 +221,13 @@ export function useTouchClipGestures({
         laneId,
         gesture: { anchorQ, pointerStartX: current.startX, dragging: true },
       });
+    };
+
+    const selectGridCell = (current: Press, laneId: string) => {
+      const latest = latestRef.current;
+      latest.setPendingSelection(
+        gridCellSelection(laneId, pressQ(current), latest.gridCellQ),
+      );
     };
 
     const pickUpSelection = (current: Press) => {
@@ -319,6 +347,24 @@ export function useTouchClipGestures({
         latest.setPendingSelection(null);
         latest.setSelectedClipId(undefined);
         latest.setSelectedLaneId(current.laneId);
+        // A second tap there selects the grid cell under the finger.
+        const tap = {
+          x: current.startX,
+          y: current.startY,
+          timeMs: event.timeStamp,
+          laneId: current.laneId,
+        };
+        if (
+          current.laneId &&
+          lastTap?.laneId === current.laneId &&
+          isDoubleTap(lastTap, tap)
+        ) {
+          selectGridCell(current, current.laneId);
+          suppressClick = true;
+          lastTap = null;
+        } else {
+          lastTap = tap;
+        }
       }
       endPress();
     };

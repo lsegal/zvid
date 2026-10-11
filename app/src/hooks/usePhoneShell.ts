@@ -93,6 +93,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     totalQuarters: timeline.totalQuarters,
     snapUnit: timeline.snapUnit,
     snapEnabled: project.snapEnabled,
+    gridCellQ: timeline.gridCellQ,
     // As useClipDrag's shortest selection.
     minimumSelectionQ: Math.max(timeline.snapUnit, timeline.beatUnit / 4),
     setSelectedClipId: selection.setSelectedClipId,
