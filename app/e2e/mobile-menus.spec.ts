@@ -64,14 +64,22 @@ test("a long effect list scrolls inside the sheet", async ({ page }) => {
   await fx.getByRole("button", { name: "Add device to Global" }).click();
   const sheet = page.locator(".mobile-menu-sheet");
   await sheet.getByRole("menuitem", { name: "Stylize" }).click();
-  const scroll = await sheet.evaluate((element) => ({
-    overflows: element.scrollHeight > element.clientHeight,
-    overscroll: getComputedStyle(element).overscrollBehaviorY,
-    bottom: element.getBoundingClientRect().bottom,
-  }));
+  await expect(sheet.locator(".mobile-menu-sheet__back")).toBeVisible();
+  // The rows scroll under the grabber, and the sheet stays on screen.
+  const scroll = await sheet
+    .locator(".mobile-menu-sheet__body")
+    .evaluate((element) => ({
+      overflows: element.scrollHeight > element.clientHeight,
+      overscroll: getComputedStyle(element).overscrollBehaviorY,
+    }));
+  // Once it has slid up.
+  await expect
+    .poll(() => sheet.evaluate((element) => element.getAnimations().length))
+    .toBe(0);
+  const box = await sheet.boundingBox();
   expect(scroll.overflows).toBe(true);
   expect(scroll.overscroll).toBe("contain");
-  expect(scroll.bottom).toBeLessThanOrEqual(480 + 1);
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(480 + 1);
   const last = sheet.getByRole("menuitem").last();
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();

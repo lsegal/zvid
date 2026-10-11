@@ -405,12 +405,22 @@ body:has(.app-shell--phone) :is(.popover-content, .select-content) {
   flex-direction: column;
   max-height: 80dvh;
   padding: 6px 8px calc(env(safe-area-inset-bottom) + 8px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   border-radius: 18px 18px 0 0;
   background: var(--bg-panel, #262839);
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
   color: var(--ink);
+}
+
+/* A menu sheet's rows scroll under its grabber, so a submenu's slide
+   (mobile-sheet-motion.css) shows only the rows in view. */
+.mobile-menu-sheet__body {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .mobile-sheet__grabber {

@@ -71,6 +71,19 @@ async function centerOf(page: Page, selector: string) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+// Sheets slide in and out (#1211); a drag measured mid-slide starts in the
+// wrong place, so wait for the sheet to come to rest first.
+async function settled(page: Page, selector: string) {
+  await expect
+    .poll(() =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((element) => element.getAnimations().length),
+    )
+    .toBe(0);
+}
+
 async function playheadQ(page: Page) {
   const text = await page.locator(".mobile-transport__position").innerText();
   const [bar, beat, sixteenth] = text.split(".").map(Number);
@@ -851,6 +864,7 @@ test("dragging the FX sheet's header moves it between heights", async ({
   await tabs.getByRole("button", { name: "FX" }).click();
   const fx = page.locator(".fx-panel");
   await expect(fx).toBeVisible();
+  await settled(page, ".fx-panel");
   const half = (await fx.boundingBox())?.height ?? 0;
   const height = async () => (await fx.boundingBox())?.height ?? 0;
 
@@ -868,6 +882,7 @@ test("dragging the FX sheet's header moves it between heights", async ({
   await expect.poll(height).toBeGreaterThan(half * 1.5);
   await page.locator(".mobile-sheet-header__grabber").click();
   await expect.poll(height).toBeCloseTo(half, 0);
+  await settled(page, ".fx-panel");
 
   const halfGrabber = await centerOf(page, ".mobile-sheet-header__grabber");
   await drag(page, client, halfGrabber, {
@@ -904,9 +919,11 @@ test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
   const sheet = page.locator(".mobile-menu-sheet");
   await expect(sheet).toBeVisible();
+  await settled(page, ".mobile-menu-sheet");
   const handle = await centerOf(page, ".mobile-sheet__handle");
   await drag(page, client, handle, { x: handle.x, y: handle.y + 20 });
   await expect(sheet).toBeVisible();
+  await settled(page, ".mobile-menu-sheet");
   await drag(page, client, handle, { x: handle.x, y: handle.y + 120 });
   await expect(sheet).toBeHidden();
 });
