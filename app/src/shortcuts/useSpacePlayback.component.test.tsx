@@ -2,12 +2,21 @@ import { useRef, useState } from "react";
 import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { BASE_QUARTER_PX, DEFAULT_LANES } from "../app/constants.ts";
+import {
+  BASE_QUARTER_PX,
+  DEFAULT_LANES,
+  signatureById,
+} from "../app/constants.ts";
+import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { Lane } from "../app/types.ts";
 import { ContextMenu, type MenuPoint } from "../components/ContextMenu";
 import { PreviewTextEditor } from "../components/PreviewTextEditor";
 import { SessionSettingsDialog } from "../components/SessionSettingsDialog";
 import { TopBar } from "../components/TopBar";
+import {
+  ClipCard,
+  type ClipCardContext,
+} from "../components/timeline/ClipCard";
 import { LayerHeader } from "../components/timeline/LayerHeader";
 import { TrackAddButton } from "../components/timeline/TrackPlaceholder";
 import {
@@ -34,6 +43,34 @@ void useSpacePlayback;
 
 const noop = () => {};
 const ROW_HEIGHT = DEFAULT_ROW_METRICS.lane.height;
+// A text clip on Layer 1 from 40px to 260px in at 100% zoom.
+const TEXT_CLIP = textClip(40 / BASE_QUARTER_PX, 220 / BASE_QUARTER_PX / 2);
+
+const CLIP_CARD_CONTEXT: ClipCardContext = {
+  selectedClipId: undefined,
+  dragState: null,
+  bpm: 120,
+  quarterPx: BASE_QUARTER_PX,
+  visibleTimelineStartPx: 0,
+  visibleTimelineWidthPx: 1000,
+  signature: signatureById("4/4"),
+  mediaItemsById: new Map(),
+  thumbnails: { get: () => undefined },
+  clipPieces: new Map(),
+  clipFilmstrips: new Map(),
+  remoteMediaProgress: new Map(),
+  timelineEffects: [],
+  effects: [],
+  prefersReducedMotion: true,
+  revealedMediaIds: new Set(),
+  shortcutLabels: getShortcutLabels(),
+  openArrangementClipMenu: noop,
+  startTextEdit: noop,
+  setPendingSelection: noop,
+  setDragPreviewClips: noop,
+  setSelectedClipId: noop,
+  setDragState: noop,
+};
 
 // The File menu's top bar, with Session Settings… opening its dialog.
 function EditorTopBar({ openSettings }: { openSettings: () => void }) {
@@ -169,14 +206,11 @@ function Layers() {
           />
           <div className="track-row__content" data-timeline-lane-id={lane.id}>
             {lane.id === "1" ? (
-              <div className="clip-card clip-card--text">
-                <div
-                  className="clip-card__body"
-                  onDoubleClick={() => setEditingText(true)}
-                >
-                  Text
-                </div>
-              </div>
+              <ClipCard
+                clip={TEXT_CLIP}
+                {...CLIP_CARD_CONTEXT}
+                startTextEdit={() => setEditingText(true)}
+              />
             ) : null}
           </div>
         </section>
@@ -216,8 +250,7 @@ function SpaceEditor({ signal = createPlayheadSignal() }) {
   return (
     <>
       <TransportHarness
-        // From 40px to 260px in at 100% zoom, as the e2e spec drew it.
-        clips={[textClip(40 / BASE_QUARTER_PX, 220 / BASE_QUARTER_PX / 2)]}
+        clips={[TEXT_CLIP]}
         header={<EditorTopBar openSettings={() => setSettingsOpen(true)} />}
         playheadSignal={signal}
       >
@@ -326,7 +359,7 @@ describe("useSpacePlayback", () => {
   });
 
   test("Space closes an open menu and toggles playback without picking an item", async () => {
-    const screen = await renderEditor();
+    await renderEditor();
     await fileTrigger().click();
     await expect.element(page.getByRole("menu")).toBeVisible();
     expect(transportButton("Play timeline")).not.toBeNull();

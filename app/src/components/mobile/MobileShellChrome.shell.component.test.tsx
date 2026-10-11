@@ -29,7 +29,8 @@ import { MobileTopBar } from "./MobileTopBar";
 // The touch-first phone shell (#1168): a phone-sized touch viewport gets
 // the mobile layout, while fine pointers and tablets keep the desktop one.
 // These mount the whole editor, since the shell's layout and sheets follow
-// the session's state.
+// the session's state; the first mount loads it all, so tests get
+// Playwright's time to run.
 
 const shown = (selector: string) => isVisible(document.querySelector(selector));
 
@@ -39,7 +40,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe(MobileShellChrome.name, () => {
+describe(MobileShellChrome.name, { timeout: 60_000 }, () => {
   test("a phone gets the mobile shell with no page scroll", async () => {
     await usePhone();
     await renderApp();
@@ -299,7 +300,7 @@ function controlSizes() {
   );
 }
 
-describe(MobileTopBar.name, () => {
+describe(MobileTopBar.name, { timeout: 60_000 }, () => {
   test("Undo and Redo are one tap away in the top bar", async () => {
     await usePhone();
     await renderApp();

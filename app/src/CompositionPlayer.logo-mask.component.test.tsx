@@ -85,6 +85,7 @@ async function renderLogoMask(points: Array<[number, number]>) {
       lanes,
       effects: holdEffects(),
       bpm: 120,
+      fps: 30,
       canvasWidth: WIDTH,
       canvasHeight: HEIGHT,
     },

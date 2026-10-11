@@ -88,8 +88,9 @@ describe("MediaThumbnail", () => {
     );
     if (!image) throw new Error("the thumbnail has no image");
     await expect.element(page.elementLocator(image)).toBeVisible();
-    await expect.poll(() => image.naturalWidth).toBeGreaterThan(0);
+    // Waits for the SVG to load; it rejects if it can't.
     await image.decode();
+    expect(image.naturalWidth).toBeGreaterThan(0);
     const box = image.getBoundingClientRect();
 
     const inside = [
