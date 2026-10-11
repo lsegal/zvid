@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it checks the preview frames the wasm compositor draws
+// from real decoded media as source clips are edited and undone.
+//
 // A layer clip made from a source track selection shows a window of that
 // track, not the source clip it was made from: trimming or moving the
 // source clip away leaves the clip in place showing nothing there, rather
