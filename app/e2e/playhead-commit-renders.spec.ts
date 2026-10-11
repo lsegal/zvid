@@ -1,3 +1,6 @@
+// Stays in Playwright: it counts renders through React's DevTools hook while
+// the real App plays, since only App's own wiring of its many hooks shows
+// whether a playhead commit hands the clip rows new props.
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 

@@ -1,11 +1,16 @@
 import { type MouseEvent, useState } from "react";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { LABEL_WIDTH_DEFAULT } from "../../app/constants.ts";
 import type { ClipMenuState, Lane } from "../../app/types.ts";
 import type { AudioMix } from "../../audio-mix/resolve.ts";
 import { AUDIO_ROW_HEIGHT } from "../../audio-row-section.ts";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { menuItem, rightClick } from "../../component-test/input.ts";
 import { DesktopShell } from "../../component-test/shells.tsx";
 import { setViewport } from "../../component-test/viewport.ts";
 import { useAudioMix } from "../../hooks/useAudioMix.ts";
@@ -415,4 +420,37 @@ test("a clip with audio draws the mix, and Refresh recomputes it", {
     .toEqual(["ready", "computing"]);
   expect(mixContent().getAttribute("data-audio-mix")).toBe("ready");
   await expect.poll(drawnLevel).toBeGreaterThan(0.1);
+});
+
+// The Audio row docked under the timeline's rows.
+
+describe(AudioRow, { timeout: EDITOR_TEST_TIMEOUT }, () => {
+  test("only offers to recompute the audio", async () => {
+    localStorage.clear();
+    await renderEditor();
+    await expect
+      .poll(() => document.querySelector("[data-audio-row]"))
+      .toBeTruthy();
+    const audioRow = document.querySelector("[data-audio-row]") as HTMLElement;
+    // It takes no files: no picker, and no import or replace button.
+    expect(audioRow.querySelectorAll('input[type="file"]')).toHaveLength(0);
+    expect(
+      page
+        .elementLocator(audioRow)
+        .getByRole("button", { name: /main audio/i })
+        .elements(),
+    ).toHaveLength(0);
+    await rightClick(audioRow.querySelector(".track-label") as HTMLElement);
+    const menu = page.getByRole("menu", { name: "Audio actions" });
+    await expect.element(menu).toBeVisible();
+    expect(
+      menu
+        .getByRole("menuitem")
+        .elements()
+        .map((item) => item.textContent),
+    ).toEqual(["Recompute audio"]);
+
+    await menuItem("Recompute audio").click();
+    await expect.element(menu).not.toBeInTheDocument();
+  });
 });

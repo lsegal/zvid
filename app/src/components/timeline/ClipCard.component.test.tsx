@@ -1,8 +1,12 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
+import { cdp } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import type { ArrangementClip } from "../../app/types.ts";
 import { emulateTouch } from "../../component-test/viewport.ts";
+import { addFxClip } from "../../fx-clip.ts";
+import type { SessionEffect } from "../../fx-stack.ts";
+import { addTextClip } from "../../text-clip.ts";
 import { ClipCard, type ClipCardContext } from "./ClipCard";
 
 const noop = () => {};
@@ -51,8 +55,11 @@ const context: ClipCardContext = {
   setDragState: noop,
 };
 
-function renderClipCard() {
-  return render(<ClipCard clip={clip} {...context} />);
+function renderClipCard(
+  card: ArrangementClip = clip,
+  overrides: Partial<ClipCardContext> = {},
+) {
+  return render(<ClipCard clip={card} {...context} {...overrides} />);
 }
 
 describe("ClipCard", () => {
@@ -79,5 +86,119 @@ describe("ClipCard", () => {
     const handle = screen.container.querySelector(".clip-card__handle");
     expect(matchMedia("(hover: none)").matches).toBe(true);
     expect(getComputedStyle(handle as Element).opacity).toBe("1");
+  });
+});
+
+// Narrow Text and FX clips keep their "T" / "FX" glyph at full width and let
+// the label give way, so they look like a wide clip cut off on the right.
+describe("ClipCard glyph on a narrow clip", () => {
+  const clipOptions = {
+    laneId: "lane-1",
+    startQ: 0,
+    durationQ: 8,
+    bpm: 120,
+    tint: "#2a2d38",
+    accent: "#8d93a8",
+  };
+  const text = addTextClip(
+    { clips: [], effects: [] as SessionEffect[] },
+    { ...clipOptions, id: "text-1", effectId: "text-effect-1" },
+  );
+  const fx = addFxClip({ clips: [] }, { ...clipOptions, id: "fx-1" });
+
+  // Squeezes the clip to `width` pixels, as a short clip or a far zoom-out
+  // would, and returns the glyph and label boxes relative to the clip.
+  function layoutAt(element: HTMLElement, width: number) {
+    element.style.width = `${width}px`;
+    const clipBox = element.getBoundingClientRect();
+    const glyph = element.querySelector(".clip-card__glyph");
+    const label = element.querySelector(".clip-card__text strong");
+    if (!glyph || !label) {
+      throw new Error("Clip has no glyph or label");
+    }
+    const glyphBox = glyph.getBoundingClientRect();
+    return {
+      glyphLeft: glyphBox.left - clipBox.left,
+      glyphWidth: glyphBox.width,
+      labelWidth: label.getBoundingClientRect().width,
+    };
+  }
+
+  for (const { kind, card, effects, glyph } of [
+    { kind: "text", card: text.clip, effects: text.effects, glyph: "T" },
+    { kind: "fx", card: fx.clip, effects: [], glyph: "FX" },
+  ]) {
+    test(`a narrow ${kind} clip keeps its ${glyph} glyph at full width`, async () => {
+      const screen = await renderClipCard(card, {
+        timelineEffects: effects,
+        effects,
+      });
+      const element = screen.container.querySelector<HTMLElement>(
+        `.clip-card--${kind}`,
+      );
+      if (!element) {
+        throw new Error(`No ${kind} clip`);
+      }
+      expect(element.querySelector(".clip-card__glyph")?.textContent).toBe(
+        glyph,
+      );
+
+      const wide = layoutAt(element, 220);
+      expect(wide.glyphWidth).toBe(28);
+      expect(wide.labelWidth).toBeGreaterThan(0);
+
+      // Too narrow for the label: the glyph keeps its width at the clip's
+      // start and the label is squeezed out.
+      const narrow = layoutAt(element, 50);
+      expect(narrow.glyphWidth).toBe(28);
+      expect(narrow.glyphLeft).toBeLessThanOrEqual(1);
+      expect(narrow.labelWidth).toBe(0);
+
+      // Narrower than the glyph: the clip cuts it off rather than shrinking
+      // it.
+      const tiny = layoutAt(element, 20);
+      expect(tiny.glyphWidth).toBe(28);
+
+      // The start trim handle still sits over the clip's leading edge.
+      layoutAt(element, 50);
+      const handleBox = element
+        .querySelector(".clip-card__handle--start")
+        ?.getBoundingClientRect();
+      const clipBox = element.getBoundingClientRect();
+      if (!handleBox) {
+        throw new Error("Clip has no start handle");
+      }
+      expect(handleBox.width).toBeGreaterThan(0);
+      // Inside the clip's 1px border.
+      expect(Math.abs(handleBox.x - clipBox.x)).toBeLessThanOrEqual(1);
+    });
+  }
+});
+
+// Emulates the user's reduced-motion preference, or clears it.
+function emulateReducedMotion(reduce: boolean) {
+  // vitest's CDPSession types `send` loosely; Playwright's session takes
+  // any protocol method.
+  const session = cdp() as unknown as {
+    send: (method: string, params: object) => Promise<void>;
+  };
+  return session.send("Emulation.setEmulatedMedia", {
+    features: reduce
+      ? [{ name: "prefers-reduced-motion", value: "reduce" }]
+      : [],
+  });
+}
+
+describe("ClipCard with reduced motion", () => {
+  afterEach(async () => {
+    await emulateReducedMotion(false);
+  });
+
+  test("shows its trim handles without a fade", async () => {
+    await emulateReducedMotion(true);
+    const screen = await renderClipCard();
+    const handle = screen.container.querySelector(".clip-card__handle--start");
+    expect(matchMedia("(prefers-reduced-motion: reduce)").matches).toBe(true);
+    expect(getComputedStyle(handle as Element).transitionDuration).toBe("0s");
   });
 });
