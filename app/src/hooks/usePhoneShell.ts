@@ -200,7 +200,8 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         "app-shell--phone",
         layout.shell === "phone-landscape" ? "app-shell--phone-landscape" : "",
         mobile.showsSourceTracks ? "app-shell--source-tracks" : "",
-        mobile.fxSheet ? `app-shell--fx-${mobile.fxSheet}` : "",
+        mobile.fxSheetShown ? `app-shell--fx-${mobile.fxSheetShown}` : "",
+        mobile.isFxSheetClosing ? "app-shell--fx-closing" : "",
         `app-shell--fx-${mobile.fxScreen}`,
       ]
         .filter(Boolean)

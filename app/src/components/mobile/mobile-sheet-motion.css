@@ -1,0 +1,213 @@
+/* The phone shell's sheets in motion (#1211): they slide up from the bottom
+   edge as they open, over a fading backdrop, and slide back down as they
+   close, which useSheetPresence keeps them mounted for. A menu sheet's
+   submenus slide in from the right, and Back slides them out again. A drag
+   (useSheetDrag) turns the easing off inline so the sheet follows the
+   finger. Only transform and opacity move, besides the FX sheet's height. */
+
+:root {
+  --sheet-in: 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  --sheet-out: 200ms cubic-bezier(0.55, 0, 1, 0.45);
+}
+
+@keyframes mobile-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes mobile-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* The Media sheet's header sits at the top, so it travels the screen. */
+@keyframes mobile-sheet-in-screen {
+  from {
+    transform: translateY(100dvh);
+  }
+}
+
+@keyframes mobile-sheet-out-screen {
+  to {
+    transform: translateY(100dvh);
+  }
+}
+
+@keyframes mobile-sheet-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes mobile-sheet-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ----- Menu sheets ----- */
+
+.mobile-sheet-layer .mobile-sheet-backdrop {
+  animation: mobile-sheet-fade-in var(--sheet-in);
+}
+
+.mobile-sheet-layer .mobile-sheet {
+  animation: mobile-sheet-in var(--sheet-in);
+  transition: transform var(--sheet-in);
+}
+
+.mobile-sheet-layer.is-closing {
+  pointer-events: none;
+}
+
+.mobile-sheet-layer.is-closing .mobile-sheet-backdrop {
+  animation: mobile-sheet-fade-out var(--sheet-out) forwards;
+}
+
+.mobile-sheet-layer.is-closing .mobile-sheet {
+  animation: mobile-sheet-out var(--sheet-out) forwards;
+}
+
+/* ----- The FX sheet ----- */
+
+.app-shell--phone .fx-panel {
+  animation: mobile-sheet-in var(--sheet-in);
+  transition: height var(--sheet-in);
+}
+
+.app-shell--phone.app-shell--fx-closing .fx-panel {
+  animation: mobile-sheet-out var(--sheet-out) forwards;
+  pointer-events: none;
+}
+
+/* ----- The Media sheet: the drawer and its header ----- */
+
+.app-shell--phone .media-drawer {
+  transition:
+    transform var(--sheet-out),
+    visibility 0s linear 200ms;
+}
+
+.app-shell--phone .media-drawer-column.is-open .media-drawer {
+  transition: transform var(--sheet-in);
+}
+
+.mobile-media-header {
+  animation: mobile-sheet-in-screen var(--sheet-in);
+}
+
+.mobile-media-header.is-closing {
+  animation: mobile-sheet-out-screen var(--sheet-out) forwards;
+  pointer-events: none;
+}
+
+/* ----- Submenus (navigateMenuSheet) -----
+   The sheet, its grabber and its rows are captured apart: the sheet's
+   outline is drawn by its group, which eases to the new level's height
+   with the grabber riding its top edge, while the old rows slide out one
+   side and the new rows in from the other. Taps go to the new rows. */
+
+html[data-menu-sheet-nav] .mobile-sheet-layer:not(.is-closing) .mobile-menu-sheet {
+  view-transition-name: mobile-menu-sheet;
+}
+
+html[data-menu-sheet-nav] .mobile-sheet-layer:not(.is-closing) .mobile-sheet__handle {
+  view-transition-name: mobile-menu-grabber;
+}
+
+html[data-menu-sheet-nav] .mobile-sheet-layer:not(.is-closing) .mobile-menu-sheet__body {
+  view-transition-name: mobile-menu-level;
+}
+
+html[data-menu-sheet-nav]::view-transition {
+  pointer-events: none;
+}
+
+html[data-menu-sheet-nav]::view-transition-old(root),
+html[data-menu-sheet-nav]::view-transition-new(root) {
+  animation: none;
+}
+
+html[data-menu-sheet-nav]::view-transition-group(mobile-menu-sheet),
+html[data-menu-sheet-nav]::view-transition-group(mobile-menu-grabber),
+html[data-menu-sheet-nav]::view-transition-group(mobile-menu-level) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-menu-sheet-nav]::view-transition-group(mobile-menu-sheet) {
+  border-radius: 18px 18px 0 0;
+  background: var(--bg-panel, #262839);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+}
+
+html[data-menu-sheet-nav]::view-transition-old(mobile-menu-sheet),
+html[data-menu-sheet-nav]::view-transition-new(mobile-menu-sheet) {
+  animation: none;
+  opacity: 0;
+}
+
+html[data-menu-sheet-nav]::view-transition-old(mobile-menu-level),
+html[data-menu-sheet-nav]::view-transition-new(mobile-menu-level) {
+  mix-blend-mode: normal;
+  animation: 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes mobile-menu-level-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes mobile-menu-level-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes mobile-menu-level-to-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes mobile-menu-level-to-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+html[data-menu-sheet-nav="forward"]::view-transition-old(mobile-menu-level) {
+  animation-name: mobile-menu-level-to-left;
+}
+
+html[data-menu-sheet-nav="forward"]::view-transition-new(mobile-menu-level) {
+  animation-name: mobile-menu-level-from-right;
+}
+
+html[data-menu-sheet-nav="back"]::view-transition-old(mobile-menu-level) {
+  animation-name: mobile-menu-level-to-right;
+}
+
+html[data-menu-sheet-nav="back"]::view-transition-new(mobile-menu-level) {
+  animation-name: mobile-menu-level-from-left;
+}
+
+/* Reduced motion: nothing slides. Sheets fade in briefly and go at once
+   (useSheetPresence), the FX sheet changes height at once, and submenus
+   swap in place (navigateMenuSheet). */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sheet-layer .mobile-sheet,
+  .app-shell--phone .fx-panel,
+  .mobile-media-header {
+    animation: mobile-sheet-fade-in 120ms ease-out;
+    transition: none;
+  }
+
+  .app-shell--phone .media-drawer,
+  .app-shell--phone .media-drawer-column.is-open .media-drawer {
+    transition: none;
+  }
+}

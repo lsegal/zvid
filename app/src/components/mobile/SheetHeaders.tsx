@@ -4,7 +4,7 @@ import {
   PhotoIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { fxSheetAfterDrag } from "../../app/sheet-drag.ts";
 import type {
   FxSheetHeight,
@@ -40,6 +40,8 @@ export function FxSheetHeader({
     height === "half" ? ArrowsPointingOutIcon : ArrowsPointingInIcon;
   const headerRef = useRef<HTMLDivElement>(null);
   const startHeight = useRef<number | null>(null);
+  // The sheet follows the finger without easing; let go, it eases to its
+  // height, or slides away from where it was dropped.
   const drag = useSheetDrag({
     onMove(dy) {
       const sheet = headerRef.current?.parentElement;
@@ -48,22 +50,34 @@ export function FxSheetHeader({
       }
       startHeight.current ??= sheet.getBoundingClientRect().height;
       const next = Math.min(startHeight.current - dy, window.innerHeight);
+      sheet.style.transition = "none";
       sheet.style.height = `${Math.max(next, 0)}px`;
     },
     onRelease(dy) {
       const sheet = headerRef.current?.parentElement;
-      if (sheet) {
-        sheet.style.height = "";
-      }
       startHeight.current = null;
       const next = fxSheetAfterDrag(height, dy, window.innerHeight);
       if (next === null) {
         onClose();
-      } else if (next !== height) {
+        return;
+      }
+      if (sheet) {
+        sheet.style.transition = "";
+        sheet.style.height = "";
+      }
+      if (next !== height) {
         onHeightChange(next);
       }
     },
   });
+  // A sheet dragged closed keeps its dropped height until it's gone.
+  useEffect(() => {
+    const sheet = headerRef.current?.parentElement;
+    return () => {
+      sheet?.style.removeProperty("transition");
+      sheet?.style.removeProperty("height");
+    };
+  }, []);
   return (
     <div className="mobile-sheet-header" ref={headerRef} {...drag}>
       <button
@@ -123,12 +137,12 @@ export function PhoneFxSheetHeader({
   mobile: MobileShell;
   title: string;
 }) {
-  if (!mobile.fxSheet) {
+  if (!mobile.fxSheetShown) {
     return null;
   }
   return (
     <FxSheetHeader
-      height={mobile.fxSheet}
+      height={mobile.fxSheetShown}
       onClose={() => mobile.setFxSheet(null)}
       onHeightChange={mobile.setFxSheet}
       onScreenChange={mobile.setFxScreen}
@@ -145,6 +159,8 @@ const MEDIA_TABS: [MediaDrawerTab, string][] = [
 ];
 
 type MediaSheetHeaderProps = {
+  // Sliding away with the sheet after it closed.
+  closing?: boolean;
   tab: MediaDrawerTab;
   onSelectTab: (tab: MediaDrawerTab) => void;
   onImport: () => void;
@@ -154,13 +170,18 @@ type MediaSheetHeaderProps = {
 // The full-screen Media sheet's header: its Sessions | Media | Record tabs,
 // import from the camera roll, and Close.
 export function MediaSheetHeader({
+  closing = false,
   tab,
   onSelectTab,
   onImport,
   onClose,
 }: MediaSheetHeaderProps) {
   return (
-    <div className="mobile-media-header">
+    <div
+      aria-hidden={closing || undefined}
+      className={`mobile-media-header${closing ? " is-closing" : ""}`}
+      inert={closing}
+    >
       <fieldset aria-label="Media drawer" className="mobile-segmented">
         {MEDIA_TABS.map(([id, label]) => (
           <button

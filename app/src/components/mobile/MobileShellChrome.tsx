@@ -1,4 +1,5 @@
 import type { MobileShellChromeProps } from "../../hooks/usePhoneShell.ts";
+import { useSheetPresence } from "../../hooks/useSheetPresence.ts";
 import { MobileRangeToolbar } from "./MobileRangeToolbar";
 import { MobileSelectionToolbar } from "./MobileSelectionToolbar";
 import { MobileTabBar } from "./MobileTabBar";
@@ -7,6 +8,7 @@ import { MobileTransport } from "./MobileTransport";
 import { MediaSheetHeader } from "./SheetHeaders";
 import "./mobile-shell.css";
 import "./mobile-panels.css";
+import "./mobile-sheet-motion.css";
 import "./mobile-timeline.css";
 
 // The phone shell's own controls around the editor's panels, which its
@@ -40,6 +42,8 @@ export function MobileShellChrome({
   selectionMenuEntries,
   openSelectionMenu,
 }: MobileShellChromeProps) {
+  // The header slides away with the Media sheet under it.
+  const mediaHeader = useSheetPresence(mediaDrawer.isOpen);
   return (
     <>
       <MobileTopBar
@@ -83,8 +87,10 @@ export function MobileShellChrome({
         isAudioShown={mobile.isAudioShown}
         onSelect={mobile.selectTab}
       />
-      {mediaDrawer.isOpen ? (
+      {mediaHeader.present ? (
         <MediaSheetHeader
+          closing={mediaHeader.closing}
+          key={mediaHeader.key}
           onClose={() => mediaDrawer.setOpen(false)}
           onImport={importMedia}
           onSelectTab={mediaDrawer.selectTab}

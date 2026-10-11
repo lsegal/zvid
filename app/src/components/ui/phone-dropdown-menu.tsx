@@ -11,7 +11,11 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { MenuSheetFrame } from "../mobile/MenuSheetFrame.tsx";
+import { useSheetPresence } from "../../hooks/useSheetPresence.ts";
+import {
+  MenuSheetFrame,
+  navigateMenuSheet,
+} from "../mobile/MenuSheetFrame.tsx";
 
 // The dropdown menu parts as the phone shell shows them (#1198): the menu
 // opens as the same bottom sheet as the timeline's long-press menu, its
@@ -94,18 +98,27 @@ type ContentProps = ComponentPropsWithoutRef<
 
 export function PhoneMenuContent(props: ContentProps) {
   const menu = usePhoneMenu();
-  if (!menu?.open) {
+  const presence = useSheetPresence(menu?.open ?? false);
+  if (!menu || !presence.present) {
     return null;
   }
-  return <OpenPhoneMenuContent {...props} menu={menu} />;
+  return (
+    <OpenPhoneMenuContent
+      {...props}
+      closing={presence.closing}
+      key={presence.key}
+      menu={menu}
+    />
+  );
 }
 
 function OpenPhoneMenuContent({
   menu,
+  closing,
   children,
   onCloseAutoFocus,
   "aria-label": ariaLabel,
-}: ContentProps & { menu: PhoneMenu }) {
+}: ContentProps & { menu: PhoneMenu; closing: boolean }) {
   const [trail, setTrail] = useState<SheetLevel[]>([]);
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const onCloseAutoFocusRef = useRef(onCloseAutoFocus);
@@ -118,8 +131,12 @@ function OpenPhoneMenuContent({
     "Menu";
 
   // Focus goes back to the menu's button once it closes, unless the menu's
-  // owner moves it elsewhere, as Radix's popover does.
+  // owner moves it elsewhere, as Radix's popover does. That happens as the
+  // sheet starts sliding away, not once it's gone.
   useEffect(() => {
+    if (closing) {
+      return;
+    }
     const triggerRef = menu.triggerRef;
     return () => {
       window.setTimeout(() => {
@@ -132,17 +149,21 @@ function OpenPhoneMenuContent({
         }
       }, 0);
     };
-  }, [menu.triggerRef]);
+  }, [closing, menu.triggerRef]);
 
   const nav: SheetNav = {
     trail,
     host,
-    push: (level) => setTrail((current) => [...current, level]),
+    push: (level) =>
+      navigateMenuSheet("forward", () =>
+        setTrail((current) => [...current, level]),
+      ),
     close: () => menu.setOpen(false),
   };
   return (
     <SheetNavContext.Provider value={nav}>
       <MenuSheetFrame
+        closing={closing}
         label={label}
         levelKey={trail.map((level) => level.id).join("/")}
         onBack={() => setTrail((current) => current.slice(0, -1))}
