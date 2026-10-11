@@ -284,7 +284,7 @@ describe(`${Timeline.name} on a phone`, {
     await tap(loop);
     await expect.poll(() => isVisible(query(".loop-overlay"))).toBe(true);
     const bar = boxOf(".loop-overlay");
-    const playhead = boxOf(".timeline-playhead-marker").left;
+    const playhead = centerOf(".timeline-playhead-marker").x;
     expect(bar.left).toBeLessThanOrEqual(playhead + 1);
     expect(bar.right).toBeGreaterThan(playhead);
   });
