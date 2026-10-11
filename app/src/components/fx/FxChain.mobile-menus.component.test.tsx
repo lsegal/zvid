@@ -6,8 +6,9 @@ import { buildOrderLayerOptions } from "../../app/fx-panel-model.ts";
 import type { Lane } from "../../app/types.ts";
 import { DesktopShell, PhoneShell } from "../../component-test/shells.tsx";
 import {
+  emulateTouch,
   PHONE_VIEWPORT,
-  usePhone,
+  setViewport,
   useTablet,
 } from "../../component-test/viewport.ts";
 import {
@@ -73,16 +74,16 @@ function LayerChain() {
 }
 
 async function renderPhoneChain(viewport = PHONE_VIEWPORT) {
-  await usePhone(viewport);
+  await setViewport(viewport);
+  await emulateTouch();
+  // The FX tab opens the panel as a half-height sheet.
   await render(
-    <PhoneShell>
+    <PhoneShell className="app-shell--fx-half">
       <LayerChain />
     </PhoneShell>,
   );
   return document.querySelector(".fx-panel") as HTMLElement;
 }
-
-const sheet = () => page.getByRole("menu").and(page.getByLabelText(/.*/));
 
 function sheetElement() {
   return document.querySelector<HTMLElement>(".mobile-menu-sheet");
@@ -131,7 +132,6 @@ async function openAddMenu() {
 
 describe("FxChain menus on a phone", () => {
   test("FX + opens a sheet whose categories open in place", async () => {
-    void sheet;
     const fx = await renderPhoneChain();
     await openAddMenu();
     expect(
@@ -161,7 +161,7 @@ describe("FxChain menus on a phone", () => {
     const panel = (sheetElement() as HTMLElement).getBoundingClientRect();
     expect(row.width).toBeGreaterThan(panel.width * 0.85);
 
-    (back() as HTMLElement).click();
+    await page.elementLocator(back() as HTMLElement).click();
     await expectHidden(back);
     await expectVisible(only(stylize));
 
@@ -187,9 +187,7 @@ describe("FxChain menus on a phone", () => {
     );
     const panel = sheetElement() as HTMLElement;
     // The rows scroll under the grabber, and the sheet stays on screen.
-    const body = panel.querySelector(
-      ".mobile-menu-sheet__body",
-    ) as HTMLElement;
+    const body = panel.querySelector(".mobile-menu-sheet__body") as HTMLElement;
     const overflows = body.scrollHeight > body.clientHeight;
     const overscroll = getComputedStyle(body).overscrollBehaviorY;
     // Once it has slid up.
@@ -208,7 +206,7 @@ describe("FxChain menus on a phone", () => {
     const fx = await renderPhoneChain();
     const trigger = () =>
       fx.querySelector<HTMLElement>(".fx-layers__trigger") as HTMLElement;
-    trigger().click();
+    await page.elementLocator(trigger()).click();
     await expectVisible(sheetElement);
     const row = page.getByRole("menuitemcheckbox").first();
     await expect.element(row).toHaveAttribute("aria-checked", "true");

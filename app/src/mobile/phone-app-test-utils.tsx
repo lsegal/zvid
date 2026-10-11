@@ -4,7 +4,7 @@
 // import this module.
 import { StrictMode } from "react";
 import { expect } from "vitest";
-import { cdp } from "vitest/browser";
+import { cdp, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import App from "../App.tsx";
 import type { WorkspaceBoot } from "../app/workspace-types.ts";
@@ -151,57 +151,69 @@ export function isVisible(element: Element | null) {
   );
 }
 
-// The elements with `role` whose accessible name is `name` (an aria-label or
-// their text).
-export function byRole(
-  role: string,
-  name: string | RegExp,
-  root: ParentNode = document,
-) {
-  const implicit: Record<string, string> = {
-    button: "button",
-    navigation: "nav",
-    heading: "h1, h2, h3, h4, h5, h6",
-  };
-  const selector = [`[role="${role}"]`, implicit[role]]
-    .filter(Boolean)
-    .join(", ");
-  return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
-    (element) => {
-      const label = (
-        element.getAttribute("aria-label") ??
-        element.textContent ??
-        ""
-      ).trim();
-      return typeof name === "string" ? label === name : name.test(label);
-    },
-  );
+function accessibleName(element: Element) {
+  const label = element.getAttribute("aria-label");
+  if (label !== null) {
+    return label.trim();
+  }
+  const labelledBy = element.getAttribute("aria-labelledby");
+  const labelElement = labelledBy && document.getElementById(labelledBy);
+  return ((labelElement || element).textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
+function nameMatches(element: Element, name: string | RegExp, exact: boolean) {
+  const actual = accessibleName(element);
+  if (typeof name !== "string") {
+    return name.test(actual);
+  }
+  return exact
+    ? actual === name
+    : actual.toLowerCase().includes(name.toLowerCase());
+}
+
+const IMPLICIT_ROLES: Record<string, string> = {
+  button: "button",
+  navigation: "nav",
+  heading: "h1, h2, h3, h4, h5, h6",
+};
+
+// The visible elements with `role` whose accessible name (an aria-label or
+// their text) matches `name` as Playwright's getByRole does: a string
+// matches a case-insensitive substring unless `exact`.
 export function visibleByRole(
   role: string,
   name: string | RegExp,
-  root: ParentNode = document,
+  { exact = false, root = document as ParentNode } = {},
 ) {
-  return byRole(role, name, root).filter(isVisible);
+  const selector = [`[role="${role}"]`, IMPLICIT_ROLES[role]]
+    .filter(Boolean)
+    .join(", ");
+  return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
+    (element) => isVisible(element) && nameMatches(element, name, exact),
+  );
 }
 
 // Waits for the one visible element with `role` and `name`, and returns it.
 export async function findByRole(
   role: string,
   name: string | RegExp,
-  root: ParentNode = document,
+  options: { exact?: boolean; root?: ParentNode } = {},
 ) {
   await expect
-    .poll(() => visibleByRole(role, name, root).length, {
-      message: `${role} "${String(name)}"`,
+    .poll(() => visibleByRole(role, name, options).length, {
+      message: `one visible ${role} named "${String(name)}"`,
     })
-    .toBeGreaterThan(0);
-  return visibleByRole(role, name, root)[0];
+    .toBe(1);
+  return visibleByRole(role, name, options)[0];
 }
 
-export async function click(role: string, name: string | RegExp) {
-  (await findByRole(role, name)).click();
+// A mouse click, as Playwright's click sends one.
+export async function click(
+  role: string,
+  name: string | RegExp,
+  options: { exact?: boolean; root?: ParentNode } = {},
+) {
+  await userEvent.click(await findByRole(role, name, options));
 }
 
 // Sheets slide in and out (#1211); a drag measured mid-slide starts in the
@@ -233,7 +245,7 @@ export async function settledPlayheadQ() {
 }
 
 export async function chooseFromMore(item: string) {
-  await click("button", "More");
+  await click("button", "More", { exact: true });
   await click("menuitem", item);
 }
 
@@ -297,7 +309,7 @@ export async function addLayers(count: number) {
       }),
     );
     const menu = await findByRole("menu", "Layer header actions");
-    (await findByRole("menuitem", "Insert layer below", menu)).click();
+    await click("menuitem", "Insert layer below", { exact: true, root: menu });
     await expect
       .poll(() => document.querySelectorAll("[data-layer-header-id]").length)
       .toBe(index + 1);

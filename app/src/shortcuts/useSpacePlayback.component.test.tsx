@@ -4,7 +4,6 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { BASE_QUARTER_PX, DEFAULT_LANES } from "../app/constants.ts";
 import type { Lane } from "../app/types.ts";
-import { IDENTITY_MATRIX } from "../composition-transform.ts";
 import { ContextMenu, type MenuPoint } from "../components/ContextMenu";
 import { PreviewTextEditor } from "../components/PreviewTextEditor";
 import { SessionSettingsDialog } from "../components/SessionSettingsDialog";
@@ -15,6 +14,7 @@ import {
   TransportHarness,
   textClip,
 } from "../components/timeline/transport-test-harness.tsx";
+import { IDENTITY_MATRIX } from "../composition-transform.ts";
 import { useCollaborationState } from "../hooks/useCollaboration.ts";
 import { buildLayerMenuEntries } from "../menus/layer-menu.ts";
 import { createPlayheadSignal } from "../playhead-signal.ts";
@@ -147,7 +147,10 @@ function Layers() {
             readOnly={false}
             openLayerMenu={(event, laneId) => {
               event.preventDefault();
-              setMenu({ anchor: { x: event.clientX, y: event.clientY }, laneId });
+              setMenu({
+                anchor: { x: event.clientX, y: event.clientY },
+                laneId,
+              });
             }}
             selectLaneFromLabel={noop}
             focusLaneLabel={noop}
@@ -180,7 +183,11 @@ function Layers() {
       ))}
       <section className="track-row track-placeholder track-placeholder--layer">
         <div className="track-label">
-          <TrackAddButton label="Layer" onClick={addLayer} title="Add a layer" />
+          <TrackAddButton
+            label="Layer"
+            onClick={addLayer}
+            title="Add a layer"
+          />
         </div>
         <div className="track-row__content" />
       </section>
@@ -399,10 +406,8 @@ describe("useSpacePlayback", () => {
     await userEvent.keyboard("{Enter}");
     await expect.poll(() => grip.getAttribute("aria-pressed")).toBe("true");
     await expect
-      .element(page.elementLocator(
-        document.querySelector(".layer-reorder-status") as Element,
-      ))
-      .toHaveTextContent("Picked up");
+      .poll(() => document.querySelector(".layer-reorder-status")?.textContent)
+      .toContain("Picked up");
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => grip.getAttribute("aria-pressed")).toBe("false");
 
@@ -432,9 +437,7 @@ describe("useSpacePlayback", () => {
 
     await pressSpace();
     await expect.poll(() => transportButton("Pause playback")).not.toBeNull();
-    await expect
-      .poll(playheadX)
-      .toBeLessThan(startX + (endX - startX) / 2);
+    await expect.poll(playheadX).toBeLessThan(startX + (endX - startX) / 2);
     await pressSpace();
     await expect.poll(() => transportButton("Play timeline")).not.toBeNull();
   });

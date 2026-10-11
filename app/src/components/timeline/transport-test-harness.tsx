@@ -32,7 +32,10 @@ import { skipShortcut, stepFrameShortcut } from "../../shortcuts/transport.ts";
 import type { ShortcutContext } from "../../shortcuts/types.ts";
 import { useSpacePlayback } from "../../shortcuts/useSpacePlayback.ts";
 import { createSpaceHold } from "../../space-shortcut.ts";
-import { divisionQuarters, resolveAdaptiveDivision } from "../../timeline-grid.ts";
+import {
+  divisionQuarters,
+  resolveAdaptiveDivision,
+} from "../../timeline-grid.ts";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TimelineToolbar } from "./TimelineToolbar";
 import { TransportBar } from "./TransportBar";
@@ -118,7 +121,9 @@ export function TransportHarness({
   const snapUnit = divisionQuarters(resolveAdaptiveDivision(quarterPx));
   const totalQuarters = Math.max(
     barLength * 12,
-    ...clips.map((clip) => clip.startQ + getClipDurationQ(clip, bpm) + barLength),
+    ...clips.map(
+      (clip) => clip.startQ + getClipDurationQ(clip, bpm) + barLength,
+    ),
   );
 
   const playback = usePlayback({

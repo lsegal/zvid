@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { render } from "vitest-browser-react";
 import { PhoneShell } from "../../component-test/shells.tsx";
-import { usePhone } from "../../component-test/viewport.ts";
+import { emulateTouch, setViewport } from "../../component-test/viewport.ts";
 import type { MobileShareButtonProps } from "./MobileShareButton";
 import { MobileTopBar } from "./MobileTopBar";
 
@@ -48,7 +48,8 @@ const SHARING = share({
 });
 
 async function renderTopBar(shareProps = share()) {
-  await usePhone(NARROW_PHONE);
+  await setViewport(NARROW_PHONE);
+  await emulateTouch();
   return render(
     <PhoneShell>
       <MobileTopBar

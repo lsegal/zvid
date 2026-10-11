@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import type { ArrangementClip, Lane } from "../../app/types.ts";
+import type {
+  ArrangementClip,
+  Lane,
+  TimeSignature,
+} from "../../app/types.ts";
 import { SILENT_AUDIO_MIX } from "../../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../../CompositionPlayer";
 import { PhoneShell } from "../../component-test/shells.tsx";
@@ -9,9 +13,15 @@ import { useFxPanelModel } from "../../hooks/useFxPanelModel.ts";
 import { useMediaDrawer } from "../../hooks/useMediaDrawer.ts";
 import { useMediaPreview } from "../../hooks/useMediaPreview.ts";
 import { useMobileShell } from "../../hooks/useMobileShell.ts";
+import { useShellKind } from "../../hooks/useShellKind.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
 import { createPlayheadSignal } from "../../playhead-signal";
+import {
+  readLayerTransform,
+  readLayerTransformPosition,
+} from "../../preview-edit.ts";
 import type { StatusMessage } from "../../status-bar";
+import type { TimeValueFormat } from "../../time-value.ts";
 import { FxPanel } from "../FxPanel";
 import { MediaDrawer } from "../media/MediaDrawer";
 import { PreviewPanel } from "../PreviewPanel";
@@ -27,6 +37,14 @@ import { PhoneFxSheetHeader } from "./SheetHeaders";
 // grid places. Edits other than an effect's Animation are no-ops.
 
 const noop = () => {};
+
+const SIGNATURE: TimeSignature = { id: "sig", numerator: 4, denominator: 4 };
+const TIME_FORMAT = {
+  timelineMode: "musical",
+  bpm: 120,
+  signature: SIGNATURE,
+  fps: 30,
+} satisfies TimeValueFormat;
 
 export type FixtureSession = {
   lanes: Lane[];
@@ -124,7 +142,6 @@ const share = {
 } as unknown as MobileShareButtonProps;
 
 type PhoneEditorProps = {
-  landscape?: boolean;
   session?: FixtureSession;
   // Shows the preview panel, with its composition player.
   preview?: boolean;
@@ -135,7 +152,6 @@ type PhoneEditorProps = {
 };
 
 export function PhoneEditor({
-  landscape = false,
   session = EMPTY_SESSION,
   preview = false,
   status,
@@ -152,9 +168,10 @@ export function PhoneEditor({
     isAudioRowCollapsed,
     setAudioRowCollapsed,
   });
-  // As usePhoneShell classes the shell.
+  // As usePhoneShell classes the shell, for the viewport's shell kind.
+  const shell = useShellKind();
   const className = [
-    landscape ? "app-shell--phone-landscape" : "",
+    shell === "phone-landscape" ? "app-shell--phone-landscape" : "",
     mobile.fxSheetShown ? `app-shell--fx-${mobile.fxSheetShown}` : "",
     mobile.isFxSheetClosing ? "app-shell--fx-closing" : "",
     `app-shell--fx-${mobile.fxScreen}`,
@@ -162,12 +179,6 @@ export function PhoneEditor({
     .filter(Boolean)
     .join(" ");
   const [playheadSignal] = useState(() => createPlayheadSignal());
-  const readout = {
-    timelineMode: "beats" as const,
-    bpm: 120,
-    signature: { id: "sig", numerator: 4, denominator: 4 },
-    fps: 30,
-  };
   return (
     <PhoneShell className={className}>
       <MobileShellChrome
@@ -178,7 +189,7 @@ export function PhoneEditor({
         hasSelectedClip={false}
         hasSelection={false}
         historyEntries={[]}
-        importMedia={noop}
+        importMedia={() => undefined}
         isExporting={false}
         isLooping={false}
         isPlaying={isPlaying}
@@ -189,7 +200,7 @@ export function PhoneEditor({
         openExportDialog={noop}
         openSelectionMenu={noop}
         playheadSignal={playheadSignal}
-        readout={readout}
+        readout={TIME_FORMAT}
         record={noop}
         selectionMenuEntries={[]}
         sessionName="Session"
@@ -211,7 +222,7 @@ export function PhoneEditor({
                 onOpenMedia={noop}
                 prefersReducedMotion={false}
                 remoteMediaProgress={new Map()}
-                timeFormat={readout}
+                timeFormat={TIME_FORMAT}
               />
               <section className="timeline-panel" />
               {preview ? <FixturePreviewPanel /> : null}
@@ -252,8 +263,12 @@ function FixturePreviewPanel() {
       compositionPlayerRef={compositionPlayerRef}
       effectivePreviewWidth={480}
       fps={30}
-      getPreviewLayerPosition={() => undefined}
-      getPreviewLayerTransform={() => undefined}
+      getPreviewLayerPosition={(target) =>
+        readLayerTransformPosition([], target.laneId)
+      }
+      getPreviewLayerTransform={(target) =>
+        readLayerTransform([], target.laneId)
+      }
       handlePreviewResizeKeyDown={noop}
       handlePreviewResizePointerDown={noop}
       handlePreviewResizePointerEnd={noop}
@@ -264,12 +279,7 @@ function FixturePreviewPanel() {
       mediaItems={[]}
       mediaPreview={mediaPreview}
       mediaRange={{ setPoint: noop, clear: noop }}
-      mediaTimeFormat={{
-        timelineMode: "beats",
-        bpm: 120,
-        signature: { id: "sig", numerator: 4, denominator: 4 },
-        fps: 30,
-      }}
+      mediaTimeFormat={TIME_FORMAT}
       movePreviewLayer={noop}
       playheadSignal={playheadSignal}
       previewClip={undefined}
@@ -287,7 +297,7 @@ function FixturePreviewPanel() {
       resolvePreviewLayersAt={() => []}
       selectPreviewLayer={noop}
       selectedClip={undefined}
-      textEdit={null}
+      textEdit={undefined}
       timelineDragState={null}
       transformPreviewLayer={noop}
     />

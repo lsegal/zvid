@@ -1,3 +1,4 @@
+/// <reference types="@vitest/browser-playwright" />
 import { cdp } from "vitest/browser";
 
 // Records the phone sheets' motion as it starts (#1211): the motion is over

@@ -61,10 +61,8 @@ describe("BrandMark", () => {
     // fetch the app's public file by its path instead. (Vite would rewrite
     // a `new URL(…, import.meta.url)` written out in full.)
     const testFileUrl = import.meta.url;
-    const response = await fetch(
-      new URL(`../../public${href}`, testFileUrl),
-    );
-    console.log("FAV", import.meta.url, response.url, response.status, [...response.headers].join(";"), (await response.clone().text()).slice(0, 80));
+    const file = new URL(`../../public${href}`, testFileUrl);
+    const response = await fetch(`/@fs${file.pathname}`);
     expect(response.ok).toBe(true);
     expect(response.headers.get("content-type")).toContain("image/svg+xml");
     const svg = await response.text();

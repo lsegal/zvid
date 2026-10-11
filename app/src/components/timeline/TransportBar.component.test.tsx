@@ -242,9 +242,7 @@ describe("TransportBar layout and preview volume", () => {
     const zoom = query(".zoom-control");
     const volume = query(".volume-control");
     const barCenter = barBox.x + barBox.width / 2;
-    expect(Math.abs(cluster.x + cluster.width / 2 - barCenter)).toBeLessThan(
-      3,
-    );
+    expect(Math.abs(cluster.x + cluster.width / 2 - barCenter)).toBeLessThan(3);
     expect(zoom.x).toBeLessThan(cluster.x);
     expect(volume.x).toBeGreaterThan(cluster.x + cluster.width);
     // Right-aligned against the bar's padding.

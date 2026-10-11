@@ -233,6 +233,8 @@ describe("TopBar menubar", () => {
     press();
     await tick();
     expect(content.isConnected).toBe(false);
-    await expect.element(trigger("Edit")).toHaveAttribute("data-state", "closed");
+    await expect
+      .element(trigger("Edit"))
+      .toHaveAttribute("data-state", "closed");
   });
 });
