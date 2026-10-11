@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it imports real media and measures the mixer during
+// real playback through the app's Gains and preview volume.
+//
 // The preview hears an additive mix of the contributing clips, each through
 // its own Gain: with no layer clips, every source clip with audio. A clip
 // whose Gain is muted drops out of the mix. A session with only Gain plays

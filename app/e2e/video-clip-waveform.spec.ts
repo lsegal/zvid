@@ -1,15 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// Video clips with an audio track, on layers and in source tracks, draw a
-// semi-transparent waveform over their filmstrip that never takes the
-// pointer. Video without audio draws none. The fixtures are a three-second
-// 320×180 test pattern with a tone, and the silent test pattern.
+// Stays in Playwright: it selects and moves an imported clip with the
+// timeline's click and drag handling. ClipCard.component.test.tsx and
+// SourceSpan.component.test.tsx cover the overlay itself, and video without
+// audio drawing none.
+//
+// Video clips with an audio track draw a semi-transparent waveform over
+// their filmstrip that never takes the pointer. The fixture is a
+// three-second 320×180 test pattern with a tone.
 const VIDEO_WITH_AUDIO = new URL(
   "./fixtures/test-pattern-audio.webm",
   import.meta.url,
 );
-const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropIntoNewSourceTrack(
   page: Page,
@@ -80,7 +83,7 @@ async function hitAtCenter(locator: Locator) {
     });
 }
 
-test("video clips with audio draw a waveform over their filmstrip", async ({
+test("a layer clip under its waveform overlay still selects and moves", async ({
   page,
 }) => {
   await page.goto("/");
@@ -91,34 +94,18 @@ test("video clips with audio draw a waveform over their filmstrip", async ({
     "test-pattern-audio.webm",
     "video/webm",
   );
-
-  // The source clip keeps its frames and draws the waveform over them.
   const span = page.locator(".source-span");
   await expect(span).toHaveCount(1, { timeout: 30_000 });
-  await expect(span.locator(".source-span__filmstrip")).toHaveCount(1, {
-    timeout: 30_000,
-  });
-  const spanOverlay = span.locator("canvas.source-span__waveform-overlay");
-  await expect(spanOverlay).toHaveCount(1, { timeout: 30_000 });
-  await expect(span).not.toHaveClass(/source-span--audio/);
-  await expect.poll(() => drawnColumns(spanOverlay)).toBeGreaterThan(20);
-  expect(
-    Number(await spanOverlay.evaluate((e) => getComputedStyle(e).opacity)),
-  ).toBeLessThan(1);
-  expect(await hitAtCenter(spanOverlay)).not.toContain("waveform-overlay");
+  await expect(
+    span.locator("canvas.source-span__waveform-overlay"),
+  ).toHaveCount(1, { timeout: 30_000 });
 
-  // The layer clip too.
   await copySpanToLayer(span, "Layer 1");
   const clip = lane(page, "1").locator(".clip-card");
   await expect(clip).toHaveCount(1);
-  await expect(clip.locator(".clip-card__filmstrip")).toHaveCount(1);
   const overlay = clip.locator("canvas.clip-card__waveform-overlay");
   await expect(overlay).toHaveCount(1, { timeout: 30_000 });
-  await expect(clip).not.toHaveClass(/clip-card--audio/);
   await expect.poll(() => drawnColumns(overlay)).toBeGreaterThan(20);
-  expect(
-    Number(await overlay.evaluate((e) => getComputedStyle(e).opacity)),
-  ).toBeLessThan(1);
 
   // The overlay never takes the pointer: clicks select the clip and drags
   // move it.
@@ -150,25 +137,4 @@ test("video clips with audio draw a waveform over their filmstrip", async ({
     )
     .toBeGreaterThan(leftBefore + 40);
   await expect.poll(() => drawnColumns(overlay)).toBeGreaterThan(20);
-});
-
-test("video clips without audio draw no waveform", async ({ page }) => {
-  await page.goto("/");
-  await expect(lane(page, "1")).toBeVisible();
-  await dropIntoNewSourceTrack(page, VIDEO, "test-pattern.mp4", "video/mp4");
-  const span = page.locator(".source-span");
-  await expect(span).toHaveCount(1, { timeout: 30_000 });
-  await expect(span.locator(".source-span__filmstrip")).toHaveCount(1, {
-    timeout: 30_000,
-  });
-
-  await copySpanToLayer(span, "Layer 1");
-  const clip = lane(page, "1").locator(".clip-card");
-  await expect(clip).toHaveCount(1);
-  await expect(clip.locator(".clip-card__filmstrip")).toHaveCount(1);
-  // Give a decode the time it would need before checking nothing appeared.
-  await page.waitForTimeout(1000);
-  await expect(span.locator("canvas")).toHaveCount(0);
-  await expect(clip.locator("canvas")).toHaveCount(0);
-  await expect(clip).not.toHaveClass(/clip-card--waveform-overlay/);
 });

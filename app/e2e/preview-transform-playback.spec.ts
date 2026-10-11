@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it samples the selection box during real playback of
+// an imported clip with an LFO-animated Transform.
+//
 // While playing, the preview's selection box follows an animating layer on
 // every frame, as the compositor draws it, instead of stepping at playhead
 // commits (#1013).
