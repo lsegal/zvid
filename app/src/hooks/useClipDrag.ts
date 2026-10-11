@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { cloneClipAtStartQ } from "../app/clip-ops.ts";
 import { TIMELINE_DRAG_EPSILON } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
@@ -23,6 +23,7 @@ import {
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
 } from "../lane-selection-gesture.ts";
+import { createSnapFeedback } from "../mobile/snap-feedback.ts";
 
 export type ClipDragInputs = {
   dragState: DragState | null;
@@ -78,6 +79,7 @@ export function useClipDrag({
   commitProjectChange,
 }: ClipDragInputs) {
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
+  const snapFeedbackRef = useRef(createSnapFeedback());
 
   useEffect(() => {
     if (!dragState) {
@@ -198,6 +200,11 @@ export function useClipDrag({
           0,
           Math.max(0, totalQuarters - dragState.originDurationQ - beatUnit),
         );
+        snapFeedbackRef.current.update(
+          event.pointerType,
+          shouldSnap,
+          nextStartQ,
+        );
         const timelineScroll = timelineScrollRef.current;
         const nextLaneId = timelineScroll
           ? findClosestTimelineLaneId(
@@ -269,6 +276,11 @@ export function useClipDrag({
           0,
           fixedEndQ - minimumWindowQ,
         );
+        snapFeedbackRef.current.update(
+          event.pointerType,
+          shouldSnap,
+          nextStartQ,
+        );
         const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ);
 
         setDragPreviewClips(
@@ -286,6 +298,7 @@ export function useClipDrag({
       const rawEndQ =
         dragState.originStartQ + dragState.originDurationQ + deltaQuarters;
       const nextEndQ = snapQuarterValue(rawEndQ, snapUnit, shouldSnap);
+      snapFeedbackRef.current.update(event.pointerType, shouldSnap, nextEndQ);
       const nextDurationQ = Math.max(
         minimumWindowQ,
         nextEndQ - dragState.originStartQ,
@@ -362,6 +375,7 @@ export function useClipDrag({
         }
       }
 
+      snapFeedbackRef.current.reset();
       setDragPreviewClips(null);
       setDragState(null);
     };
@@ -379,6 +393,7 @@ export function useClipDrag({
         setSelectedClipId(dragState.sourceClipId);
       }
 
+      snapFeedbackRef.current.reset();
       setDragPreviewClips(null);
       setDragState(null);
     };

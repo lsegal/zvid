@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import type { ReactNode } from "react";
 import { SOURCE_CLIP_COLLAPSE_KEY } from "../fx-chain.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
@@ -54,6 +55,8 @@ export type FxPanelProps = Pick<
     toggleInspectorCollapsed: () => void;
     // The selected source clip's properties, shown ahead of the FX chain.
     sourceClip: SourceClipPropertiesModel | null;
+    // The mobile shell's sheet header, which replaces the toggle there.
+    sheetHeader?: ReactNode;
   };
 
 // The collapsible FX panel under the editor: its header toggle, the title
@@ -95,6 +98,7 @@ export function FxPanel({
   setFxDeviceParameter,
   setLayerFxEnabled,
   setSourceTrackFxEnabled,
+  sheetHeader,
   sourceClip,
   toggleInspectorCollapsed,
 }: FxPanelProps) {
@@ -102,6 +106,7 @@ export function FxPanel({
     <section
       className={`fx-panel ${isInspectorCollapsed ? "fx-panel--collapsed" : ""}`}
     >
+      {sheetHeader}
       <button
         aria-controls="fx-panel-body"
         aria-expanded={!isInspectorCollapsed}

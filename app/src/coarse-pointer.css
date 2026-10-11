@@ -1,0 +1,43 @@
+/* Touch screens that keep the desktop layout, such as tablets (#1168):
+   small controls get finger-sized targets, and controls that only appear
+   on hover show without it. Fine pointers never match, so the desktop
+   layout with a mouse or trackpad is unchanged. */
+
+@media (pointer: coarse) {
+  .zoom-control__button,
+  .media-drawer__close,
+  .media-drawer__clear,
+  .track-label__hide,
+  .track-label__fx,
+  .track-label__arm,
+  .fx-device-panel__power,
+  .fx-device-panel__animate,
+  .fx-device-panel__remove,
+  .fx-device-panel__collapse {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .menubar-item,
+  .segmented-control button {
+    min-height: 44px;
+  }
+
+  /* Trim handles keep their look but take a 44px-wide touch. */
+  .clip-card__handle::before,
+  .source-span__handle::before {
+    content: "";
+    position: absolute;
+    inset: 0 -16px;
+  }
+
+  .clip-card__handle,
+  .source-span__handle,
+  .fx-device-panel__remove {
+    opacity: 1;
+  }
+
+  .ruler-loop-region__handle {
+    opacity: 0.6;
+  }
+}

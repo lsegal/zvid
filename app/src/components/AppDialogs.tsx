@@ -26,6 +26,10 @@ import { ImportNotice, type ImportNoticeContent } from "./ImportNotice";
 import { MediaStorageDialog } from "./MediaStorageDialog";
 import { MediaSyncDialog, type MediaSyncPeer } from "./MediaSyncDialog";
 import { OfflineMediaDialog } from "./OfflineMediaDialog";
+import {
+  ProjectExportDialog,
+  type ProjectExportOptions,
+} from "./ProjectExportDialog";
 import { SessionSettingsDialog } from "./SessionSettingsDialog";
 import {
   Dialog,
@@ -77,11 +81,14 @@ export type AppDialogsProps = Pick<
       label: string,
       updater: (current: ProjectState) => ProjectState,
     ) => void;
+    // File ▸ Export Project, once its dialog has its options.
+    exportProject: (options: ProjectExportOptions) => Promise<unknown>;
     importNotice: ImportNoticeContent | null;
     isCaptureInstallerDialogOpen: boolean;
     isMediaStorageDialogOpen: boolean;
     isMediaSyncDialogOpen: boolean;
     isOfflineMediaDialogOpen: boolean;
+    isProjectExportDialogOpen: boolean;
     isSessionSettingsOpen: boolean;
     mediaSyncPeer: MediaSyncPeer | undefined;
     setImportNotice: Dispatch<SetStateAction<ImportNoticeContent | null>>;
@@ -89,17 +96,20 @@ export type AppDialogsProps = Pick<
     setIsMediaStorageDialogOpen: SetOpen;
     setIsMediaSyncDialogOpen: SetOpen;
     setIsOfflineMediaDialogOpen: SetOpen;
+    setIsProjectExportDialogOpen: SetOpen;
     setIsSessionSettingsOpen: SetOpen;
+    setStatus: (status: string) => void;
   };
 
 // The app's dialogs (share, connect, diagnostics, offline media, media sync,
-// media storage, session settings, export, capture installer and the
-// workspace lock prompts), plus the workspace lock banner and the import
+// media storage, session settings, export, project export, capture
+// installer and the workspace lock prompts), plus the workspace lock banner and the import
 // notice.
 export function AppDialogs({
   collaboration,
   commitProjectChange,
   exportDialog,
+  exportProject,
   handleConnectToShare,
   handleMediaStorageCleared,
   handleOpenWorkspaceReadOnly,
@@ -110,6 +120,7 @@ export function AppDialogs({
   isMediaStorageDialogOpen,
   isMediaSyncDialogOpen,
   isOfflineMediaDialogOpen,
+  isProjectExportDialogOpen,
   isSessionSettingsOpen,
   isTakeOverPromptOpen,
   isWorkspaceReadOnly,
@@ -129,8 +140,10 @@ export function AppDialogs({
   setIsMediaStorageDialogOpen,
   setIsMediaSyncDialogOpen,
   setIsOfflineMediaDialogOpen,
+  setIsProjectExportDialogOpen,
   setIsSessionSettingsOpen,
   setIsTakeOverPromptOpen,
+  setStatus,
   workspaceAccess,
 }: AppDialogsProps) {
   const {
@@ -437,6 +450,18 @@ export function AppDialogs({
           </button>
         </output>
       ) : null}
+      <ProjectExportDialog
+        initialIncludeMedia={false}
+        onCancel={() => {
+          setIsProjectExportDialogOpen(false);
+          setStatus("Export canceled.");
+        }}
+        onExport={(options) => {
+          setIsProjectExportDialogOpen(false);
+          void exportProject(options);
+        }}
+        open={isProjectExportDialogOpen}
+      />
       {importNotice ? (
         <ImportNotice
           notice={importNotice}

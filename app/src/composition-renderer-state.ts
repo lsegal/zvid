@@ -25,3 +25,12 @@ export type CompositionRendererState = {
   // effects, but its text doesn't show twice under the editor.
   hiddenTextClipId?: string;
 };
+
+export type CompositionPlaybackState = {
+  playheadQ: number;
+  playheadSeconds: number;
+  isPlaying: boolean;
+  isScrubbing: boolean;
+  isAudibleScrubbing: boolean;
+  isContinuousScrubbing: boolean;
+};
