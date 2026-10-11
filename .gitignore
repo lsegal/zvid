@@ -39,3 +39,6 @@ blob-report
 e2e-results.json
 all-tests.json
 shard-tests.txt
+
+# Vitest browser-mode failure screenshots
+__screenshots__
