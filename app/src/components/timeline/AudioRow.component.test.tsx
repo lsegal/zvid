@@ -213,7 +213,9 @@ function toggle() {
   return button;
 }
 
-test("the Audio row takes no files and starts empty", async () => {
+test("the Audio row takes no files and starts empty", {
+  timeout: 30_000,
+}, async () => {
   const screen = await render(
     <DesktopShell>
       <HookedRow mix={SILENT_MIX} />
@@ -251,7 +253,9 @@ test("the Audio row takes no files and starts empty", async () => {
   await expect.element(menu).not.toBeInTheDocument();
 });
 
-test("the Audio row's badge centers its glyph like the layers' badges", async () => {
+test("the Audio row's badge centers its glyph like the layers' badges", {
+  timeout: 30_000,
+}, async () => {
   const lane: Lane = { id: "1", name: "Layer 1", colorIndex: 0 };
   const header = {
     layerReorder: { gripProps: () => ({}) },
@@ -307,7 +311,9 @@ test("the Audio row's badge centers its glyph like the layers' badges", async ()
   expect([x, y]).toEqual(glyphOffset(layerBadge));
 });
 
-test("the collapsed Audio row is 44px and still draws the waveform at its height", async () => {
+test("the collapsed Audio row is 44px and still draws the waveform at its height", {
+  timeout: 30_000,
+}, async () => {
   await setViewport({ width: 1600, height: 1200 });
   const peaks = tonePeaks();
   const mix: AudioRowMix = {

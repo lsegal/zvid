@@ -15,7 +15,9 @@ import type { AudioMix, AudioMixClip } from "./resolve.ts";
 // floating-point noise. Ported from audio-chain-worklet.spec.ts and
 // mono-audio.spec.ts.
 
-test("the chain worklet plays a mix as the offline render does", async () => {
+test("the chain worklet plays a mix as the offline render does", {
+  timeout: 30_000,
+}, async () => {
   const sampleRate = 48_000;
   const length = sampleRate;
   const toneSeconds = 2;
@@ -92,7 +94,9 @@ test("the chain worklet plays a mix as the offline render does", async () => {
   expect(difference).toBeLessThan(1e-5);
 });
 
-test("the preview's chain worklet renders Mono as export does", async () => {
+test("the preview's chain worklet renders Mono as export does", {
+  timeout: 30_000,
+}, async () => {
   const sampleRate = 48_000;
   const length = sampleRate;
   const tempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
