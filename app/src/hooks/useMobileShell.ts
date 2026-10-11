@@ -27,7 +27,6 @@ export function useMobileShell({
 }: MobileShellInputs) {
   const [fxSheet, setFxSheet] = useState<FxSheetHeight | null>(null);
   const [fxScreen, setFxScreen] = useState<FxSheetScreen>("devices");
-  const [isReordering, setIsReordering] = useState(false);
   const [showsSourceTracks, setShowsSourceTracks] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -74,8 +73,6 @@ export function useMobileShell({
     fxScreen,
     setFxScreen,
     openFxSheet,
-    isReordering,
-    setIsReordering,
     showsSourceTracks,
     setShowsSourceTracks,
     isMenuOpen,
