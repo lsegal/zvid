@@ -138,7 +138,7 @@ jobs:
             pnpm test:component --changed "$since" --passWithNoTests
           else
             echo "Running the whole component test suite"
-            pnpm test:component
+            pnpm test:component --all
           fi
 
       - name: Upload test output

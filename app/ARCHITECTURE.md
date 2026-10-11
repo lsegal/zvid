@@ -84,6 +84,20 @@ To keep changed-only selection accurate:
   `GLOBAL_TRIGGERS` in `vitest.config.ts`, which must stay in step with the
   setup file's imports.
 
+### Running tests locally
+
+Local test runs cover what a change affects, never the whole suite by
+default. Proving a change correct doesn't need a full local run: the tests
+the change selects are the expected local verification, and the full suites
+are for CI and deliberate manual runs.
+
+`pnpm test:component` runs only the component tests affected by the
+branch's changes, committed and uncommitted, since its merge base with
+`main` (`origin/main`, or `main` when there is no remote), as CI does for a
+pull request. When nothing is affected it passes without running any. Pass
+test file filters or `--changed`/`--related` to pick tests yourself, and
+`--all` to run the whole suite. Other arguments go to `vitest run`.
+
 ### Component tests on Linux
 
 Run the suite with `pnpm test:component` (`scripts/component-tests.mjs`),
@@ -105,7 +119,7 @@ component tests affected by a change:
   push. A new branch or an unreachable `before` commit runs the whole
   suite.
 - A manual run (`workflow_dispatch`) with `full-suite` set runs the whole
-  suite.
+  suite (`pnpm test:component --all`).
 
 When no test is affected, the job passes without running any.
 

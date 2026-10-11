@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { componentTestCommand } from "./component-tests.mjs";
+import { componentTestArgs, componentTestCommand } from "./component-tests.mjs";
 
 const args = ["--changed", "abc123"];
 
@@ -67,5 +67,47 @@ describe("componentTestCommand", () => {
     assert.equal(run.command, undefined);
     assert.match(run.error, /xvfb-run/);
     assert.match(run.error, /\(hover: none\)/);
+  });
+});
+
+describe("componentTestArgs", () => {
+  it("needs the merge base to default to changed-only", () => {
+    assert.deepEqual(componentTestArgs({ args: [] }), { needsBase: true });
+    assert.deepEqual(componentTestArgs({ args: ["--maxWorkers", "3"] }), {
+      needsBase: true,
+    });
+  });
+
+  it("runs the tests changed since the merge base by default", () => {
+    assert.deepEqual(componentTestArgs({ args: [], since: "abc123" }), {
+      args: ["--changed", "abc123", "--passWithNoTests"],
+    });
+    assert.deepEqual(
+      componentTestArgs({ args: ["--api.port=63320"], since: "abc123" }),
+      {
+        args: ["--changed", "abc123", "--passWithNoTests", "--api.port=63320"],
+      },
+    );
+  });
+
+  it("runs the whole suite with --all", () => {
+    assert.deepEqual(componentTestArgs({ args: ["--all"] }), { args: [] });
+    assert.deepEqual(
+      componentTestArgs({ args: ["--maxWorkers=3", "--all"], since: "abc" }),
+      { args: ["--maxWorkers=3"] },
+    );
+  });
+
+  it("keeps an explicit selection as given", () => {
+    for (const args of [
+      ["--changed", "abc123", "--passWithNoTests"],
+      ["--changed=abc123"],
+      ["--related", "src/App.tsx"],
+      ["src/App.component.test.tsx"],
+      ["--maxWorkers=3", "Timeline"],
+      ["Timeline", "--maxWorkers", "3"],
+    ]) {
+      assert.deepEqual(componentTestArgs({ args }), { args });
+    }
   });
 });
