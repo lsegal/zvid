@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: it waits for a real export's download through the wasm bridge.
+
 // With no layer clips, the export renders the source tracks as layers. The
 // preview tests are in source-track-render.component.test.tsx.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);

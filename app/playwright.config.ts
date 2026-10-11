@@ -92,15 +92,15 @@ const webkitProjects =
       ]
     : [];
 
-// CI runs the suite on main only, as 20 shards on separate runners
-// (.github/workflows/ci.yml). Each runner has 4 vCPUs and each worker drives
-// a Chromium against the app and the wasm bridge, so CI uses two
-// workers per shard. The shards take tests from any file, and fullyParallel
-// spreads a file's tests over the workers, so every test must be safe to run
-// concurrently with any other.
+// CI runs the specs a change affects (`--only-changed`) in one job
+// (.github/workflows/ci.yml); a manual run runs them all. Each runner has 4
+// vCPUs and each worker drives a Chromium against the app and the wasm
+// bridge, so CI uses two workers. fullyParallel spreads a file's tests over
+// the workers, so every test must be safe to run concurrently with any
+// other.
 //
-// In CI the blob reporter writes blob-report/ for `playwright merge-reports`,
-// and the JSON reporter writes e2e-results.json for scripts/e2e-summary.mjs.
+// In CI the HTML report goes to playwright-report/, which the job uploads
+// with test-results/ when a test fails.
 export default defineConfig({
   testDir: TEST_DIR,
   fullyParallel: true,
@@ -108,12 +108,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
-    ? [
-        ["list"],
-        ["github"],
-        ["blob"],
-        ["json", { outputFile: "e2e-results.json" }],
-      ]
+    ? [["list"], ["github"], ["html", { open: "never" }]]
     : "list",
   use: {
     trace: "retain-on-failure",

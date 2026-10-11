@@ -104,7 +104,24 @@ component tests affected by a change:
 - On a push to `main`, against the commit `main` pointed at before the
   push. A new branch or an unreachable `before` commit runs the whole
   suite.
-- A manual run (`workflow_dispatch`) with `full-component-suite` set runs
-  the whole suite.
+- A manual run (`workflow_dispatch`) with `full-suite` set runs the whole
+  suite.
 
 When no test is affected, the job passes without running any.
+
+### Playwright specs in CI
+
+The remaining e2e specs run the same way, by what changed, never as a full
+run on a pull request or a push. `e2e-select` lists the specs that
+`playwright test --only-changed` picks against the same commit as the
+component tests: specs that changed, or that import a changed file such as
+a helper or a module the spec loads in Node. A spec loads the app by URL, so
+a change to app code alone selects no spec; covering app code is the
+component tests' job. A change to `playwright.config.ts`, the app lockfile
+or `e2e/fixtures` selects every spec.
+
+- `e2e` runs the selected specs in Chromium, in one job.
+- `e2e-webkit` runs the selected `WEBKIT_SPECS` in WebKit on macOS.
+
+Both pass without running anything when no spec is selected. A manual run
+with `full-suite` set runs every spec in both, unsharded; it is slow.
