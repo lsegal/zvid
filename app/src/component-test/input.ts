@@ -71,11 +71,18 @@ function resetAfterTest() {
   }
 }
 
-function sendMouse(params: Record<string, unknown>) {
+// A mouse event at the mouse's position.
+function sendMouse(params: {
+  type: "mouseMoved" | "mousePressed" | "mouseReleased";
+  button: MouseButton | "none";
+  buttons: number;
+  clickCount?: number;
+  modifiers: number;
+}) {
   return cdp().send("Input.dispatchMouseEvent", {
     ...params,
     ...toTop(position),
-  } as Parameters<ReturnType<typeof cdp>["send"]>[1]);
+  });
 }
 
 // The modifier keys the mouse events that follow carry, as when a key is

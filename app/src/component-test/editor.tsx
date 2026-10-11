@@ -690,7 +690,9 @@ export async function renderEditor({
   }
   if (reducedMotion) {
     await emulateReducedMotion(true);
-    onTestFinished(() => emulateReducedMotion(false));
+    onTestFinished(async () => {
+      await emulateReducedMotion(false);
+    });
   }
   const screen = await render(<Editor {...props} />);
   await expect
