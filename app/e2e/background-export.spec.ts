@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Playwright, not a component test: it runs a real export in the app while the
+// editor keeps playing and editing.
+//
 // Exports run in the background: the Export dialog hides without stopping
 // the export, the status bar shows its progress and reopens the dialog, and
 // the editor stays usable meanwhile, while the export renders the session as
