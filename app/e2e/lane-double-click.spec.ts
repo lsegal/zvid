@@ -1,7 +1,9 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// Double-clicking empty lane space selects one cell of the finest grid
-// drawn, with Snap on or off, and the cell follows the zoom (#1196).
+// Double-clicking empty lane space selects whole cells of the finest grid
+// drawn, with Snap on or off, and the cells follow the zoom (#1196). It takes
+// the fewest cells at least 64px wide, so both edge handles stay reachable
+// (#1214).
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 
@@ -22,8 +24,13 @@ function finestGridPx(lane: Locator) {
   });
 }
 
-// Double-clicks `offsetX` into the lane and checks the selection is the
-// grid cell under it.
+// The fewest whole cells `cellPx` wide that make at least 64px.
+function minimumSelectionPx(cellPx: number) {
+  return Math.ceil(64 / cellPx - 1e-6) * cellPx;
+}
+
+// Double-clicks `offsetX` into the lane and checks the selection starts on
+// the grid cell under it and is the minimum width in whole cells.
 async function expectCellAt(page: Page, lane: Locator, offsetX: number) {
   const laneBox = await box(lane);
   await page.mouse.dblclick(laneBox.x + offsetX, laneBox.y + 20);
@@ -35,7 +42,8 @@ async function expectCellAt(page: Page, lane: Locator, offsetX: number) {
   const left = await selection.evaluate((element) =>
     Number.parseFloat((element as HTMLElement).style.left),
   );
-  expect(selectionBox.width).toBeCloseTo(cellPx, 0);
+  expect(selectionBox.width).toBeCloseTo(minimumSelectionPx(cellPx), 0);
+  expect(selectionBox.width).toBeGreaterThanOrEqual(63.5);
   // It starts on the grid line at or before the click.
   expect(Math.abs(left / cellPx - Math.round(left / cellPx))).toBeLessThan(
     0.05,
@@ -45,7 +53,7 @@ async function expectCellAt(page: Page, lane: Locator, offsetX: number) {
   return cellPx;
 }
 
-test("double-clicking empty lane space selects one grid cell", async ({
+test("double-clicking empty lane space selects grid cells at least 64px wide", async ({
   page,
 }) => {
   await page.goto("/");
@@ -68,6 +76,9 @@ test("double-clicking empty lane space selects one grid cell", async ({
   }
   const zoomedInPx = await expectCellAt(page, lane, 301);
   expect(zoomedInPx).not.toBeCloseTo(zoomedOut, 0);
+  // Some zoom draws cells narrower than the minimum, so a selection there
+  // spans several of them.
+  expect(Math.min(zoomedOut, zoomedInPx)).toBeLessThan(64);
 
   // The selection is the same as a dragged one: its edge resizes it.
   const selection = lane.locator(".timeline-selection");

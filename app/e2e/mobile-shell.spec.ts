@@ -518,7 +518,7 @@ test("tapping elsewhere clears a lane selection", async ({ page }) => {
   ).toBeHidden();
 });
 
-test("a double tap on empty lane space selects one grid cell", async ({
+test("a double tap on empty lane space selects grid cells at least 64px wide", async ({
   page,
 }) => {
   await page.goto("/");
@@ -546,7 +546,8 @@ test("a double tap on empty lane space selects one grid cell", async ({
   // The taps didn't scroll or scrub.
   expect(await playheadQ(page)).toBe(before);
 
-  // One cell of the finest grid drawn, starting on a grid line.
+  // The fewest whole cells of the finest grid drawn that make 64px, so both
+  // handles stay reachable (#1214), starting on a grid line.
   const cellPx = await lane.evaluate((element) => {
     const sizes = getComputedStyle(element).backgroundSize.split(",");
     return Number.parseFloat(sizes[sizes.length - 1]);
@@ -556,7 +557,11 @@ test("a double tap on empty lane space selects one grid cell", async ({
   const left = await selection.evaluate((element) =>
     Number.parseFloat((element as HTMLElement).style.left),
   );
-  expect(box?.width ?? 0).toBeCloseTo(cellPx, 0);
+  expect(box?.width ?? 0).toBeCloseTo(
+    Math.ceil(64 / cellPx - 1e-6) * cellPx,
+    0,
+  );
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(63.5);
   expect(Math.abs(left / cellPx - Math.round(left / cellPx))).toBeLessThan(
     0.05,
   );
@@ -564,6 +569,26 @@ test("a double tap on empty lane space selects one grid cell", async ({
   expect(left + (box?.width ?? 0)).toBeGreaterThan(
     at.x - (laneBox?.x ?? 0) - 1,
   );
+
+  // The two handles' touch targets don't overlap, and the middle of the
+  // selection belongs to neither.
+  const start = await page
+    .getByRole("button", { name: "Resize selection start" })
+    .boundingBox();
+  const end = await page
+    .getByRole("button", { name: "Resize selection end" })
+    .boundingBox();
+  expect((start?.x ?? 0) + (start?.width ?? 0)).toBeLessThanOrEqual(
+    (end?.x ?? 0) + 0.5,
+  );
+  const middleTarget = await page.evaluate(
+    ({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest(".timeline-selection__handle")
+        ? "handle"
+        : "body",
+    { x: (box?.x ?? 0) + (box?.width ?? 0) / 2, y },
+  );
+  expect(middleTarget).toBe("body");
 });
 
 test("a selected clip shows its trim handles, and dragging one trims it", async ({
@@ -976,7 +1001,11 @@ test.describe("tablet", () => {
       const sizes = getComputedStyle(element).backgroundSize.split(",");
       return Number.parseFloat(sizes[sizes.length - 1]);
     });
-    expect((await selection.boundingBox())?.width ?? 0).toBeCloseTo(cellPx, 0);
+    // Whole cells at least 64px wide (#1214).
+    expect((await selection.boundingBox())?.width ?? 0).toBeCloseTo(
+      Math.ceil(64 / cellPx - 1e-6) * cellPx,
+      0,
+    );
   });
 
   // Toolbar controls keep their desktop size and take a 44px-tall touch

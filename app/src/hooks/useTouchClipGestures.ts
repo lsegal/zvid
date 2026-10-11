@@ -226,7 +226,12 @@ export function useTouchClipGestures({
     const selectGridCell = (current: Press, laneId: string) => {
       const latest = latestRef.current;
       latest.setPendingSelection(
-        gridCellSelection(laneId, pressQ(current), latest.gridCellQ),
+        gridCellSelection(
+          laneId,
+          pressQ(current),
+          latest.gridCellQ,
+          latest.quarterPx,
+        ),
       );
     };
 
