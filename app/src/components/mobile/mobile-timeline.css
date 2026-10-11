@@ -6,7 +6,7 @@
 /* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
    and the labels only take a strip of it, which the rail at their right
    edge resizes (--track-label-width). */
-.app-shell--phone .timeline-canvas {
+.app-shell--phone .timeline-panel {
   --phone-label-width: min(var(--track-label-width), var(--label-width));
 }
 
@@ -17,16 +17,25 @@
   padding-inline: 8px;
 }
 
-/* The rail's handle: a finger-wide target centered on the labels' edge. */
+/* The rail's handle: a finger-wide target on the labels' edge, mostly
+   past it so the labels' own switches stay clear, with its line on the
+   edge itself. */
 .app-shell--phone .label-resize-handle {
-  left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+  --rail-inset: 8px;
+  left: calc(var(--phone-label-width) - var(--rail-inset));
   width: var(--mobile-tap);
-  margin-left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+  margin-left: calc(var(--phone-label-width) - var(--rail-inset));
 }
 
 .app-shell--phone .label-resize-handle::before {
+  left: var(--rail-inset);
   background: var(--line-strong);
   opacity: 0.6;
+}
+
+.app-shell--phone .label-resize-handle:active::before {
+  background: var(--amber);
+  opacity: 1;
 }
 
 /* A row's bottom edge resizes it: a finger-tall target rising from the

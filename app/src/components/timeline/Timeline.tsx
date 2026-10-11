@@ -118,7 +118,10 @@ export function Timeline({
   return (
     <div
       className="timeline-panel"
-      style={{ ["--label-width" as string]: `${labelWidth}px` }}
+      style={{
+        ["--label-width" as string]: `${labelWidth}px`,
+        ["--track-label-width" as string]: `${trackLabelWidth}px`,
+      }}
     >
       <div
         ref={timelineScrollRef}
@@ -146,7 +149,6 @@ export function Timeline({
           style={{
             width: labelWidth + timelineWidth,
             ["--label-width" as string]: `${labelWidth}px`,
-            ["--track-label-width" as string]: `${trackLabelWidth}px`,
           }}
         >
           <div className="label-resize-rail">

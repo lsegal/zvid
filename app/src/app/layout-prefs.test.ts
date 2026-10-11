@@ -4,6 +4,7 @@ import {
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_MAX,
   LABEL_WIDTH_MIN,
+  PHONE_LABEL_WIDTH,
   PREVIEW_DEFAULT_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESERVED_WIDTH,
@@ -22,6 +23,15 @@ describe("layout prefs", () => {
     assert.equal(clampLabelWidth(0), LABEL_WIDTH_MIN);
     assert.equal(clampLabelWidth(10_000), LABEL_WIDTH_MAX);
     assert.equal(clampLabelWidth(200.4), 200);
+  });
+
+  it("keeps phone label widths in their own range", () => {
+    assert.equal(clampLabelWidth(0, PHONE_LABEL_WIDTH), PHONE_LABEL_WIDTH.min);
+    assert.equal(
+      clampLabelWidth(LABEL_WIDTH_DEFAULT, PHONE_LABEL_WIDTH),
+      PHONE_LABEL_WIDTH.max,
+    );
+    assert.equal(readLabelWidth(PHONE_LABEL_WIDTH), PHONE_LABEL_WIDTH.default);
   });
 
   it("falls back to defaults without a window", () => {
