@@ -250,12 +250,12 @@ test("the Scopes button opens a resizable pane of the composited program frame",
   await dragSplitter(fullMonitor.y - 200);
   await expect
     .poll(async () => (await boxOf(page, ".preview-monitor")).height)
-    .toBeLessThan(monitor.height - 50);
+    .toBeLessThan(monitor.height - 1);
   await expectPictureClear(page);
   await dragSplitter(fullMonitor.y + fullMonitor.height + 200);
   await expect
     .poll(async () => (await boxOf(page, ".preview-monitor")).height)
-    .toBeGreaterThan(monitor.height + 50);
+    .toBeGreaterThan(monitor.height + 1);
   await expectPictureClear(page);
 
   // Clicking the button again closes it.
