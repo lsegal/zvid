@@ -380,6 +380,7 @@ test("the More sheet has the desktop File and Edit menus", async ({ page }) => {
     "File",
     "Edit",
     "Save to Library",
+    "Reorder Layers",
     "Show Source Tracks",
   ]);
   await sheet.getByRole("menuitem", { name: "File" }).click();
@@ -640,7 +641,7 @@ test("a long press on a layer's label picks it up to reorder", async ({
     "[data-layer-header-id] .track-label__select > span",
   );
   await expect(names).toHaveText(["Layer 1", "Layer 2"]);
-  // The long press replaces the grips.
+  // Outside Reorder Layers mode the long press stands in for the grips.
   await expect(page.locator(".track-label__grip").first()).toBeHidden();
   const first = await centerOf(
     page,
@@ -655,6 +656,131 @@ test("a long press on a layer's label picks it up to reorder", async ({
     600,
   );
   await expect(names).toHaveText(["Layer 2", "Layer 1"]);
+});
+
+async function chooseFromMore(page: Page, item: string) {
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
+// #1205: Reorder Layers mode shows the grips, which a finger drags at once.
+test("Reorder Layers mode drags layers by their grips", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addLayers(page, 1);
+  const names = page.locator(
+    "[data-layer-header-id] .track-label__select > span",
+  );
+  const grip = page.locator('[data-layer-header-id="1"] .track-label__grip');
+  await expect(grip).toBeHidden();
+
+  await chooseFromMore(page, "Reorder Layers");
+  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--reordering/);
+  await expect(grip).toBeVisible();
+  await expect(grip).toHaveCSS("touch-action", "none");
+  await expect(page.locator(".track-label").first()).toHaveCSS(
+    "outline-style",
+    "dashed",
+  );
+  const gripBox = await grip.boundingBox();
+  expect(gripBox?.width).toBeGreaterThanOrEqual(44);
+  expect(gripBox?.height).toBeGreaterThanOrEqual(44);
+
+  // No long press: the drag starts as the finger moves.
+  const scroller = page.locator(".timeline-scroll");
+  const scrollTop = await scroller.evaluate((element) => element.scrollTop);
+  const from = await centerOf(
+    page,
+    '[data-layer-header-id="1"] .track-label__grip',
+  );
+  const second = await page.locator('[data-layer-header-id="2"]').boundingBox();
+  await drag(page, client, from, {
+    x: from.x,
+    y: (second?.y ?? 0) + (second?.height ?? 0) - 8,
+  });
+  await expect(names).toHaveText(["Layer 2", "Layer 1"]);
+  expect(await scroller.evaluate((element) => element.scrollTop)).toBe(
+    scrollTop,
+  );
+
+  await chooseFromMore(page, "Done Reordering");
+  await expect(page.locator(".app-shell")).not.toHaveClass(
+    /app-shell--reordering/,
+  );
+  await expect(grip).toBeHidden();
+});
+
+test("a grip dragged to the timeline's bottom edge scrolls past the visible rows", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addLayers(page, 7);
+  const headers = page.locator("[data-layer-header-id]");
+  const scroller = page.locator(".timeline-scroll");
+  await scroller.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await chooseFromMore(page, "Reorder Layers");
+  const last = await headers.last().boundingBox();
+  const box = await scroller.boundingBox();
+  if (!last || !box) {
+    throw new Error("The layers or the timeline are not visible");
+  }
+  // The last layer starts below the visible rows.
+  expect(last.y).toBeGreaterThan(box.y + box.height);
+
+  const from = await centerOf(
+    page,
+    '[data-layer-header-id="1"] .track-label__grip',
+  );
+  const edge = { x: from.x, y: box.y + box.height - 4 };
+  await touch(client, "touchStart", [from]);
+  for (let step = 1; step <= 12; step += 1) {
+    await touch(client, "touchMove", [
+      { x: from.x, y: from.y + ((edge.y - from.y) * step) / 12 },
+    ]);
+    await page.waitForTimeout(16);
+  }
+  await expect
+    .poll(() => scroller.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  // Hold at the edge until the last layer has scrolled into view.
+  await expect
+    .poll(async () => {
+      const bottom = await headers.last().boundingBox();
+      return (bottom?.y ?? Infinity) + (bottom?.height ?? 0);
+    })
+    .toBeLessThan(box.y + box.height);
+  await touch(client, "touchMove", [{ x: edge.x, y: edge.y - 1 }]);
+  await touch(client, "touchEnd", []);
+  await expect(
+    page.locator("[data-layer-header-id] .track-label__select > span").last(),
+  ).toHaveText("Layer 1");
+});
+
+test("rows and labels still resize by touch in Reorder Layers mode", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await chooseFromMore(page, "Reorder Layers");
+  const header = page.locator('[data-layer-header-id="1"]');
+  const before = await header.boundingBox();
+  if (!before) {
+    throw new Error("Layer 1's header is not visible");
+  }
+  const edge = { x: before.x + 60, y: before.y + before.height - 4 };
+  await drag(page, client, edge, { x: edge.x, y: edge.y + 40 });
+  await expect
+    .poll(async () => (await header.boundingBox())?.height)
+    .toBeGreaterThan(before.height + 30);
+
+  const rail = { x: before.x + before.width + 8, y: before.y + 20 };
+  await drag(page, client, rail, { x: rail.x + 50, y: rail.y });
+  await expect
+    .poll(async () => (await header.boundingBox())?.width)
+    .toBeGreaterThan(before.width + 40);
 });
 
 test("FX opens as a half or full sheet and Media as a full screen", async ({

@@ -171,6 +171,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       { type: "separator" },
       {
         type: "item",
+        id: "reorder",
+        label: mobile.isReordering ? "Done Reordering" : "Reorder Layers",
+        onSelect: () => mobile.setIsReordering(!mobile.isReordering),
+      },
+      {
+        type: "item",
         id: "source-tracks",
         label: mobile.showsSourceTracks
           ? "Hide Source Tracks"
@@ -199,6 +205,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     ? [
         "app-shell--phone",
         layout.shell === "phone-landscape" ? "app-shell--phone-landscape" : "",
+        mobile.isReordering ? "app-shell--reordering" : "",
         mobile.showsSourceTracks ? "app-shell--source-tracks" : "",
         mobile.fxSheet ? `app-shell--fx-${mobile.fxSheet}` : "",
         `app-shell--fx-${mobile.fxScreen}`,

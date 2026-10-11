@@ -23,6 +23,9 @@ const DRAG_THRESHOLD_PX = 4;
 // the slop, before it picks the layer up.
 const LONG_PRESS_MS = 400;
 const LONG_PRESS_SLOP_PX = 10;
+// In the phone shell's Reorder Layers mode, a touch on a grip drags right
+// away, as a mouse does, instead of waiting for the long press.
+const TOUCH_DRAG_SCOPE = ".app-shell--reordering";
 // The lifted row grows by this much.
 const LIFT_SCALE = 1.01;
 
@@ -279,6 +282,13 @@ export function useLayerReorder({
       event.preventDefault();
     }
 
+    const isTouch = event.pointerType === "touch";
+    const touchDrags =
+      isTouch &&
+      event.currentTarget.hasAttribute(gripAttribute) &&
+      event.currentTarget.closest(TOUCH_DRAG_SCOPE) !== null;
+    const holds = isTouch && !touchDrags;
+
     const session: Session = {
       lane,
       fromIndex: index,
@@ -297,7 +307,7 @@ export function useLayerReorder({
     };
     sessionRef.current = session;
 
-    if (event.pointerType === "touch") {
+    if (holds) {
       session.longPress = window.setTimeout(() => {
         if (sessionRef.current === session && !session.active) {
           navigator.vibrate?.(10);
@@ -317,7 +327,7 @@ export function useLayerReorder({
           moveEvent.clientX - session.startX,
           moveEvent.clientY - session.startY,
         );
-        if (event.pointerType === "touch") {
+        if (holds) {
           // Wandering before the long press lands lets the touch go.
           if (distance > LONG_PRESS_SLOP_PX) {
             finish(false);
@@ -366,10 +376,11 @@ export function useLayerReorder({
       }
     };
 
-    // Once a touch has picked the layer up, the finger drags it instead of
-    // scrolling, wherever it started (a header's label as well as a grip).
+    // Once a touch has picked the layer up, or from the moment it takes a
+    // grip that drags right away, the finger drags it instead of scrolling,
+    // wherever it started (a header's label as well as a grip).
     const handleTouchMove = (touchEvent: TouchEvent) => {
-      if (session.active && touchEvent.cancelable) {
+      if ((session.active || touchDrags) && touchEvent.cancelable) {
         touchEvent.preventDefault();
       }
     };
