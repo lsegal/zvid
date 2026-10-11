@@ -14,6 +14,10 @@ import { addLayers } from "./layers.ts";
 // Touches go through CDP so swipes scroll natively, as on a phone. A
 // four-second test pattern at 120 BPM spans eight quarters.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
+const AUDIO_VIDEO = new URL(
+  "./fixtures/test-pattern-audio.webm",
+  import.meta.url,
+);
 const { defaultBrowserType: _, ...PHONE } = devices["Pixel 7"];
 
 test.use(PHONE);
@@ -90,18 +94,21 @@ async function settledPlayheadQ(page: Page) {
 // Puts the test pattern on Layer 1 through the phone's own menus: show the
 // source tracks, drop the file, then Copy to layer from the clip's menu
 // sheet.
-async function addClip(page: Page) {
+async function addClip(page: Page, file = VIDEO) {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Show Source Tracks" }).click();
-  const base64 = (await readFile(VIDEO)).toString("base64");
-  const dataTransfer = await page.evaluateHandle((data) => {
-    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-    const transfer = new DataTransfer();
-    transfer.items.add(
-      new File([bytes], "test-pattern.mp4", { type: "video/mp4" }),
-    );
-    return transfer;
-  }, base64);
+  const base64 = (await readFile(file)).toString("base64");
+  const name = file.pathname.split("/").pop() ?? "";
+  const type = name.endsWith(".webm") ? "video/webm" : "video/mp4";
+  const dataTransfer = await page.evaluateHandle(
+    ({ data, name, type }) => {
+      const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([bytes], name, { type }));
+      return transfer;
+    },
+    { data: base64, name, type },
+  );
   const target = '[data-source-track-drop-target="new-track"]';
   for (const type of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, type, { dataTransfer });
@@ -175,6 +182,34 @@ test("the playhead stays centered while a swipe scrubs", async ({ page }) => {
   expect(
     Math.abs((clipAfter?.x ?? 0) + scrolled - (clipBefore?.x ?? 0)),
   ).toBeLessThan(2);
+});
+
+// The lanes show from the labels' edge, not from the half-view label
+// column's, so the Audio row's waveform starts there too (#1194).
+test("the Audio row's waveform reaches the labels' edge when scrolled", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addClip(page, AUDIO_VIDEO);
+  const canvas = page.locator("[data-audio-row] .waveform__canvas").first();
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
+  // Two seconds in: the center playhead sits inside the clip.
+  await page.locator(".timeline-scroll").evaluate((element) => {
+    element.scrollLeft = 160;
+  });
+  // Within the lane's 1px border.
+  await expect
+    .poll(async () => {
+      const [canvasBox, labelBox] = await Promise.all([
+        canvas.boundingBox(),
+        page.locator("[data-audio-row] .track-label").boundingBox(),
+      ]);
+      return (
+        (canvasBox?.x ?? Number.POSITIVE_INFINITY) -
+        ((labelBox?.x ?? 0) + (labelBox?.width ?? 0))
+      );
+    })
+    .toBeLessThanOrEqual(1);
 });
 
 test("pinching zooms the timeline", async ({ page }) => {
