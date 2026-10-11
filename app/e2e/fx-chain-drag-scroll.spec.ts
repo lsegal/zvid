@@ -13,24 +13,29 @@ async function openLongChain(page: Page) {
   const layerHeader = page.locator('[data-layer-header-id="1"]');
   await expect(layerHeader).toBeVisible();
 
-  // Add every effect so the chain overflows its panel.
-  await layerHeader.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
+  // Add effects until the chain overflows its panel. Adding every effect
+  // took most of each test's 30 s on a busy CI runner (#1192).
   const submenu = page.getByRole("menu", { name: "Add FX" });
-  const count = await submenu.getByRole("menuitem").count();
-  await submenu.getByRole("menuitem").first().click();
-  for (let index = 1; index < count; index += 1) {
+  const chain = page.locator(".fx-chain");
+  const panels = chain.locator(".fx-device-panel");
+  const overflow = () =>
+    chain.evaluate((element) => element.scrollWidth - element.clientWidth);
+  for (let index = 0; ; index += 1) {
+    const before = await panels.count();
     await layerHeader.click({ button: "right" });
     await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
-    await submenu.getByRole("menuitem").nth(index).click();
+    const effects = submenu.getByRole("menuitem");
+    const count = await effects.count();
+    if (index >= count) {
+      throw new Error("Every effect fits in the FX chain without panning");
+    }
+    await effects.nth(index).click();
+    await expect.poll(() => panels.count()).toBeGreaterThan(before);
+    if (index >= 2 && (await overflow()) > 250) {
+      break;
+    }
   }
-
-  const chain = page.locator(".fx-chain");
-  await expect
-    .poll(() =>
-      chain.evaluate((element) => element.scrollWidth - element.clientWidth),
-    )
-    .toBeGreaterThan(250);
+  await expect.poll(overflow).toBeGreaterThan(250);
   await chain.scrollIntoViewIfNeeded();
   return chain;
 }

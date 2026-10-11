@@ -92,7 +92,7 @@ const webkitProjects =
       ]
     : [];
 
-// CI runs the suite on main only, as 16 shards on separate runners
+// CI runs the suite on main only, as 20 shards on separate runners
 // (.github/workflows/ci.yml). Each runner has 4 vCPUs and each worker drives
 // a Chromium against the app and the wasm bridge, so CI uses two
 // workers per shard. The shards take tests from any file, and fullyParallel
