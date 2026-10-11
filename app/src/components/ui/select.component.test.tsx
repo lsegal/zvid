@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { afterEach, describe, expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { type Locator, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { SIGNATURES } from "../../app/constants.ts";
 import {
@@ -25,10 +25,12 @@ import "./select";
 
 const noop = () => {};
 
-// Matches exactly `text`, as Playwright's toHaveText does.
-function exactly(text: string) {
-  const escaped = text.replace(/[.*+?^$()|[\]\\{}]/g, "\\$&");
-  return new RegExp(`^${escaped}$`);
+// Waits for `locator`'s text to be exactly `text`, as Playwright's
+// toHaveText does.
+async function expectText(locator: Locator, text: string) {
+  await expect
+    .poll(() => locator.element().textContent?.replace(/\s+/g, " ").trim())
+    .toBe(text);
 }
 
 // The open list is the app's dark menu panel, not a light native popup.
@@ -41,7 +43,7 @@ async function expectThemedList() {
   return list;
 }
 
-function optionTexts(list: ReturnType<typeof page.getByRole>) {
+function optionTexts(list: Locator) {
   return list
     .getByRole("option")
     .elements()
@@ -79,7 +81,7 @@ describe("Select in Session Settings", () => {
     const settings = await openSettings();
 
     const preset = settings.getByRole("combobox", { name: "Canvas preset" });
-    await expect.element(preset).toHaveTextContent(exactly("1080p 16:9"));
+    await expectText(preset, "1080p 16:9");
     await preset.click();
     const list = await expectThemedList();
     expect(optionTexts(list)).toEqual([
@@ -95,7 +97,7 @@ describe("Select in Session Settings", () => {
       .toHaveAttribute("aria-selected", "true");
     await list.getByRole("option", { name: "4K 16:9" }).click();
     await expect.element(list).not.toBeInTheDocument();
-    await expect.element(preset).toHaveTextContent(exactly("4K 16:9"));
+    await expectText(preset, "4K 16:9");
     await expect
       .element(settings.getByLabelText("Canvas width"))
       .toHaveValue(3840);
@@ -128,7 +130,7 @@ describe("Select in Session Settings", () => {
       .toHaveFocus();
     await userEvent.keyboard("{Enter}");
     await expect.element(list).not.toBeInTheDocument();
-    await expect.element(rate).toHaveTextContent(exactly(next));
+    await expectText(rate, next);
     await expect.element(rate).toHaveFocus();
 
     // Escape closes the list without changing the value.
@@ -139,7 +141,7 @@ describe("Select in Session Settings", () => {
     await userEvent.keyboard("{ArrowUp}");
     await userEvent.keyboard("{Escape}");
     await expect.element(page.getByRole("listbox")).not.toBeInTheDocument();
-    await expect.element(rate).toHaveTextContent(exactly(next));
+    await expectText(rate, next);
     await expect.element(settings).toBeVisible();
   });
 
@@ -151,16 +153,12 @@ describe("Select in Session Settings", () => {
         : isConfigSupported.call(VideoEncoder, config);
     const settings = await openSettings();
     const codec = settings.getByRole("combobox", { name: "Video codec" });
-    await expect
-      .element(codec)
-      .toHaveTextContent(exactly("Auto (best available)"));
+    await expectText(codec, "Auto (best available)");
 
     await codec.click();
     const list = await expectThemedList();
     const hevc = list.getByRole("option", { name: /^HEVC/ });
-    await expect
-      .element(hevc)
-      .toHaveTextContent(exactly("HEVC (Not supported on this device)"));
+    await expectText(hevc, "HEVC (Not supported on this device)");
     await expect.element(hevc).toHaveAttribute("aria-disabled", "true");
     await expect
       .element(hevc)
@@ -168,9 +166,7 @@ describe("Select in Session Settings", () => {
     await hevc.click({ force: true });
     await expect.element(list).toBeVisible();
     await userEvent.keyboard("{Escape}");
-    await expect
-      .element(codec)
-      .toHaveTextContent(exactly("Auto (best available)"));
+    await expectText(codec, "Auto (best available)");
   });
 });
 
@@ -214,14 +210,14 @@ describe("Select in the timeline toolbar", () => {
   test("picks the time signature, which undo restores", async () => {
     await render(<Toolbar />);
     const signature = page.getByRole("combobox", { name: "Time signature" });
-    await expect.element(signature).toHaveTextContent(exactly("4/4"));
+    await expectText(signature, "4/4");
     await signature.click();
     const list = await expectThemedList();
     await list.getByRole("option", { name: "6/8" }).click();
-    await expect.element(signature).toHaveTextContent(exactly("6/8"));
+    await expectText(signature, "6/8");
 
     await userEvent.keyboard("{Control>}z{/Control}");
-    await expect.element(signature).toHaveTextContent(exactly("4/4"));
+    await expectText(signature, "4/4");
   });
 });
 
@@ -260,12 +256,12 @@ describe("Select in the FX Animation section", () => {
     await expect.element(section).toBeVisible();
 
     const motionIn = section.getByRole("combobox", { name: "Motion In" });
-    await expect.element(motionIn).toHaveTextContent(exactly("Ease Out"));
+    await expectText(motionIn, "Ease Out");
     await motionIn.click();
     const list = await expectThemedList();
     const other = optionTexts(list).find((option) => option !== "Ease Out");
     expect(other).toBeTruthy();
     await list.getByRole("option", { name: other, exact: true }).click();
-    await expect.element(motionIn).toHaveTextContent(exactly(other ?? ""));
+    await expectText(motionIn, other ?? "");
   });
 });

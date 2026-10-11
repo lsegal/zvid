@@ -1,8 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { expect, onTestFinished } from "vitest";
+import { cdp } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import type { ClipClipboard } from "../app/clip-ops.ts";
-import type { ProjectState } from "../app/types.ts";
+import { selectSourceSpan } from "../app/source-selection.ts";
+import type { ProjectState, SourceSpan } from "../app/types.ts";
 import { FxPanel } from "../components/FxPanel";
 import {
   FxAnimationTimelineContext,
@@ -11,6 +14,7 @@ import {
 import { TimelineContextMenu } from "../components/TimelineContextMenu";
 import { ArrangementLanes } from "../components/timeline/ArrangementLanes";
 import { Ruler } from "../components/timeline/Ruler";
+import { SourceTracks } from "../components/timeline/SourceTracks";
 import { Timeline } from "../components/timeline/Timeline";
 import { TimelineToolbar } from "../components/timeline/TimelineToolbar";
 import { TransportBar } from "../components/timeline/TransportBar";
@@ -25,23 +29,28 @@ import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "../hooks/useProjectStore.ts";
+import type { LiveTake } from "../hooks/useRecording.ts";
+import { useSourceTrackDrop } from "../hooks/useSourceTrackDrop.ts";
 import { useTimeline } from "../hooks/useTimeline.ts";
 import { useTimelineEditing } from "../hooks/useTimelineEditing.ts";
 import { useTimelineSelection } from "../hooks/useTimelineSelection.ts";
 import type { MediaItem } from "../media";
 import { createSpaceHold } from "../space-shortcut";
+import { resetMouse } from "./timeline-mouse.ts";
 
 // The desktop editor's timeline, wired as App wires it: the toolbar, the
 // timeline with its ruler and layers, the transport bar and the FX panel,
 // driven by the same project store, selection, layout, viewport, playback
 // and editing hooks (keyboard shortcuts, menus and clip drags included).
 // It leaves out what needs the wasm compositor, media or a saved session:
-// the preview, the Media drawer, the source tracks, the Audio row's mix and
-// session persistence. Their grid cells keep their places so the timeline
+// the preview, the Media drawer, the Audio row's mix, media import and
+// recording, and session persistence. Their grid cells keep their places so the timeline
 // lays out at the width it has in the app.
 
 const noop = () => {};
-const NO_MEDIA = new Map<string, MediaItem>();
+const NO_IDS = new Set<string>();
+const NO_PROGRESS = new Map();
+const NO_TAKES = new Map<string, LiveTake>();
 
 export type TimelineEditorState = {
   project: ProjectState;
@@ -106,8 +115,13 @@ export function TimelineEditor({
   const compositionPlayerRef = useRef(null);
   const previewVolume = usePreviewVolume(compositionPlayerRef);
   const spaceHoldRef = useRef(createSpaceHold());
+  const appShellRef = useRef<HTMLDivElement | null>(null);
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
+  const mediaItemsById = useMemo(
+    () => new Map<string, MediaItem>(project.mediaItems.map((item) => [item.id, item])),
+    [project.mediaItems],
+  );
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -115,7 +129,7 @@ export function TimelineEditor({
   const mediaPreview = useMediaPreview({
     isPlaying,
     setIsPlaying,
-    mediaItemsById: NO_MEDIA,
+    mediaItemsById,
     drawerMediaId: undefined,
   });
   const fxEditing = useFxEditing({
@@ -132,7 +146,7 @@ export function TimelineEditor({
     store,
     selection,
     layout,
-    mediaItemsById: NO_MEDIA,
+    mediaItemsById,
     timelineScrollRef,
     arrangementLanesRef,
     spaceHoldRef,
@@ -147,7 +161,7 @@ export function TimelineEditor({
     sourceSelection: selection.sourceSelection,
     sourceTracks,
     sourceSpans: project.sourceSpans,
-    mediaItemsById: NO_MEDIA,
+    mediaItemsById,
     lanePriority,
     timelineClips,
     playheadQ,
@@ -190,6 +204,19 @@ export function TimelineEditor({
     setTimelineDragState: selection.setTimelineDragState,
     setStatus,
   });
+  // Drops onto the source tracks import nothing.
+  const sourceTrackDrop = useSourceTrackDrop({
+    mediaItems: project.mediaItems,
+    appShellRef,
+    timelineScrollRef,
+    labelWidth,
+    quarterPx,
+    snapUnit: timeline.snapUnit,
+    snapEnabled: project.snapEnabled,
+    importMediaIntoSourceTrack: async () => {},
+    placeMediaInSourceTrack: noop,
+    setStatus,
+  });
   const editing = useTimelineEditing({
     project,
     store,
@@ -201,7 +228,7 @@ export function TimelineEditor({
     fxEditing,
     refreshAudio: noop,
     fxLaneId: fxPanel.fxLaneId,
-    mediaItemsById: NO_MEDIA,
+    mediaItemsById,
     laneStatusById: timeline.laneStatusById,
     playbackOriginRef,
     spaceHoldRef,
@@ -213,6 +240,11 @@ export function TimelineEditor({
     mediaPreview,
     setStatus,
   });
+  const { selectSource } = selection;
+  const selectSourceSpanClip = useCallback(
+    (span: SourceSpan) => selectSource(selectSourceSpan(span)),
+    [selectSource],
+  );
   const { modulationClock, animationTimeline } = useFxContexts({
     playheadSignal,
     bpm,
@@ -235,7 +267,7 @@ export function TimelineEditor({
   });
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={appShellRef}>
       <main className="workspace">
         <div className="workspace__main">
           <section className="editor-panel">
@@ -274,7 +306,7 @@ export function TimelineEditor({
                   mediaSyncStatusLabel={null}
                   offlineCount={0}
                   showsMediaSync={false}
-                  relinkingMediaIds={new Set()}
+                  relinkingMediaIds={NO_IDS}
                   sessionMediaStatus=""
                   setIsMediaSyncDialogOpen={noop}
                   setIsOfflineMediaDialogOpen={noop}
@@ -344,15 +376,15 @@ export function TimelineEditor({
                       visibleTimelineStartPx,
                       visibleTimelineWidthPx,
                       signature: timeline.signature,
-                      mediaItemsById: NO_MEDIA,
+                      mediaItemsById,
                       thumbnails: timeline.thumbnails,
                       clipPieces: timeline.clipPieces,
                       clipFilmstrips: timeline.clipFilmstrips,
-                      remoteMediaProgress: new Map(),
+                      remoteMediaProgress: NO_PROGRESS,
                       timelineEffects,
                       effects,
                       prefersReducedMotion,
-                      revealedMediaIds: new Set(),
+                      revealedMediaIds: NO_IDS,
                       shortcutLabels,
                       openArrangementClipMenu: editing.openArrangementClipMenu,
                       startTextEdit: noop,
@@ -361,6 +393,64 @@ export function TimelineEditor({
                       setSelectedClipId,
                       setDragState,
                     },
+                  }}
+                />
+                <SourceTracks
+                  sourceTracks={sourceTracks}
+                  sourceSpansByTrack={timeline.sourceSpansByTrack}
+                  rowHeights={layout.rowHeights}
+                  isSourceTracksCollapsed={layout.isSourceTracksCollapsed}
+                  setSourceTracksCollapsed={layout.setSourceTracksCollapsed}
+                  sourceTracksLocked={editing.sourceTracksLocked}
+                  setSourceTracksLocked={editing.setSourceTracksLocked}
+                  drop={sourceTrackDrop}
+                  readOnly={store.isWorkspaceReadOnly}
+                  onCreateSourceTrack={editing.createEmptySourceTrack}
+                  sourceSelection={selection.sourceSelection}
+                  selectSource={selection.selectSource}
+                  onImport={noop}
+                  onOpenSample={noop}
+                  onOpenSession={noop}
+                  gridStyle={gridStyle}
+                  listRef={editing.sourceTracksListRef}
+                  armedTrackIds={NO_IDS}
+                  liveTakes={NO_TAKES}
+                  label={{
+                    reorder: editing.sourceTrackReorder,
+                    openMenu: editing.openSourceTrackMenu,
+                    locked: editing.sourceTracksLocked,
+                    renamingId: editing.renamingSourceTrackId,
+                    startRename: editing.setRenamingSourceTrackId,
+                    readOnly: store.isWorkspaceReadOnly,
+                    commitRename: editing.commitSourceTrackRename,
+                    cancelRename: editing.cancelSourceTrackRename,
+                    setFxEnabled: fxEditing.setSourceTrackFxEnabled,
+                    setHidden: fxEditing.setSourceTrackHidden,
+                    toggleRowCollapsed: layout.toggleRowCollapsed,
+                    resizeRow: layout.resizeRow,
+                  }}
+                  openLaneMenu={editing.openSourceLaneMenu}
+                  span={{
+                    bpm,
+                    quarterPx,
+                    visibleTimelineStartPx,
+                    visibleTimelineWidthPx,
+                    mediaItemsById,
+                    thumbnails: timeline.thumbnails,
+                    spanFilmstrips: timeline.spanFilmstrips,
+                    remoteMediaProgress: NO_PROGRESS,
+                    prefersReducedMotion,
+                    revealedMediaIds: NO_IDS,
+                    clipMenu: selection.clipMenu,
+                    sourceSelection: selection.sourceSelection,
+                    selectSourceSpan: selectSourceSpanClip,
+                    shortcutLabels,
+                    addSourceSpanToArrangement:
+                      editing.addSourceSpanToArrangement,
+                    openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
+                    locked: editing.sourceTracksLocked,
                   }}
                 />
               </Timeline>
@@ -402,9 +492,32 @@ export function TimelineEditor({
   );
 }
 
+function emulateReducedMotion(reduce: boolean) {
+  const session = cdp() as unknown as {
+    send: (method: string, params: Record<string, unknown>) => Promise<void>;
+  };
+  return session.send("Emulation.setEmulatedMedia", {
+    features: reduce ? [{ name: "prefers-reduced-motion", value: "reduce" }] : [],
+  });
+}
+
 // Renders the editor in a fresh layout: the layout preferences the app
-// keeps in localStorage start from their defaults.
-export function renderTimelineEditor(props: TimelineEditorProps = {}) {
+// keeps in localStorage start from their defaults. With `reducedMotion`,
+// the page prefers reduced motion, so pans have no momentum and scrolls
+// don't animate, until the test ends.
+export async function renderTimelineEditor({
+  reducedMotion = false,
+  ...props
+}: TimelineEditorProps & { reducedMotion?: boolean } = {}) {
   localStorage.clear();
-  return render(<TimelineEditor {...props} />);
+  onTestFinished(async () => {
+    await resetMouse();
+    await emulateReducedMotion(false);
+  });
+  await emulateReducedMotion(reducedMotion);
+  const screen = await render(<TimelineEditor {...props} />);
+  await expect
+    .poll(() => document.querySelector('[data-timeline-lane-id="1"]'))
+    .not.toBeNull();
+  return screen;
 }

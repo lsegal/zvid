@@ -1,4 +1,5 @@
-import { cdp, userEvent } from "vitest/browser";
+import { expect } from "vitest";
+import { cdp, page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 
 // Trusted pointer, touch and key input for component tests, sent through
@@ -155,3 +156,48 @@ export async function pressMod(key: string, { shift = false } = {}) {
 
 export const undo = () => pressMod("z");
 export const redo = () => pressMod("z", { shift: true });
+
+// Right-clicks an element's center, scrolled into view.
+export async function rightClick(element: Element) {
+  element.scrollIntoView({ block: "nearest" });
+  await nextFrames();
+  const point = center(element);
+  await mouse.click(point.x, point.y, { button: "right" });
+}
+
+// A layer's header, by its id.
+export function layerHeader(id: string) {
+  return document.querySelector(
+    `[data-layer-header-id="${id}"]`,
+  ) as HTMLElement;
+}
+
+// Opens a layer header's menu.
+export async function openLayerMenu(id: string) {
+  await rightClick(layerHeader(id));
+  const menu = page.getByRole("menu", { name: "Layer header actions" });
+  await expect.element(menu).toBeVisible();
+  return menu;
+}
+
+export function menuItem(name: string) {
+  return page.getByRole("menuitem", { name, exact: true });
+}
+
+// A new session starts with one layer, Layer 1 ("1"). Tests that need more
+// insert them below it from its header menu: Layer 2 is "2" and Layer 3 is
+// "3".
+export async function addLayers(count = 2) {
+  const headers = () => document.querySelectorAll("[data-layer-header-id]");
+  await expect.poll(headers).toHaveLength(1);
+  for (let index = 1; index <= count; index += 1) {
+    const last = headers()[headers().length - 1];
+    await openLayerMenu(last.getAttribute("data-layer-header-id") ?? "");
+    await page
+      .getByRole("menu", { name: "Layer header actions" })
+      .getByRole("menuitem", { name: "Insert layer below", exact: true })
+      .click();
+    await expect.poll(headers).toHaveLength(index + 1);
+  }
+  expect(layerHeader(`${count + 1}`)).toBeTruthy();
+}

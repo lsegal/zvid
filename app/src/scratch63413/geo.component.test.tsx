@@ -1,17 +1,14 @@
 import { expect, test } from "vitest";
-import { page } from "vitest/browser";
 import { renderTimelineEditor } from "../component-test/timeline-editor.tsx";
+import { click } from "../component-test/timeline-mouse.ts";
 
 test("geo", async () => {
   const screen = await renderTimelineEditor();
   await expect.element(screen.getByText("Layer 1").first()).toBeVisible();
-  const r = (s: string) => {
-    const e = document.querySelector(s);
-    if (!e) return null;
-    const b = e.getBoundingClientRect();
-    return [s, Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)].join(" ");
-  };
-  const scroll = document.querySelector(".timeline-scroll") as HTMLElement;
-  console.log([".app-shell", ".timeline-panel", ".timeline-scroll", ".ruler-row", ".ruler-row__content", ".ruler-loop-strip", '[data-timeline-lane-id="1"]', ".transport-bar", ".fx-panel", ".timeline-toolbar"].map(r).join("\n"), scroll.scrollWidth - scroll.clientWidth);
-  await page.screenshot({ path: "/tmp/geo63413.png" });
+  const hits: string[] = [];
+  window.addEventListener("pointerdown", (e) => hits.push(`${e.clientX},${e.clientY} ${(e.target as Element).className}`), true);
+  await click(600, 90);
+  await click(10, 10);
+  await click(300, 140);
+  expect([hits.join("\n"), window.devicePixelRatio, innerWidth, innerHeight, document.querySelector(".source-tracks, [aria-label='Source track drop area']")?.getBoundingClientRect().y]).toBe(0);
 });
