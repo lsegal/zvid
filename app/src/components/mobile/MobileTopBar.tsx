@@ -60,7 +60,7 @@ export function MobileTopBar({
       <h1 className="mobile-topbar__title">{sessionName || "Untitled"}</h1>
       <button
         aria-label={exportLabel}
-        className="mobile-pill-button mobile-export-button"
+        className="mobile-topbar-pill mobile-export-button"
         data-export-support={exportSupport}
         disabled={exportSupport === "checking" || isExporting}
         onClick={() =>

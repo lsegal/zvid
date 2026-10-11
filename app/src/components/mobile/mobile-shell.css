@@ -227,12 +227,12 @@
 /* Export and Share are labeled pills so neither reads as the other:
    Export is filled, Share is outlined with a globe or the share's
    connection state. */
-.mobile-pill-button {
+.mobile-topbar-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex: none;
-  height: 34px;
+  height: 36px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -245,11 +245,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.mobile-pill-button:disabled {
+.mobile-topbar-pill:disabled {
   opacity: 0.5;
 }
 
-.mobile-pill-button:focus-visible {
+.mobile-topbar-pill:focus-visible {
   outline: 2px solid var(--mint);
   outline-offset: 2px;
 }

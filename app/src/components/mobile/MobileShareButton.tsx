@@ -69,7 +69,7 @@ export function MobileShareButton({
       <button
         aria-haspopup={isLive ? "menu" : undefined}
         aria-label={isLive ? `${label}: ${state.stateLabel}` : label}
-        className={`mobile-pill-button mobile-share-button collaboration-status--${collaborationView.stateTone}`}
+        className={`mobile-topbar-pill mobile-share-button collaboration-status--${collaborationView.stateTone}`}
         data-collaboration-mode={mode}
         disabled={state.isStartingShare}
         onClick={() =>
