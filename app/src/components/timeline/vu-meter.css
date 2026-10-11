@@ -17,7 +17,7 @@
 
 .vu-meter__channel {
   position: relative;
-  height: 5px;
+  height: 4px;
   overflow: hidden;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.08);
@@ -108,7 +108,7 @@
   color: var(--ink);
   opacity: 0.82;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   text-align: left;

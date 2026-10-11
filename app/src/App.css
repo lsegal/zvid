@@ -733,19 +733,20 @@
 .tempo-pill {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(12, 14, 20, 0.32);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 5px 8px;
   font-size: 0.82rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .tempo-pill__adjust {
-  width: 26px;
-  height: 26px;
+  width: 21px;
+  height: 21px;
+  padding: 0;
   border-radius: 999px;
   border: none;
   background: rgba(255, 255, 255, 0.06);
@@ -887,7 +888,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 18px;
+  /* Compact, like the menu bar above them (#1222). */
+  padding: 10px 18px;
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--line);
 }
@@ -1253,8 +1255,6 @@
 
 .transport-button--wand,
 .transport-button--wand:hover {
-  min-width: 52px;
-  padding: 12px;
   background: linear-gradient(180deg, #ffe084, #f6b73c);
   border-color: rgba(246, 183, 60, 0.72);
   color: #2e2410;
@@ -1297,9 +1297,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .transport-button,
-  .transport-button--wand,
-  .transport-button--wand:hover {
+  .transport-button {
     flex: 1 1 0;
     min-width: 0;
     padding: 12px 0;
