@@ -150,8 +150,7 @@ export function useTouchClipGestures({
       endPress();
       suppressContextMenu = false;
       const clipId =
-        target?.closest<HTMLElement>(".clip-card")?.dataset.clipId ??
-        undefined;
+        target?.closest<HTMLElement>(".clip-card")?.dataset.clipId ?? undefined;
       press = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -159,8 +158,7 @@ export function useTouchClipGestures({
         clipId,
         laneId:
           space.closest<HTMLElement>("[data-timeline-lane-id]")?.dataset
-            .timelineLaneId ??
-          undefined,
+            .timelineLaneId ?? undefined,
         moved: false,
         held: false,
         timer: clipId ? window.setTimeout(pickUp, LONG_PRESS_MS) : 0,

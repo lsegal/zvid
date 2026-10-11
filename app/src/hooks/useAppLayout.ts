@@ -27,6 +27,7 @@ import {
   writeAudioRowCollapsed,
 } from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
+import { isPhoneShell } from "../mobile/shell-kind.ts";
 import {
   COLLAPSED_ROW_METRICS,
   clampRowHeight,
@@ -41,7 +42,6 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "../source-tracks-section.ts";
-import { isPhoneShell } from "../mobile/shell-kind.ts";
 import { useLabelResize } from "./useLabelResize.ts";
 import { useShellKind } from "./useShellKind.ts";
 
