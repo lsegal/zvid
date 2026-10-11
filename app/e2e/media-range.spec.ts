@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
 // Kept in Playwright: undo, IndexedDB persistence and the drawer badge need the whole app; MediaRangeBar.component.test.tsx covers the rest.
-// app; MediaRangeBar.component.test.tsx covers the markers, readout and keys.
 // In/Out points on media in the Media tab: shown in the Media drawer,
 // undoable, cleared, and kept across a reload. The fixture is a three-second
 // test pattern with a tone.
