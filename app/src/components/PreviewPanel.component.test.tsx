@@ -22,7 +22,12 @@ function boxes<Key extends string>(selectors: Record<Key, string>) {
   for (const [key, selector] of Object.entries(selectors) as [Key, string][]) {
     const rect = document.querySelector(selector)?.getBoundingClientRect();
     result[key] = rect
-      ? { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }
+      ? {
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+        }
       : null;
   }
   return result;
@@ -55,8 +60,7 @@ const header = () =>
 const region = (name: string) => page.getByRole("region", { name });
 // The header's buttons: the tab bar has an Audio button too.
 const scopesButton = () => page.getByRole("button", { name: "Scopes" });
-const audioButton = () =>
-  page.getByTitle(/the audio meter and spectrogram$/);
+const audioButton = () => page.getByTitle(/the audio meter and spectrogram$/);
 // The transport's meter: the Audio pane has one too.
 const transportLevel = () =>
   document.querySelector(

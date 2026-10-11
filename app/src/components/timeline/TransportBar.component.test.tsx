@@ -378,7 +378,11 @@ describe("TransportBar compact layout", () => {
     to: { x: number; y: number },
     steps: number,
   ) {
-    const send = (type: string, x: number, y: number) =>
+    const send = (
+      type: "mouseMoved" | "mousePressed" | "mouseReleased",
+      x: number,
+      y: number,
+    ) =>
       cdp().send("Input.dispatchMouseEvent", {
         type,
         x,

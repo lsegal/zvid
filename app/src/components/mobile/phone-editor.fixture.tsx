@@ -1,9 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import type {
-  ArrangementClip,
-  Lane,
-  TimeSignature,
-} from "../../app/types.ts";
+import type { ArrangementClip, Lane, TimeSignature } from "../../app/types.ts";
 import { SILENT_AUDIO_MIX } from "../../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../../CompositionPlayer";
 import { PhoneShell } from "../../component-test/shells.tsx";
@@ -13,8 +9,8 @@ import { useFxPanelModel } from "../../hooks/useFxPanelModel.ts";
 import { useMediaDrawer } from "../../hooks/useMediaDrawer.ts";
 import { useMediaPreview } from "../../hooks/useMediaPreview.ts";
 import { useMobileShell } from "../../hooks/useMobileShell.ts";
-import { useShellKind } from "../../hooks/useShellKind.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
+import { useShellKind } from "../../hooks/useShellKind.ts";
 import { createPlayheadSignal } from "../../playhead-signal";
 import {
   readLayerTransform,
@@ -26,8 +22,8 @@ import { FxPanel } from "../FxPanel";
 import { MediaDrawer } from "../media/MediaDrawer";
 import { PreviewPanel } from "../PreviewPanel";
 import { StatusBar } from "../StatusBar";
-import { MobileShellChrome } from "./MobileShellChrome";
 import type { MobileShareButtonProps } from "./MobileShareButton";
+import { MobileShellChrome } from "./MobileShellChrome";
 import { PhoneFxSheetHeader } from "./SheetHeaders";
 
 // The phone editor as App lays it out (#1177, #1211, #1218), for component

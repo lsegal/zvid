@@ -1,55 +1,10 @@
-import {
-  type CDPSession,
-  devices,
-  expect,
-  type Page,
-  test,
-} from "@playwright/test";
+import { devices, expect, type Page, test } from "@playwright/test";
 
-// The phone shell's preview header, transport VU meter and status toast
-// (#1177): the desktop pieces the phone layout used to hide outright.
+// Not component tests: these need real playback and usePhoneShell's Record wiring (the rest is in PreviewPanel.component.test.tsx).
+// The phone shell's transport VU meter and status toast (#1177).
 const { defaultBrowserType: _, ...PHONE } = devices["Pixel 7"];
 
 test.use({ ...PHONE, viewport: { width: 375, height: 667 } });
-
-type Box = { top: number; bottom: number; left: number; right: number };
-
-async function boxes(page: Page, selectors: Record<string, string>) {
-  return page.evaluate((entries) => {
-    const result: Record<string, Box | null> = {};
-    for (const [key, selector] of Object.entries(entries)) {
-      const rect = document.querySelector(selector)?.getBoundingClientRect();
-      result[key] = rect
-        ? {
-            top: rect.top,
-            bottom: rect.bottom,
-            left: rect.left,
-            right: rect.right,
-          }
-        : null;
-    }
-    return result;
-  }, selectors);
-}
-
-function overlaps(a: Box | null, b: Box | null) {
-  return Boolean(
-    a &&
-      b &&
-      a.left < b.right &&
-      b.left < a.right &&
-      a.top < b.bottom &&
-      b.top < a.bottom,
-  );
-}
-
-async function pageScrolls(page: Page) {
-  return page.evaluate(
-    () =>
-      document.documentElement.scrollHeight > window.innerHeight ||
-      document.documentElement.scrollWidth > window.innerWidth,
-  );
-}
 
 // A 440 Hz tone at about -13 dBFS RMS, as a 16-bit mono WAV.
 function toneWav(seconds = 20, sampleRate = 22_050) {
@@ -100,58 +55,6 @@ function transportLevel(page: Page) {
     .getByRole("meter", { name: "Left level" });
 }
 
-test("Scopes and Audio open under the preview with no page scroll", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--phone/);
-  const header = page.locator(".preview-panel__header");
-  await expect(header).toBeVisible();
-  const scopes = header.getByRole("button", { name: "Scopes" });
-  const audio = header.getByRole("button", { name: "Audio" });
-  await scopes.click();
-  await audio.click();
-  await expect(page.getByRole("region", { name: "Scopes" })).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Audio analysis" }),
-  ).toBeVisible();
-
-  expect(await pageScrolls(page)).toBe(false);
-  const layout = await boxes(page, {
-    header: ".preview-panel__header",
-    monitor: ".preview-monitor",
-    scopes: ".scopes-pane",
-    audio: ".audio-analysis",
-    transport: ".mobile-transport",
-    timeline: ".timeline-panel",
-    tabs: ".mobile-tab-bar",
-  });
-  // Header, monitor, then the panes side by side, all above the transport.
-  expect(layout.header?.bottom).toBeLessThanOrEqual(layout.monitor?.top ?? 0);
-  expect(layout.monitor?.bottom).toBeLessThanOrEqual(layout.scopes?.top ?? 0);
-  expect(layout.scopes?.top).toBe(layout.audio?.top);
-  expect(overlaps(layout.scopes, layout.audio)).toBe(false);
-  for (const pane of [layout.scopes, layout.audio]) {
-    expect(pane?.bottom).toBeLessThanOrEqual(layout.transport?.top ?? 0);
-    expect(pane?.right).toBeLessThanOrEqual(375);
-  }
-  expect(layout.transport?.bottom).toBeLessThanOrEqual(
-    layout.timeline?.top ?? 0,
-  );
-  // The timeline keeps room to work in.
-  expect(
-    (layout.timeline?.bottom ?? 0) - (layout.timeline?.top ?? 0),
-  ).toBeGreaterThan(100);
-  expect(layout.timeline?.bottom).toBeLessThanOrEqual(layout.tabs?.top ?? 0);
-
-  await scopes.click();
-  await audio.click();
-  await expect(page.getByRole("region", { name: "Scopes" })).toHaveCount(0);
-  await expect(
-    page.getByRole("region", { name: "Audio analysis" }),
-  ).toHaveCount(0);
-});
-
 test("the transport's VU meter moves with playback", async ({ page }) => {
   await page.goto("/");
   await addTone(page);
@@ -163,16 +66,6 @@ test("the transport's VU meter moves with playback", async ({ page }) => {
       timeout: 15_000,
     })
     .toBeGreaterThan(-40);
-  const layout = await boxes(page, {
-    meter: ".mobile-transport .vu-meter",
-    transport: ".mobile-transport",
-    timeline: ".timeline-panel",
-  });
-  expect(layout.meter?.bottom).toBeLessThanOrEqual(
-    layout.transport?.bottom ?? 0,
-  );
-  expect(layout.meter?.right).toBeLessThanOrEqual(375);
-  expect(await pageScrolls(page)).toBe(false);
 });
 
 test("Record with no armed track shows its hint as a toast", async ({
@@ -184,161 +77,6 @@ test("Record with no armed track shows its hint as a toast", async ({
     hasText: "Arm a source track to record a take.",
   });
   await expect(toast).toBeVisible();
-  await page.getByRole("button", { name: "Close media" }).click();
-  const layout = await boxes(page, {
-    toast: ".status-bar__message",
-    transport: ".mobile-transport",
-    tabs: ".mobile-tab-bar",
-  });
-  expect(overlaps(layout.toast, layout.transport)).toBe(false);
-  expect(overlaps(layout.toast, layout.tabs)).toBe(false);
-  expect(layout.toast?.left).toBeGreaterThanOrEqual(0);
-  expect(layout.toast?.right).toBeLessThanOrEqual(375);
-  expect(await pageScrolls(page)).toBe(false);
-});
-
-// A finger dragged straight down by `dy` (up when negative), through CDP so
-// the page would scroll or refresh if the splitter let it.
-async function touchDrag(
-  page: Page,
-  client: CDPSession,
-  from: { x: number; y: number },
-  dy: number,
-) {
-  const point = (y: number) => [{ x: from.x, y, id: 0 }];
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: point(from.y),
-  });
-  const steps = 10;
-  for (let step = 1; step <= steps; step += 1) {
-    await client.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: point(from.y + (dy * step) / steps),
-    });
-    await page.waitForTimeout(16);
-  }
-  await client.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-}
-
-function heightOf(box: Box | null) {
-  return (box?.bottom ?? 0) - (box?.top ?? 0);
-}
-
-// #1202: a readable plot, compact kind buttons with finger-sized taps, and
-// a splitter on the pane's foot that trades height with the timeline.
-test("the Scopes pane is readable, compact and resizable by touch", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const header = page.locator(".preview-panel__header");
-  await header.getByRole("button", { name: "Scopes" }).click();
-  const pane = page.getByRole("region", { name: "Scopes" });
-  await expect(pane).toBeVisible();
-  const selectors = {
-    monitor: ".preview-monitor",
-    pane: ".scopes-pane",
-    plot: ".scopes-pane__body",
-    timeline: ".timeline-panel",
-  };
-  const start = await boxes(page, selectors);
-  expect(heightOf(start.plot)).toBeGreaterThan(110);
-
-  // The kind buttons stay small, yet a tap well above or below one still
-  // lands on it, and tapping each picks its scope.
-  const kinds = pane.getByRole("toolbar", { name: "Scope" });
-  for (const name of ["Waveform", "Parade", "Vectorscope", "Histogram"]) {
-    const button = kinds.getByRole("button", { name, exact: true });
-    const box = await button.boundingBox();
-    if (!box) {
-      throw new Error(`${name} is not visible`);
-    }
-    expect(box.height).toBeLessThan(24);
-    const x = box.x + box.width / 2;
-    for (const y of [box.y - 10, box.y + box.height + 10]) {
-      expect(
-        await page.evaluate(
-          ([x, y]) => document.elementFromPoint(x, y)?.textContent,
-          [x, y],
-        ),
-      ).toBe(name);
-    }
-    await page.touchscreen.tap(x, box.y + box.height + 10);
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-  }
-
-  // Dragging the splitter up shrinks the pane, giving the timeline the
-  // room, without scrolling the page or moving the monitor.
-  const client = await page.context().newCDPSession(page);
-  const splitter = pane.getByRole("separator", { name: "Resize scopes" });
-  await expect(splitter).toHaveCSS("touch-action", "none");
-  const grip = async () => {
-    const box = await splitter.boundingBox();
-    if (!box) {
-      throw new Error("The splitter is not visible");
-    }
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  };
-  await touchDrag(page, client, await grip(), -40);
-  const shrunk = await boxes(page, selectors);
-  expect(
-    Math.abs(heightOf(start.pane) - heightOf(shrunk.pane) - 40),
-  ).toBeLessThan(3);
-  expect(
-    Math.abs(heightOf(shrunk.timeline) - heightOf(start.timeline) - 40),
-  ).toBeLessThan(3);
-  expect(shrunk.monitor).toEqual(start.monitor);
-  expect(await page.evaluate(() => window.scrollY)).toBe(0);
-  expect(await pageScrolls(page)).toBe(false);
-
-  // Far down, the pane grows until the timeline is at its least height;
-  // far up, the pane keeps its own.
-  await touchDrag(page, client, await grip(), 400);
-  const tallest = await boxes(page, selectors);
-  expect(Math.abs(heightOf(tallest.timeline) - 100)).toBeLessThan(3);
-  expect(await pageScrolls(page)).toBe(false);
-  await touchDrag(page, client, await grip(), -400);
-  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(96, 0);
-
-  // The height holds across the preview's tabs, as on desktop.
-  await touchDrag(page, client, await grip(), 60);
-  const resized = heightOf((await boxes(page, selectors)).pane);
-  const tabs = header.getByRole("tablist", { name: "Preview" });
-  await tabs.getByRole("tab", { name: "Media" }).click();
-  await tabs.getByRole("tab", { name: "Timeline" }).click();
-  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(resized, 0);
-});
-
-test.describe("landscape phone", () => {
-  test.use({ viewport: { width: 915, height: 412 } });
-
-  test("keeps the panes and VU meter beside the timeline", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator(".app-shell")).toHaveClass(
-      /app-shell--phone-landscape/,
-    );
-    const header = page.locator(".preview-panel__header");
-    await header.getByRole("button", { name: "Scopes" }).click();
-    await header.getByRole("button", { name: "Audio" }).click();
-    await expect(transportLevel(page)).toBeVisible();
-    expect(await pageScrolls(page)).toBe(false);
-    const layout = await boxes(page, {
-      monitor: ".preview-monitor",
-      scopes: ".scopes-pane",
-      audio: ".audio-analysis",
-      transport: ".mobile-transport",
-      timeline: ".timeline-panel",
-    });
-    expect(
-      (layout.monitor?.bottom ?? 0) - (layout.monitor?.top ?? 0),
-    ).toBeGreaterThan(60);
-    for (const pane of [layout.monitor, layout.scopes, layout.audio]) {
-      expect(pane?.bottom).toBeLessThanOrEqual(layout.transport?.top ?? 0);
-      expect(pane?.right).toBeLessThanOrEqual(layout.timeline?.left ?? 0);
-    }
-  });
+  // It opens the Media sheet's Record tab to pick inputs from.
+  await expect(page.getByRole("button", { name: "Close media" })).toBeVisible();
 });

@@ -218,6 +218,7 @@ function Layers() {
       <section className="track-row track-placeholder track-placeholder--layer">
         <div className="track-label">
           <TrackAddButton
+            disabled={false}
             label="Layer"
             onClick={addLayer}
             title="Add a layer"

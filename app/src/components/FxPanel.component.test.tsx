@@ -7,8 +7,8 @@ import { addEffect, ensureLayerLayouts } from "../fx-stack";
 import { addTextClip } from "../text-clip.ts";
 import { FxPanel } from "./FxPanel";
 import {
-  type FixtureSession,
   FixtureFxPanel,
+  type FixtureSession,
   PhoneEditor,
 } from "./mobile/phone-editor.fixture.tsx";
 
@@ -52,8 +52,13 @@ function clippedControls(sheet: Element) {
     }
     for (const element of panel.querySelectorAll("*")) {
       const box = element.getBoundingClientRect();
-      if (box.width && (box.left < edges.left - 1 || box.right > edges.right + 1)) {
-        clipped.push(`${panel.getAttribute("aria-label")}: ${element.className}`);
+      if (
+        box.width &&
+        (box.left < edges.left - 1 || box.right > edges.right + 1)
+      ) {
+        clipped.push(
+          `${panel.getAttribute("aria-label")}: ${element.className}`,
+        );
       }
     }
   }
@@ -94,7 +99,9 @@ describe(FxPanel.name, () => {
       ).toContain("Clip Text");
 
       // The text animates in Reactive mode, with its Reactivity knob.
-      await page.getByRole("button", { name: "Animation", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Animation", exact: true })
+        .click();
       const animation = page.getByRole("region", { name: "Text animation" });
       await animation
         .getByRole("group", { name: "Mode" })
@@ -128,7 +135,9 @@ describe(FxPanel.name, () => {
 
       // Animation: Mode, Timing, Reactivity, Motion and Parameters all show
       // whole, with no two overlapping.
-      await page.getByRole("button", { name: "Animation", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Animation", exact: true })
+        .click();
       await expect.element(animation).toBeVisible();
       expect(clippedControls(fx)).toEqual([]);
       expect(scrollsSideways(fx)).toBe(false);
@@ -155,7 +164,9 @@ describe(FxPanel.name, () => {
         .getByRole("group", { name: "Mode" })
         .getByRole("button")
         .elements()) {
-        expect(option.getBoundingClientRect().height).toBeGreaterThanOrEqual(36);
+        expect(option.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+          36,
+        );
       }
     });
   }

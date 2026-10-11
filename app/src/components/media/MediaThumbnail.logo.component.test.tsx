@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { describe, expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { cdp, page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { MediaItem } from "../../media";
 import { MediaThumbnail } from "./MediaThumbnail";
@@ -99,6 +99,9 @@ describe("MediaThumbnail", () => {
       containedLogoPoint(box, 100, 152), // the bottom strip
     ];
     const outside = [containedLogoPoint(box, 30, 100)]; // between the strips
+    // Test files run in parallel tabs, and a background tab paints no
+    // frames to screenshot.
+    await cdp().send("Page.bringToFront");
     const png = await page.screenshot({ element: image, save: false });
     const pixels = await screenshotPixels(png, [...inside, ...outside]);
     const luma = ([red, green, blue]: Rgba) =>

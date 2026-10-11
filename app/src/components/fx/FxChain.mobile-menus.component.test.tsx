@@ -73,7 +73,9 @@ function LayerChain() {
   );
 }
 
-async function renderPhoneChain(viewport = PHONE_VIEWPORT) {
+async function renderPhoneChain(
+  viewport: { width: number; height: number } = PHONE_VIEWPORT,
+) {
   await setViewport(viewport);
   await emulateTouch();
   // The FX tab opens the panel as a half-height sheet.

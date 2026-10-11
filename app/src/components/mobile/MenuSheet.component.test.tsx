@@ -28,7 +28,12 @@ const entries: ContextMenuEntry[] = [
         id: "open",
         label: "Open",
         submenu: [
-          { type: "item", id: "open-project", label: "Project…", onSelect: noop },
+          {
+            type: "item",
+            id: "open-project",
+            label: "Project…",
+            onSelect: noop,
+          },
           { type: "item", id: "open-folder", label: "Folder…", onSelect: noop },
         ],
       },
@@ -82,7 +87,9 @@ describe("MenuSheet", () => {
     motion = recordMotion();
     const log = motion;
     await openMore();
-    await expect.element(page.getByRole("menu", { name: "More" })).toBeVisible();
+    await expect
+      .element(page.getByRole("menu", { name: "More" }))
+      .toBeVisible();
     await expect
       .poll(() => log.motion)
       .toEqual(
@@ -95,7 +102,9 @@ describe("MenuSheet", () => {
     await page.getByRole("button", { name: "Close menu" }).click();
     // It stays up, out of the way of taps and the accessibility tree, until
     // it has slid away.
-    await expect.element(page.getByRole("menu", { name: "More" })).not.toBeInTheDocument();
+    await expect
+      .element(page.getByRole("menu", { name: "More" }))
+      .not.toBeInTheDocument();
     await expect
       .poll(() => log.motion)
       .toEqual(

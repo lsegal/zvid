@@ -30,7 +30,9 @@ const fxPanel = () => document.querySelector(".fx-panel") as HTMLElement;
 const isShown = (element: Element | null) =>
   element !== null && getComputedStyle(element).display !== "none";
 const editorTab = (name: string) =>
-  page.getByRole("navigation", { name: "Editor" }).getByRole("button", { name });
+  page
+    .getByRole("navigation", { name: "Editor" })
+    .getByRole("button", { name });
 
 describe(MobileShellChrome.name, () => {
   test("the FX sheet slides up, eases between heights and slides down", async () => {
