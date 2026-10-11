@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 
+// Playwright, not a component test: it runs real web exports and reads the
+// encoded files.
+
 // Returns the payload of the first `type` box in data[start, end).
 function findBox(
   data: Buffer,

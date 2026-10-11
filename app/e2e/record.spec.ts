@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: recording runs getUserMedia and MediaRecorder end to
+// end through the app's playback, undo, export and saved session.
+//
 // The transport Record button (#855): recording armed source tracks from
 // Chromium's fake camera and microphone into clips that grow from the
 // playhead, then land in the session like imported media.

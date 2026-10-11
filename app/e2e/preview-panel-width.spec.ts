@@ -1,5 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: the limit comes from the whole editor layout (App's
+// grid, the timeline and its layer headers), window resizes and the width
+// saved in localStorage.
+//
 // The preview panel widens as far as the window allows: the only limit is the
 // timeline area past the layer headers, which keeps at least 80px.
 const TIMELINE_MIN_WIDTH = 80;

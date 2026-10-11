@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { readProjectArchive } from "../src/project-archive.ts";
 
+// Kept in Playwright: the sample's downloads, decoding, playback, export and reloads need the whole app.
 // The zvid opening sample: File → Open → Sample, and the sample opened on an
 // empty start (`?sample=1`, since automation turns it off by default). The
 // sample opens at once and its media downloads from the app's own origin

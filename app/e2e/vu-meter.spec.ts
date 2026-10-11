@@ -1,8 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The transport bar's stereo VU meter, left of the preview volume, meters
-// the program mix (the clips' audio mix) before the preview volume, and
-// decays to empty when playback stops.
+// Stays in Playwright: it meters the real mixer playing an imported clip.
+// TransportBar.component.test.tsx covers the meter's layout and colors.
+//
+// The transport bar's stereo VU meter meters the program mix (the clips'
+// audio mix) before the preview volume, and decays to empty when playback
+// stops.
 const DROP_AREA = '[aria-label="Source track drop area"]';
 const SILENT = "-inf dB";
 
@@ -68,22 +71,6 @@ async function addSourceAudio(page: Page) {
   });
 }
 
-// Makes every analyser read a square wave above full scale while
-// window.__forceClip is set, standing in for a clipping mix.
-async function allowForcedClipping(page: Page) {
-  await page.addInitScript(() => {
-    const read = AnalyserNode.prototype.getFloatTimeDomainData;
-    AnalyserNode.prototype.getFloatTimeDomainData = function (array) {
-      read.call(this, array);
-      if ((window as { __forceClip?: boolean }).__forceClip) {
-        for (let index = 0; index < array.length; index++) {
-          array[index] = index % 2 ? -1.5 : 1.5;
-        }
-      }
-    };
-  });
-}
-
 // The loudest of a few readings over 300 ms. Headless Chromium's media
 // playback has short dropouts, which a single reading can land in.
 async function loudest(read: () => Promise<number>) {
@@ -95,63 +82,7 @@ async function loudest(read: () => Promise<number>) {
   return max;
 }
 
-function isRed(color: string) {
-  const [red, green, blue, alpha = 1] = (color.match(/[\d.]+/g) ?? []).map(
-    Number,
-  );
-  return alpha > 0 && red > 2 * Math.max(green, blue, 20);
-}
-
-async function zoneBackgrounds(page: Page) {
-  return page
-    .locator(".vu-meter__zone")
-    .evaluateAll((zones) =>
-      zones.map((zone) => getComputedStyle(zone).backgroundColor),
-    );
-}
-
-// The bars → readout and readout → mute button gaps.
-async function readoutGaps(page: Page) {
-  const bars = await page.locator(".vu-meter__bars").boundingBox();
-  const text = await readout(page).boundingBox();
-  const mute = await page
-    .getByRole("button", { name: /mute preview/i })
-    .boundingBox();
-  if (!bars || !text || !mute) {
-    throw new Error("The meter or the mute button is not visible");
-  }
-  return {
-    before: text.x - (bars.x + bars.width),
-    after: mute.x - (text.x + text.width),
-  };
-}
-
 test.use({ viewport: { width: 1600, height: 900 } });
-
-test("the meter sits left of the volume control and starts empty", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const meter = await page.locator(".vu-meter").boundingBox();
-  const mute = await page
-    .getByRole("button", { name: "Mute preview" })
-    .boundingBox();
-  if (!meter || !mute) {
-    throw new Error("The meter or the mute button is not visible");
-  }
-  expect(meter.x + meter.width).toBeLessThanOrEqual(mute.x);
-  expect(
-    Math.abs(meter.y + meter.height / 2 - (mute.y + mute.height / 2)),
-  ).toBeLessThan(2);
-
-  for (const name of ["Left level", "Right level"] as const) {
-    await expect(channel(page, name)).toHaveAttribute("aria-valuemin", "-60");
-    await expect(channel(page, name)).toHaveAttribute("aria-valuemax", "6");
-    await expect(channel(page, name)).toHaveAttribute("aria-valuenow", "-60");
-  }
-  await expect(readout(page)).toHaveText(SILENT);
-  await expect(readout(page)).toHaveAttribute("aria-live", "off");
-});
 
 test("the meter reads the audio mix regardless of the preview volume", async ({
   page,
@@ -183,84 +114,4 @@ test("the meter reads the audio mix regardless of the preview volume", async ({
   await expect(page.locator(".vu-meter__channel.has-peak")).toHaveCount(0, {
     timeout: 10_000,
   });
-});
-
-test("the meter hides before the volume slider in a narrow bar", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await expect(
-    page.getByRole("slider", { name: "Preview volume" }),
-  ).toBeVisible();
-
-  // Wherever the meter shows, it never pushes into the transport buttons.
-  for (const width of [1440, 1280, 1180, 1100, 1024, 960, 901]) {
-    await page.setViewportSize({ width, height: 900 });
-    const cluster = await page.locator(".transport-cluster").boundingBox();
-    const volume = await page.locator(".volume-control").boundingBox();
-    if (!cluster || !volume) {
-      throw new Error(`The transport bar is not laid out at ${width}px`);
-    }
-    expect(volume.x, `at ${width}px`).toBeGreaterThanOrEqual(
-      cluster.x + cluster.width,
-    );
-  }
-
-  await page.setViewportSize({ width: 375, height: 740 });
-  await expect(page.locator(".vu-meter")).toBeHidden();
-  await expect(
-    page.getByRole("slider", { name: "Preview volume" }),
-  ).toBeVisible();
-});
-
-test("the meter is red only while a channel clips", async ({ page }) => {
-  await allowForcedClipping(page);
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-
-  for (const name of ["Left level", "Right level"] as const) {
-    const height = await channel(page, name).evaluate(
-      (element) => element.getBoundingClientRect().height,
-    );
-    expect(height).toBe(5);
-  }
-  for (const color of await zoneBackgrounds(page)) {
-    expect(isRed(color), color).toBe(false);
-  }
-
-  await addSourceAudio(page);
-  await page.getByRole("button", { name: "Play timeline" }).click();
-  // A loud mix short of clipping leaves the above-0 zone alone.
-  await expect.poll(() => readoutDb(page)).toBeGreaterThan(-30);
-  for (const color of await zoneBackgrounds(page)) {
-    expect(isRed(color), color).toBe(false);
-  }
-
-  await page.evaluate(() => {
-    (window as { __forceClip?: boolean }).__forceClip = true;
-  });
-  await expect(page.locator(".vu-meter__channel.is-clipped")).toHaveCount(2);
-  for (const color of await zoneBackgrounds(page)) {
-    expect(isRed(color), color).toBe(true);
-  }
-  await expect(readout(page)).toHaveText(/^\+\d+\.\d dB$/);
-  await page.getByRole("button", { name: "Pause playback" }).click();
-});
-
-test("the readout is spaced evenly between the bars and the mute button", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(readout(page)).toHaveText(SILENT);
-  const silent = await readoutGaps(page);
-  expect(Math.abs(silent.before - silent.after)).toBeLessThanOrEqual(1);
-
-  await readout(page).evaluate((element) => {
-    element.textContent = "−6.0 dB";
-  });
-  await expect(readout(page)).toHaveText(/ dB$/);
-  const loud = await readoutGaps(page);
-  expect(Math.abs(loud.before - loud.after)).toBeLessThanOrEqual(1);
-  expect(Math.abs(loud.before - silent.before)).toBeLessThanOrEqual(1);
 });

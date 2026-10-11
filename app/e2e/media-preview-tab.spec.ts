@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: real media playback, Space across panes and reload persistence need the whole app.
 // The preview pane's Timeline | Media tabs: media opened from the Media
 // drawer plays in the Media tab with its own transport, and Space and
 // playback follow the active tab. The fixtures are a three-second test
