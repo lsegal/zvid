@@ -14,7 +14,7 @@ import { readTextStyle } from "./text-style.ts";
 // The fixtures below are the compositor's inputs reduced to the fields it
 // reads, so they're passed through these loose types.
 type Layers = Parameters<typeof drawComposition>[2];
-type Order = Parameters<typeof drawComposition>[6];
+type Order = NonNullable<Parameters<typeof drawComposition>[6]>;
 type Effects = Parameters<typeof resolveEffectChain>[0];
 
 describe("drawComposition with an animated Order", () => {

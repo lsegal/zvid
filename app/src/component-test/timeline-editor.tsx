@@ -12,6 +12,7 @@ import {
   FxModulationClockContext,
 } from "../components/fx/modulation-clock";
 import { TimelineContextMenu } from "../components/TimelineContextMenu";
+import { TopBar } from "../components/TopBar";
 import { ArrangementLanes } from "../components/timeline/ArrangementLanes";
 import { Ruler } from "../components/timeline/Ruler";
 import { SourceTracks } from "../components/timeline/SourceTracks";
@@ -19,6 +20,7 @@ import { Timeline } from "../components/timeline/Timeline";
 import { TimelineToolbar } from "../components/timeline/TimelineToolbar";
 import { TransportBar } from "../components/timeline/TransportBar";
 import { useAppLayout } from "../hooks/useAppLayout.ts";
+import { useCollaborationState } from "../hooks/useCollaboration.ts";
 import { useFxContexts } from "../hooks/useFxContexts.ts";
 import { useFxEditing } from "../hooks/useFxEditing.ts";
 import { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
@@ -38,17 +40,19 @@ import type { MediaItem } from "../media";
 import { createSpaceHold } from "../space-shortcut";
 import { resetMouse } from "./timeline-mouse.ts";
 
-// The desktop editor's timeline, wired as App wires it: the toolbar, the
-// timeline with its ruler and layers, the transport bar and the FX panel,
-// driven by the same project store, selection, layout, viewport, playback
-// and editing hooks (keyboard shortcuts, menus and clip drags included).
+// The desktop editor's timeline, wired as App wires it: the top bar, the
+// toolbar, the timeline with its ruler, layers and source tracks, the
+// transport bar and the FX panel, driven by the same project store,
+// selection, layout, viewport, playback and editing hooks (keyboard
+// shortcuts, menus and clip drags included).
 // It leaves out what needs the wasm compositor, media or a saved session:
-// the top bar, the preview, the Media drawer, the Audio row's mix, media
-// import and recording, and session persistence. The top bar and the
-// preview's grid cells keep their places, so the timeline lays out about
-// where it does in the app.
+// the preview, the Media drawer, the Audio row's mix, media import and
+// recording, collaboration and session persistence. The preview's grid
+// cells keep their places, so the timeline lays out about where it does in
+// the app.
 
 const noop = () => {};
+const noopAsync = async () => false;
 const NO_IDS = new Set<string>();
 const NO_PROGRESS = new Map();
 const NO_TAKES = new Map<string, LiveTake>();
@@ -73,6 +77,7 @@ export function TimelineEditor({
   project: projectPatch,
   onState,
 }: TimelineEditorProps) {
+  const collaboration = useCollaborationState();
   const store = useProjectStore({ access: "owner", restoredSession: null });
   const {
     projectHistory,
@@ -269,8 +274,32 @@ export function TimelineEditor({
 
   return (
     <div className="app-shell" ref={appShellRef}>
-      {/* The top bar's place: File / Edit / Help, about 40px tall. */}
-      <div style={{ flex: "none", height: 40 }} />
+      <TopBar
+        canStartNewSession={false}
+        handleNewSession={noop}
+        handleOpenSession={noopAsync}
+        sample={{ handleOpenSample: noop }}
+        handleImport={noopAsync}
+        offlineMedia={[]}
+        showsMediaSync={false}
+        collaboration={collaboration}
+        handleDisconnectConnection={noop}
+        handleSaveToLibrary={noopAsync}
+        isExporting={false}
+        openExportDialog={noop}
+        setIsMediaStorageDialogOpen={noop}
+        setIsMediaSyncDialogOpen={noop}
+        setIsOfflineMediaDialogOpen={noop}
+        setIsProjectExportDialogOpen={noop}
+        setIsSessionSettingsOpen={noop}
+        setIsCaptureInstallerDialogOpen={noop}
+        handleStopShare={noop}
+        showShareCopiedBadge={noop}
+        exportButtonLabel="Export"
+        getEditMenuEntries={editing.getEditMenuEntries}
+        renamingLaneIdRef={selection.renamingLaneIdRef}
+        setStatus={setStatus}
+      />
       <main className="workspace">
         <div className="workspace__main">
           <section className="editor-panel">

@@ -59,6 +59,7 @@ describe(TimelineToolbar, () => {
         "tempo-pill",
       ),
     ).toBe(true);
+    expect(document.querySelectorAll(".topbar .tempo-pill")).toHaveLength(0);
 
     // −/+ still step the tempo, with undo.
     const tempo = tempos[0] as HTMLElement;

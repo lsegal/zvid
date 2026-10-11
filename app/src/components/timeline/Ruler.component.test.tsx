@@ -1,9 +1,6 @@
 import { describe, expect, onTestFinished, test } from "vitest";
-import { userEvent } from "vitest/browser";
-import {
-  type TimelineEditorState,
-  renderTimelineEditor,
-} from "../../component-test/timeline-editor.tsx";
+import { page, userEvent } from "vitest/browser";
+import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
 import {
   click,
   down,
@@ -80,16 +77,29 @@ describe(Ruler, () => {
       await up({ button });
     }
 
+    // Whether the Edit menu's Undo is disabled.
+    async function expectUndoDisabled(disabled: boolean) {
+      await userEvent.click(
+        page.getByRole("menuitem", { name: "Edit", exact: true }),
+      );
+      const undo = page.getByRole("menuitem", { name: /^Undo/ });
+      await expect.element(undo).toBeVisible();
+      // Radix leaves aria-disabled off enabled items.
+      if (disabled) {
+        await expect.element(undo).toHaveAttribute("aria-disabled", "true");
+      } else {
+        await expect.element(undo).not.toHaveAttribute("aria-disabled");
+      }
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => page.getByRole("menu").elements()).toEqual([]);
+    }
+
     // Records whether each contextmenu event reaching the window was
     // canceled, which is what keeps the browser's own menu closed.
     async function renderWatchingContextMenus() {
-      let state: TimelineEditorState | undefined;
       const screen = await renderTimelineEditor({
         // No momentum, so the pan lands exactly where the pointer let go.
         reducedMotion: true,
-        onState: (next) => {
-          state = next;
-        },
       });
       const contextMenus: boolean[] = [];
       const record = (event: Event) =>
@@ -98,11 +108,7 @@ describe(Ruler, () => {
       onTestFinished(() =>
         window.removeEventListener("contextmenu", record),
       );
-      return {
-        screen,
-        contextMenus,
-        canUndo: () => state?.canUndo,
-      };
+      return { screen, contextMenus };
     }
 
     test("right-dragging the ruler pans the timeline without moving the playhead", async () => {
@@ -181,8 +187,8 @@ describe(Ruler, () => {
     });
 
     test("right-dragging the ruler up zooms in around the pointer without moving the playhead", async () => {
-      const { contextMenus, canUndo } = await renderWatchingContextMenus();
-      expect(canUndo()).toBe(false);
+      const { contextMenus } = await renderWatchingContextMenus();
+      await expectUndoDisabled(true);
       const before = timelineState();
       const from = rulerPoint();
       const row = query(".ruler-row");
@@ -204,12 +210,11 @@ describe(Ruler, () => {
       );
       expect(contextMenus).not.toContain(false);
 
-      // The whole drag is one undo step: the Edit menu's Undo enables, and
-      // one undo restores the zoom.
-      await expect.poll(canUndo).toBe(true);
+      // The whole drag is one undo step.
+      await expectUndoDisabled(false);
       await userEvent.keyboard("{Control>}z{/Control}");
       await expect.poll(() => timelineState().zoom).toBe(before.zoom);
-      await expect.poll(canUndo).toBe(false);
+      await expectUndoDisabled(true);
     });
 
     test("a diagonal right-drag pans and zooms at once, keeping the grabbed time under the pointer", async () => {
