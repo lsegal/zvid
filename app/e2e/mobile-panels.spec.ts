@@ -1,4 +1,10 @@
-import { devices, expect, type Page, test } from "@playwright/test";
+import {
+  type CDPSession,
+  devices,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
 // The phone shell's preview header, transport VU meter and status toast
 // (#1177): the desktop pieces the phone layout used to hide outright.
@@ -189,6 +195,122 @@ test("Record with no armed track shows its hint as a toast", async ({
   expect(layout.toast?.left).toBeGreaterThanOrEqual(0);
   expect(layout.toast?.right).toBeLessThanOrEqual(375);
   expect(await pageScrolls(page)).toBe(false);
+});
+
+// A finger dragged straight down by `dy` (up when negative), through CDP so
+// the page would scroll or refresh if the splitter let it.
+async function touchDrag(
+  page: Page,
+  client: CDPSession,
+  from: { x: number; y: number },
+  dy: number,
+) {
+  const point = (y: number) => [{ x: from.x, y, id: 0 }];
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: point(from.y),
+  });
+  const steps = 10;
+  for (let step = 1; step <= steps; step += 1) {
+    await client.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: point(from.y + (dy * step) / steps),
+    });
+    await page.waitForTimeout(16);
+  }
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+}
+
+function heightOf(box: Box | null) {
+  return (box?.bottom ?? 0) - (box?.top ?? 0);
+}
+
+// #1202: a readable plot, compact kind buttons with finger-sized taps, and
+// a splitter on the pane's foot that trades height with the timeline.
+test("the Scopes pane is readable, compact and resizable by touch", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const header = page.locator(".preview-panel__header");
+  await header.getByRole("button", { name: "Scopes" }).click();
+  const pane = page.getByRole("region", { name: "Scopes" });
+  await expect(pane).toBeVisible();
+  const selectors = {
+    monitor: ".preview-monitor",
+    pane: ".scopes-pane",
+    plot: ".scopes-pane__body",
+    timeline: ".timeline-panel",
+  };
+  const start = await boxes(page, selectors);
+  expect(heightOf(start.plot)).toBeGreaterThan(110);
+
+  // The kind buttons stay small, yet a tap well above or below one still
+  // lands on it, and tapping each picks its scope.
+  const kinds = pane.getByRole("toolbar", { name: "Scope" });
+  for (const name of ["Waveform", "Parade", "Vectorscope", "Histogram"]) {
+    const button = kinds.getByRole("button", { name, exact: true });
+    const box = await button.boundingBox();
+    if (!box) {
+      throw new Error(`${name} is not visible`);
+    }
+    expect(box.height).toBeLessThan(24);
+    const x = box.x + box.width / 2;
+    for (const y of [box.y - 10, box.y + box.height + 10]) {
+      expect(
+        await page.evaluate(
+          ([x, y]) => document.elementFromPoint(x, y)?.textContent,
+          [x, y],
+        ),
+      ).toBe(name);
+    }
+    await page.touchscreen.tap(x, box.y + box.height + 10);
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+  }
+
+  // Dragging the splitter up shrinks the pane, giving the timeline the
+  // room, without scrolling the page or moving the monitor.
+  const client = await page.context().newCDPSession(page);
+  const splitter = pane.getByRole("separator", { name: "Resize scopes" });
+  await expect(splitter).toHaveCSS("touch-action", "none");
+  const grip = async () => {
+    const box = await splitter.boundingBox();
+    if (!box) {
+      throw new Error("The splitter is not visible");
+    }
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  await touchDrag(page, client, await grip(), -40);
+  const shrunk = await boxes(page, selectors);
+  expect(
+    Math.abs(heightOf(start.pane) - heightOf(shrunk.pane) - 40),
+  ).toBeLessThan(3);
+  expect(
+    Math.abs(heightOf(shrunk.timeline) - heightOf(start.timeline) - 40),
+  ).toBeLessThan(3);
+  expect(shrunk.monitor).toEqual(start.monitor);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await pageScrolls(page)).toBe(false);
+
+  // Far down, the pane grows until the timeline is at its least height;
+  // far up, the pane keeps its own.
+  await touchDrag(page, client, await grip(), 400);
+  const tallest = await boxes(page, selectors);
+  expect(Math.abs(heightOf(tallest.timeline) - 100)).toBeLessThan(3);
+  expect(await pageScrolls(page)).toBe(false);
+  await touchDrag(page, client, await grip(), -400);
+  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(96, 0);
+
+  // The height holds across the preview's tabs, as on desktop.
+  await touchDrag(page, client, await grip(), 60);
+  const resized = heightOf((await boxes(page, selectors)).pane);
+  const tabs = header.getByRole("tablist", { name: "Preview" });
+  await tabs.getByRole("tab", { name: "Media" }).click();
+  await tabs.getByRole("tab", { name: "Timeline" }).click();
+  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(resized, 0);
 });
 
 test.describe("landscape phone", () => {

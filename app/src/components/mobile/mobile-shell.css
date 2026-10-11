@@ -48,7 +48,6 @@
 .app-shell--phone .media-drawer-resize-handle,
 .app-shell--phone .playhead-jump,
 .app-shell--phone .fx-panel__toggle,
-.app-shell--phone .scopes-pane__resize,
 .app-shell--phone .status-bar__group {
   display: none;
 }
