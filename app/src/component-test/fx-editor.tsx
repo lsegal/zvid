@@ -16,8 +16,8 @@ import {
   type ProjectHistoryState,
   projectHistoryReducer,
 } from "../project-history";
-import { matchesShortcutKey } from "../shortcuts/keys.ts";
 import { redoShortcut, undoShortcut } from "../shortcuts/history.ts";
+import { matchesShortcutKey } from "../shortcuts/keys.ts";
 import type { Shortcut, ShortcutContext } from "../shortcuts/types.ts";
 
 // The FX panel as App wires it: the project's undo history, the FX panel

@@ -37,21 +37,29 @@ describe("Gain", () => {
     );
 
     expect(devices()).toHaveLength(1);
-    await expect.element(page.elementLocator(devices()[0])).toHaveAttribute(
-      "aria-label",
-      "Gain",
-    );
     await expect
-      .element(page.elementLocator(devices()[0]).getByRole("img", { name: "Audio effect" }))
+      .element(page.elementLocator(devices()[0]))
+      .toHaveAttribute("aria-label", "Gain");
+    await expect
+      .element(
+        page
+          .elementLocator(devices()[0])
+          .getByRole("img", { name: "Audio effect" }),
+      )
       .toBeVisible();
     // Audio effects have no Animation modifier.
     expect(
-      page.elementLocator(devices()[0]).getByRole("button", { name: /Turn Animation/ }).elements(),
+      page
+        .elementLocator(devices()[0])
+        .getByRole("button", { name: /Turn Animation/ })
+        .elements(),
     ).toHaveLength(0);
 
     const panel = () => page.elementLocator(devices()[0]);
     const fader = () => panel().getByRole("slider", { name: "Gain" });
-    await expect.element(fader()).toHaveAttribute("aria-orientation", "vertical");
+    await expect
+      .element(fader())
+      .toHaveAttribute("aria-orientation", "vertical");
     await expect.element(fader()).toHaveAttribute("aria-valuetext", "0.0 dB");
 
     // Dragging to the bottom mutes it.
@@ -106,10 +114,14 @@ describe("Gain", () => {
       page.getByRole("button", { name: "Add device to this clip" }).first(),
     );
     const menu = page.getByRole("menu");
-    expect(menu.getByRole("menuitem", { name: "Stylize" }).elements()).toHaveLength(0);
+    expect(
+      menu.getByRole("menuitem", { name: "Stylize" }).elements(),
+    ).toHaveLength(0);
     menu.getByRole("menuitem", { name: "Volume & Stereo" }).element().focus();
     await userEvent.keyboard("{ArrowRight}");
-    await expect.element(page.getByRole("menuitem", { name: /^Gain/ })).toBeVisible();
+    await expect
+      .element(page.getByRole("menuitem", { name: /^Gain/ }))
+      .toBeVisible();
     await userEvent.click(page.getByRole("menuitem", { name: /^Gain/ }));
     await expect.poll(() => devices().length).toBe(1);
     await expect.element(fader()).toHaveAttribute("aria-valuetext", "0.0 dB");
@@ -137,7 +149,9 @@ describe("Gain", () => {
       page.getByRole("button", { name: "Add device to this clip" }).first(),
     );
     const menu = page.getByRole("menu");
-    await expect.element(menu.getByRole("group", { name: "Video" })).toBeVisible();
+    await expect
+      .element(menu.getByRole("group", { name: "Video" }))
+      .toBeVisible();
     menu
       .getByRole("group", { name: "Audio" })
       .getByRole("menuitem", { name: "Volume & Stereo" })

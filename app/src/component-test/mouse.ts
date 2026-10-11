@@ -26,7 +26,10 @@ function frameOffset() {
 }
 
 function modifierBits(modifiers: readonly Modifier[] = []) {
-  return modifiers.reduce((bits, modifier) => bits | MODIFIER_BITS[modifier], 0);
+  return modifiers.reduce(
+    (bits, modifier) => bits | MODIFIER_BITS[modifier],
+    0,
+  );
 }
 
 async function send(event: Record<string, unknown>) {
@@ -44,7 +47,11 @@ async function send(event: Record<string, unknown>) {
 type Options = { modifiers?: readonly Modifier[] };
 
 export const mouse = {
-  async move(x: number, y: number, { steps = 1, modifiers }: Options & { steps?: number } = {}) {
+  async move(
+    x: number,
+    y: number,
+    { steps = 1, modifiers }: Options & { steps?: number } = {},
+  ) {
     const from = position;
     for (let step = 1; step <= steps; step++) {
       position = {
@@ -59,7 +66,11 @@ export const mouse = {
       });
     }
   },
-  async down({ button = "left", modifiers, clickCount = 1 }: Options & { button?: Button; clickCount?: number } = {}) {
+  async down({
+    button = "left",
+    modifiers,
+    clickCount = 1,
+  }: Options & { button?: Button; clickCount?: number } = {}) {
     held = button;
     buttons |= BUTTON_BITS[button];
     await send({
@@ -70,7 +81,11 @@ export const mouse = {
       modifiers: modifierBits(modifiers),
     });
   },
-  async up({ button = "left", modifiers, clickCount = 1 }: Options & { button?: Button; clickCount?: number } = {}) {
+  async up({
+    button = "left",
+    modifiers,
+    clickCount = 1,
+  }: Options & { button?: Button; clickCount?: number } = {}) {
     buttons &= ~BUTTON_BITS[button];
     held = "none";
     await send({
@@ -81,7 +96,11 @@ export const mouse = {
       modifiers: modifierBits(modifiers),
     });
   },
-  async click(x: number, y: number, options: Options & { button?: Button; clickCount?: number } = {}) {
+  async click(
+    x: number,
+    y: number,
+    options: Options & { button?: Button; clickCount?: number } = {},
+  ) {
     await mouse.move(x, y, options);
     for (let count = 1; count <= (options.clickCount ?? 1); count++) {
       await mouse.down({ ...options, clickCount: count });

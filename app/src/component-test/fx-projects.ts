@@ -1,7 +1,11 @@
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import { quartersToSeconds } from "../app/timeline-math.ts";
-import type { ArrangementClip, ProjectState, SourceSpan } from "../app/types.ts";
+import type {
+  ArrangementClip,
+  ProjectState,
+  SourceSpan,
+} from "../app/types.ts";
 import { addDefaultGain } from "../default-gain.ts";
 import { addFillClip } from "../fill-clip.ts";
 import { addFxClip } from "../fx-clip.ts";
@@ -145,10 +149,7 @@ export function withFillClip(
 }
 
 // Insert FX Clip over a selection: an FX clip with an empty stack.
-export function withFxClip(
-  project: ProjectState,
-  options: ClipPlacement = {},
-) {
+export function withFxClip(project: ProjectState, options: ClipPlacement = {}) {
   const added = addFxClip(project, {
     ...placement(project, options),
     id: uniqueId("fx"),
@@ -174,7 +175,9 @@ export function withEffect(
     effectName,
     undefined,
     id,
-  ).map((effect) => (effect.id === id ? setValues(effect, parameters) : effect));
+  ).map((effect) =>
+    effect.id === id ? setValues(effect, parameters) : effect,
+  );
   return { project: patchProjectState(project, { effects }), effectId: id };
 }
 
