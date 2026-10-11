@@ -83,6 +83,14 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     timelineScrollRef: inputs.timelineScrollRef,
     timelineClips: selection.timelineClips,
     bpm: project.bpm,
+    pendingSelection: selection.pendingSelection,
+    labelWidth: layout.labelWidth,
+    quarterPx: timeline.quarterPx,
+    totalQuarters: timeline.totalQuarters,
+    snapUnit: timeline.snapUnit,
+    snapEnabled: project.snapEnabled,
+    // As useClipDrag's shortest selection.
+    minimumSelectionQ: Math.max(timeline.snapUnit, timeline.beatUnit / 4),
     setSelectedClipId: selection.setSelectedClipId,
     setSelectedLaneId: selection.setSelectedLaneId,
     setPendingSelection: selection.setPendingSelection,
@@ -172,6 +180,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           anchor: { x: 0, y: 0 },
         })
       : [];
+  // A lane selection's actions, while no clip is selected.
+  const { pendingSelection } = selection;
+  const showsSelectionActions = isPhone && !selectedClip && pendingSelection;
+  const selectionMenuEntries = showsSelectionActions
+    ? editing.getClipMenuEntries({ kind: "selection", anchor: { x: 0, y: 0 } })
+    : [];
 
   const shellClassName = isPhone
     ? [
@@ -223,6 +237,10 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           clipId: selectedClip.id,
           anchor: { x: 0, y: 0 },
         }),
+      hasSelection: Boolean(showsSelectionActions),
+      selectionMenuEntries,
+      openSelectionMenu: () =>
+        selection.setClipMenu({ kind: "selection", anchor: { x: 0, y: 0 } }),
     },
   };
 }

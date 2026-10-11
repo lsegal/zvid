@@ -6,6 +6,8 @@ import {
   centeredScrollLeft,
   centerPlayheadQ,
   exceedsTouchSlop,
+  isTouchTap,
+  LONG_PRESS_MS,
   pickMenuItems,
   pinchZoom,
   quickLoopRegion,
@@ -55,6 +57,15 @@ describe("exceedsTouchSlop", () => {
     assert.equal(exceedsTouchSlop(3, 4), false);
     assert.equal(exceedsTouchSlop(TOUCH_SLOP_PX, 0), false);
     assert.equal(exceedsTouchSlop(TOUCH_SLOP_PX + 1, 0), true);
+  });
+});
+
+describe("isTouchTap", () => {
+  it("counts quick, still touches only", () => {
+    assert.equal(isTouchTap(3, 4, 120), true);
+    assert.equal(isTouchTap(TOUCH_SLOP_PX + 1, 0, 120), false);
+    // A hold that started a selection or picked up a clip is no tap.
+    assert.equal(isTouchTap(0, 0, LONG_PRESS_MS), false);
   });
 });
 
