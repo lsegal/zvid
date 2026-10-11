@@ -11,6 +11,7 @@ import {
   findByRole,
   hold,
   isVisible,
+  PLAYWRIGHT_TEST_TIMEOUT,
   playheadQ,
   query,
   renderApp,
@@ -27,8 +28,7 @@ import { Timeline } from "./Timeline";
 // The phone's timeline by touch (#1168): swipes scrub under a centered
 // playhead, pinches zoom, taps select and holds draw or move. These mount
 // the whole editor, since a touch edits the session and moves the
-// playhead; the first mount loads it all, so tests get Playwright's time
-// to run.
+// playhead; they get the e2e specs' time to run.
 
 const clipCount = () => document.querySelectorAll(".clip-card").length;
 const selection = () => document.querySelector(".timeline-selection");
@@ -47,7 +47,9 @@ function laneMiddleY() {
 
 waitAsLongAsPlaywright();
 
-describe(`${Timeline.name} on a phone`, { timeout: 60_000 }, () => {
+describe(`${Timeline.name} on a phone`, {
+  timeout: PLAYWRIGHT_TEST_TIMEOUT,
+}, () => {
   test("the playhead stays centered while a swipe scrubs", async () => {
     await usePhone();
     await renderApp();
@@ -339,7 +341,9 @@ describe(`${Timeline.name} on a phone`, { timeout: 60_000 }, () => {
   });
 });
 
-describe(`${Timeline.name} on a tablet`, { timeout: 60_000 }, () => {
+describe(`${Timeline.name} on a tablet`, {
+  timeout: PLAYWRIGHT_TEST_TIMEOUT,
+}, () => {
   test("a double tap on empty lane space selects a grid cell", async () => {
     await useTablet();
     await renderApp();

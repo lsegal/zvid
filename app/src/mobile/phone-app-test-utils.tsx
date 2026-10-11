@@ -27,7 +27,10 @@ export function wait(ms: number) {
 
 // The e2e specs these tests replace waited up to Playwright's 5 s for each
 // expectation; Vitest's poll gives up after 1 s, too soon for a whole
-// editor on a busy machine. Call it at the top of a test file.
+// editor on a busy machine. Call it at the top of a test file, and give
+// tests PLAYWRIGHT_TEST_TIMEOUT.
+export const PLAYWRIGHT_TEST_TIMEOUT = 180_000;
+
 export function waitAsLongAsPlaywright() {
   beforeAll(() => {
     vi.setConfig({ expect: { poll: { timeout: 5_000 } } });
@@ -98,15 +101,20 @@ export function touch(type: TouchType, points: Point[]) {
   });
 }
 
-// Sends `steps` in order, `gapMs` apart, without waiting for each to land:
-// a CDP round trip from the test page is slow enough to turn a swipe into
-// a hold, so only the gaps between sends keep the gesture's timing.
+// Sends `steps` in order, `gapMs` apart. Short gaps don't wait for each
+// touch to land: a CDP round trip from the test page is slow enough to turn
+// a swipe into a hold. A longer gap is a hold, timed from when the touch
+// before it landed, so a slow round trip can't shorten it.
 async function gesture(steps: Array<[TouchType, Point[]]>, gapMs: number[]) {
   const sent: Promise<unknown>[] = [];
   for (const [index, [type, points]] of steps.entries()) {
     sent.push(touch(type, points));
-    if (gapMs[index]) {
-      await wait(gapMs[index]);
+    const gap = gapMs[index] ?? 0;
+    if (gap >= 100) {
+      await Promise.all(sent);
+    }
+    if (gap) {
+      await wait(gap);
     }
   }
   await Promise.all(sent);

@@ -9,6 +9,7 @@ import {
   findByRole,
   isVisible,
   moveFinger,
+  PLAYWRIGHT_TEST_TIMEOUT,
   query,
   renderApp,
   timelineEdges,
@@ -20,8 +21,8 @@ import { LayerHeader } from "./LayerHeader";
 
 // The phone's layer labels by touch (#1168, #1205): their edges resize the
 // rows and the labels, and a long press or a grip reorders them. These
-// mount the whole editor, since each drag edits the session; the first
-// mount loads it all, so tests get Playwright's time to run.
+// mount the whole editor, since each drag edits the session; they get the
+// e2e specs' time to run.
 
 const names = () =>
   Array.from(
@@ -38,7 +39,9 @@ const isReordering = () =>
 
 waitAsLongAsPlaywright();
 
-describe(`${LayerHeader.name} on a phone`, { timeout: 60_000 }, () => {
+describe(`${LayerHeader.name} on a phone`, {
+  timeout: PLAYWRIGHT_TEST_TIMEOUT,
+}, () => {
   test("dragging a layer's bottom edge resizes its row", async () => {
     await usePhone();
     await renderApp();
@@ -82,7 +85,9 @@ describe(`${LayerHeader.name} on a phone`, { timeout: 60_000 }, () => {
   });
 });
 
-describe(`${useLayerReorder.name} on a phone`, { timeout: 60_000 }, () => {
+describe(`${useLayerReorder.name} on a phone`, {
+  timeout: PLAYWRIGHT_TEST_TIMEOUT,
+}, () => {
   // #1205: Reorder Layers mode shows the grips, which a finger drags at once.
   test("Reorder Layers mode drags layers by their grips", async () => {
     await usePhone();

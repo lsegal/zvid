@@ -16,6 +16,7 @@ import {
   drag,
   findByRole,
   isVisible,
+  PLAYWRIGHT_TEST_TIMEOUT,
   playheadQ,
   query,
   renderApp,
@@ -30,8 +31,7 @@ import { MobileTopBar } from "./MobileTopBar";
 // The touch-first phone shell (#1168): a phone-sized touch viewport gets
 // the mobile layout, while fine pointers and tablets keep the desktop one.
 // These mount the whole editor, since the shell's layout and sheets follow
-// the session's state; the first mount loads it all, so tests get
-// Playwright's time to run.
+// the session's state; they get the e2e specs' time to run.
 
 const shown = (selector: string) => isVisible(document.querySelector(selector));
 
@@ -43,7 +43,7 @@ afterEach(() => {
 
 waitAsLongAsPlaywright();
 
-describe(MobileShellChrome.name, { timeout: 60_000 }, () => {
+describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
   test("a phone gets the mobile shell with no page scroll", async () => {
     await usePhone();
     await renderApp();
@@ -109,6 +109,7 @@ describe(MobileShellChrome.name, { timeout: 60_000 }, () => {
     await expect.poll(height).toBeGreaterThan(half * 1.5);
     await findByRole("button", "Half height");
 
+    await settled(".fx-panel");
     const title = centerOf(".mobile-sheet-header__title");
     await drag(title, { x: title.x, y: title.y + 150 });
     await expect.poll(height).toBeCloseTo(half, 0);
@@ -303,7 +304,7 @@ function controlSizes() {
   );
 }
 
-describe(MobileTopBar.name, { timeout: 60_000 }, () => {
+describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
   test("Undo and Redo are one tap away in the top bar", async () => {
     await usePhone();
     await renderApp();
