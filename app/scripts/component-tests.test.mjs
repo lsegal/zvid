@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { componentTestCommand } from "./component-tests.mjs";
+import {
+  componentTestCommand,
+  componentTestShards,
+  FILES_PER_SHARD,
+  MAX_SHARDS,
+} from "./component-tests.mjs";
 
 const args = ["--changed", "abc123"];
 
@@ -67,5 +72,24 @@ describe("componentTestCommand", () => {
     assert.equal(run.command, undefined);
     assert.match(run.error, /xvfb-run/);
     assert.match(run.error, /\(hover: none\)/);
+  });
+});
+
+describe("componentTestShards", () => {
+  it("runs one shard when no test is selected", () => {
+    assert.deepEqual(componentTestShards(0), [1]);
+  });
+
+  it("keeps a small selection in one shard", () => {
+    assert.deepEqual(componentTestShards(FILES_PER_SHARD), [1]);
+  });
+
+  it("splits a larger selection into shards of about FILES_PER_SHARD files", () => {
+    assert.deepEqual(componentTestShards(FILES_PER_SHARD + 1), [1, 2]);
+    assert.deepEqual(componentTestShards(57), [1, 2, 3, 4]);
+  });
+
+  it("caps the whole suite at MAX_SHARDS", () => {
+    assert.equal(componentTestShards(1000).length, MAX_SHARDS);
   });
 });
