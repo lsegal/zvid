@@ -47,7 +47,10 @@ test("the top bar's logo is the brand purple and its wordmark is the primary tex
   );
 });
 
-test("the favicon is the zvid logo", async ({ page, request }) => {
+test("the favicon is the white zvid logo on the purple square", async ({
+  page,
+  request,
+}) => {
   await page.goto("/");
   const href = await page
     .locator('link[rel="icon"]')
@@ -56,8 +59,9 @@ test("the favicon is the zvid logo", async ({ page, request }) => {
   expect(response.ok()).toBe(true);
   expect(response.headers()["content-type"]).toContain("image/svg+xml");
   const svg = await response.text();
-  expect(svg).toContain('viewBox="-8 -8 258 212"');
-  expect(svg).toContain('fill="#863bff"');
+  expect(svg).toContain('viewBox="0 0 512 512"');
+  expect(svg).toMatch(/<rect\b[^>]*rx="\d+" fill="#863bff"/);
+  expect(svg).toContain('<g fill="#fff"');
   expect(svg.match(/<path\b/g)).toHaveLength(3);
   expect(svg).not.toContain("<ellipse");
 });
