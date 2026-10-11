@@ -32,6 +32,9 @@ import { DEFAULT_SESSION_SETTINGS } from "../session-settings.ts";
 import { readTextStyle } from "../text-style.ts";
 import { useLayerReorder } from "../use-layer-reorder.ts";
 import { useSpacePlayback } from "./useSpacePlayback.ts";
+// What ArrangementLanes and LaneRow load, for the rows laid out below.
+import "../components/timeline/arrangement-lanes.css";
+import "../components/timeline/lane-row.css";
 
 // The harness runs useSpacePlayback as App does; importing it here makes
 // `vitest --changed` select this file when it changes.
@@ -204,7 +207,10 @@ function Layers() {
             toggleRowCollapsed={noop}
             resizeRow={noop}
           />
-          <div className="track-row__content" data-timeline-lane-id={lane.id}>
+          <div
+            className="track-row__content track-row__content--arrangement"
+            data-timeline-lane-id={lane.id}
+          >
             {lane.id === "1" ? (
               <ClipCard
                 clip={TEXT_CLIP}
