@@ -5,9 +5,9 @@ import { render } from "vitest-browser-react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
 import { SILENT_AUDIO_MIX } from "../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
-import { IDENTITY_TRANSFORM } from "../composition-transform.ts";
 import { DesktopShell } from "../component-test/shells.tsx";
 import { setViewport } from "../component-test/viewport.ts";
+import { IDENTITY_TRANSFORM } from "../composition-transform.ts";
 import { createPlayheadSignal } from "../playhead-signal.ts";
 import { PreviewPanel, type PreviewPanelProps } from "./PreviewPanel";
 
@@ -162,9 +162,9 @@ describe("header", () => {
   test("a narrow preview ellipsizes the clip name on one line", async () => {
     await setViewport({ width: 1400, height: 900 });
     await render(editorGrid(PREVIEW_MIN_WIDTH));
-    expect(
-      document.querySelector(".preview-panel__clip")?.textContent,
-    ).toBe("No clip at playhead");
+    expect(document.querySelector(".preview-panel__clip")?.textContent).toBe(
+      "No clip at playhead",
+    );
 
     const layout = headerLayout();
     expect(layout.clipTruncated).toBe(true);

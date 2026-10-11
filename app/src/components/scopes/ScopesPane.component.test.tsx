@@ -143,9 +143,9 @@ test("with nothing to analyze the pane shows its message in place of the canvas"
   );
 
   const pane = page.getByRole("region", { name: "Scopes", exact: true });
-  await expect
-    .element(pane)
-    .toHaveTextContent(/Audio only: there is no picture to analyze\./);
+  expect(pane.element().querySelector(".scopes-pane__empty")?.textContent).toBe(
+    "Audio only: there is no picture to analyze.",
+  );
   const canvas = document.querySelector<HTMLElement>(".scopes-pane__canvas");
   expect(canvas?.hidden).toBe(true);
   expect(canvas?.getBoundingClientRect().height).toBe(0);

@@ -79,10 +79,7 @@ function MediaTab() {
         />
       </div>
       {/* The timeline handles its own presses without taking focus. */}
-      <button
-        type="button"
-        onPointerDown={(event) => event.preventDefault()}
-      >
+      <button type="button" onPointerDown={(event) => event.preventDefault()}>
         Clip
       </button>
     </div>
@@ -112,7 +109,10 @@ async function seekMedia(seconds: number) {
   );
 }
 
-test("In/Out points are set, dragged and cleared", async () => {
+// Many real presses and a drag, which a busy host makes slow.
+test("In/Out points are set, dragged and cleared", {
+  timeout: 30_000,
+}, async () => {
   const screen = await render(<MediaTab />);
   const readout = screen.getByTestId("media-range-readout");
   const readoutText = () => readout.element().textContent;
@@ -139,16 +139,20 @@ test("In/Out points are set, dragged and cleared", async () => {
   const bar = document
     .querySelector(".media-range")
     ?.getBoundingClientRect() as DOMRect;
-  await userEvent.dragAndDrop(marker("Out"), page.elementLocator(document.querySelector(".media-range") as HTMLElement), {
-    targetPosition: { x: bar.width * (2.5 / 3), y: bar.height / 2 },
-  });
+  await userEvent.dragAndDrop(
+    marker("Out"),
+    page.elementLocator(document.querySelector(".media-range") as HTMLElement),
+    {
+      targetPosition: { x: bar.width * (2.5 / 3), y: bar.height / 2 },
+    },
+  );
   await expect.poll(() => markerSeconds("Out")).toBeCloseTo(2.5, 1);
   const dragged = markerSeconds("Out");
   expect(Math.abs(dragged * 30 - Math.round(dragged * 30))).toBeLessThan(1e-6);
 
   // Clear goes back to the whole file.
   await clear.click();
-  expect(dims()).toHaveLength(0);
+  await expect.poll(() => dims().length).toBe(0);
   await expect.poll(readoutText).toMatch(/In 00:00:00.*Out 00:03:00/);
 });
 

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// Undo, IndexedDB persistence and the Media drawer's badge need the whole
+// Kept in Playwright: undo, IndexedDB persistence and the drawer badge need the whole app; MediaRangeBar.component.test.tsx covers the rest.
 // app; MediaRangeBar.component.test.tsx covers the markers, readout and keys.
 // In/Out points on media in the Media tab: shown in the Media drawer,
 // undoable, cleared, and kept across a reload. The fixture is a three-second
@@ -87,9 +87,7 @@ function readSavedPayload(page: Page) {
   );
 }
 
-test("In/Out points are badged, undone, kept and cleared", async ({
-  page,
-}) => {
+test("In/Out points are badged, undone, kept and cleared", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);

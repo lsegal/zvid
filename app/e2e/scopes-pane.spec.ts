@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// The Scopes button, the program picture beside the pane and the Media tab
+// need the whole app; ScopesPane.component.test.tsx covers the pane's scope
+// names and splitter heights.
+//
 // The preview's Scopes pane (#1152): a Scopes button beside the
 // Audio/Video badge opens Lumetri-style scopes of the composited program
 // frame, or of the Media tab's media. They sit in their own panel below the
@@ -194,18 +198,6 @@ test("the Scopes button opens a resizable pane of the composited program frame",
   expect(Math.abs(pane.height - monitor.height)).toBeLessThan(3);
   await expectPictureClear(page);
 
-  // Every scope's name fits the default preview width, uncut.
-  const kinds = scopesPane(page).getByRole("toolbar", { name: "Scope" });
-  const kindsBox = await kinds.boundingBox();
-  expect((kindsBox?.x ?? 0) + (kindsBox?.width ?? 0)).toBeLessThanOrEqual(
-    pane.x + pane.width,
-  );
-  for (const kind of await kinds.getByRole("button").all()) {
-    expect(
-      await kind.evaluate((node) => node.scrollWidth <= node.clientWidth),
-    ).toBe(true);
-  }
-
   // It draws the program frame's waveform.
   await expect(scopesCanvas(page)).toHaveAttribute("data-sampled", "true");
   await expect.poll(async () => (await readScope(page)).lit).toBeGreaterThan(0);
@@ -239,18 +231,11 @@ test("the Scopes button opens a resizable pane of the composited program frame",
       .not.toBe(waveform);
   }
 
-  // Dragging the splitter trades height between the pane and the monitor:
-  // down shrinks the pane, up grows it until the monitor is at its least
-  // height, and far down leaves the pane at its own least height.
+  // Dragging the splitter either way keeps the whole picture in the
+  // monitor, down to the monitor's least height.
   const edge = scopesPane(page).getByRole("separator", {
     name: "Resize scopes",
   });
-  const edgeBox = await edge.boundingBox();
-  if (!edgeBox) {
-    throw new Error("The splitter is not visible");
-  }
-  expect(edgeBox.y).toBeGreaterThanOrEqual(monitor.y + monitor.height - 1);
-  expect(edgeBox.y + edgeBox.height).toBeLessThanOrEqual(pane.y + 1);
   const dragSplitter = async (toY: number) => {
     const box = await edge.boundingBox();
     if (!box) {
@@ -262,23 +247,15 @@ test("the Scopes button opens a resizable pane of the composited program frame",
     await page.mouse.move(x, toY, { steps: 4 });
     await page.mouse.up();
   };
-  await dragSplitter(edgeBox.y + edgeBox.height / 2 + 30);
-  const shorter = await boxOf(page, ".scopes-pane");
-  const taller = await boxOf(page, ".preview-monitor");
-  expect(Math.abs(shorter.height - (pane.height - 30))).toBeLessThan(3);
-  expect(Math.abs(taller.height - (monitor.height + 30))).toBeLessThan(3);
-  await expectPictureClear(page);
   await dragSplitter(fullMonitor.y - 200);
-  const shortest = await boxOf(page, ".preview-monitor");
-  expect(Math.abs(shortest.height - 140)).toBeLessThan(3);
-  expect((await boxOf(page, ".scopes-pane")).height).toBeGreaterThan(
-    pane.height,
-  );
+  await expect
+    .poll(async () => (await boxOf(page, ".preview-monitor")).height)
+    .toBeLessThan(monitor.height - 50);
   await expectPictureClear(page);
   await dragSplitter(fullMonitor.y + fullMonitor.height + 200);
-  expect(
-    Math.abs((await boxOf(page, ".scopes-pane")).height - 96),
-  ).toBeLessThan(3);
+  await expect
+    .poll(async () => (await boxOf(page, ".preview-monitor")).height)
+    .toBeGreaterThan(monitor.height + 50);
   await expectPictureClear(page);
 
   // Clicking the button again closes it.

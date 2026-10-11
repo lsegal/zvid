@@ -2,6 +2,7 @@ import { type MouseEvent, useState } from "react";
 import { afterEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { LABEL_WIDTH_DEFAULT } from "../../app/constants.ts";
 import type { ClipMenuState, Lane } from "../../app/types.ts";
 import type { AudioMix } from "../../audio-mix/resolve.ts";
 import { AUDIO_ROW_HEIGHT } from "../../audio-row-section.ts";
@@ -26,8 +27,9 @@ const noop = () => {};
 
 type AudioRowMix = Parameters<typeof AudioRow>[0]["mix"];
 
-// The Audio row as the timeline's footer draws it, with a toggle that
-// collapses it and the Audio actions menu its right-click opens.
+// The Audio row as the timeline panel's footer draws it, at the default
+// label width, with a toggle that collapses it and the Audio actions menu
+// its right-click opens.
 function Row({ mix, quarterPx = 40 }: { mix: AudioRowMix; quarterPx?: number }) {
   const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState<ClipMenuState | null>(null);
@@ -36,8 +38,12 @@ function Row({ mix, quarterPx = 40 }: { mix: AudioRowMix; quarterPx?: number }) 
     setMenu({ kind: "audio", anchor: { x: event.clientX, y: event.clientY } });
   };
   return (
-    <div className="timeline-footer">
-      <div className="timeline-footer__canvas" style={{ width: 1400 }}>
+    <div
+      className="timeline-panel"
+      style={{ ["--label-width" as string]: `${LABEL_WIDTH_DEFAULT}px` }}
+    >
+      <div className="timeline-footer">
+        <div className="timeline-footer__canvas" style={{ width: 1400 }}>
         <AudioRow
           mix={mix}
           openAudioMenu={openAudioMenu}
@@ -53,6 +59,7 @@ function Row({ mix, quarterPx = 40 }: { mix: AudioRowMix; quarterPx?: number }) 
           expandedHeight={AUDIO_ROW_HEIGHT}
           onResize={noop}
         />
+        </div>
       </div>
       <TimelineContextMenu
         clipMenu={menu}
@@ -205,7 +212,7 @@ test("the Audio row takes no files and starts empty", async () => {
     </DesktopShell>,
   );
   const row = screen.getByRole("region", { name: "Audio" });
-  await expect.element(row).toHaveTextContent("No audio");
+  await expect.poll(() => row.element().textContent).toContain("No audio");
   expect(audioRow().querySelectorAll('input[type="file"]')).toHaveLength(0);
   await expect
     .element(row.getByRole("button", { name: "Recompute audio" }))
@@ -354,7 +361,9 @@ test("a clip with audio draws the mix, and Refresh recomputes it", async () => {
     </DesktopShell>,
   );
   const row = screen.getByRole("region", { name: "Audio" });
-  await expect.element(row).toHaveTextContent("From source tracks · 1 clip");
+  await expect
+    .poll(() => row.element().textContent)
+    .toContain("From source tracks · 1 clip");
   await expect
     .poll(() => mixContent().getAttribute("data-audio-mix"), {
       timeout: 30_000,

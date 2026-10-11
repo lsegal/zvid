@@ -174,7 +174,10 @@ test("the drawer is collapsed by default and opens and closes", async () => {
   await expectDrawerHidden();
 });
 
-test("lists, searches, sizes and selects linked media", async () => {
+// Many real presses, which a busy host makes slow.
+test("lists, searches, sizes and selects linked media", {
+  timeout: 30_000,
+}, async () => {
   await render(<Editor mediaItems={LINKED_MEDIA} />);
   await toggle().click();
 
@@ -227,9 +230,9 @@ test("lists, searches, sizes and selects linked media", async () => {
     .element(drawer().getByRole("button", { name: "List" }))
     .toHaveAttribute("aria-pressed", "true");
   await expect.element(video).toHaveClass(/media-row/);
-  expect(video.element().querySelector(".media-row__kind")?.textContent).toMatch(
-    /^Video/,
-  );
+  expect(
+    video.element().querySelector(".media-row__kind")?.textContent,
+  ).toMatch(/^Video/);
   expect(tone.element().querySelector(".media-row__kind")?.textContent).toBe(
     "Audio",
   );

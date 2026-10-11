@@ -369,9 +369,9 @@ describe("resizing", () => {
 
     // Pressing Shift mid-drag switches to proportional at once.
     await key("keyDown", SHIFT_KEY);
-    await expect.poll(() => outlineBox().height).toBeLessThan(
-      before.height * 0.9,
-    );
+    await expect
+      .poll(() => outlineBox().height)
+      .toBeLessThan(before.height * 0.9);
     during = outlineBox();
     expectClose(
       during.width / during.height,
@@ -454,9 +454,7 @@ describe("resizing", () => {
     });
     expectOneCommit(edits, "move");
     const moved = outlineBox();
-    const handle = centerOf(
-      `preview-transform-handle-${sideways ? "e" : "s"}`,
-    );
+    const handle = centerOf(`preview-transform-handle-${sideways ? "e" : "s"}`);
     if (sideways) {
       expect(handle.x).toBeGreaterThan(video.left + video.width + 4);
     } else {
@@ -536,9 +534,9 @@ describe("rotating", () => {
 
     // Dragging the handle from above the layer's center to beside it is a
     // quarter turn, which settles exactly on 90 degrees.
-    expect(getComputedStyle(byTestId("preview-rotation-handle")).cursor).toMatch(
-      /url\(/,
-    );
+    expect(
+      getComputedStyle(byTestId("preview-rotation-handle")).cursor,
+    ).toMatch(/url\(/);
     await dragAround(handle, origin, 88.5);
     expect(readout()?.textContent).toBe("90°");
     await mouseUp();
@@ -567,8 +565,6 @@ describe("rotating", () => {
 
     // Double-clicking the handle straightens the layer.
     await doubleClick(centerOf("preview-rotation-handle"));
-    await expect
-      .poll(() => Math.abs(outlineRotation()))
-      .toBeLessThan(0.01);
+    await expect.poll(() => Math.abs(outlineRotation())).toBeLessThan(0.01);
   });
 });
