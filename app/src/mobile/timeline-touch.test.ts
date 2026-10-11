@@ -166,6 +166,18 @@ describe("quickLoopRegion", () => {
     });
   });
 
+  it("prefers the first non-empty range, so a selection beats the clip", () => {
+    const clip = { startQ: 2, endQ: 6 };
+    assert.deepEqual(quickLoopRegion(9, 4, { startQ: 10, endQ: 11 }, clip), {
+      startQ: 10,
+      endQ: 11,
+    });
+    assert.deepEqual(
+      quickLoopRegion(9, 4, undefined, { startQ: 3, endQ: 3 }, clip),
+      clip,
+    );
+  });
+
   it("loops the playhead's bar without a clip", () => {
     assert.deepEqual(quickLoopRegion(9, 4), { startQ: 8, endQ: 12 });
     assert.deepEqual(quickLoopRegion(0, 3), { startQ: 0, endQ: 3 });

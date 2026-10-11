@@ -129,15 +129,26 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     inputs.setStatus("Arm a source track to record a take.");
   }
 
+  // Loops the timeline selection (a lane range, else the loop strip's
+  // playback selection) and clears it, else the selected clip, else the
+  // playhead's bar.
   function toggleLoop() {
     if (timeline.loopRegion) {
       timeline.setLoopRegion(null);
       return;
     }
+    const { pendingSelection } = selection;
     timeline.setLoopRegion(
       quickLoopRegion(
         store.playheadQRef.current,
         timeline.barLength,
+        pendingSelection
+          ? {
+              startQ: pendingSelection.startQ,
+              endQ: pendingSelection.startQ + pendingSelection.durationQ,
+            }
+          : undefined,
+        timeline.playbackSelection ?? undefined,
         selectedClip
           ? {
               startQ: selectedClip.startQ,
@@ -146,6 +157,8 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           : undefined,
       ),
     );
+    selection.setPendingSelection(null);
+    timeline.setPlaybackSelection(null);
   }
 
   function getOverflowEntries(): ContextMenuEntry[] {

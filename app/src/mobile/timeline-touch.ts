@@ -145,16 +145,18 @@ export function pickMenuItems(
 }
 
 /**
- * The loop the mobile transport's loop button sets: around the selected
- * clip when there is one, otherwise the bar the playhead is in.
+ * The loop the mobile transport's loop button sets: around the first
+ * non-empty range given (the timeline selection, then the selected clip),
+ * otherwise the bar the playhead is in.
  */
 export function quickLoopRegion(
   playheadQ: number,
   barLength: number,
-  clip?: { startQ: number; endQ: number },
+  ...ranges: ({ startQ: number; endQ: number } | undefined)[]
 ) {
-  if (clip && clip.endQ > clip.startQ) {
-    return { startQ: clip.startQ, endQ: clip.endQ };
+  const range = ranges.find((range) => range && range.endQ > range.startQ);
+  if (range) {
+    return { startQ: range.startQ, endQ: range.endQ };
   }
   const bar = barLength > 0 ? barLength : 4;
   const startQ = Math.floor(Math.max(0, playheadQ) / bar) * bar;
