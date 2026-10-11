@@ -18,6 +18,7 @@ import {
   renderFrame,
   rowAt,
 } from "../../../component-test/fx-render.ts";
+import { createFillClip } from "../../../fill-clip.ts";
 import type { SessionEffect } from "../../../fx-stack";
 import "./pass.ts";
 
@@ -131,23 +132,15 @@ async function renderRow(
     {
       mediaItems: [],
       clips: [
-        {
+        createFillClip({
           id: "fill-1",
-          kind: "fill",
-          sourceSpanId: "",
-          sourceTrackId: "",
           laneId: "1",
-          label: "Fill",
-          mediaPath: "",
           startQ: 0,
-          durationSeconds: 4,
-          trimStartSeconds: 0,
-          sourceOffsetSeconds: 0,
-          sourceWindowStartSeconds: 0,
-          sourceWindowEndSeconds: 4,
+          durationQ: 8,
+          bpm: 120,
           tint: "#000",
           accent: "#fff",
-        },
+        }),
       ],
       lanes: [{ id: "1", name: "Layer 1", colorIndex: 0 }],
       effects,

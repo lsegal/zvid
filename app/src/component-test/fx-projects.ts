@@ -33,7 +33,7 @@ export function mediaItem(
     color: "#334",
     accent: "#f80",
     previewUrl: "",
-    availability: "available",
+    availability: "ready",
     ...options,
   };
 }
