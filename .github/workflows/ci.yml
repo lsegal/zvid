@@ -96,15 +96,15 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - uses: ./.github/actions/setup-playwright
-        with:
-          dir: app
-
-      # Tests that render the whole editor import App, which imports the
-      # wasm bridge.
+      # Dialogs that probe export support import the harness, whose dynamic
+      # import of the wasm bridge must resolve when Vite serves the tests.
       - name: Build export bridge
         working-directory: app
         run: wasm-pack build export-bridge --target web --out-dir pkg
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: app
 
       - name: Component tests
         working-directory: app
@@ -142,7 +142,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: component-test-results
-          path: app/src/**/__screenshots__
+          # Vitest browser mode saves a screenshot of each failing test here.
+          path: app/.vitest/attachments/failure-screenshots
+          include-hidden-files: true
           if-no-files-found: ignore
 
   # The browser tests are slow, so they run on pushes to main and when a

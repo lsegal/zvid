@@ -1,7 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// File ▸ Session Settings…, the status bar resolution and Ctrl/Cmd+, open a
-// dialog that sets the session's canvas, frame rate and encoding.
+// Playwright, not a component test: it checks the app's File menu, status bar
+// and undo history around the dialog.
+//
+// File ▸ Session Settings… and the status bar resolution open a dialog that
+// sets the session's canvas, frame rate and encoding. The dialog itself
+// (presets, validation, Ctrl/Cmd+,) is covered by
+// SessionSettingsDialog.component.test.tsx.
 
 function resolutionItem(page: Page) {
   return page.locator(".status-bar__item--button", { hasText: "Res" });
@@ -39,26 +44,16 @@ test("File ▸ Session Settings applies canvas and frame rate as one undo step",
   await expect(resolutionItem(page)).toContainText("1920x1080 · 30 fps");
 });
 
-test("the status bar resolution opens the dialog, which validates sizes", async ({
+test("the status bar resolution opens the dialog, and Cancel changes nothing", async ({
   page,
 }) => {
   await resolutionItem(page).click();
   const settings = dialog(page);
   await expect(settings).toBeVisible();
 
-  await settings.getByRole("button", { name: "Unlock aspect ratio" }).click();
-  await settings.getByLabel("Canvas width").fill("1921");
-  await expect(
-    settings.getByText("Must be even for video encoders."),
-  ).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Apply" })).toBeDisabled();
-
+  await settings.getByRole("combobox", { name: "Frame rate" }).click();
+  await page.getByRole("option", { name: "60 fps", exact: true }).click();
   await settings.getByRole("button", { name: "Cancel" }).click();
   await expect(settings).toBeHidden();
   await expect(resolutionItem(page)).toContainText("1920x1080 · 30 fps");
-});
-
-test("Ctrl+, opens the dialog", async ({ page }) => {
-  await page.keyboard.press("ControlOrMeta+,");
-  await expect(dialog(page)).toBeVisible();
 });
