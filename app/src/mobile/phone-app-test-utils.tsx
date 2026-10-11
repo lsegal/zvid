@@ -74,9 +74,9 @@ function frameOffset() {
   return { x: box.left, y: box.top, scale };
 }
 
-export async function touch(type: TouchType, points: Point[]) {
+export function touch(type: TouchType, points: Point[]) {
   const offset = frameOffset();
-  await cdp().send("Input.dispatchTouchEvent", {
+  return cdp().send("Input.dispatchTouchEvent", {
     type,
     touchPoints: points.map((point, id) => ({
       x: offset.x + point.x * offset.scale,
@@ -86,29 +86,76 @@ export async function touch(type: TouchType, points: Point[]) {
   });
 }
 
-// A finger from `from` to `to` in steps, after holding still for `holdMs`.
-export async function drag(from: Point, to: Point, holdMs = 0) {
-  await touch("touchStart", [from]);
-  if (holdMs) {
-    await wait(holdMs);
+// Sends `steps` in order, `gapMs` apart, without waiting for each to land:
+// a CDP round trip from the test page is slow enough to turn a swipe into
+// a hold, so only the gaps between sends keep the gesture's timing.
+async function gesture(steps: Array<[TouchType, Point[]]>, gapMs: number[]) {
+  const sent: Promise<unknown>[] = [];
+  for (const [index, [type, points]] of steps.entries()) {
+    sent.push(touch(type, points));
+    if (gapMs[index]) {
+      await wait(gapMs[index]);
+    }
   }
-  const steps = 12;
-  for (let step = 1; step <= steps; step += 1) {
-    await touch("touchMove", [
-      {
-        x: from.x + ((to.x - from.x) * step) / steps,
-        y: from.y + ((to.y - from.y) * step) / steps,
-      },
-    ]);
-    await wait(16);
-  }
-  await touch("touchEnd", []);
+  await Promise.all(sent);
 }
 
+// A finger from `from` to `to` in steps, after holding still for `holdMs`.
+export async function drag(from: Point, to: Point, holdMs = 0) {
+  const steps: Array<[TouchType, Point[]]> = [["touchStart", [from]]];
+  const gaps = [holdMs];
+  const count = 12;
+  for (let step = 1; step <= count; step += 1) {
+    steps.push([
+      "touchMove",
+      [
+        {
+          x: from.x + ((to.x - from.x) * step) / count,
+          y: from.y + ((to.y - from.y) * step) / count,
+        },
+      ],
+    ]);
+    gaps.push(16);
+  }
+  steps.push(["touchEnd", []]);
+  await gesture(steps, gaps);
+}
+
+// A finger down at `at` for `ms`, then up.
 export async function hold(at: Point, ms = 700) {
-  await touch("touchStart", [at]);
-  await wait(ms);
-  await touch("touchEnd", []);
+  await gesture(
+    [
+      ["touchStart", [at]],
+      ["touchEnd", []],
+    ],
+    [ms],
+  );
+}
+
+// Moves one finger from `from` to `to` in `count` steps `gapMs` apart,
+// without lifting it.
+export async function moveFinger(
+  from: Point,
+  to: Point,
+  count: number,
+  gapMs = 16,
+) {
+  const steps: Array<[TouchType, Point[]]> = [];
+  for (let step = 1; step <= count; step += 1) {
+    steps.push([
+      "touchMove",
+      [
+        {
+          x: from.x + ((to.x - from.x) * step) / count,
+          y: from.y + ((to.y - from.y) * step) / count,
+        },
+      ],
+    ]);
+  }
+  await gesture(
+    steps,
+    steps.map(() => gapMs),
+  );
 }
 
 // A quick touch, as Playwright's tap sends it.
