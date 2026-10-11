@@ -555,7 +555,6 @@ export const CompositionPlayer = forwardRef<
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CompositionRenderer | null>(null);
-  const playbackFrameRef = useRef<number>(0);
   const renderRequestRef = useRef<number>(0);
   const rendererState = useMemo(
     () => ({
@@ -691,9 +690,6 @@ export const CompositionPlayer = forwardRef<
     });
 
     return () => {
-      if (playbackFrameRef.current) {
-        window.cancelAnimationFrame(playbackFrameRef.current);
-      }
       if (renderRequestRef.current) {
         window.cancelAnimationFrame(renderRequestRef.current);
       }
@@ -747,17 +743,21 @@ export const CompositionPlayer = forwardRef<
         ...playback,
         isPlaying,
       });
-      playbackFrameRef.current = window.requestAnimationFrame(render);
     };
 
     render();
-
-    return () => {
-      if (playbackFrameRef.current) {
-        window.cancelAnimationFrame(playbackFrameRef.current);
-      }
-    };
-  }, [drawCurrentFrame, isPlaying, previewPixelRatio, readPlaybackState]);
+    // Each playback frame draws once usePlayback has moved the playhead for
+    // it. A frame callback of this child's own would run before the
+    // parent's, a frame behind: on a slow device, far enough behind that the
+    // audio mix re-seeks its media (#1192).
+    return isPlaying ? playheadSignal.subscribe(render) : undefined;
+  }, [
+    drawCurrentFrame,
+    isPlaying,
+    playheadSignal,
+    previewPixelRatio,
+    readPlaybackState,
+  ]);
 
   // While paused, seeks and drag-scrubbing move the live playhead.
   usePausedPlayheadFollow(playheadSignal, isPlaying, () => {
