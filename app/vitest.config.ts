@@ -12,6 +12,12 @@ export default mergeConfig(
     // Processes the imported stylesheets instead of stubbing them, so a
     // test sees the styles the app ships.
     css: {},
+    server: {
+      // `vitest --changed` walks the tests' imports through the server's
+      // ssr environment, whose CSS plugins only initialize when each
+      // environment runs its own buildStart.
+      perEnvironmentStartEndDuringDev: true,
+    },
     test: {
       include: ["src/**/*.component.test.tsx"],
       // Imports the global CSS. Every test depends on it, so a change to
