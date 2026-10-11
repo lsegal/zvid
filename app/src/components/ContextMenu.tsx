@@ -19,6 +19,9 @@ import {
   placeContextMenu,
   placeSubmenu,
 } from "../context-menu";
+import { useShellKind } from "../hooks/useShellKind.ts";
+import { isPhoneShell } from "../mobile/shell-kind.ts";
+import { MenuSheet } from "./mobile/MenuSheet";
 import "./context-menu.css";
 
 export type {
@@ -43,8 +46,20 @@ type ContextMenuProps = {
  * A right-click menu with shortcut hints, separators, disabled items and
  * hover- or keyboard-opened submenus. It stays inside the viewport and
  * closes on Escape, an outside click, scrolling or leaving the window.
+ * On a phone it opens as a bottom sheet instead (#1198).
  */
 export function ContextMenu({ anchor, ...props }: ContextMenuProps) {
+  const phone = isPhoneShell(useShellKind());
+  if (phone) {
+    return (
+      <MenuSheet
+        entries={props.entries}
+        label={props.label}
+        onClose={props.onClose}
+        open={anchor !== null}
+      />
+    );
+  }
   if (!anchor || typeof document === "undefined") {
     return null;
   }

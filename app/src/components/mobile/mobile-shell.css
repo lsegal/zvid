@@ -375,21 +375,14 @@
 
 /* Menus, selects and popovers portal to <body>, outside the shell, so they
    must clear the FX sheet, the Media sheet and the sheet layer above. */
-body:has(.app-shell--phone)
-  :is(
-    .dropdown-menu-content,
-    .popover-content,
-    .select-content,
-    .context-menu-layer
-  ) {
+body:has(.app-shell--phone) :is(.popover-content, .select-content) {
   z-index: 100;
 }
 
-/* A submenu beside a menu has little room on a phone: it narrows to fit
-   instead of running off the screen's edge. */
-body:has(.app-shell--phone) .dropdown-menu-content {
-  min-width: min(220px, var(--radix-dropdown-menu-content-available-width));
-  max-width: var(--radix-dropdown-menu-content-available-width);
+/* Menus open as sheets on a phone (#1198), above every other sheet and
+   panel, the FX sheet included. */
+.mobile-menu-sheet-layer {
+  z-index: 100;
 }
 
 .mobile-sheet-backdrop {
@@ -439,10 +432,13 @@ body:has(.app-shell--phone) .dropdown-menu-content {
 
 .mobile-menu-sheet__item {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 12px;
+  width: 100%;
   min-height: 48px;
-  padding: 0 14px;
+  padding: 6px 14px;
+  overflow-wrap: anywhere;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -451,8 +447,40 @@ body:has(.app-shell--phone) .dropdown-menu-content {
   text-align: left;
 }
 
-.mobile-menu-sheet__item > span {
+.mobile-menu-sheet__item > .mobile-menu-sheet__label {
   flex: 1;
+}
+
+/* A dropdown's rows keep their own content (ui/phone-dropdown-menu.tsx),
+   with a shortcut or submenu chevron at the right. */
+.mobile-menu-sheet__item > :is(
+  .mobile-menu-sheet__shortcut,
+  .dropdown-menu-shortcut,
+  .dropdown-menu-sub-chevron
+) {
+  flex: none;
+  margin-left: auto;
+}
+
+.mobile-menu-sheet__shortcut,
+.mobile-menu-sheet .dropdown-menu-shortcut {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mobile-menu-sheet__level:not([hidden]),
+.mobile-menu-sheet [role='group'] {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-sheet__heading {
+  padding: 10px 14px 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .mobile-menu-sheet__item svg {

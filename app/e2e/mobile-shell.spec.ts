@@ -3,7 +3,6 @@ import {
   type CDPSession,
   devices,
   expect,
-  type Locator,
   type Page,
   test,
 } from "@playwright/test";
@@ -298,7 +297,7 @@ test("the More sheet has the desktop File and Edit menus", async ({ page }) => {
   const more = page.getByRole("button", { name: "More", exact: true });
   const sheet = page.locator(".mobile-menu-sheet");
   const items = sheet.locator(
-    ".mobile-menu-sheet__item:not(.mobile-menu-sheet__back)",
+    ".mobile-menu-sheet__item:not(.mobile-menu-sheet__back) .mobile-menu-sheet__label",
   );
   await more.click();
   await expect(items).toHaveText([
@@ -681,27 +680,15 @@ test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
   await expect(sheet).toBeHidden();
 });
 
-// Menus portal to <body>, outside the sheets (#1170). An open menu blocks
-// pointer events everywhere else, so a hit test can't see a sheet drawn over
-// it; compare stacking instead. The sheet layer (.mobile-sheet-layer) sits
-// at 90, above the FX sheet.
-async function expectAboveSheets(page: Page, list: Locator) {
-  const viewport = page.viewportSize();
-  const box = await list.boundingBox();
-  // A pixel of slack for subpixel layout at the screen's edge.
-  expect(box?.x).toBeGreaterThanOrEqual(-1);
-  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
-    (viewport?.width ?? 0) + 1,
-  );
-  const [layer, sheet] = await list.evaluate((element) => {
-    const zIndex = (node: Element | null) =>
-      node ? Number(getComputedStyle(node).zIndex) || 0 : 0;
-    return [
-      zIndex(element.closest("[data-radix-popper-content-wrapper]")),
-      zIndex(document.querySelector(".fx-panel")),
-    ];
-  });
-  expect(layer).toBeGreaterThan(Math.max(sheet, 90));
+// Menus open as sheets above the FX sheet (#1170, #1198), and selects
+// portal to <body> above it too. An open select blocks pointer events
+// everywhere else, so a hit test can't see a sheet drawn over it; compare
+// stacking instead.
+async function zIndexOf(page: Page, selector: string) {
+  return page
+    .locator(selector)
+    .first()
+    .evaluate((element) => Number(getComputedStyle(element).zIndex) || 0);
 }
 
 test("menus and selects in the FX sheet open above it", async ({ page }) => {
@@ -710,23 +697,31 @@ test("menus and selects in the FX sheet open above it", async ({ page }) => {
   await tabs.getByRole("button", { name: "FX" }).click();
   const fx = page.locator(".fx-panel");
   await expect(fx).toBeVisible();
+  const fxZ = await zIndexOf(page, ".fx-panel");
 
   await fx.getByRole("button", { name: "Add device to Global" }).click();
-  const menu = page.getByRole("menu").first();
-  await expect(menu).toBeVisible();
-  await expectAboveSheets(page, menu);
-  await menu.getByRole("menuitem", { name: "Transform" }).click();
-  const submenu = page.getByRole("menu").nth(1);
-  await expect(submenu).toBeVisible();
-  await expectAboveSheets(page, submenu);
-  await submenu.getByRole("menuitem", { name: /^Zoom & Pan/ }).click();
-  await expect(page.getByRole("menu")).toHaveCount(0);
+  const sheet = page.locator(".mobile-menu-sheet");
+  await expect(sheet).toBeVisible();
+  expect(await zIndexOf(page, ".mobile-menu-sheet-layer")).toBeGreaterThan(
+    Math.max(fxZ, 90),
+  );
+  await sheet.getByRole("menuitem", { name: "Transform" }).click();
+  await sheet.getByRole("menuitem", { name: /^Zoom & Pan/ }).click();
+  await expect(sheet).toBeHidden();
 
   await fx.getByRole("button", { name: "Animation", exact: true }).click();
   await fx.getByRole("combobox", { name: "Motion In" }).click();
   const options = page.getByRole("listbox");
   await expect(options).toBeVisible();
-  await expectAboveSheets(page, options);
+  const listZ = await options.evaluate(
+    (element) =>
+      Number(
+        getComputedStyle(
+          element.closest("[data-radix-popper-content-wrapper]") ?? element,
+        ).zIndex,
+      ) || 0,
+  );
+  expect(listZ).toBeGreaterThan(Math.max(fxZ, 90));
 });
 
 test.describe("landscape phone", () => {

@@ -6,6 +6,12 @@ import AppRoot from "./AppRoot.tsx";
 import { installHarness } from "./harness";
 import { ZVID_VERSION } from "./version";
 
+// iOS home screen apps report themselves through navigator.standalone; mark
+// the root before the first render so the top bar hides its brand mark (#1200).
+if ((navigator as Navigator & { standalone?: boolean }).standalone) {
+  document.documentElement.classList.add("installed-app");
+}
+
 async function bootstrap() {
   console.info(
     `zvid ${ZVID_VERSION} ${__APP_COMMIT__} (${__APP_BUILD_TIME__})`,
