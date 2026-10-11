@@ -8,6 +8,8 @@ import {
   testPatternVideo,
 } from "./timeline-harness";
 import { addLayers, center, mouse } from "./timeline-harness-input";
+// The harness renders LaneRow; importing it ties this test to it.
+import "./LaneRow";
 
 // A layer's lane (LaneRow) in the timeline: pressing, dragging and
 // double-clicking empty lane space, and how its clips and selection sit in

@@ -201,3 +201,42 @@ export async function addLayers(count = 2) {
   }
   expect(layerHeader(`${count + 1}`)).toBeTruthy();
 }
+
+// Whether an element is visible, as Playwright's toBeVisible checks it.
+export function isVisible(element: Element | null) {
+  return Boolean(
+    element &&
+      (element as HTMLElement).checkVisibility({
+        visibilityProperty: true,
+        opacityProperty: false,
+      }) &&
+      element.getBoundingClientRect().width > 0 &&
+      element.getBoundingClientRect().height > 0,
+  );
+}
+
+// Copies the first source clip to Layer 1 from its menu, and waits for the
+// copy and the source clip to show frames.
+export async function copySourceClipToLayer1() {
+  await rightClick(document.querySelector(".source-span") as Element);
+  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
+  await page.getByRole("menuitem", { name: "Layer 1" }).click();
+  const layer = '[data-layer-row-id="1"]';
+  await expect
+    .poll(() => document.querySelectorAll(`${layer} .clip-card`))
+    .toHaveLength(1);
+  await expect
+    .poll(() => isVisible(document.querySelector(`${layer} .clip-card__tile`)), {
+      timeout: 30_000,
+    })
+    .toBe(true);
+  await expect
+    .poll(() =>
+      isVisible(
+        document.querySelector(
+          ".track-row--source[data-source-track-id] .source-span__tile",
+        ),
+      ),
+    )
+    .toBe(true);
+}

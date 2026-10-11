@@ -198,7 +198,8 @@ describe("ClipCard jump to start", () => {
 
     await userEvent.click(page.elementLocator(clipBody()), { button: "right" });
     const item = page.getByRole("menuitem", { name: /Jump to start/ });
-    await expect.element(item).toHaveTextContent(/(Ctrl|Cmd)\+click/);
+    await expect.element(item).toBeVisible();
+    expect(item.element().textContent).toMatch(/(Ctrl|Cmd)\+click/);
     await userEvent.click(item);
     await expect.poll(() => clipCard().className).toMatch(/clip-card--selected/);
     await expect.poll(() => distanceToClipStart(startX)).toBeLessThan(3);
@@ -232,9 +233,10 @@ describe("ClipCard jump to start", () => {
     await userEvent.keyboard("{/Control}");
     const menu = page.getByRole("menu");
     await expect.element(menu).toBeVisible();
-    await expect
-      .element(page.getByRole("menuitem", { name: /Jump to start/ }))
-      .toHaveTextContent("Cmd+click");
+    expect(
+      page.getByRole("menuitem", { name: /Jump to start/ }).element()
+        .textContent,
+    ).toContain("Cmd+click");
     await userEvent.keyboard("{Escape}");
     await expect.element(menu).not.toBeInTheDocument();
 

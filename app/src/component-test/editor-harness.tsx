@@ -12,11 +12,13 @@ import type {
 } from "../app/types.ts";
 import type { WorkspaceAccess } from "../app/workspace-types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import type { CompositionPlayerHandle } from "../CompositionPlayer";
 import { FxPanel } from "../components/FxPanel";
 import {
   FxAnimationTimelineContext,
   FxModulationClockContext,
 } from "../components/fx/modulation-clock";
+import { PreviewPanel } from "../components/PreviewPanel";
 import { TimelineContextMenu } from "../components/TimelineContextMenu";
 import { TopBar } from "../components/TopBar";
 import { ArrangementLanes } from "../components/timeline/ArrangementLanes";
@@ -35,7 +37,9 @@ import { useFxContexts } from "../hooks/useFxContexts.ts";
 import { useFxEditing } from "../hooks/useFxEditing.ts";
 import { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import { useMediaPreview } from "../hooks/useMediaPreview.ts";
+import { useMediaRange } from "../hooks/useMediaRange.ts";
 import { usePlayback } from "../hooks/usePlayback.ts";
+import { usePreview } from "../hooks/usePreview.ts";
 import { usePreviewVolume } from "../hooks/usePreviewVolume.ts";
 import {
   useProjectHistoryCommands,
@@ -49,14 +53,15 @@ import type { MediaItem } from "../media";
 import { addMediaToSourceTrack } from "../source-track-media.ts";
 import { createSpaceHold } from "../space-shortcut";
 
-// The desktop editor without the preview, the Media drawer, media import or
-// session persistence, for component tests of editing: the top bar's
-// menubar, the toolbar, the timeline (ruler, layers, source tracks and Audio
-// row), the transport bar, the FX panel and the context menus, wired through
-// the hooks App wires them with (useProjectStore, useTimelineSelection,
-// useAppLayout, useTimeline, usePlayback, useFxEditing, useFxPanelModel and
-// useTimelineEditing), so edits, undo, menus, drags, keyboard shortcuts and
-// playback of the playhead behave as in the app.
+// The desktop editor without the Media drawer, media import or session
+// persistence, for component tests of editing: the top bar's menubar, the
+// toolbar, the timeline (ruler, layers, source tracks and Audio row), the
+// transport bar, the FX panel, the context menus and, when asked for, the
+// preview, wired through the hooks App wires them with (useProjectStore,
+// useTimelineSelection, useAppLayout, useTimeline, usePlayback,
+// useFxEditing, useFxPanelModel, usePreview and useTimelineEditing), so
+// edits, undo, menus, drags, keyboard shortcuts and playback of the playhead
+// behave as in the app.
 
 const noop = () => {};
 const noopAsync = async () => false;
@@ -90,6 +95,8 @@ type EditorHarnessProps = {
   project?: ProjectState;
   // "read-only" opens it as a tab that doesn't own the session.
   access?: WorkspaceAccess;
+  // Shows the preview panel, which composites the clips at the playhead.
+  preview?: boolean;
   // Called on every render with what the editor holds.
   onState?: (state: EditorState) => void;
 };
@@ -97,6 +104,7 @@ type EditorHarnessProps = {
 export function EditorHarness({
   project: initialProject,
   access = "owner",
+  preview: showsPreview = false,
   onState,
 }: EditorHarnessProps) {
   const store = useProjectStore({ access, restoredSession: null });
@@ -135,7 +143,7 @@ export function EditorHarness({
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
   const playbackOriginRef = useRef(store.initialPlayheadQ);
-  const compositionPlayerRef = useRef(null);
+  const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const layout = useAppLayout({ sourceTrackCount: sourceTracks.length });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
   const [isPlaying, setIsPlaying] = useState(false);
@@ -164,6 +172,7 @@ export function EditorHarness({
     timelineClipsRef: selection.timelineClipsRef,
     projectSnapshotRef: store.projectSnapshotRef,
   });
+  const mediaRange = useMediaRange({ commitProjectChange });
   const timeline = useTimeline({
     restoredSession: null,
     project,
@@ -177,6 +186,20 @@ export function EditorHarness({
   });
   const { quarterPx, gridStyle } = timeline;
   const { visibleTimelineStartPx, visibleTimelineWidthPx } = timeline;
+  const preview = usePreview({
+    project,
+    selection,
+    mediaItemsById,
+    lanePriority,
+    editEffects: fxEditing.editEffects,
+    isPlaying,
+    setIsPlaying,
+    playbackOriginRef,
+    playheadQ,
+    playheadQRef,
+    setPlayheadQ,
+    refuseReadOnlyEdit: store.refuseReadOnlyEdit,
+  });
   const fxPanel = useFxPanelModel({
     lanes,
     effects,
@@ -536,8 +559,39 @@ export function EditorHarness({
                   }}
                 />
               </Timeline>
-              {/* The preview's resize handle and panel. */}
-              <div style={{ gridColumn: "3 / 5" }} />
+              {showsPreview ? (
+                <PreviewPanel
+                  {...preview}
+                  {...layout}
+                  bpm={bpm}
+                  canvasHeight={project.canvasHeight}
+                  canvasWidth={project.canvasWidth}
+                  compositionPlayerRef={compositionPlayerRef}
+                  fps={fps}
+                  isPlaying={isPlaying}
+                  isTimelineAudibleScrubbing={
+                    playback.isTimelineAudibleScrubbing
+                  }
+                  mediaItems={project.mediaItems}
+                  mediaPreview={mediaPreview}
+                  mediaRange={mediaRange}
+                  mediaTimeFormat={{
+                    timelineMode: project.timelineMode,
+                    bpm,
+                    fps,
+                    signature: timeline.signature,
+                  }}
+                  previewVolume={previewVolume.previewVolume}
+                  playheadSignal={playheadSignal}
+                  previewLaneId={selection.previewLaneId}
+                  projectDurationFrames={project.projectDurationFrames}
+                  selectedClip={selectedClip}
+                  timelineDragState={selection.timelineDragState}
+                />
+              ) : (
+                // The preview's resize handle and panel.
+                <div style={{ gridColumn: "3 / 5" }} />
+              )}
             </div>
             <TransportBar
               {...timeline}
