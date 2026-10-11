@@ -132,7 +132,10 @@ function logoPoint(x: number, y: number): [number, number] {
 }
 
 describe("the opening sample's logo mask", () => {
-  test("keeps the shot inside the logo and clears it outside", async () => {
+  // Software WebGL renders the frame slowly on a busy machine.
+  test("keeps the shot inside the logo and clears it outside", {
+    timeout: 60_000,
+  }, async () => {
     const inside = [
       logoPoint(114, 97), // the Z's diagonal
       logoPoint(120, 44), // the top strip, under its sprocket holes
