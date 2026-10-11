@@ -1,5 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: the waveform is sampled from the app's WebGL
+// compositor, and the check that the preview is unchanged reads its canvas.
+//
 // Scopes (#1129): a view-only effect whose panel shows an RGB waveform of
 // the picture at its position in the stack, leaving the preview unchanged.
 

@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// In/Out points on media in the Media tab: set with I and O or by dragging
-// the markers, shown on the scrub bar, the readout and the Media drawer,
+// Kept in Playwright: undo, IndexedDB persistence and the drawer badge need the whole app; MediaRangeBar.component.test.tsx covers the rest.
+// In/Out points on media in the Media tab: shown in the Media drawer,
 // undoable, cleared, and kept across a reload. The fixture is a three-second
 // test pattern with a tone.
 const VIDEO = new URL("./fixtures/test-pattern-audio.webm", import.meta.url);
@@ -86,55 +86,35 @@ function readSavedPayload(page: Page) {
   );
 }
 
-test("In/Out points are set, dragged, undone, kept and cleared", async ({
-  page,
-}) => {
+test("In/Out points are badged, undone, kept and cleared", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
-  await page.getByRole("button", { name: "Time", exact: true }).click();
   await page.getByRole("button", { name: "Media", exact: true }).click();
   await openInMediaTab(page);
 
-  const readout = page.getByTestId("media-range-readout");
   const dims = page.locator("[data-media-range-dim]");
   const badge = mediaItem(page).locator(".media-badge--range");
   const clear = page.getByRole("button", { name: "Clear", exact: true });
 
   // Without a range the whole file is used: nothing dimmed or badged.
-  await expect(readout).toHaveText(/In 00:00:00.*Out 00:03:00/);
   await expect(dims).toHaveCount(0);
   await expect(badge).toHaveCount(0);
-  await expect(clear).toBeDisabled();
 
   // I and O set the points at the media playhead.
   await seekMedia(page, 1);
   await page.keyboard.press("i");
   await seekMedia(page, 2);
   await page.keyboard.press("o");
-  await expect(readout).toHaveText(
-    /In 00:01:00.*Out 00:02:00.*Duration 00:01:00/,
-  );
   await expect(dims).toHaveCount(2);
   await expect(badge).toBeVisible();
   await expect.poll(() => markerSeconds(page, "In")).toBe(1);
   await expect.poll(() => markerSeconds(page, "Out")).toBe(2);
 
-  // Dragging the Out marker moves it, snapped to a frame.
-  const bar = await page.locator(".media-range").boundingBox();
-  const out = await marker(page, "Out").boundingBox();
-  if (!bar || !out) {
-    throw new Error("The scrub bar is not laid out");
-  }
-  await page.mouse.move(out.x + out.width / 2, out.y + out.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(bar.x + bar.width * (2.5 / 3), out.y + out.height / 2, {
-    steps: 5,
-  });
-  await page.mouse.up();
-  await expect.poll(() => markerSeconds(page, "Out")).toBeCloseTo(2.5, 1);
-  const dragged = await markerSeconds(page, "Out");
-  expect(Math.abs(dragged * 30 - Math.round(dragged * 30))).toBeLessThan(1e-6);
+  // Moving the Out point is undoable.
+  await seekMedia(page, 2.4);
+  await page.keyboard.press("o");
+  await expect.poll(() => markerSeconds(page, "Out")).toBe(2.4);
 
   // Undo puts the Out point back.
   await page.locator(".media-preview__picture").click();
@@ -161,21 +141,4 @@ test("In/Out points are set, dragged, undone, kept and cleared", async ({
   await clear.click();
   await expect(dims).toHaveCount(0);
   await expect(badge).toHaveCount(0);
-  await expect(readout).toHaveText(/In 00:00:00.*Out 00:03:00/);
-});
-
-test("I and O do nothing outside the Media tab and drawer", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
-  await dropVideoIntoNewSourceTrack(page);
-  await page.getByRole("button", { name: "Media", exact: true }).click();
-  await openInMediaTab(page);
-
-  await page.locator(".source-span").click();
-  await page.keyboard.press("i");
-  await page.keyboard.press("o");
-  await expect(page.locator("[data-media-range-dim]")).toHaveCount(0);
-  await expect(mediaItem(page).locator(".media-badge--range")).toHaveCount(0);
 });

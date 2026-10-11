@@ -36,10 +36,9 @@ app/export-bridge/pkg
 test-results
 playwright-report
 blob-report
-.vitest
 e2e-results.json
 all-tests.json
 shard-tests.txt
 
-# Vitest browser-mode failure screenshots
-__screenshots__
+# Vitest browser-mode attachments, including failure screenshots
+.vitest/

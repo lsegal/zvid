@@ -1,7 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// Mono changes what the preview hears, and the preview's chain worklet
-// renders it exactly as export's offline chain does.
+// Stays in Playwright: it measures the real mixer playing an imported clip.
+// chain-worklet.component.test.tsx covers the worklet matching export.
+//
+// Mono changes what the preview hears.
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 90_000 });
 
@@ -162,103 +164,4 @@ test("Mono's Source and Amount move the preview's level", async ({ page }) => {
       { timeout: 30_000 },
     )
     .toBe(true);
-});
-
-test("the preview's chain worklet renders Mono as export does", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const result = await page.evaluate(async () => {
-    const load = (path: string) => import(/* @vite-ignore */ path);
-    const { AudioChain, BLOCK_FRAMES } = await load("/src/audio-mix/chain.ts");
-    const { CHAIN_WORKLET_URL } = await load(
-      "/src/audio-mix/chain-worklet-url.ts",
-    );
-    const { createChainNode } = await load("/src/audio-mix/chain-node.ts");
-    const { AUDIO_PROCESSORS } = await load("/src/audio-mix/processors.ts");
-    const { DEFAULT_TIME_SIGNATURE } = await load(
-      "/src/audio-mix/processor.ts",
-    );
-
-    const sampleRate = 48_000;
-    const length = sampleRate;
-    const tempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
-    const settings = {
-      stages: [
-        {
-          id: "mono",
-          effectName: "Mono",
-          enabled: true,
-          numbers: { Amount: 0.6 },
-          switches: { Source: "Sum" },
-        },
-      ],
-      inputGain: 1,
-      delayFrames: 0,
-    };
-    const left = new Float32Array(length);
-    const right = new Float32Array(length);
-    for (let index = 0; index < length; index++) {
-      left[index] = 0.5 * Math.sin((2 * Math.PI * 440 * index) / sampleRate);
-      right[index] = 0.3 * Math.sin((2 * Math.PI * 97 * index) / sampleRate);
-    }
-
-    // The preview's host: the chain worklet in an offline context.
-    const context = new OfflineAudioContext(2, length, sampleRate);
-    await context.audioWorklet.addModule(CHAIN_WORKLET_URL);
-    const buffer = context.createBuffer(2, length, sampleRate);
-    buffer.copyToChannel(left, 0);
-    buffer.copyToChannel(right, 1);
-    const sourceNode = context.createBufferSource();
-    sourceNode.buffer = buffer;
-    const node = createChainNode(context, { channels: 2, settings, tempo });
-    sourceNode.connect(node).connect(context.destination);
-    sourceNode.start();
-    const rendered = await context.startRendering();
-
-    // Export's host: the chain run block by block in JS.
-    const chain = new AudioChain(AUDIO_PROCESSORS, sampleRate, 2);
-    chain.configure(settings, tempo);
-    const expected = [new Float32Array(length), new Float32Array(length)];
-    for (let start = 0; start < length; start += BLOCK_FRAMES) {
-      const end = Math.min(length, start + BLOCK_FRAMES);
-      chain.process(
-        [left.subarray(start, end), right.subarray(start, end)],
-        expected.map((channel) => channel.subarray(start, end)),
-        end - start,
-        start / sampleRate,
-      );
-    }
-
-    let largest = 0;
-    let energy = 0;
-    for (let channel = 0; channel < 2; channel++) {
-      const actual = rendered.getChannelData(channel);
-      for (let index = 0; index < length; index++) {
-        largest = Math.max(
-          largest,
-          Math.abs(actual[index] - expected[channel][index]),
-        );
-        energy += actual[index] ** 2;
-      }
-    }
-    // Amount 0.6 moves each side toward the other, so they differ less
-    // than the input's sides do.
-    let sideDifference = 0;
-    for (let index = 0; index < length; index++) {
-      sideDifference = Math.max(
-        sideDifference,
-        Math.abs(
-          rendered.getChannelData(0)[index] - rendered.getChannelData(1)[index],
-        ),
-      );
-    }
-    return { largest, energy, sideDifference };
-  });
-
-  expect(result.energy).toBeGreaterThan(1);
-  expect(result.largest).toBeLessThan(1e-6);
-  // The input's sides differ by up to 0.8; 40 % of that is left.
-  expect(result.sideDifference).toBeLessThan(0.33);
-  expect(result.sideDifference).toBeGreaterThan(0.25);
 });

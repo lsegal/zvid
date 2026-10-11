@@ -1,6 +1,6 @@
 import { devices, expect, type Page, test } from "@playwright/test";
 
-// Not component tests: these need real playback and usePhoneShell's Record wiring (the rest is in PreviewPanel.component.test.tsx).
+// Not component tests: these need real playback and usePhoneShell's Record wiring (the rest is in PreviewPanel.phone.component.test.tsx).
 // The phone shell's transport VU meter and status toast (#1177).
 const { defaultBrowserType: _, ...PHONE } = devices["Pixel 7"];
 

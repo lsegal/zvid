@@ -3,9 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
-// The Audio row is a read-only waveform of the resolved audio mix: it takes
-// no files, draws the clips that render audio at their Gain, and recomputes
-// on Refresh. Sessions that had a main audio open with it on a source track.
+// Stays in Playwright: it docks the row in the app's timeline, reloads, and
+// edits, imports and plays real media. AudioRow.component.test.tsx covers
+// the row's empty state, menu, badge, collapsed sizes and Refresh.
+//
+// The Audio row is a read-only waveform of the resolved audio mix: it draws
+// the clips that render audio at their Gain. Sessions that had a main audio
+// open with it on a source track.
 const VIDEO = new URL("./fixtures/test-pattern-audio.webm", import.meta.url);
 
 test.use({ viewport: { width: 1600, height: 1200 } });
@@ -110,23 +114,6 @@ async function playedLevel(page: Page) {
   return level;
 }
 
-test("the Audio row takes no files and starts empty", async ({ page }) => {
-  await page.goto("/");
-  await expect(audioRow(page)).toContainText("No audio");
-  await expect(audioRow(page).locator('input[type="file"]')).toHaveCount(0);
-  await expect(
-    audioRow(page).getByRole("button", { name: "Recompute audio" }),
-  ).toBeVisible();
-  await expect(
-    audioRow(page).getByRole("button", { name: /main audio/i }),
-  ).toHaveCount(0);
-
-  await audioRow(page).locator(".track-label").click({ button: "right" });
-  const menu = page.getByRole("menu", { name: "Audio actions" });
-  await expect(menu.getByRole("menuitem")).toHaveText(["Recompute audio"]);
-  await page.keyboard.press("Escape");
-});
-
 // How far the Audio row's bottom edge is from the timeline panel's.
 async function bottomGap(page: Page) {
   const [panel, row] = await Promise.all([
@@ -188,63 +175,16 @@ test("the Audio row is docked at the bottom of the timeline panel at any height"
   }
 });
 
-test("the Audio row's badge centers its glyph like the layers' badges", async ({
+test("the collapsed Audio row stays docked, also after a reload", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  // The glyph's box against the badge's, from each center.
-  const glyphOffset = (badge: ReturnType<Page["locator"]>) =>
-    badge.evaluate((node) => {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      const glyph = range.getBoundingClientRect();
-      const box = node.getBoundingClientRect();
-      return [
-        Math.round(glyph.left + glyph.width / 2 - (box.left + box.width / 2)),
-        Math.round(glyph.top + glyph.height / 2 - (box.top + box.height / 2)),
-      ];
-    });
-  const audioBadge = audioRow(page).locator(".track-label__index");
-  const layerBadge = page.locator(".track-label .track-label__index").first();
-  await expect(audioBadge).toHaveText("A");
-  const [x, y] = await glyphOffset(audioBadge);
-  expect(Math.abs(x)).toBeLessThanOrEqual(1);
-  expect([x, y]).toEqual(await glyphOffset(layerBadge));
-});
-
-test("the collapsed Audio row stays docked and still draws the waveform", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  await addVideoTrack(page);
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready", {
-    timeout: 30_000,
-  });
 
   const toggle = audioRow(page).locator(".audio-row__toggle");
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(toggle).toHaveAttribute("title", "Collapse audio row");
-  const expandedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(toggle).toHaveAttribute("title", "Expand audio row");
-  const collapsedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
-  expect(collapsedHeight).toBeLessThan(expandedHeight);
-  // As short as a collapsed layer (#1057, #1077).
-  expect(collapsedHeight).toBe(44);
   await expect.poll(() => bottomGap(page)).toBeLessThan(1);
-
-  // Compact, not hidden: the waveform is drawn at the slim height.
-  const canvas = mixContent(page).locator(".waveform__canvas").first();
-  await expect(canvas).toBeVisible();
-  // Inset 8px, like a collapsed layer's clips.
-  const rowTop = (await audioRow(page).boundingBox())?.y ?? 0;
-  const canvasBox = await canvas.boundingBox();
-  expect(canvasBox?.height).toBe(28);
-  expect(Math.abs((canvasBox?.y ?? 0) - rowTop - 8)).toBeLessThanOrEqual(0.5);
-  await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
   // The preference survives a reload.
   await page.reload();
@@ -306,7 +246,7 @@ test("the Audio row's playhead lines up with the timeline playhead", async ({
   await expect.poll(offset).toBe(0);
 });
 
-test("a source clip with audio draws the mix, its muted Gain flattens it, and Refresh recomputes it", async ({
+test("a source clip with audio draws the mix, and its muted Gain flattens it", async ({
   page,
 }) => {
   await page.goto("/");
@@ -320,36 +260,6 @@ test("a source clip with audio draws the mix, its muted Gain flattens it, and Re
   await expect(
     mixContent(page).locator(".waveform__canvas").first(),
   ).toBeVisible();
-  await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
-
-  // Refresh resolves the mix again and draws it anew. The recompute can
-  // finish before an assertion polls, so record every state the mix passes
-  // through instead of trying to catch the brief "computing" one.
-  await mixContent(page).evaluate((node) => {
-    const probe = window as unknown as { leftMixStates: string[] };
-    probe.leftMixStates = [];
-    new MutationObserver((records) => {
-      for (const record of records) {
-        probe.leftMixStates.push(record.oldValue ?? "");
-      }
-    }).observe(node, {
-      attributeFilter: ["data-audio-mix"],
-      attributeOldValue: true,
-    });
-  });
-  await audioRow(page).getByRole("button", { name: "Recompute audio" }).click();
-  // The mix left "ready" to compute, then left "computing" for "ready".
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () =>
-            (window as unknown as { leftMixStates: string[] }).leftMixStates,
-        ),
-      { timeout: 30_000 },
-    )
-    .toEqual(["ready", "computing"]);
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
   // Muting the clip's Gain flattens its waveform.
@@ -375,7 +285,7 @@ function drawnPixels(page: Page) {
     .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
 }
 
-test("the Audio row redraws when the Gain changes, a clip moves, or it collapses", async ({
+test("the Audio row redraws when the Gain changes or a clip moves", async ({
   page,
 }) => {
   await page.goto("/");
@@ -424,24 +334,6 @@ test("the Audio row redraws when the Gain changes, a clip moves, or it collapses
     .not.toBe(quietPixels);
   await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
   expect(await drawnLevel(page)).toBeCloseTo(quietLevel, 2);
-
-  // Collapsing redraws the canvas at its new height rather than squashing
-  // the expanded drawing.
-  const canvas = mixContent(page).locator(".waveform__canvas").first();
-  const drawnAtItsHeight = () =>
-    canvas.evaluate(
-      (node) =>
-        (node as HTMLCanvasElement).height ===
-        Math.round(node.clientHeight * (window.devicePixelRatio || 1)),
-    );
-  const expandedHeight = await canvas.evaluate(
-    (node) => (node as HTMLCanvasElement).height,
-  );
-  await audioRow(page).locator(".audio-row__toggle").click();
-  await expect.poll(drawnAtItsHeight).toBe(true);
-  expect(
-    await canvas.evaluate((node) => (node as HTMLCanvasElement).height),
-  ).toBeLessThan(expandedHeight);
 });
 
 test("a session with a main audio opens with it on a new source track, which plays", async ({

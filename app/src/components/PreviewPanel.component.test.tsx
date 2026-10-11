@@ -1,321 +1,264 @@
-/// <reference types="@vitest/browser-playwright" />
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { cdp, page } from "vitest/browser";
+import { createRef } from "react";
+import { afterEach, describe, expect, test } from "vitest";
+import { cdp } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import {
-  PHONE_LANDSCAPE_VIEWPORT,
-  usePhone,
-} from "../component-test/viewport.ts";
-import { createMeterTap, type MasterMeterTap } from "../fx-shaders/audio-bands";
-import { PhoneEditor } from "./mobile/phone-editor.fixture.tsx";
-import { PreviewPanel } from "./PreviewPanel";
+import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
+import { SILENT_AUDIO_MIX } from "../audio-mix/resolve.ts";
+import type { CompositionPlayerHandle } from "../CompositionPlayer";
+import { DesktopShell } from "../component-test/shells.tsx";
+import { setViewport } from "../component-test/viewport.ts";
+import { IDENTITY_TRANSFORM } from "../composition-transform.ts";
+import { createPlayheadSignal } from "../playhead-signal.ts";
+import { PreviewPanel, type PreviewPanelProps } from "./PreviewPanel";
 
-// The phone shell's preview header, Scopes and Audio panes, transport VU
-// meter and status toast (#1177): the desktop pieces the phone layout used
-// to hide outright. The e2e specs' small phone.
-const SMALL_PHONE = { width: 375, height: 667 } as const;
+// The preview panel in the editor grid, at the width the app gives it, with
+// an empty session: no clip at the playhead. Ported from
+// e2e/preview-header-padding.spec.ts and e2e/preview-canvas-size.spec.ts.
+const noop = () => {};
 
-type Box = { top: number; bottom: number; left: number; right: number };
-
-function boxes<Key extends string>(selectors: Record<Key, string>) {
-  const result = {} as Record<Key, Box | null>;
-  for (const [key, selector] of Object.entries(selectors) as [Key, string][]) {
-    const rect = document.querySelector(selector)?.getBoundingClientRect();
-    result[key] = rect
-      ? {
-          top: rect.top,
-          bottom: rect.bottom,
-          left: rect.left,
-          right: rect.right,
-        }
-      : null;
-  }
-  return result;
+function previewPanelProps(width: number): PreviewPanelProps {
+  return {
+    activatePreviewLayer: noop,
+    audioMix: SILENT_AUDIO_MIX,
+    bpm: 120,
+    canvasHeight: 1080,
+    canvasWidth: 1920,
+    commitPreviewWidth: noop,
+    compositionPlayerRef: createRef<CompositionPlayerHandle>(),
+    effectivePreviewWidth: width,
+    fps: 30,
+    getPreviewLayerPosition: () => ({ x: 0, y: 0 }),
+    getPreviewLayerTransform: () => IDENTITY_TRANSFORM,
+    handlePreviewResizeKeyDown: noop,
+    handlePreviewResizePointerDown: noop,
+    handlePreviewResizePointerEnd: noop,
+    handlePreviewResizePointerMove: noop,
+    hasOnlinePlayheadClip: false,
+    isPlaying: false,
+    isTimelineAudibleScrubbing: false,
+    mediaItems: [],
+    mediaPreview: {
+      previewTab: "timeline",
+      selectPreviewTab: noop,
+      previewMediaItem: undefined,
+      isMediaPlaying: false,
+      setMediaPlaying: noop,
+      toggleMediaPlayback: noop,
+      loadPreviewMedia: noop,
+    },
+    mediaRange: { setPoint: noop, clear: noop },
+    mediaTimeFormat: {
+      timelineMode: "musical",
+      bpm: 120,
+      signature: { numerator: 4, denominator: 4 },
+      fps: 30,
+    },
+    movePreviewLayer: noop,
+    playheadSignal: createPlayheadSignal(),
+    previewClip: undefined,
+    previewLaneId: undefined,
+    previewLayers: [],
+    previewMaxWidth: 1000,
+    previewMediaState: "online",
+    previewTextEdit: undefined,
+    previewVolume: { volume: 1, muted: false },
+    projectDurationFrames: undefined,
+    renderClips: [],
+    renderEffects: [],
+    renderFromSourceTracks: false,
+    renderLanes: [],
+    resolvePreviewLayersAt: () => [],
+    selectedClip: undefined,
+    selectPreviewLayer: noop,
+    textEdit: undefined,
+    timelineDragState: null,
+    transformPreviewLayer: noop,
+  };
 }
 
-function overlaps(a: Box | null, b: Box | null) {
-  return Boolean(
-    a &&
-      b &&
-      a.left < b.right &&
-      b.left < a.right &&
-      a.top < b.bottom &&
-      b.top < a.bottom,
-  );
-}
-
-function heightOf(box: Box | null) {
-  return (box?.bottom ?? 0) - (box?.top ?? 0);
-}
-
-function pageScrolls() {
+// The editor grid as App lays it out: the media drawer and timeline columns,
+// then the panel's resize handle and the panel at `--preview-width`.
+function editorGrid(width: number) {
   return (
-    document.documentElement.scrollHeight > window.innerHeight ||
-    document.documentElement.scrollWidth > window.innerWidth
+    <DesktopShell>
+      <div
+        className="editor-grid"
+        style={{
+          flex: 1,
+          ["--preview-width" as string]: `${width}px`,
+        }}
+      >
+        <div />
+        <div />
+        <PreviewPanel {...previewPanelProps(width)} />
+      </div>
+    </DesktopShell>
   );
 }
 
-const header = () =>
-  document.querySelector(".preview-panel__header") as HTMLElement;
-const region = (name: string) => page.getByRole("region", { name });
-// The header's buttons: the tab bar has an Audio button too.
-const scopesButton = () => page.getByRole("button", { name: "Scopes" });
-const audioButton = () => page.getByTitle(/the audio meter and spectrogram$/);
-// The transport's meter: the Audio pane has one too.
-const transportLevel = () =>
-  document.querySelector(
-    '.mobile-transport [role="meter"][aria-label="Left level"]',
-  ) as HTMLElement;
+describe("header", () => {
+  const HEADER_MIN_HEIGHT = 34;
+  const HEADER_INSET = 6;
+  const ITEM_GAP = 12;
 
-async function togglePanes() {
-  await scopesButton().click();
-  await audioButton().click();
-}
-
-async function openPanes() {
-  await togglePanes();
-  await expect.element(region("Scopes")).toBeVisible();
-  await expect.element(region("Audio analysis")).toBeVisible();
-}
-
-// A finger dragged straight down by `dy` (up when negative), through CDP so
-// the page would scroll or refresh if the splitter let it.
-async function touchDrag(from: { x: number; y: number }, dy: number) {
-  const point = (y: number) => [{ x: from.x, y, id: 0 }];
-  await cdp().send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: point(from.y),
-  });
-  const steps = 10;
-  for (let step = 1; step <= steps; step += 1) {
-    await cdp().send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: point(from.y + (dy * step) / steps),
+  // Header geometry, measured against the strip's padding box (inside its
+  // border).
+  function headerLayout() {
+    const header = document.querySelector<HTMLElement>(
+      ".preview-panel__header",
+    );
+    if (!header) {
+      throw new Error("preview header is missing");
+    }
+    const box = header.getBoundingClientRect();
+    const style = getComputedStyle(header);
+    const innerLeft = box.left + Number.parseFloat(style.borderLeftWidth);
+    const innerRight = box.right - Number.parseFloat(style.borderRightWidth);
+    const items = [...header.children].map((child) => {
+      const rect = child.getBoundingClientRect();
+      return {
+        className: child.className,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+      };
     });
-    await new Promise((resolve) => setTimeout(resolve, 16));
+    const clip = header.querySelector<HTMLElement>(".preview-panel__clip");
+    return {
+      height: box.height,
+      innerLeft,
+      innerRight,
+      items,
+      clipTruncated: clip ? clip.scrollWidth > clip.clientWidth : false,
+      overflows: header.scrollWidth > header.clientWidth,
+    };
   }
-  await cdp().send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-}
 
-async function tap(x: number, y: number) {
-  await cdp().send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [{ x, y, id: 0 }],
-  });
-  await cdp().send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-}
+  test("the preview header strip has even insets and gaps", async () => {
+    await setViewport({ width: 1400, height: 900 });
+    await render(editorGrid(PREVIEW_DEFAULT_WIDTH));
 
-// A 440 Hz tone at about -13 dBFS RMS through a meter tap, as the preview's
-// program mix feeds the transport's meter while it plays.
-let audio: AudioContext | null = null;
-async function toneTap(): Promise<MasterMeterTap> {
-  audio = new AudioContext();
-  await audio.resume();
-  const { input, tap } = createMeterTap(audio);
-  const tone = audio.createOscillator();
-  tone.frequency.value = 440;
-  const level = audio.createGain();
-  level.gain.value = 10_000 / 32_768;
-  tone.connect(level).connect(input);
-  tone.start();
-  return tap;
-}
+    const layout = headerLayout();
+    expect(layout.height).toBeGreaterThanOrEqual(HEADER_MIN_HEIGHT);
 
-beforeEach(() => {
-  localStorage.clear();
-});
-
-afterEach(async () => {
-  await audio?.close();
-  audio = null;
-  localStorage.clear();
-});
-
-describe(PreviewPanel.name, () => {
-  test("Scopes and Audio open under the preview with no page scroll", async () => {
-    await usePhone(SMALL_PHONE);
-    await render(<PhoneEditor preview />);
-    await expect.element(header()).toBeVisible();
-    await openPanes();
-
-    expect(pageScrolls()).toBe(false);
-    const layout = boxes({
-      header: ".preview-panel__header",
-      monitor: ".preview-monitor",
-      scopes: ".scopes-pane",
-      audio: ".audio-analysis",
-      transport: ".mobile-transport",
-      timeline: ".timeline-panel",
-      tabs: ".mobile-tab-bar",
-    });
-    // Header, monitor, then the panes side by side, all above the transport.
-    expect(layout.header?.bottom).toBeLessThanOrEqual(layout.monitor?.top ?? 0);
-    expect(layout.monitor?.bottom).toBeLessThanOrEqual(layout.scopes?.top ?? 0);
-    expect(layout.scopes?.top).toBe(layout.audio?.top);
-    expect(overlaps(layout.scopes, layout.audio)).toBe(false);
-    for (const pane of [layout.scopes, layout.audio]) {
-      expect(pane?.bottom).toBeLessThanOrEqual(layout.transport?.top ?? 0);
-      expect(pane?.right).toBeLessThanOrEqual(SMALL_PHONE.width);
-    }
-    expect(layout.transport?.bottom).toBeLessThanOrEqual(
-      layout.timeline?.top ?? 0,
+    const tabs = layout.items[0];
+    const chip = layout.items[layout.items.length - 1];
+    expect(tabs.className).toContain("preview-panel__tabs");
+    expect(chip.className).toContain("preview-panel__actions");
+    expect(Math.abs(tabs.left - layout.innerLeft - HEADER_INSET)).toBeLessThan(
+      1.01,
     );
-    // The timeline keeps room to work in.
-    expect(heightOf(layout.timeline)).toBeGreaterThan(100);
-    expect(layout.timeline?.bottom).toBeLessThanOrEqual(layout.tabs?.top ?? 0);
+    expect(
+      Math.abs(layout.innerRight - chip.right - HEADER_INSET),
+    ).toBeLessThan(1.01);
 
-    await togglePanes();
-    await expect.element(region("Scopes")).not.toBeInTheDocument();
-    await expect.element(region("Audio analysis")).not.toBeInTheDocument();
+    for (let index = 1; index < layout.items.length; index += 1) {
+      const gap = layout.items[index].left - layout.items[index - 1].right;
+      expect(gap).toBeGreaterThanOrEqual(ITEM_GAP - 0.5);
+    }
   });
 
-  test("the transport's VU meter moves with playback", async () => {
-    await usePhone(SMALL_PHONE);
-    const tap = await toneTap();
-    await render(<PhoneEditor getMeterTap={() => tap} isPlaying preview />);
-    const level = transportLevel();
-    await expect.element(level).toBeVisible();
+  test("a narrow preview ellipsizes the clip name on one line", async () => {
+    await setViewport({ width: 1400, height: 900 });
+    await render(editorGrid(PREVIEW_MIN_WIDTH));
+    expect(document.querySelector(".preview-panel__clip")?.textContent).toBe(
+      "No clip at playhead",
+    );
+
+    const layout = headerLayout();
+    expect(layout.clipTruncated).toBe(true);
+    expect(layout.overflows).toBe(false);
+    expect(layout.height).toBeGreaterThanOrEqual(HEADER_MIN_HEIGHT);
+    // Everything shares one centered row inside the strip.
+    const center = (item: { top: number; bottom: number }) =>
+      (item.top + item.bottom) / 2;
+    for (const item of layout.items) {
+      expect(item.right).toBeLessThanOrEqual(
+        layout.innerRight - HEADER_INSET + 1,
+      );
+      expect(item.bottom - item.top).toBeLessThan(layout.height);
+      expect(Math.abs(center(item) - center(layout.items[0]))).toBeLessThan(
+        1.5,
+      );
+    }
+  });
+});
+
+describe("canvas size", () => {
+  // The preview draws at the device pixels its panel covers, not at the
+  // export size times the display's density, and follows the panel's size.
+  // A display of density 2, as the spec's deviceScaleFactor.
+  async function useDensity(deviceScaleFactor: number) {
+    await cdp().send("Emulation.setDeviceMetricsOverride", {
+      width: window.top?.innerWidth ?? window.innerWidth,
+      height: window.top?.innerHeight ?? window.innerHeight,
+      deviceScaleFactor,
+      mobile: false,
+    });
+  }
+
+  afterEach(async () => {
+    await useDensity(1);
+  });
+
+  // The preview canvas's drawing buffer, and the one its panel calls for:
+  // the export size letterboxed into the panel at the device's density, but
+  // never larger than the export itself.
+  function canvasSizes() {
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      ".composition-player__canvas",
+    );
+    if (!canvas) {
+      throw new Error("the preview canvas is not rendered");
+    }
+    const [outputWidth, outputHeight] = canvas.style.aspectRatio
+      .split("/")
+      .map(Number);
+    const ratio = Math.min(
+      1,
+      Math.min(
+        canvas.clientWidth / outputWidth,
+        canvas.clientHeight / outputHeight,
+      ) * window.devicePixelRatio,
+    );
+    return {
+      buffer: { width: canvas.width, height: canvas.height },
+      expected: {
+        width: Math.floor(outputWidth * ratio),
+        height: Math.floor(outputHeight * ratio),
+      },
+      output: { width: outputWidth, height: outputHeight },
+    };
+  }
+
+  async function expectBufferToFitPanel() {
     await expect
-      .poll(() => Number(level.getAttribute("aria-valuenow")), {
-        timeout: 15_000,
+      .poll(() => {
+        const { buffer, expected } = canvasSizes();
+        return (
+          Math.abs(buffer.width - expected.width) <= 1 &&
+          Math.abs(buffer.height - expected.height) <= 1
+        );
       })
-      .toBeGreaterThan(-40);
-    const layout = boxes({
-      meter: ".mobile-transport .vu-meter",
-      transport: ".mobile-transport",
-    });
-    expect(layout.meter?.bottom).toBeLessThanOrEqual(
-      layout.transport?.bottom ?? 0,
-    );
-    expect(layout.meter?.right).toBeLessThanOrEqual(SMALL_PHONE.width);
-    expect(pageScrolls()).toBe(false);
-  });
+      .toBe(true);
+  }
 
-  // Record's hint with no armed track (usePhoneShell) stays an e2e check.
-  test("a status message shows as a toast clear of the transport and tabs", async () => {
-    await usePhone(SMALL_PHONE);
-    await render(
-      <PhoneEditor
-        preview
-        status={{ text: "Arm a source track to record a take.", tone: "info" }}
-      />,
-    );
+  test("the preview buffer follows the panel size", async () => {
+    await setViewport({ width: 1600, height: 900 });
+    await useDensity(2);
+    expect(window.devicePixelRatio).toBe(2);
+    const screen = await render(editorGrid(PREVIEW_DEFAULT_WIDTH));
+
+    await expectBufferToFitPanel();
+    const wide = canvasSizes();
+    expect(wide.buffer.width).toBeLessThan(wide.output.width * 2);
+
+    // Narrowing the panel shrinks the buffer with it.
+    await screen.rerender(editorGrid(PREVIEW_MIN_WIDTH));
     await expect
-      .element(
-        page
-          .getByRole("status")
-          .filter({ hasText: "Arm a source track to record a take." }),
-      )
-      .toBeVisible();
-    const layout = boxes({
-      toast: ".status-bar__message",
-      transport: ".mobile-transport",
-      tabs: ".mobile-tab-bar",
-    });
-    expect(overlaps(layout.toast, layout.transport)).toBe(false);
-    expect(overlaps(layout.toast, layout.tabs)).toBe(false);
-    expect(layout.toast?.left).toBeGreaterThanOrEqual(0);
-    expect(layout.toast?.right).toBeLessThanOrEqual(SMALL_PHONE.width);
-    expect(pageScrolls()).toBe(false);
-  });
-
-  // #1202: a readable plot, compact kind buttons with finger-sized taps,
-  // and a splitter on the pane's foot that trades height with the timeline.
-  test("the Scopes pane is readable, compact and resizable by touch", async () => {
-    await usePhone(SMALL_PHONE);
-    await render(<PhoneEditor preview />);
-    await scopesButton().click();
-    const pane = region("Scopes");
-    await expect.element(pane).toBeVisible();
-    const selectors = {
-      monitor: ".preview-monitor",
-      pane: ".scopes-pane",
-      plot: ".scopes-pane__body",
-      timeline: ".timeline-panel",
-    };
-    const start = boxes(selectors);
-    expect(heightOf(start.plot)).toBeGreaterThan(110);
-
-    // The kind buttons stay small, yet a tap well above or below one still
-    // lands on it, and tapping each picks its scope.
-    const kinds = pane.getByRole("toolbar", { name: "Scope" });
-    for (const name of ["Waveform", "Parade", "Vectorscope", "Histogram"]) {
-      const button = kinds.getByRole("button", { name, exact: true });
-      const box = button.element().getBoundingClientRect();
-      expect(box.height).toBeLessThan(24);
-      const x = box.x + box.width / 2;
-      for (const y of [box.y - 10, box.y + box.height + 10]) {
-        expect(document.elementFromPoint(x, y)?.textContent).toBe(name);
-      }
-      await tap(x, box.y + box.height + 10);
-      await expect.element(button).toHaveAttribute("aria-pressed", "true");
-    }
-
-    // Dragging the splitter up shrinks the pane, giving the timeline the
-    // room, without scrolling the page or moving the monitor.
-    const splitter = pane.getByRole("separator", { name: "Resize scopes" });
-    expect(getComputedStyle(splitter.element()).touchAction).toBe("none");
-    const grip = () => {
-      const box = splitter.element().getBoundingClientRect();
-      expect(box.height).toBeGreaterThanOrEqual(44);
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    };
-    await touchDrag(grip(), -40);
-    const shrunk = boxes(selectors);
-    expect(
-      Math.abs(heightOf(start.pane) - heightOf(shrunk.pane) - 40),
-    ).toBeLessThan(3);
-    expect(
-      Math.abs(heightOf(shrunk.timeline) - heightOf(start.timeline) - 40),
-    ).toBeLessThan(3);
-    expect(shrunk.monitor).toEqual(start.monitor);
-    expect(window.scrollY).toBe(0);
-    expect(pageScrolls()).toBe(false);
-
-    // Far down, the pane grows until the timeline is at its least height;
-    // far up, the pane keeps its own.
-    await touchDrag(grip(), 400);
-    const tallest = boxes(selectors);
-    expect(Math.abs(heightOf(tallest.timeline) - 100)).toBeLessThan(3);
-    expect(pageScrolls()).toBe(false);
-    await touchDrag(grip(), -400);
-    expect(heightOf(boxes(selectors).pane)).toBeCloseTo(96, 0);
-
-    // The height holds across the preview's tabs, as on desktop.
-    await touchDrag(grip(), 60);
-    const resized = heightOf(boxes(selectors).pane);
-    const tabs = page.getByRole("tablist", { name: "Preview" });
-    await tabs.getByRole("tab", { name: "Media" }).click();
-    await tabs.getByRole("tab", { name: "Timeline" }).click();
-    expect(heightOf(boxes(selectors).pane)).toBeCloseTo(resized, 0);
-  });
-
-  test("a landscape phone keeps the panes and VU meter beside the timeline", async () => {
-    await usePhone(PHONE_LANDSCAPE_VIEWPORT);
-    await render(<PhoneEditor preview />);
-    expect(document.querySelector(".app-shell")?.classList).toContain(
-      "app-shell--phone-landscape",
-    );
-    await openPanes();
-    await expect.element(transportLevel()).toBeVisible();
-    expect(pageScrolls()).toBe(false);
-    const layout = boxes({
-      monitor: ".preview-monitor",
-      scopes: ".scopes-pane",
-      audio: ".audio-analysis",
-      transport: ".mobile-transport",
-      timeline: ".timeline-panel",
-    });
-    expect(heightOf(layout.monitor)).toBeGreaterThan(60);
-    for (const pane of [layout.monitor, layout.scopes, layout.audio]) {
-      expect(pane?.bottom).toBeLessThanOrEqual(layout.transport?.top ?? 0);
-      expect(pane?.right).toBeLessThanOrEqual(layout.timeline?.left ?? 0);
-    }
+      .poll(() => canvasSizes().buffer.width)
+      .toBeLessThan(wide.buffer.width);
+    await expectBufferToFitPanel();
   });
 });
