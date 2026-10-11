@@ -47,7 +47,6 @@
 .app-shell--phone .status-bar,
 .app-shell--phone .preview-resize-handle,
 .app-shell--phone .media-drawer-resize-handle,
-.app-shell--phone .label-resize-rail,
 .app-shell--phone .playhead-jump,
 .app-shell--phone .fx-panel__toggle,
 .app-shell--phone .preview-panel__header {
@@ -123,12 +122,54 @@
 }
 
 /* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
-   and the labels only take a narrow strip of it. */
+   and the labels only take a strip of it, which the rail at their right
+   edge resizes (--track-label-width). */
+.app-shell--phone .timeline-canvas {
+  --phone-label-width: min(var(--track-label-width), var(--label-width));
+}
+
 .app-shell--phone .track-label {
   justify-self: start;
-  width: min(112px, var(--label-width));
+  width: var(--phone-label-width);
   gap: 6px;
   padding-inline: 8px;
+}
+
+/* The rail's handle: a finger-wide target centered on the labels' edge. */
+.app-shell--phone .label-resize-handle {
+  left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+  width: var(--mobile-tap);
+  margin-left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+}
+
+.app-shell--phone .label-resize-handle::before {
+  background: var(--line-strong);
+  opacity: 0.6;
+}
+
+/* A row's bottom edge resizes it: a finger-tall target rising from the
+   edge. It stays inside the label, since the next row's label covers
+   anything below, and under the label's controls, so the name, number and
+   switches still take taps and long presses. */
+.app-shell--phone .row-resize-handle {
+  z-index: 2;
+}
+
+.app-shell--phone .row-resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--mobile-tap);
+}
+
+.app-shell--phone .track-label__grip,
+.app-shell--phone .track-label__index,
+.app-shell--phone .track-label__select,
+.app-shell--phone .track-label__hide {
+  position: relative;
+  z-index: 3;
 }
 
 .app-shell--phone .track-label small,
@@ -137,9 +178,9 @@
   display: none;
 }
 
-/* Reorder mode: grips and row resizing only while it is on. */
-.app-shell--phone:not(.app-shell--reordering) .track-label__grip,
-.app-shell--phone:not(.app-shell--reordering) .row-resize-handle {
+/* A long press on a label picks its layer up (LayerHeader), so the grips
+   only show in Reorder mode. */
+.app-shell--phone:not(.app-shell--reordering) .track-label__grip {
   display: none;
 }
 
@@ -155,22 +196,20 @@
   display: none;
 }
 
-/* Clip edges scroll like the rest of the clip until Trim is on; then the
-   selected clip's handles show with 44px targets. */
+/* Clip edges scroll like the rest of the clip, except the selected clip's:
+   its handles show, with 44px targets, since touch has no hover. */
 .app-shell--phone .clip-card__handle {
   pointer-events: none;
   opacity: 0;
 }
 
-.app-shell--phone.app-shell--trimming .clip-card--selected .clip-card__handle {
+.app-shell--phone .clip-card--selected .clip-card__handle {
   pointer-events: auto;
   opacity: 1;
   touch-action: none;
 }
 
-.app-shell--phone.app-shell--trimming
-  .clip-card--selected
-  .clip-card__handle::before {
+.app-shell--phone .clip-card--selected .clip-card__handle::before {
   content: "";
   position: absolute;
   inset: -8px calc((var(--mobile-tap) - 100%) / -2);

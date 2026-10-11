@@ -12,24 +12,44 @@ import {
 } from "./constants.ts";
 import { clamp } from "./util.ts";
 
-export function clampLabelWidth(width: number) {
-  return Math.round(clamp(width, LABEL_WIDTH_MIN, LABEL_WIDTH_MAX));
+// The track labels' width range, its default, and where it is saved.
+export type LabelWidthLimits = {
+  min: number;
+  max: number;
+  default: number;
+  storageKey: string;
+};
+
+export const DESKTOP_LABEL_WIDTH: LabelWidthLimits = {
+  min: LABEL_WIDTH_MIN,
+  max: LABEL_WIDTH_MAX,
+  default: LABEL_WIDTH_DEFAULT,
+  storageKey: LABEL_WIDTH_STORAGE_KEY,
+};
+
+export function clampLabelWidth(
+  width: number,
+  limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH,
+) {
+  return Math.round(clamp(width, limits.min, limits.max));
 }
 
-export function readLabelWidth() {
+export function readLabelWidth(
+  limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH,
+) {
   if (typeof window === "undefined") {
-    return LABEL_WIDTH_DEFAULT;
+    return limits.default;
   }
 
   try {
     const stored = Number(
-      window.localStorage.getItem(LABEL_WIDTH_STORAGE_KEY) ?? Number.NaN,
+      window.localStorage.getItem(limits.storageKey) ?? Number.NaN,
     );
     return Number.isFinite(stored)
-      ? clampLabelWidth(stored)
-      : LABEL_WIDTH_DEFAULT;
+      ? clampLabelWidth(stored, limits)
+      : limits.default;
   } catch {
-    return LABEL_WIDTH_DEFAULT;
+    return limits.default;
   }
 }
 

@@ -59,10 +59,8 @@ export function MobileShellChrome({
       {hasSelectedClip ? (
         <MobileSelectionToolbar
           entries={clipMenuEntries}
-          isTrimming={mobile.isTrimming}
           onOpenFx={mobile.openFxSheet}
           onOpenMenu={openClipMenu}
-          onToggleTrim={() => mobile.setIsTrimming(!mobile.isTrimming)}
         />
       ) : null}
       <MobileTabBar

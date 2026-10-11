@@ -61,6 +61,15 @@ export const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
 
 export const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
 
+// The width of the track labels themselves on a phone, where the label
+// column is half a view of lead-in and the labels take a strip of it.
+export const PHONE_LABEL_WIDTH = {
+  min: 72,
+  max: 200,
+  default: 112,
+  storageKey: "zvid-phone-label-width",
+};
+
 export const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
 
 export const PREVIEW_VOLUME_STORAGE_KEY = "zvid-preview-volume";

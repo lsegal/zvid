@@ -56,7 +56,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
 
   const mobile = useMobileShell({
     isPhone,
-    selectedClipId: selectedClip?.id,
     isMediaDrawerOpen: mediaDrawer.isOpen,
     setMediaDrawerOpen: mediaDrawer.setOpen,
     openMediaTab: () => mediaDrawer.selectTab("media"),
@@ -179,7 +178,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         layout.shell === "phone-landscape" ? "app-shell--phone-landscape" : "",
         mobile.isReordering ? "app-shell--reordering" : "",
         mobile.showsSourceTracks ? "app-shell--source-tracks" : "",
-        mobile.isTrimming ? "app-shell--trimming" : "",
         mobile.fxSheet ? `app-shell--fx-${mobile.fxSheet}` : "",
         `app-shell--fx-${mobile.fxScreen}`,
       ]

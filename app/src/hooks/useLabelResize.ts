@@ -4,18 +4,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { LABEL_WIDTH_KEYBOARD_STEP } from "../app/constants.ts";
 import {
-  LABEL_WIDTH_KEYBOARD_STEP,
-  LABEL_WIDTH_MAX,
-  LABEL_WIDTH_MIN,
-  LABEL_WIDTH_STORAGE_KEY,
-} from "../app/constants.ts";
-import { clampLabelWidth, readLabelWidth } from "../app/layout-prefs.ts";
+  clampLabelWidth,
+  DESKTOP_LABEL_WIDTH,
+  type LabelWidthLimits,
+  readLabelWidth,
+} from "../app/layout-prefs.ts";
 
 // The width of the timeline's track labels, which the rail between the
-// labels and the lanes resizes by dragging or from the keyboard.
-export function useLabelResize() {
-  const [labelWidth, setLabelWidth] = useState(readLabelWidth);
+// labels and the lanes resizes by dragging or from the keyboard, within
+// `limits` (the phone's labels have their own).
+export function useLabelResize(
+  limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH,
+) {
+  const [labelWidth, setLabelWidth] = useState(() => readLabelWidth(limits));
   const labelResizeRef = useRef<{
     pointerId: number;
     pointerStartX: number;
@@ -23,10 +26,10 @@ export function useLabelResize() {
   } | null>(null);
 
   function commitLabelWidth(width: number) {
-    const nextWidth = clampLabelWidth(width);
+    const nextWidth = clampLabelWidth(width, limits);
     setLabelWidth(nextWidth);
     try {
-      window.localStorage.setItem(LABEL_WIDTH_STORAGE_KEY, String(nextWidth));
+      window.localStorage.setItem(limits.storageKey, String(nextWidth));
     } catch {
       // Storage can be unavailable (private mode, quota); resizing still works.
     }
@@ -60,6 +63,7 @@ export function useLabelResize() {
     setLabelWidth(
       clampLabelWidth(
         resize.originWidth + event.clientX - resize.pointerStartX,
+        limits,
       ),
     );
   }
@@ -90,10 +94,10 @@ export function useLabelResize() {
         nextWidth = labelWidth + LABEL_WIDTH_KEYBOARD_STEP;
         break;
       case "Home":
-        nextWidth = LABEL_WIDTH_MIN;
+        nextWidth = limits.min;
         break;
       case "End":
-        nextWidth = LABEL_WIDTH_MAX;
+        nextWidth = limits.max;
         break;
       default:
         return;
@@ -106,6 +110,7 @@ export function useLabelResize() {
 
   return {
     labelWidth,
+    limits,
     commitLabelWidth,
     handleLabelResizePointerDown,
     handleLabelResizePointerMove,

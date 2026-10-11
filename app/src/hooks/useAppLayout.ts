@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   INSPECTOR_COLLAPSED_STORAGE_KEY,
+  PHONE_LABEL_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
@@ -82,9 +83,16 @@ export function useAppLayout({
   // The Audio row's expanded height; its collapse is the pref above.
   const [audioRowHeight, setAudioRowHeight] = useState(AUDIO_ROW_HEIGHT);
   const deskLabelResize = useLabelResize();
+  const phoneLabelResize = useLabelResize(PHONE_LABEL_WIDTH);
+  // On a phone the label column stays half the view, and the rail resizes
+  // the labels inside it (trackLabelWidth) instead.
   const labelResize = isPhone
-    ? { ...deskLabelResize, labelWidth: Math.round(timelineViewWidth / 2) }
-    : deskLabelResize;
+    ? {
+        ...phoneLabelResize,
+        labelWidth: Math.round(timelineViewWidth / 2),
+        trackLabelWidth: phoneLabelResize.labelWidth,
+      }
+    : { ...deskLabelResize, trackLabelWidth: deskLabelResize.labelWidth };
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
