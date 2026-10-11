@@ -24,6 +24,14 @@
   -webkit-touch-callout: none;
 }
 
+/* Chrome starts pull-to-refresh from the root scroller, so the shell's own
+   overscroll-behavior doesn't stop it: turn it off on the document while
+   the phone shell is up. */
+:root:has(.app-shell--phone),
+:root:has(.app-shell--phone) body {
+  overscroll-behavior: none;
+}
+
 /* The desktop containers step aside so their panels sit in the grid. */
 .app-shell--phone .workspace,
 .app-shell--phone .workspace__main,
@@ -432,6 +440,20 @@ body:has(.app-shell--phone) .dropdown-menu-content {
   background: var(--line-strong);
 }
 
+/* The menu sheet's drag handle: a taller target around its grabber. */
+.mobile-sheet__handle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  height: 22px;
+  margin-bottom: 4px;
+  touch-action: none;
+}
+
+.mobile-sheet__handle .mobile-sheet__grabber {
+  margin: 0;
+}
+
 .mobile-menu-sheet__item {
   display: flex;
   align-items: center;
@@ -508,13 +530,16 @@ body:has(.app-shell--phone) .dropdown-menu-content {
 
 .app-shell--phone .fx-panel__body {
   flex: 1;
+  overscroll-behavior: contain;
 }
 
+/* The whole header is the sheet's drag handle (useSheetDrag). */
 .mobile-sheet-header {
   display: grid;
   gap: 6px;
   padding: 0 10px 8px;
   border-bottom: 1px solid var(--line);
+  touch-action: none;
 }
 
 .mobile-sheet-header__grabber {

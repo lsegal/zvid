@@ -1,7 +1,9 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { menuSheetClosesAfterDrag } from "../../app/sheet-drag.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "../../context-menu.ts";
+import { useSheetDrag } from "../../hooks/useSheetDrag.ts";
 import "./mobile-shell.css";
 
 type MenuSheetProps = {
@@ -35,6 +37,23 @@ function OpenMenuSheet({
   onCloseRef.current = onClose;
   const parent = trail.at(-1);
   const level = parent?.submenu ?? entries;
+  // Dragging the grabber down pulls the sheet with it and, far enough,
+  // dismisses it.
+  const drag = useSheetDrag({
+    onMove(dy) {
+      if (panelRef.current) {
+        panelRef.current.style.transform = `translateY(${Math.max(dy, 0)}px)`;
+      }
+    },
+    onRelease(dy) {
+      if (panelRef.current) {
+        panelRef.current.style.transform = "";
+      }
+      if (menuSheetClosesAfterDrag(dy)) {
+        onClose();
+      }
+    },
+  });
 
   useEffect(() => {
     void trail;
@@ -81,7 +100,9 @@ function OpenMenuSheet({
         ref={panelRef}
         role="menu"
       >
-        <span aria-hidden="true" className="mobile-sheet__grabber" />
+        <div aria-hidden="true" className="mobile-sheet__handle" {...drag}>
+          <span className="mobile-sheet__grabber" />
+        </div>
         {parent ? (
           <button
             className="mobile-menu-sheet__item mobile-menu-sheet__back"
