@@ -39,6 +39,21 @@ export function buildSelection(
   };
 }
 
+/**
+ * The grid cell `cellQ` long that holds `timeQ`: from the grid line at or
+ * before it to the next one. A double-click or double-tap on empty lane
+ * space selects it, with or without Snap.
+ */
+export function gridCellSelection(
+  laneId: string,
+  timeQ: number,
+  cellQ: number,
+): TimelineSelection {
+  // The epsilon keeps a time on a grid line from landing a cell early.
+  const startQ = Math.floor(Math.max(0, timeQ) / cellQ + 1e-9) * cellQ;
+  return { id: `selection-${laneId}`, laneId, startQ, durationQ: cellQ };
+}
+
 export function startLaneSelectionGesture(
   anchorQ: number,
   pointerStartX: number,

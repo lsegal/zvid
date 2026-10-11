@@ -7,6 +7,7 @@ import {
   GRID_MAX_PX,
   GRID_MIN_PX,
   getBarStep,
+  getFinestGridQ,
   getGridLayers,
   getRulerBars,
   RULER_LABEL_MIN_PX,
@@ -124,6 +125,23 @@ describe("getGridLayers", () => {
       { spacingQ: 0.5, weight: "beat" },
       { spacingQ: 3, weight: "bar" },
     ]);
+  });
+});
+
+describe("getFinestGridQ", () => {
+  it("is the grid unit while its lines are drawn", () => {
+    assert.equal(getFinestGridQ(0.25, FOUR_FOUR, 40), 0.25);
+    assert.equal(getFinestGridQ(1, FOUR_FOUR, 40), 1);
+    assert.equal(getFinestGridQ(0.25, SIX_EIGHT, 40), 0.25);
+  });
+
+  it("falls back to the finest lines drawn when the unit's are hidden", () => {
+    // A whole note is longer than a 3/4 bar, so bars are the finest lines.
+    assert.equal(getFinestGridQ(4, { numerator: 3, denominator: 4 }, 40), 3);
+    // Zoomed far out, only every few bars get a line.
+    const barStep = getBarStep(4 * 0.5, GRID_MIN_PX);
+    assert.ok(barStep > 1);
+    assert.equal(getFinestGridQ(4, FOUR_FOUR, 0.5), 4 * barStep);
   });
 });
 

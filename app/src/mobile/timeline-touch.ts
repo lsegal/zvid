@@ -9,6 +9,11 @@ import { clampZoom } from "../zoom.ts";
 export const LONG_PRESS_MS = 450;
 // How far a finger may wander and still count as holding still or tapping.
 export const TOUCH_SLOP_PX = 10;
+// How soon, and how close, a second tap lands to count as a double tap.
+export const DOUBLE_TAP_MS = 300;
+export const DOUBLE_TAP_SLOP_PX = 24;
+
+export type TouchTap = { x: number; y: number; timeMs: number };
 
 type CenterGeometry = {
   // The space ahead of time 0. The mobile shell makes it half the view, so
@@ -63,6 +68,15 @@ export function exceedsTouchSlop(dx: number, dy: number) {
  */
 export function isTouchTap(dx: number, dy: number, elapsedMs: number) {
   return elapsedMs < LONG_PRESS_MS && !exceedsTouchSlop(dx, dy);
+}
+
+/** Whether `next` follows `previous` closely enough to be a double tap. */
+export function isDoubleTap(previous: TouchTap | null, next: TouchTap) {
+  return (
+    previous !== null &&
+    next.timeMs - previous.timeMs <= DOUBLE_TAP_MS &&
+    Math.hypot(next.x - previous.x, next.y - previous.y) <= DOUBLE_TAP_SLOP_PX
+  );
 }
 
 /**

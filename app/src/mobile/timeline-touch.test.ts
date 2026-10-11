@@ -5,7 +5,10 @@ import { ZOOM_MAX, ZOOM_MIN } from "../zoom.ts";
 import {
   centeredScrollLeft,
   centerPlayheadQ,
+  DOUBLE_TAP_MS,
+  DOUBLE_TAP_SLOP_PX,
   exceedsTouchSlop,
+  isDoubleTap,
   isTouchTap,
   LONG_PRESS_MS,
   pickMenuItems,
@@ -66,6 +69,37 @@ describe("isTouchTap", () => {
     assert.equal(isTouchTap(TOUCH_SLOP_PX + 1, 0, 120), false);
     // A hold that started a selection or picked up a clip is no tap.
     assert.equal(isTouchTap(0, 0, LONG_PRESS_MS), false);
+  });
+});
+
+describe("isDoubleTap", () => {
+  const first = { x: 100, y: 50, timeMs: 1000 };
+
+  it("needs a tap before it", () => {
+    assert.equal(isDoubleTap(null, first), false);
+  });
+
+  it("counts a second tap soon after and close by", () => {
+    assert.equal(isDoubleTap(first, { x: 110, y: 55, timeMs: 1200 }), true);
+    assert.equal(
+      isDoubleTap(first, { x: 100, y: 50, timeMs: 1000 + DOUBLE_TAP_MS }),
+      true,
+    );
+  });
+
+  it("rejects a tap too late or too far away", () => {
+    assert.equal(
+      isDoubleTap(first, { x: 100, y: 50, timeMs: 1001 + DOUBLE_TAP_MS }),
+      false,
+    );
+    assert.equal(
+      isDoubleTap(first, {
+        x: 101 + DOUBLE_TAP_SLOP_PX,
+        y: 50,
+        timeMs: 1100,
+      }),
+      false,
+    );
   });
 });
 

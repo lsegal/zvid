@@ -5,6 +5,7 @@ import {
   buildSelection,
   editSelectionRange,
   editTimelineSelection,
+  gridCellSelection,
   LANE_SELECTION_DRAG_THRESHOLD_PX,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
@@ -238,5 +239,30 @@ describe("lane press wiring", () => {
       useClipDragTs,
       /if \(release\.kind === "click"\) \{\s*setPendingSelection\(null\);\s*setPlayheadQ\(release\.playheadQ\);/,
     );
+  });
+});
+
+describe("gridCellSelection", () => {
+  it("selects the grid cell holding the time", () => {
+    assert.deepEqual(gridCellSelection("2", 5.3, 0.25), {
+      id: "selection-2",
+      laneId: "2",
+      startQ: 5.25,
+      durationQ: 0.25,
+    });
+    assert.deepEqual(gridCellSelection("1", 7.9, 4), {
+      id: "selection-1",
+      laneId: "1",
+      startQ: 4,
+      durationQ: 4,
+    });
+  });
+
+  it("starts a cell at a time on its grid line", () => {
+    assert.equal(gridCellSelection("1", 0.75, 0.25).startQ, 0.75);
+  });
+
+  it("never starts before the song start", () => {
+    assert.equal(gridCellSelection("1", -2, 1).startQ, 0);
   });
 });

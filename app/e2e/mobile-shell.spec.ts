@@ -442,6 +442,54 @@ test("tapping elsewhere clears a lane selection", async ({ page }) => {
   ).toBeHidden();
 });
 
+test("a double tap on empty lane space selects one grid cell", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const lane = page.locator('[data-timeline-lane-id="1"]');
+  const laneBox = await lane.boundingBox();
+  const y = (laneBox?.y ?? 0) + (laneBox?.height ?? 0) / 2;
+  const selection = page.locator(".timeline-selection");
+  const at = { x: scroll.x + 30, y };
+
+  // A single tap still selects nothing.
+  const before = await settledPlayheadQ(page);
+  await hold(page, client, at, 30);
+  await page.waitForTimeout(400);
+  await expect(selection).toHaveCount(0);
+
+  await hold(page, client, at, 30);
+  await page.waitForTimeout(80);
+  await hold(page, client, at, 30);
+  await expect(selection).toBeVisible();
+  await expect(
+    page.getByRole("toolbar", { name: "Selection actions" }),
+  ).toBeVisible();
+  // The taps didn't scroll or scrub.
+  expect(await playheadQ(page)).toBe(before);
+
+  // One cell of the finest grid drawn, starting on a grid line.
+  const cellPx = await lane.evaluate((element) => {
+    const sizes = getComputedStyle(element).backgroundSize.split(",");
+    return Number.parseFloat(sizes[sizes.length - 1]);
+  });
+  const box = await selection.boundingBox();
+  // Measured from the lane's padding edge, where the grid starts.
+  const left = await selection.evaluate((element) =>
+    Number.parseFloat((element as HTMLElement).style.left),
+  );
+  expect(box?.width ?? 0).toBeCloseTo(cellPx, 0);
+  expect(Math.abs(left / cellPx - Math.round(left / cellPx))).toBeLessThan(
+    0.05,
+  );
+  expect(left).toBeLessThanOrEqual(at.x - (laneBox?.x ?? 0) + 1);
+  expect(left + (box?.width ?? 0)).toBeGreaterThan(
+    at.x - (laneBox?.x ?? 0) - 1,
+  );
+});
+
 test("a selected clip shows its trim handles, and dragging one trims it", async ({
   page,
 }) => {
@@ -707,6 +755,27 @@ test.describe("tablet", () => {
     await expect(page.locator(".app-shell")).not.toHaveClass(
       /app-shell--phone/,
     );
+  });
+
+  test("a double tap on empty lane space selects a grid cell", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const client = await page.context().newCDPSession(page);
+    const lane = page.locator('[data-timeline-lane-id="1"]');
+    const laneBox = await lane.boundingBox();
+    const at = { x: (laneBox?.x ?? 0) + 150, y: (laneBox?.y ?? 0) + 20 };
+    const selection = lane.locator(".timeline-selection");
+
+    await hold(page, client, at, 30);
+    await page.waitForTimeout(80);
+    await hold(page, client, at, 30);
+    await expect(selection).toHaveCount(1);
+    const cellPx = await lane.evaluate((element) => {
+      const sizes = getComputedStyle(element).backgroundSize.split(",");
+      return Number.parseFloat(sizes[sizes.length - 1]);
+    });
+    expect((await selection.boundingBox())?.width ?? 0).toBeCloseTo(cellPx, 0);
   });
 
   // Toolbar controls keep their desktop size and take a 44px-tall touch
