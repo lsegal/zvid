@@ -1,0 +1,20 @@
+/* Over the transform overlay while the portrait phone preview is unfocused
+   (PreviewFocusShield): swipes pan instead of moving layers. */
+.preview-focus-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  touch-action: pan-x pan-y;
+  outline: none;
+}
+
+/* The focused phone preview takes edits: ring it in the selection accent. */
+.preview-monitor--focused::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 2px solid var(--lane-selected-accent);
+  border-radius: inherit;
+  pointer-events: none;
+}

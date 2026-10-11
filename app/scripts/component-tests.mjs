@@ -77,6 +77,23 @@ export function componentTestCommand({ platform, env, hasXvfbRun, args }) {
   return { error: XVFB_MISSING };
 }
 
+// CI splits the selected tests across parallel jobs (component-tests in
+// .github/workflows/ci.yml): headed Chromium runs one test file at a time,
+// several seconds each, so one job for a few dozen files takes minutes.
+export const FILES_PER_SHARD = 15;
+export const MAX_SHARDS = 6;
+
+/** The 1-based shard numbers to split `fileCount` test files across: about
+ * FILES_PER_SHARD files each, at most MAX_SHARDS, and one shard when no file
+ * is selected so the job still runs and passes. */
+export function componentTestShards(fileCount) {
+  const count = Math.min(
+    MAX_SHARDS,
+    Math.max(1, Math.ceil(fileCount / FILES_PER_SHARD)),
+  );
+  return Array.from({ length: count }, (_, i) => i + 1);
+}
+
 /** Whether `name` is an executable on `PATH`. */
 function onPath(name, env) {
   return (env.PATH ?? "")

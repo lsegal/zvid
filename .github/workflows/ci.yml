@@ -81,34 +81,42 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm --dir daw/ui run build
 
-  # Vitest browser-mode component tests (pnpm test:component), selected by
-  # what changed: `vitest --changed` follows each test's imports, CSS
+  # Picks the Vitest browser-mode component tests (pnpm test:component) to
+  # run, by what changed: `vitest --changed` follows each test's imports, CSS
   # included, and a change to the global CSS or the harness reruns them all.
   # A pull request compares against its merge base with main, a push to main
   # against the commit main pointed at before it, and a manual run with
-  # full-suite runs everything. Nothing selected passes. See
-  # app/ARCHITECTURE.md (Testing).
-  component-tests:
+  # full-suite runs everything. It outputs how many files are selected and
+  # the shards component-tests splits them across (componentTestShards in
+  # app/scripts/component-tests.mjs). See app/ARCHITECTURE.md (Testing).
+  component-select:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    outputs:
+      since: ${{ steps.select.outputs.since }}
+      selected: ${{ steps.select.outputs.selected }}
+      shards: ${{ steps.select.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup
-
-      # Dialogs that probe export support import the harness, whose dynamic
-      # import of the wasm bridge must resolve when Vite serves the tests.
-      - name: Build export bridge
-        working-directory: app
-        run: wasm-pack build export-bridge --target web --out-dir pkg
-
-      - uses: ./.github/actions/setup-playwright
+      - uses: pnpm/action-setup@v4
         with:
-          dir: app
+          version: 10
 
-      - name: Component tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install app dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Select component tests
+        id: select
         working-directory: app
         env:
           EVENT: ${{ github.event_name }}
@@ -131,21 +139,84 @@ jobs:
                 since=$(git merge-base origin/main HEAD)
               fi ;;
           esac
-          # test:component runs Chromium headed under Xvfb on Linux; see
-          # app/scripts/component-tests.mjs.
           if [ -n "$since" ]; then
-            echo "Running the component tests affected since $since"
-            pnpm test:component --changed "$since" --passWithNoTests
+            echo "Selecting the component tests affected since $since"
           else
-            echo "Running the whole component test suite"
-            pnpm test:component --all
+            echo "Selecting every component test"
           fi
+          pnpm exec vitest list ${since:+--changed "$since"} --filesOnly \
+            --passWithNoTests --json="$RUNNER_TEMP/selected.json"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { componentTestShards } from "./scripts/component-tests.mjs";
+            const files = JSON.parse(readFileSync(process.argv[1], "utf8"));
+            for (const { file } of files) console.error(file);
+            const shards = componentTestShards(files.length);
+            console.error(files.length + " files in " + shards.length + " shards");
+            console.log("selected=" + files.length);
+            console.log("shards=" + JSON.stringify(shards));
+          ' "$RUNNER_TEMP/selected.json" >> "$GITHUB_OUTPUT"
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+
+  # Runs the selected component tests, split across parallel shards: on
+  # Linux, Chromium runs headed under Xvfb, and Vitest runs a headed browser
+  # one test file at a time. When none are selected, one shard passes
+  # without running any.
+  component-tests:
+    name: component-tests (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: [component-select, export-bridge]
+    if: ${{ !cancelled() && needs.component-select.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.component-select.outputs.shards) }}
+    env:
+      SINCE: ${{ needs.component-select.outputs.since }}
+      SELECTED: ${{ needs.component-select.outputs.selected }}
+      SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+    steps:
+      - name: No tests selected
+        if: env.SELECTED == '0'
+        run: echo "No component test is affected by this change."
+
+      - uses: actions/checkout@v4
+        if: env.SELECTED != '0'
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-playwright
+        if: env.SELECTED != '0'
+        with:
+          dir: app
+
+      # Dialogs that probe export support import the harness, whose dynamic
+      # import of the wasm bridge must resolve when Vite serves the tests.
+      - uses: actions/download-artifact@v4
+        if: env.SELECTED != '0'
+        with:
+          name: export-bridge-pkg
+          path: app/export-bridge/pkg
+
+      # test:component runs Chromium headed under Xvfb on Linux; see
+      # app/scripts/component-tests.mjs.
+      - name: Component tests
+        if: env.SELECTED != '0'
+        working-directory: app
+        run: |
+          echo "Running shard $SHARD of the component tests${SINCE:+ affected since $SINCE}"
+          # Without a base commit, --all opts out of the script's local
+          # changed-only default and runs the whole suite.
+          select=(--all)
+          if [ -n "$SINCE" ]; then select=(--changed "$SINCE"); fi
+          pnpm test:component "${select[@]}" --shard "$SHARD" --passWithNoTests
 
       - name: Upload test output
-        if: failure()
+        if: failure() && env.SELECTED != '0'
         uses: actions/upload-artifact@v4
         with:
-          name: component-test-results
+          name: component-test-results-${{ matrix.shard }}
           # Vitest browser mode saves a screenshot of each failing test here.
           path: app/.vitest/attachments/failure-screenshots
           include-hidden-files: true
@@ -234,9 +305,11 @@ jobs:
             echo "webkit=${webkit:?no test count}"
           } >> "$GITHUB_OUTPUT"
 
+  # Builds the wasm export bridge once for the component tests and the
+  # Playwright specs.
   export-bridge:
-    needs: e2e-select
-    if: needs.e2e-select.outputs.chromium != '0' || needs.e2e-select.outputs.webkit != '0'
+    needs: [component-select, e2e-select]
+    if: ${{ !cancelled() && (needs.component-select.outputs.selected != '0' || needs.e2e-select.outputs.chromium != '0' || needs.e2e-select.outputs.webkit != '0') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -386,7 +459,11 @@ jobs:
   # (the push's `before` SHA), so a multi-commit push that changed /daw in
   # any of its commits still runs it. When the changed files can't be
   # determined (a new branch, a force-push whose old head can't be fetched,
-  # or a filter error), `daw` is true and the job runs anyway.
+  # or a filter error), `daw` is true and the job runs anyway. Only a push
+  # has a `before` SHA: on other events it is null, and expressions compare
+  # null and the all-zero SHA as the number 0, so the new-branch check must
+  # be limited to pushes or every pull_request run would build the DAW.
+  # A manual run (workflow_dispatch) always builds it.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -394,7 +471,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      daw: ${{ steps.filter.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.daw == 'true' }}
+      daw: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outcome != 'success' || (github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000') || steps.filter.outputs.daw == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
