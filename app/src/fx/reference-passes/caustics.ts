@@ -1,13 +1,14 @@
 // The caustics pass as it was before #951 made it cheaper, kept as the visual
-// reference e2e/effect-equivalence.spec.ts compares the current pass against.
-import { parseCssColor } from "../../../src/fill-paint.ts";
+// reference effect-equivalence.component.test.tsx compares the current pass
+// against.
+import { parseCssColor } from "../../fill-paint.ts";
 import {
   clampUnit,
   type EffectParameter,
   type EffectPass,
   normalizeEffectKey,
   readEffectNumber,
-} from "../../../src/fx-shaders/types.ts";
+} from "../../fx-shaders/types.ts";
 
 export const CAUSTICS_BLENDS = ["Add", "Screen", "Multiply"] as const;
 

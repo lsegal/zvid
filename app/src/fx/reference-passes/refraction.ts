@@ -1,14 +1,15 @@
 // The refraction pass as it was before #951 made it cheaper, kept as the visual
-// reference e2e/effect-equivalence.spec.ts compares the current pass against.
+// reference effect-equivalence.component.test.tsx compares the current pass
+// against.
 
-import { REFRACTION_TYPES } from "../../../src/fx/effects/refraction/definition.ts";
 import {
   clampUnit,
   type EffectParameter,
   type EffectPass,
   normalizeEffectKey,
   readEffectNumber,
-} from "../../../src/fx-shaders/types.ts";
+} from "../../fx-shaders/types.ts";
+import { REFRACTION_TYPES } from "../effects/refraction/definition.ts";
 
 // Surface features per short side of the frame at Scale 0 and 100%.
 const FINEST_FEATURES = 24;
