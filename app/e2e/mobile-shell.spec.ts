@@ -3,6 +3,7 @@ import {
   type CDPSession,
   devices,
   expect,
+  type Locator,
   type Page,
   test,
 } from "@playwright/test";
@@ -260,6 +261,50 @@ test("FX opens as a half or full sheet and Media as a full screen", async ({
   expect(drawer?.width).toBe(viewport?.width);
   await page.getByRole("button", { name: "Close media" }).click();
   await expect(page.getByRole("button", { name: "Camera roll" })).toBeHidden();
+});
+
+// Menus portal outside the sheets (#1170). Every entry is on screen and on
+// top: a trial tap checks that the entry itself, not the sheet under it,
+// would get the tap.
+async function expectTappable(
+  page: Page,
+  list: Locator,
+  role: "menuitem" | "option",
+) {
+  const viewport = page.viewportSize();
+  const box = await list.boundingBox();
+  expect(box?.x).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+    viewport?.width ?? 0,
+  );
+  for (const entry of await list.getByRole(role).all()) {
+    await entry.click({ trial: true, timeout: 2_000 });
+  }
+}
+
+test("menus and selects in the FX sheet open above it", async ({ page }) => {
+  await page.goto("/");
+  const tabs = page.getByRole("navigation", { name: "Editor" });
+  await tabs.getByRole("button", { name: "FX" }).click();
+  const fx = page.locator(".fx-panel");
+  await expect(fx).toBeVisible();
+
+  await fx.getByRole("button", { name: "Add device to Global" }).click();
+  const menu = page.getByRole("menu").first();
+  await expect(menu).toBeVisible();
+  await expectTappable(page, menu, "menuitem");
+  await menu.getByRole("menuitem", { name: "Transform" }).click();
+  const submenu = page.getByRole("menu").nth(1);
+  await expect(submenu).toBeVisible();
+  await expectTappable(page, submenu, "menuitem");
+  await submenu.getByRole("menuitem", { name: /^Zoom & Pan/ }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  await fx.getByRole("button", { name: "Animation", exact: true }).click();
+  await fx.getByRole("combobox", { name: "Motion In" }).click();
+  const options = page.getByRole("listbox");
+  await expect(options).toBeVisible();
+  await expectTappable(page, options, "option");
 });
 
 test.describe("landscape phone", () => {
