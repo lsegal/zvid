@@ -44,12 +44,12 @@
 .app-shell--phone .topbar,
 .app-shell--phone .timeline-toolbar,
 .app-shell--phone .transport-bar,
-.app-shell--phone .status-bar,
 .app-shell--phone .preview-resize-handle,
 .app-shell--phone .media-drawer-resize-handle,
 .app-shell--phone .playhead-jump,
 .app-shell--phone .fx-panel__toggle,
-.app-shell--phone .preview-panel__header {
+.app-shell--phone .scopes-pane__resize,
+.app-shell--phone .status-bar__group {
   display: none;
 }
 
@@ -232,6 +232,7 @@
 
 .mobile-transport {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: 2px 8px;
@@ -681,10 +682,6 @@ body:has(.app-shell--phone) .dropdown-menu-content {
     "transport timeline"
     "tabs tools";
   padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
-}
-
-.app-shell--phone-landscape .preview-panel {
-  align-self: center;
 }
 
 .app-shell--phone-landscape .preview-monitor {

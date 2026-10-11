@@ -11,6 +11,7 @@ import {
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
+import { useMasterMeterTap } from "./useMasterMeterTap.ts";
 import type { useMediaDrawer } from "./useMediaDrawer.ts";
 import { useMobileShell } from "./useMobileShell.ts";
 import { usePhoneExportSupport } from "./usePhoneExportSupport.ts";
@@ -101,6 +102,9 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     setDragState: selection.setDragState,
     setClipMenu: selection.setClipMenu,
   });
+  // The phone transport's VU meter reads the same master tap as the desktop
+  // transport bar's.
+  const getMeterTap = useMasterMeterTap(inputs.compositionPlayerRef);
   const exportSupport = usePhoneExportSupport(
     isPhone,
     project.canvasWidth,
@@ -223,6 +227,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         signature: timeline.signature,
         fps: project.fps,
       },
+      getMeterTap,
       isPlaying,
       isRecording: recording.isRecording,
       isLooping: timeline.loopRegion !== null,

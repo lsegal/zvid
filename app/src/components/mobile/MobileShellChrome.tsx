@@ -6,6 +6,7 @@ import { MobileTopBar } from "./MobileTopBar";
 import { MobileTransport } from "./MobileTransport";
 import { MediaSheetHeader } from "./SheetHeaders";
 import "./mobile-shell.css";
+import "./mobile-panels.css";
 import "./mobile-timeline.css";
 
 // The phone shell's own controls around the editor's panels, which its
@@ -24,6 +25,7 @@ export function MobileShellChrome({
   importMedia,
   playheadSignal,
   readout,
+  getMeterTap,
   isPlaying,
   isRecording,
   isLooping,
@@ -54,6 +56,7 @@ export function MobileShellChrome({
       />
       <MobileTransport
         {...readout}
+        getMeterTap={getMeterTap}
         isLooping={isLooping}
         isPlaying={isPlaying}
         isRecording={isRecording}

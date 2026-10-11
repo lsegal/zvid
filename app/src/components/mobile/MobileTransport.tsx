@@ -4,13 +4,16 @@ import {
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
+import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import type { PlayheadSignal } from "../../playhead-signal";
 import type { StatusPlayheadState } from "../../status-items";
 import { StatusPlayhead } from "../StatusPlayhead";
 import { RecordIcon } from "../timeline/RecordIcon";
+import { VuMeter } from "../timeline/VuMeter";
 
 type MobileTransportProps = Omit<StatusPlayheadState, "playheadQ"> & {
   playheadSignal: PlayheadSignal;
+  getMeterTap: () => MasterMeterTap | null;
   isPlaying: boolean;
   isRecording: boolean;
   isLooping: boolean;
@@ -21,9 +24,11 @@ type MobileTransportProps = Omit<StatusPlayheadState, "playheadQ"> & {
 };
 
 // The mobile shell's thin transport under the preview: back to the start,
-// Play, Record, the playhead's position and the loop switch.
+// Play, Record, the playhead's position and the loop switch, with the
+// master VU meter in a strip below them.
 export function MobileTransport({
   playheadSignal,
+  getMeterTap,
   isPlaying,
   isRecording,
   isLooping,
@@ -77,6 +82,7 @@ export function MobileTransport({
       >
         <ArrowPathRoundedSquareIcon aria-hidden="true" />
       </button>
+      <VuMeter getMeterTap={getMeterTap} isPlaying={isPlaying} />
     </div>
   );
 }
