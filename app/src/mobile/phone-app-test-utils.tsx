@@ -222,6 +222,7 @@ const IMPLICIT_ROLES: Record<string, string> = {
   button: "button",
   navigation: "nav",
   heading: "h1, h2, h3, h4, h5, h6",
+  separator: "hr",
 };
 
 // The visible elements with `role` whose accessible name (an aria-label or
