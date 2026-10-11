@@ -152,7 +152,9 @@ html[data-menu-sheet-nav]::view-transition-new(mobile-menu-sheet) {
 html[data-menu-sheet-nav]::view-transition-old(mobile-menu-level),
 html[data-menu-sheet-nav]::view-transition-new(mobile-menu-level) {
   mix-blend-mode: normal;
-  animation: 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
 }
 
 @keyframes mobile-menu-level-from-right {
