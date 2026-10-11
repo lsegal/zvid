@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { usePhone } from "../../component-test/viewport.ts";
@@ -7,6 +7,7 @@ import type { ContextMenuEntry } from "../../context-menu.ts";
 import { MenuSheet } from "./MenuSheet";
 import {
   emulateReducedMotion,
+  holdSheetExit,
   type MotionLog,
   recordMotion,
 } from "./sheet-motion.fixture.ts";
@@ -66,6 +67,7 @@ const sheet = () => document.querySelector(".mobile-menu-sheet");
 let motion: MotionLog | null = null;
 
 afterEach(async () => {
+  vi.useRealTimers();
   motion?.stop();
   motion = null;
   await emulateReducedMotion(false);
@@ -99,6 +101,7 @@ describe("MenuSheet", () => {
         ]),
       );
 
+    const release = holdSheetExit();
     await page.getByRole("button", { name: "Close menu" }).click();
     // It stays up, out of the way of taps and the accessibility tree, until
     // it has slid away.
@@ -113,6 +116,7 @@ describe("MenuSheet", () => {
           "mobile-sheet:mobile-sheet-out",
         ]),
       );
+    release();
     await expect.poll(sheet).toBeNull();
   });
 

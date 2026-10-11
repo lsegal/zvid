@@ -23,7 +23,6 @@ import {
   settled,
   tap,
   visibleByRole,
-  waitAsLongAsPlaywright,
 } from "../../mobile/phone-app-test-utils.tsx";
 import { MobileShellChrome } from "./MobileShellChrome";
 import { MobileTopBar } from "./MobileTopBar";
@@ -40,8 +39,6 @@ const clipCount = () => document.querySelectorAll(".clip-card").length;
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-waitAsLongAsPlaywright();
 
 describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
   test("a phone gets the mobile shell with no page scroll", async () => {

@@ -1,5 +1,7 @@
 /// <reference types="@vitest/browser-playwright" />
+import { vi } from "vitest";
 import { cdp } from "vitest/browser";
+import { SHEET_EXIT_MS } from "../../hooks/useSheetPresence.ts";
 
 // Records the phone sheets' motion as it starts (#1211): the motion is over
 // in a quarter second, so tests log each animation and transition as it
@@ -63,4 +65,16 @@ export async function emulateReducedMotion(enabled = true) {
       },
     ],
   });
+}
+
+// Holds a closing sheet up until the test releases it. useSheetPresence
+// unmounts the sheet SHEET_EXIT_MS after it starts closing; on a busy
+// machine that timer can fire before the frame that starts the exit
+// motion, so call this before closing, wait for the motion, then release.
+export function holdSheetExit() {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  return () => {
+    vi.advanceTimersByTime(SHEET_EXIT_MS);
+    vi.useRealTimers();
+  };
 }

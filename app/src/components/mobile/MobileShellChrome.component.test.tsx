@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { usePhone } from "../../component-test/viewport.ts";
@@ -6,6 +6,7 @@ import { MobileShellChrome } from "./MobileShellChrome";
 import { PhoneEditor } from "./phone-editor.fixture.tsx";
 import {
   emulateReducedMotion,
+  holdSheetExit,
   type MotionLog,
   recordMotion,
 } from "./sheet-motion.fixture.ts";
@@ -20,6 +21,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   motion?.stop();
   motion = null;
   await emulateReducedMotion(false);
@@ -47,8 +49,10 @@ describe(MobileShellChrome.name, () => {
     await page.getByRole("button", { name: "Full height" }).click();
     await expect.poll(() => log.motion).toContain("fx-panel:height");
 
+    const release = holdSheetExit();
     await page.getByRole("button", { name: "Close FX" }).click();
     await expect.poll(() => log.motion).toContain("fx-panel:mobile-sheet-out");
+    release();
     await expect.poll(() => isShown(fxPanel())).toBe(false);
   });
 
@@ -70,6 +74,7 @@ describe(MobileShellChrome.name, () => {
         ]),
       );
 
+    const release = holdSheetExit();
     await page.getByRole("button", { name: "Close media" }).click();
     await expect
       .element(page.getByRole("button", { name: "Camera roll" }))
@@ -77,6 +82,7 @@ describe(MobileShellChrome.name, () => {
     await expect
       .poll(() => log.motion)
       .toContain("mobile-media-header:mobile-sheet-out-screen");
+    release();
     await expect
       .poll(() => document.querySelector(".mobile-media-header"))
       .toBeNull();

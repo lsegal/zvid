@@ -42,6 +42,10 @@ export default mergeConfig(
       // Processes every imported stylesheet through Vite rather than
       // stubbing it, so a test sees the styles the app ships.
       css: { include: /.+/ },
+      // Playwright waits up to 5 s for an expectation; Vitest's 1 s poll
+      // gives up too soon for sheet motion and touch gestures on a busy
+      // machine.
+      expect: { poll: { timeout: 5_000 } },
       browser: {
         enabled: true,
         headless: true,

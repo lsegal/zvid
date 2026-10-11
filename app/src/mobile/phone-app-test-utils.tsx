@@ -3,7 +3,7 @@
 // swipes scroll natively as on a phone. Only the *.component.test.tsx files
 // import this module.
 import { StrictMode } from "react";
-import { afterAll, beforeAll, expect, vi } from "vitest";
+import { expect } from "vitest";
 import { cdp, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import videoUrl from "../../e2e/fixtures/test-pattern.mp4?url";
@@ -25,20 +25,9 @@ export function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The e2e specs these tests replace waited up to Playwright's 5 s for each
-// expectation; Vitest's poll gives up after 1 s, too soon for a whole
-// editor on a busy machine. Call it at the top of a test file, and give
-// tests PLAYWRIGHT_TEST_TIMEOUT.
+// The e2e specs these tests replace gave each test Playwright's 180 s;
+// a whole editor on a busy machine needs more than Vitest's 15 s.
 export const PLAYWRIGHT_TEST_TIMEOUT = 180_000;
-
-export function waitAsLongAsPlaywright() {
-  beforeAll(() => {
-    vi.setConfig({ expect: { poll: { timeout: 5_000 } } });
-  });
-  afterAll(() => {
-    vi.resetConfig();
-  });
-}
 
 let harnessReady: Promise<unknown> | null = null;
 
