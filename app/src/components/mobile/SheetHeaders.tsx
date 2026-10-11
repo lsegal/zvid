@@ -4,11 +4,14 @@ import {
   PhotoIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
+import { useRef } from "react";
+import { fxSheetAfterDrag } from "../../app/sheet-drag.ts";
 import type {
   FxSheetHeight,
   FxSheetScreen,
   MobileShell,
 } from "../../hooks/useMobileShell.ts";
+import { useSheetDrag } from "../../hooks/useSheetDrag.ts";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 
 type FxSheetHeaderProps = {
@@ -22,7 +25,8 @@ type FxSheetHeaderProps = {
 
 // The FX sheet's header: its grabber, which a tap toggles between half and
 // full height, the selected layer or clip, the Devices | Animation screens
-// and Close.
+// and Close. Dragging anywhere on the header moves the sheet: it follows
+// the finger, then settles at half or full height or closes.
 export function FxSheetHeader({
   title,
   height,
@@ -34,8 +38,34 @@ export function FxSheetHeader({
   const nextHeight = height === "half" ? "full" : "half";
   const HeightIcon =
     height === "half" ? ArrowsPointingOutIcon : ArrowsPointingInIcon;
+  const headerRef = useRef<HTMLDivElement>(null);
+  const startHeight = useRef<number | null>(null);
+  const drag = useSheetDrag({
+    onMove(dy) {
+      const sheet = headerRef.current?.parentElement;
+      if (!sheet) {
+        return;
+      }
+      startHeight.current ??= sheet.getBoundingClientRect().height;
+      const next = Math.min(startHeight.current - dy, window.innerHeight);
+      sheet.style.height = `${Math.max(next, 0)}px`;
+    },
+    onRelease(dy) {
+      const sheet = headerRef.current?.parentElement;
+      if (sheet) {
+        sheet.style.height = "";
+      }
+      startHeight.current = null;
+      const next = fxSheetAfterDrag(height, dy, window.innerHeight);
+      if (next === null) {
+        onClose();
+      } else if (next !== height) {
+        onHeightChange(next);
+      }
+    },
+  });
   return (
-    <div className="mobile-sheet-header">
+    <div className="mobile-sheet-header" ref={headerRef} {...drag}>
       <button
         aria-label={height === "half" ? "Expand FX" : "Shrink FX"}
         className="mobile-sheet-header__grabber"
