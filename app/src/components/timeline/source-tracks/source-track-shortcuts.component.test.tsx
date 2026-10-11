@@ -5,6 +5,7 @@ import {
   expectCount,
   fileTransfer,
   fixtureFile,
+  MOD,
   query,
   queryAll,
   renderApp,
@@ -14,8 +15,6 @@ import {
 // (#660), like they do on a selected clip.
 
 // Cmd on macOS, Ctrl elsewhere, as Playwright's ControlOrMeta.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
 const ROWS = ".track-row--source[data-source-track-id]";
 const LAYER_CLIPS = '[data-timeline-lane-id="1"] .clip-card';
 

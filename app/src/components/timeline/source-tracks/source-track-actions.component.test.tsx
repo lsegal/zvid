@@ -5,6 +5,7 @@ import {
   expectCount,
   fileTransfer,
   fixtureFile,
+  MOD,
   mouse,
   query,
   queryAll,
@@ -16,8 +17,6 @@ import { setViewport } from "../../../component-test/viewport.ts";
 // the label's menu and its grip, and renaming them (#663).
 
 // Cmd on macOS, Ctrl elsewhere, as Playwright's ControlOrMeta.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
 const ROWS = ".track-row--source[data-source-track-id]";
 const LAYER_CLIPS = '[data-timeline-lane-id="1"] .clip-card';
 

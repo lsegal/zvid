@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import AppRoot from "../../../AppRoot.tsx";
 import {
+  MOD,
   mouse,
   query,
   queryAll,
@@ -69,9 +70,6 @@ function trackName(index: number) {
   );
 }
 
-// Playwright's ControlOrMeta: Cmd on macOS, Ctrl elsewhere.
-const mod = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
 async function open() {
   await setViewport({ width: 1600, height: 1200 });
   return renderApp();
@@ -119,10 +117,10 @@ test("the arm button sits right of FX and toggles the track's armed state", asyn
     .toBe("rgb(255, 92, 92)");
   // Arming leaves the selection alone.
   await expect
-    .element(row(0).querySelector("[data-source-track-label-id]"))
+    .element(row(0).querySelector<HTMLElement>("[data-source-track-label-id]"))
     .not.toHaveAttribute("aria-current", "true");
   await expect
-    .element(row(1).querySelector("[data-source-track-label-id]"))
+    .element(row(1).querySelector<HTMLElement>("[data-source-track-label-id]"))
     .toHaveAttribute("aria-current", "true");
 
   await userEvent.click(button);
@@ -149,7 +147,7 @@ test("several tracks can be armed at once, and removing one disarms it", async (
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect.poll(() => rows().length).toBe(2);
   await expectPressed(1, "true");
-  await userEvent.keyboard(`{${mod}>}z{/${mod}}`);
+  await userEvent.keyboard(`{${MOD}>}z{/${MOD}}`);
   await expect.poll(() => rows().length).toBe(3);
   await expectPressed(0, "false");
   await expectPressed(2, "true");

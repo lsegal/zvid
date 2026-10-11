@@ -5,6 +5,7 @@ import {
   expectCount,
   fileTransfer,
   fixtureFile,
+  pressMod,
   query,
   queryAll,
   renderApp,
@@ -19,12 +20,6 @@ import { setViewport } from "../../../component-test/viewport.ts";
 const VIEWPORT = { width: 1600, height: 1200 } as const;
 
 // Ctrl on Linux and Windows, Cmd on macOS, as Playwright's ControlOrMeta.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
-async function pressMod(key: string) {
-  await userEvent.keyboard(`{${MOD}>}${key}{/${MOD}}`);
-}
-
 async function addSourceVideo() {
   await dropFiles(
     query('[data-source-track-drop-target="new-track"]'),

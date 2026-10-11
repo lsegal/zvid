@@ -1,8 +1,8 @@
 import { expect } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import audioVideoUrl from "../../e2e/fixtures/test-pattern-audio.webm?url";
 import videoUrl from "../../e2e/fixtures/test-pattern.mp4?url";
+import audioVideoUrl from "../../e2e/fixtures/test-pattern-audio.webm?url";
 import toneUrl from "../../e2e/fixtures/tone.wav?url";
 import AppRoot from "../AppRoot.tsx";
 import { installHarness } from "../harness";
@@ -27,6 +27,17 @@ export async function renderApp() {
     .poll(() => document.querySelector("[data-timeline-lane-id]"))
     .toBeTruthy();
   return screen;
+}
+
+// Playwright's ControlOrMeta: Cmd on macOS, Ctrl elsewhere.
+export const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
+
+// Presses `key` (userEvent.keyboard syntax) with MOD held, and Shift too
+// when asked.
+export async function pressMod(key: string, { shift = false } = {}) {
+  const down = shift ? `{${MOD}>}{Shift>}` : `{${MOD}>}`;
+  const up = shift ? `{/Shift}{/${MOD}}` : `{/${MOD}}`;
+  await userEvent.keyboard(`${down}${key}${up}`);
 }
 
 export const FIXTURES = {
@@ -87,7 +98,12 @@ export function dropFiles(
   transfer: DataTransfer,
   init: DragInit = {},
 ) {
-  return dispatchDrag(target, ["dragenter", "dragover", "drop"], transfer, init);
+  return dispatchDrag(
+    target,
+    ["dragenter", "dragover", "drop"],
+    transfer,
+    init,
+  );
 }
 
 export function query<T extends Element = HTMLElement>(selector: string) {

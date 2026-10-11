@@ -5,8 +5,10 @@ import {
   expectCount,
   fileTransfer,
   fixtureFile,
+  MOD,
   mouse,
   nextFrame,
+  pressMod,
   query,
   queryAll,
   renderApp,
@@ -19,13 +21,6 @@ import { setViewport } from "../../../component-test/viewport.ts";
 // at 120 BPM spans eight quarters.
 
 const TIMEOUT = 60_000;
-
-// Playwright's ControlOrMeta: Cmd on macOS, Ctrl elsewhere.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
-function pressMod(key: string) {
-  return userEvent.keyboard(`{${MOD}>}${key}{/${MOD}}`);
-}
 
 async function dropVideoIntoNewSourceTrack() {
   await dropFiles(
@@ -225,7 +220,11 @@ test("the context-menu key opens it on the selected source clip's track", {
   await expectSelected(firstSpan, "source-span--selected");
   (document.activeElement as HTMLElement | null)?.blur();
 
-  await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+  // Chromium turns Shift+F10 into a contextmenu event on Linux and Windows
+  // only; macOS has just the menu key.
+  await userEvent.keyboard(
+    MOD === "Meta" ? "{ContextMenu}" : "{Shift>}{F10}{/Shift}",
+  );
   await expect.element(menu()).toBeVisible();
   await expect.element(menu()).toHaveFocus();
   await userEvent.keyboard("{Escape}");

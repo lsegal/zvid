@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
-import { getShortcutLabels } from "../../../app/shortcut-labels.ts";
 import {
   dispatchDrag,
   dropFiles,
@@ -9,6 +8,7 @@ import {
   fixtureFile,
   mouse,
   nextFrame,
+  pressMod,
   query,
   queryAll,
   renderApp,
@@ -57,18 +57,12 @@ function layout(span: HTMLElement, quarterPx: number) {
   };
 }
 
-function modKey() {
-  return getShortcutLabels().mac ? "Meta" : "Control";
-}
-
 function undo() {
-  const mod = modKey();
-  return userEvent.keyboard(`{${mod}>}z{/${mod}}`);
+  return pressMod("z");
 }
 
 function redo() {
-  const mod = modKey();
-  return userEvent.keyboard(`{${mod}>}{Shift>}z{/Shift}{/${mod}}`);
+  return pressMod("z", { shift: true });
 }
 
 function middle(element: Element) {

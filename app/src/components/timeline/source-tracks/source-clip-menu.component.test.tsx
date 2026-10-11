@@ -8,6 +8,7 @@ import {
   fixtureFile,
   mouse,
   nextFrame,
+  pressMod,
   query,
   queryAll,
   renderApp,
@@ -20,13 +21,6 @@ import { setViewport } from "../../../component-test/viewport.ts";
 // four-second test pattern at 120 BPM spans eight quarters.
 
 const TIMEOUT = 60_000;
-
-// Playwright's ControlOrMeta: Cmd on macOS, Ctrl elsewhere.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
-function pressMod(key: string) {
-  return userEvent.keyboard(`{${MOD}>}${key}{/${MOD}}`);
-}
 
 async function dropVideoIntoNewSourceTrack() {
   await dropFiles(

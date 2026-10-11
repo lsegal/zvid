@@ -6,6 +6,7 @@ import {
   expectCount,
   fileTransfer,
   fixtureFile,
+  MOD,
   mouse,
   query,
   queryAll,
@@ -17,8 +18,6 @@ import {
 // be deleted or reordered. Imported Live sets open locked.
 
 // Cmd on macOS, Ctrl elsewhere, as Playwright's ControlOrMeta.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
 const ROWS = ".track-row--source[data-source-track-id]";
 
 afterEach(() => {

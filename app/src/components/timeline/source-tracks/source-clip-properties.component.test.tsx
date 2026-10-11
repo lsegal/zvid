@@ -12,6 +12,7 @@ import {
   fileTransfer,
   fixtureFile,
   mouse,
+  pressMod,
   query,
   queryAll,
   renderApp,
@@ -24,14 +25,6 @@ import { getCachedMediaBlob } from "../../../media-cache.ts";
 // together sit back to back at 0–8 and 8–16.
 
 // Ctrl on Linux and Windows, Cmd on macOS, as Playwright's ControlOrMeta.
-const MOD = /mac/i.test(navigator.platform) ? "Meta" : "Control";
-
-async function pressMod(key: string, { shift = false } = {}) {
-  const down = shift ? `{${MOD}>}{Shift>}` : `{${MOD}>}`;
-  const up = shift ? `{/Shift}{/${MOD}}` : `{/${MOD}}`;
-  await userEvent.keyboard(`${down}${key}${up}`);
-}
-
 async function dropVideos(count: number) {
   const files = await Promise.all(
     Array.from({ length: count }, (_, index) =>

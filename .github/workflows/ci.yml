@@ -94,9 +94,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/setup
+
       - uses: ./.github/actions/setup-playwright
         with:
           dir: app
+
+      # Tests that render the whole editor import App, which imports the
+      # wasm bridge.
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
 
       - name: Component tests
         working-directory: app

@@ -6,6 +6,7 @@ import {
   type FixtureName,
   fileTransfer,
   fixtureFile,
+  MOD,
   mouse,
   query,
   queryAll,
@@ -24,9 +25,6 @@ const newTrackRow = ".track-row--source-drop";
 
 // Playwright's default expect timeout, for waits on media loading in.
 const wait = { timeout: 10_000 };
-
-// Playwright's ControlOrMeta: Cmd on macOS, Ctrl elsewhere.
-const mod = /mac/i.test(navigator.platform) ? "Meta" : "Control";
 
 // With the Media tab open a small window leaves the timeline so little room
 // that the drop positions fall in the band where the browser scrolls the
@@ -246,7 +244,7 @@ test("media dragged from the drawer starts at the pointer, trimmed to its In/Out
     .toHaveAttribute("aria-valuetext", "00:01:00");
 
   // The drop is one undo step.
-  await userEvent.keyboard(`{${mod}>}z{/${mod}}`);
+  await userEvent.keyboard(`{${MOD}>}z{/${MOD}}`);
   await expect
     .poll(() => layout(firstTrack(), quarterPx), wait)
     .toEqual([[0, 6]]);
