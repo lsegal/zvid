@@ -1,0 +1,111 @@
+/* The phone FX sheet's panel bodies reflow by width (#1218). The desktop
+   bodies keep to fixed rows and grow sideways for a horizontal chain; on a
+   phone each panel is the sheet's width, so its properties wrap onto more
+   rows instead. Scoped to the phone shell like mobile-shell.css. */
+
+/* Knobs fill a wrapping grid, as many to a row as fit. The device bodies
+   set their desktop column count inline, which only !important outranks. */
+.app-shell--phone .fx-device-panel__body,
+.app-shell--phone .fx-device-panel__controls,
+.app-shell--phone .fx-device-panel__knobs,
+.app-shell--phone .fx-animation-panel__body {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
+  grid-template-rows: none;
+  grid-auto-flow: row dense;
+  justify-content: stretch;
+  justify-items: center;
+  align-items: start;
+  gap: 12px 8px;
+}
+
+/* Many controls: the controls, then the knobs below them. */
+.app-shell--phone .fx-device-panel__body--columns {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.app-shell--phone .fx-device-panel__controls > .fx-text,
+.app-shell--phone .fx-animation-panel__knob {
+  grid-row: auto;
+  align-self: start;
+}
+
+/* Choices, text and wide controls take a full row, labels above them. */
+.app-shell--phone .fx-chain .fx-segmented,
+.app-shell--phone .fx-chain .fx-text,
+.app-shell--phone .fx-chain .fx-wheel,
+.app-shell--phone .fx-chain .fx-curve,
+.app-shell--phone .fx-chain .fx-waveform,
+.app-shell--phone .fx-chain .fx-lut {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  width: auto;
+  margin-left: 0;
+}
+
+/* Menus, swatches and toggles share a row, two to a row at most. */
+.app-shell--phone .fx-chain .fx-select,
+.app-shell--phone .fx-chain .fx-font,
+.app-shell--phone .fx-chain .fx-paint,
+.app-shell--phone .fx-chain .fx-shape,
+.app-shell--phone .fx-chain .fx-toggle,
+.app-shell--phone .fx-chain .fx-layers__trigger {
+  grid-column: span 2;
+  justify-self: stretch;
+  align-self: start;
+  min-width: 0;
+}
+
+.app-shell--phone .fx-chain .fx-segmented__options {
+  align-self: stretch;
+}
+
+.app-shell--phone .fx-chain .fx-segmented__options button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.app-shell--phone .fx-chain .fx-select .select-trigger,
+.app-shell--phone .fx-chain .fx-font__trigger,
+.app-shell--phone .fx-chain .fx-layers__trigger {
+  width: 100%;
+  max-width: none;
+  min-height: 36px;
+}
+
+.app-shell--phone .fx-chain .fx-layers__trigger {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell--phone .fx-chain .fx-text textarea {
+  min-width: 0;
+  width: 100%;
+}
+
+.app-shell--phone .fx-chain .fx-waveform__scope {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 288 / 168;
+}
+
+/* Labeled knob rows (a Move's Start and End): each its own grid, led by
+   its label, its knobs wrapping onto more rows. */
+.app-shell--phone .fx-device-panel__knob-row {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  justify-items: center;
+  gap: 12px 8px;
+}
+
+/* Floated, the legend is a grid item rather than the fieldset's caption. */
+.app-shell--phone .fx-device-panel__row-label {
+  float: left;
+  justify-self: start;
+  padding: 0;
+}
