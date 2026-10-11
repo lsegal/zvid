@@ -310,10 +310,7 @@ test("the Scopes pane is readable, compact and resizable by touch", async ({
   const tabs = header.getByRole("tablist", { name: "Preview" });
   await tabs.getByRole("tab", { name: "Media" }).click();
   await tabs.getByRole("tab", { name: "Timeline" }).click();
-  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(
-    resized,
-    0,
-  );
+  expect(heightOf((await boxes(page, selectors)).pane)).toBeCloseTo(resized, 0);
 });
 
 test.describe("landscape phone", () => {

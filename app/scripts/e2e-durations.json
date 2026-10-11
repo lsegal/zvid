@@ -339,6 +339,7 @@
   "[chromium] › mobile-panels.spec.ts › Scopes and Audio open under the preview with no page scroll": 1.8,
   "[chromium] › mobile-panels.spec.ts › landscape phone › keeps the panes and VU meter beside the timeline": 1.7,
   "[chromium] › mobile-panels.spec.ts › the transport's VU meter moves with playback": 3.2,
+  "[chromium] › mobile-panels.spec.ts › the Scopes pane is readable, compact and resizable by touch": 3,
   "[chromium] › mobile-shell.spec.ts › FX opens as a half or full sheet and Media as a full screen": 1.4,
   "[chromium] › mobile-shell.spec.ts › a long press on a layer's label picks it up to reorder": 3.9,
   "[chromium] › mobile-shell.spec.ts › a long press opens the clip menu as a sheet; hold and drag moves": 5.8,
