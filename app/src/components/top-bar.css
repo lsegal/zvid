@@ -6,7 +6,7 @@
   align-items: center;
   gap: 8px 16px;
   /* A menu bar: the File / Edit / Help row sets the height, not padding. */
-  padding: 4px 24px;
+  padding: 6px 24px;
 }
 
 .topbar__group {
@@ -186,7 +186,7 @@
 
 @media (max-width: 900px) {
   .topbar {
-    padding: 4px 14px;
+    padding: 6px 14px;
   }
 
   .topbar__group {
@@ -194,11 +194,30 @@
   }
 }
 
+/* An installed app has no brand mark (#1200), so File starts at the
+   window's left edge, and the bar keeps the tighter vertical padding. Same
+   display modes as brand-mark.css; after the narrow-window padding so it
+   wins. */
+@media (display-mode: standalone),
+  (display-mode: minimal-ui),
+  (display-mode: window-controls-overlay) {
+  .topbar {
+    padding-block: 4px;
+    padding-left: 0;
+  }
+}
+
+.installed-app .topbar {
+  padding-block: 4px;
+  padding-left: 0;
+}
+
 /* On touch screens that keep this bar (#1168), it grows to 44px so the
    menubar items' 44px touch areas stay on screen. Last, so it wins over
-   the narrow-window padding. */
+   the narrow-window and installed-app padding. */
 @media (pointer: coarse) {
-  .topbar {
+  .topbar,
+  .installed-app .topbar {
     padding-block: 9px;
   }
 }

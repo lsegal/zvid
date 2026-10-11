@@ -2,7 +2,9 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The desktop top bar is a compact menu bar (#1207): the File / Edit / Help
 // row sets its height, and Export, the connection status, Share, the copy
-// link icon and the Copied badge shrink to fit it, centered vertically.
+// link icon and the Copied badge shrink to fit it, centered vertically. A
+// browser tab gives the row 2px more room above and below (#1220) than the
+// installed app does.
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -35,8 +37,8 @@ test("the top bar is about as tall as its menubar items", async ({ page }) => {
     page.getByRole("menubar").getByRole("menuitem", { name: "File" }),
   );
   const bar = await box(page.locator(".topbar"));
-  expect(bar.height).toBeLessThanOrEqual(36);
-  expect(bar.height - menuItem.height).toBeLessThanOrEqual(12);
+  expect(bar.height).toBeLessThanOrEqual(40);
+  expect(bar.height - menuItem.height).toBeLessThanOrEqual(16);
   // The buttons stay comfortable click targets.
   for (const name of ["Export", "Share"]) {
     const button = page.getByRole("button", { name, exact: true });
@@ -70,7 +72,7 @@ test("the share link icon and Copied badge fit the compact bar", async ({
     icon,
     badge,
   ]);
-  expect((await box(page.locator(".topbar"))).height).toBeLessThanOrEqual(36);
+  expect((await box(page.locator(".topbar"))).height).toBeLessThanOrEqual(40);
 });
 
 test("the installed app's bar is just as compact without the logo", async ({
