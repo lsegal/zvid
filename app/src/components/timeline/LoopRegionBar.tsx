@@ -1,8 +1,10 @@
 import { type PointerEvent, useRef, useState } from "react";
 import { editLoopRegion, type LoopRegion } from "../../app/loop-region.ts";
+import type { PlaybackSelection } from "../../app/playback-selection.ts";
 import { snapQuarterValue } from "../../app/timeline-math.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";
 import type { SelectionEditKind } from "../../lane-selection-gesture.ts";
+import { isDoubleTap, type TouchTap } from "../../mobile/timeline-touch.ts";
 
 // How far the pointer moves before a press on the loop counts as a drag
 // rather than half of a double-click.
@@ -16,11 +18,13 @@ type LoopRegionBarProps = {
   snapEnabled: boolean;
   loopRegion: LoopRegion;
   setLoopRegion: (region: LoopRegion | null) => void;
+  setPlaybackSelection: (selection: PlaybackSelection | null) => void;
 };
 
 // The loop region in the loop strip: a bar from the in marker to the out
 // marker, edited like a layer clip. Dragging an edge handle resizes that
-// end, dragging the middle moves it, and a double-click deletes it.
+// end, dragging the middle moves it, and a double-click or double tap turns
+// it back into a playback selection over the same range.
 export function LoopRegionBar({
   mac,
   quarterPx,
@@ -29,6 +33,7 @@ export function LoopRegionBar({
   snapEnabled,
   loopRegion,
   setLoopRegion,
+  setPlaybackSelection,
 }: LoopRegionBarProps) {
   const dragRef = useRef<{
     pointerId: number;
@@ -38,6 +43,15 @@ export function LoopRegionBar({
     moved: boolean;
   } | null>(null);
   const [dragKind, setDragKind] = useState<SelectionEditKind | null>(null);
+  const lastTapRef = useRef<TouchTap | null>(null);
+  // Whether the last press was a mouse's or pen's, so a dblclick a double
+  // tap elsewhere fires at the bar it revealed is ignored.
+  const clickedRef = useRef(false);
+
+  const unlock = () => {
+    setLoopRegion(null);
+    setPlaybackSelection({ startQ: loopRegion.startQ, endQ: loopRegion.endQ });
+  };
 
   const startDrag =
     (kind: SelectionEditKind) => (event: PointerEvent<HTMLElement>) => {
@@ -48,6 +62,22 @@ export function LoopRegionBar({
       // Neither the strip's selection drag nor the ruler's scrub sees it.
       event.stopPropagation();
       event.preventDefault();
+      clickedRef.current = event.pointerType !== "touch";
+      // Browsers don't all fire dblclick for a double tap.
+      if (event.pointerType === "touch") {
+        const tap = {
+          x: event.clientX,
+          y: event.clientY,
+          timeMs: event.timeStamp,
+        };
+        if (isDoubleTap(lastTapRef.current, tap)) {
+          lastTapRef.current = null;
+          unlock();
+          return;
+        }
+        lastTapRef.current = tap;
+      }
+
       event.currentTarget.setPointerCapture?.(event.pointerId);
       dragRef.current = {
         pointerId: event.pointerId,
@@ -107,7 +137,7 @@ export function LoopRegionBar({
     }`;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the loop strip menu's Delete loop is its equivalent
+    // biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the loop strip menu's Delete loop and Create loop area are its equivalent
     <div
       className={`ruler-loop-region${
         dragKind === "move" ? " ruler-loop-region--moving" : ""
@@ -120,7 +150,9 @@ export function LoopRegionBar({
       }}
       onDoubleClick={(event) => {
         event.stopPropagation();
-        setLoopRegion(null);
+        if (clickedRef.current) {
+          unlock();
+        }
       }}
     >
       <div

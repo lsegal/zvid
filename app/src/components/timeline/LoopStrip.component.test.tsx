@@ -11,6 +11,7 @@ import {
   dblclick,
   drag,
   move,
+  touch,
 } from "../../component-test/input.ts";
 import { LoopStrip } from "./LoopStrip";
 
@@ -52,6 +53,11 @@ function loopEnds() {
     startQ: Number(region.dataset.startQ),
     endQ: Number(region.dataset.endQ),
   };
+}
+
+async function tap(x: number, y: number) {
+  await touch("touchStart", x, y);
+  await touch("touchEnd", x, y);
 }
 
 function selectionEnds() {
@@ -130,9 +136,10 @@ describe(LoopStrip, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     });
   });
 
-  // The loop region in the ruler's loop strip: L locks a playback selection
-  // into it, it resizes from its edges, moves from its middle and deletes on
-  // a double-click, and the strip's right-click menu places its markers.
+  // The loop region in the ruler's loop strip: L or a double-click locks a
+  // playback selection into it, it resizes from its edges, moves from its
+  // middle and turns back into a selection on a double-click, and the
+  // strip's right-click menu places its markers.
   describe("loop region", () => {
     // An item's name ends with its shortcut, if it has one.
     function menuItem(screen: RenderResult, name: string) {
@@ -217,6 +224,64 @@ describe(LoopStrip, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       const movedBody = center(query(".ruler-loop-region__body"));
       await dblclick(movedBody.x, movedBody.y);
       await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+      expect(selectionEnds()).toEqual(moved);
+    });
+
+    test("a double-click on the selection locks it, and on the loop turns it back", async () => {
+      await renderEditor({ reducedMotion: true });
+      const { view, y } = geometry();
+      await dragX(view.x + view.width * 0.3, view.x + view.width * 0.5, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
+      const selected = selectionEnds();
+      const inside = center(query(".ruler-loop-strip__selection"));
+
+      await dblclick(inside.x, y);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      expect(loopEnds()).toEqual(selected);
+      expect(count(".ruler-loop-strip__selection")).toBe(0);
+      expect(count(".ruler-playback-selection")).toBe(0);
+
+      const body = center(query(".ruler-loop-region__body"));
+      await dblclick(body.x, body.y);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+      expect(selectionEnds()).toEqual(selected);
+      expect(count(".ruler-playback-selection")).toBe(1);
+
+      // A click on the selection still just clears it, and a double-click
+      // after that doesn't bring the cleared selection back as a loop.
+      await click(inside.x, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(0);
+      await dblclick(inside.x, y);
+      expect(count(".ruler-loop-region")).toBe(0);
+      expect(count(".ruler-loop-strip__selection")).toBe(0);
+
+      // Neither does a double-click on empty strip space.
+      await dragX(view.x + view.width * 0.3, view.x + view.width * 0.5, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
+      await dblclick(view.x + view.width * 0.8, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(0);
+      expect(count(".ruler-loop-region")).toBe(0);
+    });
+
+    test("a double tap on the selection locks it, and on the loop turns it back", async () => {
+      await renderEditor({ reducedMotion: true });
+      const { view, y } = geometry();
+      await dragX(view.x + view.width * 0.3, view.x + view.width * 0.5, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
+      const selected = selectionEnds();
+      const inside = center(query(".ruler-loop-strip__selection"));
+
+      await tap(inside.x, y);
+      await tap(inside.x, y);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      expect(loopEnds()).toEqual(selected);
+      expect(count(".ruler-loop-strip__selection")).toBe(0);
+
+      const body = center(query(".ruler-loop-region__body"));
+      await tap(body.x, body.y);
+      await tap(body.x, body.y);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+      expect(selectionEnds()).toEqual(selected);
     });
 
     test("the loop strip menu places markers, locks a selection and deletes the loop", async () => {
