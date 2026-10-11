@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { beforeEach } from "vitest";
 import { INITIAL_PROJECT_STATE, SIGNATURES } from "../app/constants.ts";
 import type { SourceSelection } from "../app/source-selection.ts";
 import type { ArrangementClip, ProjectState } from "../app/types.ts";
@@ -39,6 +40,12 @@ export type FxEditorProps = {
   playheadQ?: number;
   onChange?: (history: ProjectHistoryState<ProjectState>) => void;
 };
+
+// The FX chain keeps folded devices and sections in localStorage. Each
+// test starts from a fresh App's empty storage.
+beforeEach(() => {
+  localStorage.clear();
+});
 
 const HISTORY_SHORTCUTS: Shortcut[] = [undoShortcut, redoShortcut];
 
