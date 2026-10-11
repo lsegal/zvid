@@ -14,7 +14,7 @@
     "test": "pnpm run test:unit && pnpm run build",
     "pretest:unit": "pnpm run gen:fx-index",
     "test:unit": "node --test \"src/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
-    "test:component": "vitest run",
+    "test:component": "node scripts/component-tests.mjs",
     "test:web": "playwright test",
     "preview": "vite preview",
     "cf:prepare": "pnpm run build",

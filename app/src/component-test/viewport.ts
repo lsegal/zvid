@@ -41,11 +41,22 @@ export async function useTablet(viewport: Viewport = TABLET_VIEWPORT) {
   await emulateTouch();
 }
 
+// Chromium headless on Linux has no pointer device, so turning touch
+// emulation off leaves `(hover: none)` matching for every later test file.
+// `pnpm test:component` runs it headed there (scripts/component-tests.mjs).
+const HOVER_STUCK = `(hover: none) still matches after touch emulation turned off.
+Headless Chromium on Linux has no pointer device; run the suite with
+\`pnpm test:component\`, which runs it headed under xvfb-run. See
+app/ARCHITECTURE.md (Testing).`;
+
 // Restores the desktop size and a mouse; the setup file runs it after
 // every test.
 export async function resetViewport() {
   if (touchEmulated) {
     await emulateTouch(false);
+    if (window.matchMedia("(hover: none)").matches) {
+      throw new Error(HOVER_STUCK);
+    }
   }
   await setViewport(DESKTOP_VIEWPORT);
 }
