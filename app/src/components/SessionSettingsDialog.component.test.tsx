@@ -42,12 +42,12 @@ describe("SessionSettingsDialog", () => {
 
     await settings.getByRole("combobox", { name: "Canvas preset" }).click();
     await page.getByRole("option", { name: "1080×1920 9:16" }).click();
-    await expect.element(settings.getByLabelText("Canvas width")).toHaveValue(
-      1080,
-    );
-    await expect.element(settings.getByLabelText("Canvas height")).toHaveValue(
-      1920,
-    );
+    await expect
+      .element(settings.getByLabelText("Canvas width"))
+      .toHaveValue(1080);
+    await expect
+      .element(settings.getByLabelText("Canvas height"))
+      .toHaveValue(1920);
     await settings.getByRole("combobox", { name: "Frame rate" }).click();
     await page.getByRole("option", { name: "60 fps", exact: true }).click();
     await settings.getByRole("button", { name: "Apply" }).click();

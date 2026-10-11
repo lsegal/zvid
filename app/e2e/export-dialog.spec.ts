@@ -1,8 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+// Playwright, not a component test: these run real exports and real
+// preview playback in the app.
+//
 // Export opens a dialog to choose the In→Out range on a playable preview
 // timeline and override the session's output settings for this export only.
+// Its Session Settings pre-fill and overrides are covered by
+// ExportDialog.component.test.tsx.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 test.use({ viewport: { width: 1600, height: 1200 } });
@@ -67,16 +72,6 @@ async function openExportDialog(page: Page) {
   return dialog;
 }
 
-function field(dialog: Locator, id: string) {
-  return dialog.locator(`[data-export-field="${id}"]`);
-}
-
-function modifiedDot(dialog: Locator, id: string) {
-  return field(dialog, id).getByRole("img", {
-    name: "Changed from Session Settings",
-  });
-}
-
 // Returns the payload bounds of the first `type` box in data[start, end).
 function findBox(data: Buffer, start: number, end: number, type: string) {
   let offset = start;
@@ -116,61 +111,6 @@ async function frameCount(dialog: Locator) {
   if (!match) throw new Error(`No frame count in "${text}"`);
   return Number(match[1]);
 }
-
-test("Export opens the dialog pre-filled with Session Settings, and overrides leave them unchanged", async ({
-  page,
-}) => {
-  // The status bar shows the Session Settings, like "320x320 · 15 fps".
-  const resolution = page.locator(".status-bar__item", {
-    has: page.locator(".status-bar__label", { hasText: "Res" }),
-  });
-  const sessionResolution = await resolution
-    .locator(".status-bar__value")
-    .textContent();
-  const [, sessionWidth, sessionHeight] =
-    sessionResolution?.match(/(\d+)x(\d+)/)?.map(Number) ?? [];
-
-  let dialog = await openExportDialog(page);
-  await expect(dialog.getByLabel("Width")).toHaveValue(String(sessionWidth));
-  await expect(dialog.getByLabel("Height")).toHaveValue(String(sessionHeight));
-  const sessionFps = await frameRateValue(dialog);
-  await expect(dialog.getByLabel("File name")).toHaveValue(/\.mp4$/);
-  await expect(
-    dialog.getByRole("img", { name: "Changed from Session Settings" }),
-  ).toHaveCount(0);
-
-  // Override the size, frame rate and codec for this export.
-  await pick(dialog, "Resolution preset", "720p 16:9");
-  const otherFps = sessionFps === "60" ? "24" : "60";
-  await pick(dialog, "Frame rate", `${otherFps} fps`);
-  await pick(dialog, "Video codec", "Auto (best available)");
-  await expect(modifiedDot(dialog, "resolution")).toBeVisible();
-  await expect(modifiedDot(dialog, "fps")).toBeVisible();
-  await expect(resolution.locator(".status-bar__value")).toHaveText(
-    sessionResolution ?? "",
-  );
-
-  // Closing keeps the overrides for the next Export, not the session.
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(resolution.locator(".status-bar__value")).toHaveText(
-    sessionResolution ?? "",
-  );
-  dialog = await openExportDialog(page);
-  await expect(frameRate(dialog)).toHaveText(`${otherFps} fps`);
-  await expect(dialog.getByLabel("Width")).toHaveValue("1280");
-
-  // Reset restores the Session Settings, which never changed.
-  await dialog
-    .getByRole("button", { name: "Reset to session settings" })
-    .click();
-  await expect(frameRate(dialog)).toHaveText(`${sessionFps} fps`);
-  await expect(dialog.getByLabel("Width")).toHaveValue(String(sessionWidth));
-  await expect(dialog.getByLabel("Height")).toHaveValue(String(sessionHeight));
-  await expect(
-    dialog.getByRole("img", { name: "Changed from Session Settings" }),
-  ).toHaveCount(0);
-});
 
 test("File ▸ Export ▸ Video… opens the export dialog", async ({ page }) => {
   await page.getByRole("menuitem", { name: "File", exact: true }).click();

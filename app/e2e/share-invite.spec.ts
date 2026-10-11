@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+// Playwright, not a component test: it checks the address bar the app reads and
+// rewrites as the page loads.
+//
 // Share invites in the real app: the link keeps the page origin, carries the
 // password in the fragment, and a joining page scrubs the password from the
 // address bar after reading it.
