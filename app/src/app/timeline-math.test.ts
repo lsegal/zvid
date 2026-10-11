@@ -12,6 +12,7 @@ import {
   getSourceTrackEndQ,
   getTimelineContentEndQ,
   getTimelinePointerX,
+  getVisibleTimelineRange,
   isClipAtPlayhead,
   pointerToTimelineQ,
   quartersToSeconds,
@@ -264,5 +265,53 @@ describe("findSourceTrackIdAt", () => {
     assert.equal(findSourceTrackIdAt(rows, 50, "b"), "b");
     assert.equal(findSourceTrackIdAt(rows, 300, "a"), "a");
     assert.equal(findSourceTrackIdAt([], 120, "a"), "a");
+  });
+});
+
+describe("getVisibleTimelineRange", () => {
+  it("starts at the scroll when the labels cover their whole column", () => {
+    assert.deepEqual(
+      getVisibleTimelineRange({
+        scrollLeft: 300,
+        clientWidth: 1000,
+        labelWidth: 200,
+      }),
+      { startPx: 300, widthPx: 800, endPx: 1100 },
+    );
+  });
+
+  it("reaches back under a label column the labels only partly cover", () => {
+    // A phone: the column is half the view, the labels a 112px strip.
+    assert.deepEqual(
+      getVisibleTimelineRange({
+        scrollLeft: 600,
+        clientWidth: 390,
+        labelWidth: 195,
+        coveredLabelWidth: 112,
+      }),
+      { startPx: 517, widthPx: 278, endPx: 795 },
+    );
+  });
+
+  it("never starts before the timeline", () => {
+    const range = getVisibleTimelineRange({
+      scrollLeft: 40,
+      clientWidth: 390,
+      labelWidth: 195,
+      coveredLabelWidth: 112,
+    });
+    assert.equal(range.startPx, 0);
+    assert.ok(range.endPx >= 40 + 390 - 195);
+  });
+
+  it("is empty when the labels fill the view", () => {
+    assert.equal(
+      getVisibleTimelineRange({
+        scrollLeft: 0,
+        clientWidth: 150,
+        labelWidth: 200,
+      }).widthPx,
+      0,
+    );
   });
 });

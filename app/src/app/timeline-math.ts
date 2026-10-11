@@ -51,6 +51,31 @@ export function getTimelinePointerX(
 }
 
 /**
+ * The part of the timeline, in pixels from its start, that shows in a
+ * scroller `clientWidth` wide scrolled to `scrollLeft`, whose label column
+ * is `labelWidth` wide. Only `coveredLabelWidth` of that column hides the
+ * lanes: on a phone the column is half the view but the track labels take
+ * a narrower strip of it, so the lanes show from the strip's edge.
+ */
+export function getVisibleTimelineRange({
+  scrollLeft,
+  clientWidth,
+  labelWidth,
+  coveredLabelWidth = labelWidth,
+}: {
+  scrollLeft: number;
+  clientWidth: number;
+  labelWidth: number;
+  coveredLabelWidth?: number;
+}) {
+  // The uncovered part of the label column, where the lanes show early.
+  const uncoveredPx = Math.max(0, labelWidth - Math.max(0, coveredLabelWidth));
+  const startPx = Math.max(0, scrollLeft - uncoveredPx);
+  const widthPx = Math.max(0, clientWidth - labelWidth + uncoveredPx);
+  return { startPx, widthPx, endPx: startPx + widthPx };
+}
+
+/**
  * The timeline position, in quarters, under a pointer `pointerX` pixels from
  * the timeline's origin as `getTimelinePointerX` measures it, whose sticky
  * label column is `labelWidth` wide. Unclamped: it is negative left of the

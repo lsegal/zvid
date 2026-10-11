@@ -26,7 +26,11 @@ export type TimelineInputs = {
   >;
   layout: Pick<
     AppLayout,
-    "labelWidth" | "shortcutLabels" | "prefersReducedMotion" | "rowHeights"
+    | "labelWidth"
+    | "labelResize"
+    | "shortcutLabels"
+    | "prefersReducedMotion"
+    | "rowHeights"
   >;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -79,6 +83,7 @@ export function useTimeline({
     pendingSelection,
     recordingEndQ,
     labelWidth,
+    trackLabelWidth: layout.labelResize.trackLabelWidth,
     playheadQRef,
     timelineScrollRef,
     arrangementLanesRef,
