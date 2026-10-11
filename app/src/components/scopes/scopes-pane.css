@@ -57,13 +57,19 @@
   padding: 2px;
 }
 
-/* All four fit the default 280px preview; a narrower one ellipsizes them. */
+/* All four fit the default 280px preview; a narrower one ellipsizes them.
+   The label clips rather than the button, so a touch hit area can reach
+   past it. */
 .scopes-pane__kinds button {
   min-width: 0;
-  overflow: hidden;
   padding: 3px 5px;
   font-size: 0.58rem;
   letter-spacing: 0.02em;
+}
+
+.scopes-pane__kind-label {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

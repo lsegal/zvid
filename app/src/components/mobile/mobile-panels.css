@@ -54,6 +54,62 @@
   min-height: 0;
 }
 
+/* Room for a readable plot (#1202); its splitter changes this. An Audio
+   pane beside it stretches to the same height. */
+.app-shell--phone .scopes-pane {
+  height: clamp(144px, 22dvh, 200px);
+}
+
+.app-shell--phone .preview-panel:has(.scopes-pane) .audio-analysis {
+  height: auto;
+}
+
+/* The splitter sits on the pane's foot, since the monitor keeps its size
+   and the pane grows down into the timeline. Its touch reaches 44px, mostly
+   over the plot, which takes no taps, and shows a grip. */
+.app-shell--phone .scopes-pane__resize {
+  top: auto;
+  bottom: 0;
+  height: 44px;
+}
+
+.app-shell--phone .scopes-pane__resize::before {
+  top: auto;
+  right: calc(50% - 18px);
+  bottom: 4px;
+  left: calc(50% - 18px);
+  height: 4px;
+  border-radius: 2px;
+  transform: none;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* The kind buttons keep their small size rather than the 44px touch
+   height, with an invisible hit area taking a finger instead, as #1186
+   does for tablets. It reaches 1px, half the gap, along the row, and over
+   the plot below, which takes no taps. */
+.app-shell--phone .scopes-pane__kinds {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell--phone .scopes-pane__kinds button {
+  position: relative;
+  min-height: auto;
+  padding: 2px 6px;
+  line-height: 1.2;
+}
+
+.app-shell--phone .scopes-pane__kinds button::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  left: -1px;
+  height: 44px;
+  translate: 0 -50%;
+}
+
 .app-shell--phone .preview-panel:not(:has(.audio-analysis)) .scopes-pane,
 .app-shell--phone .preview-panel:not(:has(.scopes-pane)) .audio-analysis {
   grid-column: 1 / -1;
@@ -123,4 +179,9 @@
 .app-shell--phone-landscape .scopes-pane,
 .app-shell--phone-landscape .audio-analysis {
   height: 96px;
+}
+
+/* Landscape has no height to give the pane, so it has no splitter. */
+.app-shell--phone-landscape .scopes-pane__resize {
+  display: none;
 }
