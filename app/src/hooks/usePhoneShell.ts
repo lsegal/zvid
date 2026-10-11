@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { getClipEndQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
+import type { MobileShareButtonProps } from "../components/mobile/MobileShareButton";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import {
   buildFileMenuEntries,
@@ -10,7 +11,6 @@ import {
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
-import type { CollaborationStateResult } from "./useCollaboration.ts";
 import type { useMediaDrawer } from "./useMediaDrawer.ts";
 import { useMobileShell } from "./useMobileShell.ts";
 import { usePhoneExportSupport } from "./usePhoneExportSupport.ts";
@@ -42,9 +42,9 @@ export type PhoneShellInputs = {
     TimelineEditing,
     "getClipMenuEntries" | "getEditMenuEntries" | "getHistoryEntries"
   >;
-  fileMenu: FileMenuInputs & {
-    collaboration: Pick<CollaborationStateResult, "setIsShareDialogOpen">;
-  };
+  fileMenu: FileMenuInputs;
+  collaboration: MobileShareButtonProps["collaboration"];
+  sharing: MobileShareButtonProps["sharing"];
   setStatus: (status: string) => void;
 };
 
@@ -156,12 +156,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         label: "Save to Library",
         onSelect: () => void fileMenu.handleSaveToLibrary(),
       },
-      {
-        type: "item",
-        id: "share",
-        label: "Share Session",
-        onSelect: () => fileMenu.collaboration.setIsShareDialogOpen(true),
-      },
       { type: "separator" },
       {
         type: "item",
@@ -214,6 +208,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       openExportDialog: fileMenu.openExportDialog,
       getOverflowEntries,
       historyEntries: isPhone ? editing.getHistoryEntries() : [],
+      share: { collaboration: inputs.collaboration, sharing: inputs.sharing },
       mediaDrawer,
       importMedia: () => void fileMenu.handleImport(),
       playheadSignal: store.playheadSignal,

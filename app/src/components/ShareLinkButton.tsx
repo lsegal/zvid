@@ -131,7 +131,7 @@ export function ShareLinkIconButton({
 // Opens above the status bar button (the status bar clips its own overflow)
 // or below the top bar icon, with the URL selected. Escape or a click outside
 // closes it.
-function ShareLinkFallback({
+export function ShareLinkFallback({
   anchorRef,
   onClose,
   placement,

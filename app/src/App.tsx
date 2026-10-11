@@ -432,6 +432,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     editing,
     fileMenu,
+    collaboration,
+    sharing,
     setStatus,
   });
 
