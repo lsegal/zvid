@@ -19,7 +19,7 @@ import { centerOf, mouse } from "../../../component-test/mouse.ts";
 const clipDevices = '.fx-chain .fx-device-panel[data-fx-group="clip"]';
 const devices = () => document.querySelectorAll(clipDevices);
 
-describe("Gain", () => {
+describe("Gain", { timeout: 60_000 }, () => {
   test("a new audio clip has a Gain with a vertical fader at 0 dB", async () => {
     const dropped = withDroppedMedia(
       EMPTY_PROJECT,

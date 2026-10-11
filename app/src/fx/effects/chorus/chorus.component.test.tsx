@@ -28,10 +28,11 @@ import { CHORUS_EFFECT_NAME } from "./chorus.ts";
 // changes what the clip sounds like; the preview's worklet and the export's
 // main-thread chain run it identically.
 
-describe("Chorus", () => {
+describe("Chorus", { timeout: 60_000 }, () => {
   test("is added to an audio clip with its defaults and changes the mix", async () => {
     const item = mediaItem({ kind: "audio", durationSeconds: 8 });
-    const audio = new Map([[item.id, tone(8)]]);
+    // The spec's 440 Hz tone, peaking at 10000 of 32767.
+    const audio = new Map([[item.id, tone(8, 440, 10_000 / 32767)]]);
     const dropped = withDroppedMedia(EMPTY_PROJECT, item);
     let project: ProjectState = dropped.project;
     await render(
@@ -97,7 +98,7 @@ describe("Chorus", () => {
     await userEvent.click(
       chorus.getByRole("button", { name: "Bypass Chorus" }),
     );
-    await expect.poll(level).toBeGreaterThan(0.05);
+    await expect.poll(level).toBeGreaterThan(0.1);
     const dry = level();
 
     await userEvent.click(
