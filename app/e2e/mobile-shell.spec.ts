@@ -213,6 +213,87 @@ test("a tap shows the selection toolbar and Split cuts at the center", async ({
   await expect(toolbar).toBeHidden();
 });
 
+test("Undo and Redo are one tap away in the top bar", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const topBar = page.locator(".mobile-topbar");
+  const undo = topBar.getByRole("button", { name: /^Undo/ });
+  const redo = topBar.getByRole("button", { name: /^Redo/ });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  await addClip(page);
+  await expect(undo).toBeEnabled();
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const y = (await centerOf(page, ".clip-card")).y;
+  await drag(page, client, { x: scroll.x + 60, y }, { x: scroll.x - 60, y });
+  await expect.poll(() => playheadQ(page)).toBeGreaterThan(1);
+  await page.locator(".clip-card__body").tap();
+  await page
+    .getByRole("toolbar", { name: "Clip actions" })
+    .getByRole("button", { name: "Split at playhead" })
+    .click();
+  await expect(page.locator(".clip-card")).toHaveCount(2);
+  // Named like the Edit menu's items.
+  await expect(undo).toHaveAccessibleName("Undo Split clip");
+  await undo.tap();
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+  await expect(redo).toHaveAccessibleName("Redo Split clip");
+  await redo.tap();
+  await expect(page.locator(".clip-card")).toHaveCount(2);
+  await expect(redo).toBeDisabled();
+});
+
+test("the More sheet has the desktop File and Edit menus", async ({ page }) => {
+  await page.goto("/");
+  const more = page.getByRole("button", { name: "More", exact: true });
+  const sheet = page.locator(".mobile-menu-sheet");
+  const items = sheet.locator(
+    ".mobile-menu-sheet__item:not(.mobile-menu-sheet__back)",
+  );
+  await more.click();
+  await expect(items).toHaveText([
+    "File",
+    "Edit",
+    "Save to Library",
+    "Share Session",
+    "Reorder Layers",
+    "Show Source Tracks",
+  ]);
+  await sheet.getByRole("menuitem", { name: "File" }).click();
+  await expect(items).toHaveText([
+    "New Session",
+    "Open",
+    "Import Media",
+    "All Media Linked",
+    "Media Storage…",
+    "Session Settings…",
+    "Connect to Share",
+    "Save",
+    "Export",
+  ]);
+  await sheet.getByRole("menuitem", { name: "Open" }).click();
+  await expect(items).toHaveText(["Session…", "Sample"]);
+  // Back to File.
+  await sheet.locator(".mobile-menu-sheet__back").click();
+  const chooser = page.waitForEvent("filechooser");
+  await sheet.getByRole("menuitem", { name: "Import Media" }).click();
+  await chooser;
+  await expect(sheet).toBeHidden();
+  await more.click();
+  await sheet.getByRole("menuitem", { name: "File" }).click();
+  await sheet.getByRole("menuitem", { name: "Session Settings…" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await addClip(page);
+  await more.click();
+  await sheet.getByRole("menuitem", { name: "Edit" }).click();
+  await expect(items.first()).toHaveText(/^Undo /);
+  await items.first().click();
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+});
+
 test("a long press opens the clip menu as a sheet; hold and drag moves", async ({
   page,
 }) => {

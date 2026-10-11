@@ -1,9 +1,7 @@
 // The File menu, built as context-menu entries so the desktop menubar and
 // the phone's More sheet show the same items.
 import type { Dispatch, SetStateAction } from "react";
-import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
-import { supportsHarnessCapability } from "../harness";
 
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 
@@ -32,22 +30,20 @@ export type FileMenuInputs = {
 
 /**
  * New Session, Open, Import Media and the media and session settings, then
- * Connect to Share, then Save and Export.
+ * Connect to Share, then Save and Export. `shortcuts` are the ones to show,
+ * if any.
  */
 export function buildFileMenuEntries(
   inputs: FileMenuInputs,
+  shortcuts: { newSession?: string; save?: string } = {},
 ): ContextMenuEntry[] {
   const { collaboration, offlineMedia } = inputs;
-  const shortcuts = getShortcutLabels();
   return [
     {
       type: "item",
       id: "new-session",
       label: "New Session",
-      // Browsers keep the shortcut for a new window.
-      shortcut: supportsHarnessCapability("native-dialogs")
-        ? shortcuts.newSession
-        : undefined,
+      shortcut: shortcuts.newSession,
       disabled: !inputs.canStartNewSession,
       onSelect: inputs.handleNewSession,
     },

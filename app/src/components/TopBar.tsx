@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useState,
 } from "react";
+import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
 import type {
@@ -96,7 +97,15 @@ export function TopBar(props: TopBarProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" {...fileMenu.content}>
-              <DropdownMenuEntries entries={buildFileMenuEntries(props)} />
+              <DropdownMenuEntries
+                entries={buildFileMenuEntries(props, {
+                  // Browsers keep the shortcut for a new window.
+                  newSession: supportsHarnessCapability("native-dialogs")
+                    ? getShortcutLabels().newSession
+                    : undefined,
+                  save: getShortcutLabels().save,
+                })}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu {...editMenu.root}>
