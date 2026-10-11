@@ -1,14 +1,24 @@
 import { expect, test } from "vitest";
 import { renderTimelineEditor } from "../component-test/timeline-editor.tsx";
-import { click } from "../component-test/timeline-mouse.ts";
+import { down, move, up } from "../component-test/timeline-mouse.ts";
 
 test("geo", async () => {
-  const screen = await renderTimelineEditor();
-  await expect.element(screen.getByText("Layer 1").first()).toBeVisible();
-  const hits: string[] = [];
-  window.addEventListener("pointerdown", (e) => hits.push(`${e.clientX},${e.clientY} ${(e.target as Element).className}`), true);
-  await click(600, 90);
-  await click(10, 10);
-  await click(300, 140);
-  expect([hits.join("\n"), window.devicePixelRatio, innerWidth, innerHeight, document.querySelector(".source-tracks, [aria-label='Source track drop area']")?.getBoundingClientRect().y]).toBe(0);
+  await renderTimelineEditor({ reducedMotion: true });
+  const log: string[] = [];
+  for (const t of ["pointerdown", "pointermove", "pointerup", "contextmenu", "lostpointercapture", "gotpointercapture", "pointercancel"]) {
+    window.addEventListener(t, (e) => log.push(`${t} ${(e as PointerEvent).clientY} b${(e as PointerEvent).buttons} ${(e.target as Element).className} ${(e.target as Element).isConnected} ${e.defaultPrevented}`), true);
+  }
+  const zoom = () => (document.querySelector('input[aria-label="Timeline zoom"]') as HTMLElement).dataset.zoom;
+  const ruler = document.querySelector(".ruler-row__content")!.getBoundingClientRect();
+  const x = 700, y = ruler.y + ruler.height / 2;
+  await move(x, y);
+  await down({ button: "right" });
+  await move(x, y - 60, { steps: 6 });
+  log.push(document.activeElement?.className ?? '');
+  log.push(`zoom ${zoom()} cls ${document.querySelector(".ruler-row")!.className}`);
+  await move(x, y - 100, { steps: 6 });
+  await up({ button: "right" });
+  await new Promise((r) => setTimeout(r, 300));
+  log.push(`zoom ${zoom()} mm ${matchMedia("(prefers-reduced-motion: reduce)").matches}`);
+  expect(log).toEqual([]);
 });

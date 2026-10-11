@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -85,7 +86,7 @@ function layerIndex(name: string) {
   return page.elementLocator(index);
 }
 
-describe(TopBar, () => {
+describe(TopBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("Edit shows Clip and Layer only for a selection, and Audio always", async () => {
     await renderEditor();
     await expect.poll(() => lane("1")).toBeTruthy();

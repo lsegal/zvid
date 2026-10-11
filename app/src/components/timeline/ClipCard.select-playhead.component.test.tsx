@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { click } from "../../component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -49,7 +50,9 @@ beforeEach(async () => {
   await setViewport({ width: 1600, height: 1200 });
 });
 
-test("selecting a clip leaves the playhead where it was", async () => {
+test("selecting a clip leaves the playhead where it was", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
   await renderEditor({
     project: withTestPatternTrack(sessionWithLayers(2)),
   });

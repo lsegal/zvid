@@ -1,9 +1,11 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it samples the preview's real audio mix in playback.
+
 // Committing a selection that covers several clips on a source track makes
-// one layer clip for the selection, which draws each covered clip's
-// waveform and plays each of them in the mix, not only the first (#817,
-// #932).
+// one layer clip for the selection, which plays each covered clip in the
+// mix, not only the first (#817, #932). The clip's parts and waveforms are
+// covered by LaneRow.commit.component.test.tsx.
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 90_000 });
@@ -84,28 +86,6 @@ function edges(locator: Locator) {
   );
 }
 
-// How many columns of a waveform canvas have anything drawn in them.
-function drawnColumns(canvas: Locator) {
-  return canvas.evaluate((element) => {
-    const canvas = element as HTMLCanvasElement;
-    const context = canvas.getContext("2d");
-    if (!context || !canvas.width || !canvas.height) {
-      return 0;
-    }
-    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    let columns = 0;
-    for (let x = 0; x < canvas.width; x += 1) {
-      for (let y = 0; y < canvas.height; y += 1) {
-        if (data[(y * canvas.width + x) * 4 + 3] > 0) {
-          columns += 1;
-          break;
-        }
-      }
-    }
-    return columns;
-  });
-}
-
 // Plays from the session start and returns the loudest mix level heard
 // while the playhead was inside each [left, right] range, in page pixels.
 async function levelsWhilePlaying(page: Page, ranges: number[][]) {
@@ -148,7 +128,7 @@ async function levelsWhilePlaying(page: Page, ranges: number[][]) {
   return sampling;
 }
 
-test("a selection over three source clips commits one clip showing each", async ({
+test("a selection over three source clips commits one clip playing each", async ({
   page,
 }) => {
   await probeAnalysers(page);
@@ -213,20 +193,6 @@ test("a selection over three source clips commits one clip showing each", async 
   expect(
     Math.abs(clipEdges[2][1] - (selected.x + selected.width)),
   ).toBeLessThan(2);
-
-  // Each part draws its waveform across its whole width.
-  for (let index = 0; index < 3; index += 1) {
-    const waveform = pieces.nth(index).locator("canvas.clip-card__waveform");
-    await expect(waveform).toHaveCount(1);
-    await expect
-      .poll(async () => {
-        const width = await waveform.evaluate(
-          (element) => (element as HTMLCanvasElement).width,
-        );
-        return width > 0 && (await drawnColumns(waveform)) > width * 0.8;
-      })
-      .toBe(true);
-  }
 
   // The mix hears every source clip's range, not only the first.
   const levels = await levelsWhilePlaying(page, clipEdges);

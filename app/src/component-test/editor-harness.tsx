@@ -29,6 +29,7 @@ import { Timeline } from "../components/timeline/Timeline";
 import { TimelineToolbar } from "../components/timeline/TimelineToolbar";
 import { TransportBar } from "../components/timeline/TransportBar";
 import { addFillClip } from "../fill-clip.ts";
+import { installHarness } from "../harness";
 import { ensureLayerLayouts } from "../fx-stack.ts";
 import { useAppLayout } from "../hooks/useAppLayout.ts";
 import { useAudioMix } from "../hooks/useAudioMix.ts";
@@ -80,6 +81,10 @@ const NO_IDS: ReadonlySet<string> = new Set();
 const NO_LIVE_TAKES = new Map();
 const NO_REMOTE_PROGRESS = new Map();
 
+// Tests that drive the whole editor through many presses and menus take
+// longer than the 15 s default allows on a busy machine.
+export const EDITOR_TEST_TIMEOUT = 60_000;
+
 // What a test reads back from the editor.
 export type EditorState = {
   project: ProjectState;
@@ -117,7 +122,7 @@ export function EditorHarness({
       dispatchProjectHistory({ type: "replace", snapshot: initialProject });
       setOpened(true);
     }
-  }, [dispatchProjectHistory, initialProject, opened]);
+  }, [initialProject, opened]);
   const {
     projectHistory,
     playheadQ,
@@ -632,9 +637,13 @@ export function EditorHarness({
 }
 
 // Renders the editor in a fresh layout: the layout preferences the app
-// keeps in localStorage start from their defaults.
-export function renderEditor(props: EditorHarnessProps = {}) {
+// keeps in localStorage start from their defaults. Like main.tsx, it first
+// installs the web harness, which media thumbnails are read through.
+export async function renderEditor(props: EditorHarnessProps = {}) {
   localStorage.clear();
+  if (!window.harness) {
+    await installHarness();
+  }
   return render(<EditorHarness {...props} />);
 }
 

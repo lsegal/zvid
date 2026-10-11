@@ -175,15 +175,27 @@ describe("ClipCard glyph on a narrow clip", () => {
   }
 });
 
+// Emulates the user's reduced-motion preference, or clears it.
+function emulateReducedMotion(reduce: boolean) {
+  // vitest's CDPSession types `send` loosely; Playwright's session takes
+  // any protocol method.
+  const session = cdp() as unknown as {
+    send: (method: string, params: object) => Promise<void>;
+  };
+  return session.send("Emulation.setEmulatedMedia", {
+    features: reduce
+      ? [{ name: "prefers-reduced-motion", value: "reduce" }]
+      : [],
+  });
+}
+
 describe("ClipCard with reduced motion", () => {
   afterEach(async () => {
-    await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+    await emulateReducedMotion(false);
   });
 
   test("shows its trim handles without a fade", async () => {
-    await cdp().send("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
-    });
+    await emulateReducedMotion(true);
     const screen = await renderClipCard();
     const handle = screen.container.querySelector(".clip-card__handle--start");
     expect(matchMedia("(prefers-reduced-motion: reduce)").matches).toBe(true);

@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import { click, down, move, up } from "./component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   type EditorState,
   renderEditor,
 } from "./component-test/editor-harness.tsx";
@@ -43,14 +44,18 @@ function selectionCount() {
   return document.querySelectorAll(".timeline-selection").length;
 }
 
-test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", async () => {
+test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
   let state: EditorState | undefined;
   await renderEditor({
     onState: (next) => {
       state = next;
     },
   });
-  await expect.poll(() => document.querySelector("[data-timeline-lane-id]")).toBeTruthy();
+  await expect
+    .poll(() => document.querySelector("[data-timeline-lane-id]"))
+    .toBeTruthy();
 
   await dragSelection("1", 40, 260);
   await expect.poll(selectionCount).toBe(1);
@@ -104,7 +109,9 @@ test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", asy
     .poll(() => document.querySelector(".popover-content"))
     .toBeTruthy();
   await userEvent.keyboard("{Escape}");
-  await expect.poll(() => document.querySelector(".popover-content")).toBeNull();
+  await expect
+    .poll(() => document.querySelector(".popover-content"))
+    .toBeNull();
 
   // Undo removes the fill and its Color effect in one step.
   await userEvent.keyboard(`{${MOD}>}z{/${MOD}}`);

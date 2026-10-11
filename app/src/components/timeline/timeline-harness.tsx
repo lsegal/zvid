@@ -23,6 +23,7 @@ import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "../../hooks/useProjectStore.ts";
+import { useSourceClipProperties } from "../../hooks/useSourceClipProperties.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import { useTimeline } from "../../hooks/useTimeline.ts";
 import { useTimelineEditing } from "../../hooks/useTimelineEditing.ts";
@@ -187,6 +188,21 @@ export function TimelineHarness({ project: initialProject }: TimelineHarnessProp
     timelineClips,
     playheadQ,
     bpm,
+  });
+  const sourceClip = useSourceClipProperties({
+    sourceSelection: selection.sourceSelection,
+    sourceSpans: project.sourceSpans,
+    timelineSourceSpans: selection.timelineSourceSpans,
+    setDragPreviewSourceSpans: selection.setDragPreviewSourceSpans,
+    mediaItemsById,
+    timelineMode: project.timelineMode,
+    signatureId: project.signatureId,
+    bpm,
+    fps: project.fps,
+    totalQuarters: timeline.totalQuarters,
+    isWorkspaceReadOnlyRef: store.isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit: store.refuseReadOnlyEdit,
+    commitProjectChange,
   });
   const [audioMixRevision, setAudioMixRevision] = useState(0);
   const resolvedAudioMix = useMemo(() => {
@@ -500,7 +516,7 @@ export function TimelineHarness({ project: initialProject }: TimelineHarnessProp
             {...fxEditing}
             {...fxPanel}
             {...layout}
-            sourceClip={null}
+            sourceClip={sourceClip}
           />
         </div>
       </main>

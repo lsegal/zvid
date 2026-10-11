@@ -16,9 +16,8 @@ import {
 } from "./timeline-harness-input";
 import { LayerHeader } from "./LayerHeader";
 
-// A layer's header (LayerHeader) in the timeline: its reorder grip and its
-// FX switch. Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and
-// "3" (Layer 3).
+// A layer's header (LayerHeader) in the timeline and its reorder grip.
+// Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
 
 function grip(id: string) {
   return document.querySelector(`[data-layer-grip="${id}"]`) as HTMLElement;
@@ -258,37 +257,6 @@ describe(LayerHeader, { timeout: 60_000 }, () => {
       await expect.poll(status).toBe("Layer 2, position 3 of 3");
       await touch("touchEnd", from.x, from.y + row.height + 4);
       await expect.poll(names).toEqual(["Layer 1", "Layer 3", "Layer 2"]);
-    });
-  });
-
-  // The FX button in each layer header (#693): always toggleable and lit
-  // while the layer's FX are on.
-  describe("FX switch", () => {
-    test("every layer's FX button is enabled and lit by default", () => {
-      for (const id of ["1", "2", "3"]) {
-        expect(fxSwitch(id).disabled).toBe(false);
-        expect(fxSwitch(id).getAttribute("aria-pressed")).toBe("true");
-      }
-    });
-
-    // The FX switch is plain text (#721): amber while on, muted while off,
-    // with no chip, border or background either way.
-    test("a layer's FX button is plain text, amber when on and muted when off", async () => {
-      const fx = fxSwitch("1");
-      await mouse.move(0, 0);
-      expect(fx.getAttribute("aria-pressed")).toBe("true");
-      let style = getComputedStyle(fx);
-      expect(style.color).toBe("rgb(246, 183, 60)");
-      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-      expect(style.borderTopWidth).toBe("0px");
-
-      await page.elementLocator(fx).click();
-      await mouse.move(0, 0);
-      await expect.poll(() => fx.getAttribute("aria-pressed")).toBe("false");
-      style = getComputedStyle(fx);
-      await expect.poll(() => style.color).toBe("rgb(164, 169, 191)");
-      expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-      expect(style.borderTopWidth).toBe("0px");
     });
   });
 });

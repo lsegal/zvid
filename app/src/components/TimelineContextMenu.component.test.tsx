@@ -9,6 +9,7 @@ import {
   up,
 } from "../component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -49,8 +50,9 @@ function menu(name: string | RegExp) {
   return page.getByRole("menu", { name });
 }
 
+// Matches items whose name contains `name`, shortcut hints and all.
 function menuItem(name: string) {
-  return page.getByRole("menuitem", { name });
+  return page.getByRole("menuitem", { name, exact: false });
 }
 
 function fxPanelTitle() {
@@ -206,9 +208,7 @@ async function dragSelection(target: HTMLElement, fromX: number, toX: number) {
   await down();
   await move(bounds.x + toX, y, { steps: 4 });
   await up();
-  await expect
-    .poll(() => count(".timeline-selection", target))
-    .toBe(1);
+  await expect.poll(() => count(".timeline-selection", target)).toBe(1);
 }
 
 // Right-clicks the lane `x` from the song start where `dragSelection` left
@@ -218,7 +218,7 @@ async function rightClickLaneAt(target: HTMLElement, x: number) {
   await click(bounds.x + x, bounds.y + 20, { button: "right" });
 }
 
-describe(TimelineContextMenu, () => {
+describe(TimelineContextMenu, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   let restorePlatform: (() => void) | undefined;
 
   beforeEach(async () => {
@@ -525,7 +525,9 @@ describe(TimelineContextMenu, () => {
     const submenu = menu("Insert Track");
     await expect.element(submenu).toBeVisible();
     expectItems(submenu.getByRole("menuitem"), [`${trackName}1`]);
-    await userEvent.click(submenu.getByRole("menuitem", { name: trackName }));
+    await userEvent.click(
+      submenu.getByRole("menuitem", { name: trackName, exact: false }),
+    );
     await expect.element(selectionMenu).not.toBeInTheDocument();
     expect(count(".timeline-selection")).toBe(0);
 
@@ -560,6 +562,7 @@ describe(TimelineContextMenu, () => {
     await userEvent.hover(menuItem("Insert Track"));
     const noFootage = menu("Insert Track").getByRole("menuitem", {
       name: trackName,
+      exact: false,
     });
     await expect.element(noFootage).toHaveAttribute("aria-disabled", "true");
     await expect.element(noFootage).toHaveAttribute("title", "No footage here");

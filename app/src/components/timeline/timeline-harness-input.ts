@@ -270,3 +270,32 @@ export async function pressShiftF10() {
     document.removeEventListener("contextmenu", onContextMenu, true);
   }
 }
+
+// Inserts a fill clip on layer `laneId`, selected, and moves the playhead
+// to its middle.
+export async function insertFillAtStart(laneId: string) {
+  const lane = () =>
+    document.querySelector(
+      `[data-timeline-lane-id="${laneId}"]`,
+    ) as HTMLElement;
+  const bounds = lane().getBoundingClientRect();
+  const y = bounds.y + bounds.height / 2;
+  await mouse.move(bounds.x + 40, y);
+  await mouse.down();
+  await mouse.move(bounds.x + 150, y);
+  await mouse.move(bounds.x + 260, y);
+  await mouse.up();
+  await mouse.click(bounds.x + 150, y, { button: "right" });
+  await page
+    .getByRole("menu", { name: "Selection actions" })
+    .getByRole("menuitem", { name: "Insert Fill Clip" })
+    .click();
+  const fill = () => lane().querySelector(".clip-card--fill") as HTMLElement;
+  await expect.poll(() => fill()?.className).toMatch(/clip-card--selected/);
+  const clip = fill().getBoundingClientRect();
+  const ruler = (
+    document.querySelector(".ruler-row") as HTMLElement
+  ).getBoundingClientRect();
+  await mouse.click(clip.x + clip.width / 2, ruler.y + ruler.height / 2);
+  await expect.poll(() => fill().className).toMatch(/clip-card--selected/);
+}

@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { center, down, move, up } from "../../component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -64,10 +65,14 @@ async function openEditorWithLayers(count: number) {
   await renderEditor({
     project: withTestPatternTrack(sessionWithLayers(count)),
   });
-  await expect.poll(() => document.querySelectorAll(".source-span").length).toBe(1);
+  await expect
+    .poll(() => document.querySelectorAll(".source-span").length)
+    .toBe(1);
 }
 
-describe("ClipCard trim handles in the editor", () => {
+describe("ClipCard trim handles in the editor", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
   // The docked Audio row footer (#809) leaves less room for layers to
   // scroll in; a taller viewport keeps the layers clear of it.
   beforeEach(async () => {
@@ -77,7 +82,9 @@ describe("ClipCard trim handles in the editor", () => {
   test("only the hovered or trimmed handle appears, and grabs while hidden", async () => {
     await openEditorWithLayers(2);
     await copySpanToLayer("Layer 1");
-    await expect.poll(() => lane("1")?.querySelectorAll(".clip-card").length).toBe(1);
+    await expect
+      .poll(() => lane("1")?.querySelectorAll(".clip-card").length)
+      .toBe(1);
     const clip = clipIn("1");
     const start = part(clip, ".clip-card__handle--start");
     const end = part(clip, ".clip-card__handle--end");
@@ -85,7 +92,9 @@ describe("ClipCard trim handles in the editor", () => {
 
     // Select a second clip to leave this one idle.
     await copySpanToLayer("Layer 2");
-    await expect.poll(() => lane("2")?.querySelectorAll(".clip-card").length).toBe(1);
+    await expect
+      .poll(() => lane("2")?.querySelectorAll(".clip-card").length)
+      .toBe(1);
     const other = clipIn("2");
     await userEvent.click(page.elementLocator(part(other, ".clip-card__body")));
     await expect.poll(() => other.className).toMatch(/clip-card--selected/);

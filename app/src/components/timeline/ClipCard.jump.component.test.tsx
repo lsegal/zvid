@@ -9,6 +9,7 @@ import {
   up,
 } from "../../component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -63,7 +64,8 @@ function playheadX() {
     throw new Error("No playhead");
   }
   return (
-    marker.getBoundingClientRect().left - lanes()[0].getBoundingClientRect().left
+    marker.getBoundingClientRect().left -
+    lanes()[0].getBoundingClientRect().left
   );
 }
 
@@ -143,7 +145,7 @@ function reportMacOS() {
   };
 }
 
-describe("ClipCard jump to start", () => {
+describe("ClipCard jump to start", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   let restorePlatform: (() => void) | undefined;
 
   beforeEach(async () => {
@@ -168,7 +170,9 @@ describe("ClipCard jump to start", () => {
     // Stopped: the playhead jumps to the clip start and the clip is selected.
     const point = jumpPoint();
     await click(point.x, point.y, { modifiers: [MOD] });
-    await expect.poll(() => clipCard().className).toMatch(/clip-card--selected/);
+    await expect
+      .poll(() => clipCard().className)
+      .toMatch(/clip-card--selected/);
     await expect.poll(() => distanceToClipStart(startX)).toBeLessThan(3);
     // The click neither duplicated nor moved the clip.
     expect(document.querySelectorAll(".clip-card").length).toBe(1);
@@ -201,7 +205,9 @@ describe("ClipCard jump to start", () => {
     await expect.element(item).toBeVisible();
     expect(item.element().textContent).toMatch(/(Ctrl|Cmd)\+click/);
     await userEvent.click(item);
-    await expect.poll(() => clipCard().className).toMatch(/clip-card--selected/);
+    await expect
+      .poll(() => clipCard().className)
+      .toMatch(/clip-card--selected/);
     await expect.poll(() => distanceToClipStart(startX)).toBeLessThan(3);
   });
 
@@ -242,7 +248,9 @@ describe("ClipCard jump to start", () => {
 
     // Cmd-click jumps.
     await click(x, y, { modifiers: ["Meta"] });
-    await expect.poll(() => clipCard().className).toMatch(/clip-card--selected/);
+    await expect
+      .poll(() => clipCard().className)
+      .toMatch(/clip-card--selected/);
     await expect.poll(() => distanceToClipStart(startX)).toBeLessThan(3);
     expect(document.querySelectorAll(".clip-card").length).toBe(1);
   });

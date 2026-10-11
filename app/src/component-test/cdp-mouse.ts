@@ -21,7 +21,10 @@ let position: Point = { x: 0, y: 0 };
 let pressed: Button | null = null;
 
 function modifierBits(modifiers: readonly Modifier[]) {
-  return modifiers.reduce((bits, modifier) => bits | MODIFIER_BITS[modifier], 0);
+  return modifiers.reduce(
+    (bits, modifier) => bits | MODIFIER_BITS[modifier],
+    0,
+  );
 }
 
 function send(params: Record<string, unknown>) {

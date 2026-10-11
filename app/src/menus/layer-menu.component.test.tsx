@@ -90,6 +90,8 @@ describe("layer header menu", { timeout: 60_000 }, () => {
     ).focus();
     await pressShiftF10();
     await expect.element(layerMenu()).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(layerMenu()).not.toBeInTheDocument();
   });
 
   test("layer actions reorder, insert, duplicate, rename and delete, each undoable", async () => {

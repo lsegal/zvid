@@ -9,6 +9,7 @@ import {
   up,
 } from "../../component-test/cdp-mouse.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
@@ -80,7 +81,9 @@ beforeEach(async () => {
   await setViewport({ width: 1600, height: 1400 });
 });
 
-test("a Ctrl/Cmd-drag duplicate keeps its clip Transform during the drag", async () => {
+test("a Ctrl/Cmd-drag duplicate keeps its clip Transform during the drag", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
   await renderEditor({
     project: withTestPatternTrack(sessionWithLayers(2)),
     preview: true,

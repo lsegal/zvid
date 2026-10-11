@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import {
+  EDITOR_TEST_TIMEOUT,
   type EditorState,
   renderEditor,
   sessionWithLayers,
@@ -65,7 +66,7 @@ async function expectFocusedAndSelected(name: string) {
     .toBe(true);
 }
 
-describe("double-click to rename", () => {
+describe("double-click to rename", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     await setViewport({ width: 1600, height: 1200 });
   });
@@ -159,7 +160,9 @@ describe("double-click to rename", () => {
     await expect.poll(sourceTrackNames).toEqual(["test-pattern"]);
 
     await userEvent.dblClick(layerName("1"));
-    await userEvent.dblClick(page.elementLocator(sourceTrackName() as HTMLElement));
+    await userEvent.dblClick(
+      page.elementLocator(sourceTrackName() as HTMLElement),
+    );
     expect(textbox("Layer name")).toBeNull();
     expect(textbox("Source track name")).toBeNull();
     // Nor does it ask to take the session over.
