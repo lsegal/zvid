@@ -1,22 +1,25 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The web app is installable (#1182): Chrome finds no installability
-// errors in its manifest, every icon loads at its declared size, and the
-// theme color matches the top of the app shell so an installed window's
-// title bar blends into the top bar.
+// The web app is installable (#1182): its manifest meets Chrome's install
+// criteria, every icon loads at its declared size, and the theme color
+// matches the top of the app shell so an installed window's title bar
+// blends into the top bar.
 
 type ManifestIcon = { src: string; sizes: string; purpose: string };
 
 type Manifest = {
+  name: string;
+  short_name: string;
+  start_url: string;
+  scope: string;
+  display: string;
   theme_color: string;
   background_color: string;
   icons: ManifestIcon[];
 };
 
 async function readManifest(page: Page) {
-  const href = await page
-    .locator('link[rel="manifest"]')
-    .getAttribute("href");
+  const href = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(href).toBeTruthy();
   const response = await page.request.get(href ?? "");
   expect(response.ok()).toBe(true);
@@ -48,14 +51,22 @@ function expectCloseColor(actual: string, expected: string) {
   });
 }
 
-test("Chrome reports no installability errors", async ({ page }) => {
+// Headless Chromium never fetches the manifest, so CDP's installability
+// check reports nothing either way; this checks Chrome's criteria directly.
+test("manifest meets Chrome's install criteria", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("No source media yet")).toBeVisible();
-  const client = await page.context().newCDPSession(page);
-  const { installabilityErrors } = await client.send(
-    "Page.getInstallabilityErrors",
-  );
-  expect(installabilityErrors).toEqual([]);
+  const manifest = await readManifest(page);
+  expect(manifest).toMatchObject({
+    name: "zvid",
+    short_name: "zvid",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+  });
+  const anySizes = manifest.icons
+    .filter((icon) => icon.purpose === "any")
+    .map((icon) => icon.sizes);
+  expect(anySizes).toEqual(expect.arrayContaining(["192x192", "512x512"]));
 });
 
 test("manifest icons load at their declared sizes", async ({ page }) => {
@@ -83,9 +94,7 @@ test("manifest icons load at their declared sizes", async ({ page }) => {
   }
 });
 
-test("theme and background colors match the app surface", async ({
-  page,
-}) => {
+test("theme and background colors match the app surface", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("No source media yet")).toBeVisible();
   const manifest = await readManifest(page);
