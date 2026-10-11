@@ -27,11 +27,7 @@ function Preview({
         style={{ flex: 1, width: PREVIEW_DEFAULT_WIDTH }}
       >
         <div className="preview-monitor" />
-        <ScopesPane
-          emptyMessage={emptyMessage}
-          frameId={frameId}
-          pane={pane}
-        />
+        <ScopesPane emptyMessage={emptyMessage} frameId={frameId} pane={pane} />
       </aside>
     </DesktopShell>
   );
@@ -84,9 +80,7 @@ test("every scope's name fits the default preview width, uncut", async () => {
   const pane = box(".scopes-pane");
   const kinds = page.getByRole("toolbar", { name: "Scope" });
   const kindsBox = kinds.element().getBoundingClientRect();
-  expect(kindsBox.x + kindsBox.width).toBeLessThanOrEqual(
-    pane.x + pane.width,
-  );
+  expect(kindsBox.x + kindsBox.width).toBeLessThanOrEqual(pane.x + pane.width);
   const buttons = kinds.getByRole("button").elements();
   expect(buttons).toHaveLength(4);
   for (const kind of buttons) {

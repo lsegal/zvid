@@ -151,7 +151,9 @@ describe("Mono", () => {
 
     await page.getByRole("button", { name: "Add device to this clip" }).click();
     const menu = page.getByRole("menu");
-    await expect.element(menu.getByRole("group", { name: "Audio" })).toBeVisible();
+    await expect
+      .element(menu.getByRole("group", { name: "Audio" }))
+      .toBeVisible();
     expect(
       menu
         .getByRole("group", { name: "Video" })
