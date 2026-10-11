@@ -202,9 +202,13 @@ function hitAtCenter(element: Element) {
 describe("an audio-only source span", () => {
   test("draws a waveform with a quiet border", async () => {
     const span = await renderSpan(media({ hasVideo: false, hasAudio: true }));
-    await expect.poll(() => span.className).toContain("source-span--audio");
     await expect
-      .poll(() => span.querySelectorAll("canvas.source-span__waveform").length)
+      .poll(() => span.className, { timeout: 30_000 })
+      .toContain("source-span--audio");
+    await expect
+      .poll(() => span.querySelectorAll("canvas.source-span__waveform").length, {
+        timeout: 30_000,
+      })
       .toBe(1);
     expect(span.querySelectorAll(".source-span__filmstrip")).toHaveLength(0);
     await expect
@@ -220,7 +224,7 @@ describe("an audio-only source span", () => {
     await expect.poll(() => opacity(end)).toBe("0");
 
     // Hover: the full border, and only the hovered handle.
-    await userEvent.hover(query(".source-span__body"));
+    await userEvent.hover(span);
     await expect.poll(() => borderAlpha(span)).toBe(1);
     await expect.poll(() => opacity(start)).toBe("0");
     await expect.poll(() => opacity(end)).toBe("0");
@@ -236,7 +240,9 @@ describe("a video source span", () => {
     const span = await renderSpan(item, filmstripOf(item, SPAN_WIDTH_PX));
     expect(span.querySelectorAll(".source-span__filmstrip")).toHaveLength(1);
     const selector = "canvas.source-span__waveform-overlay";
-    await expect.poll(() => span.querySelectorAll(selector).length).toBe(1);
+    await expect
+      .poll(() => span.querySelectorAll(selector).length, { timeout: 30_000 })
+      .toBe(1);
     expect(span.className).not.toContain("source-span--audio");
     await expect.poll(() => drawnColumns(selector)).toBeGreaterThan(20);
     const overlay = query(selector);

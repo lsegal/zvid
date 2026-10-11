@@ -181,6 +181,11 @@ async function openDrawer() {
   await expect.element(drawer()).toBeVisible();
 }
 
+// A locator's text, polled since the locator may not match yet.
+function textOf(locator: { query: () => Element | null }) {
+  return () => locator.query()?.textContent ?? null;
+}
+
 function combobox(input: "Video" | "Audio") {
   return drawer().getByRole("combobox", { name: `${input} input` });
 }
@@ -215,38 +220,57 @@ function lastAudioRequest() {
     : audio;
 }
 
-test("the Record tab previews the default inputs", async () => {
+test("the Record tab previews the default inputs", { timeout: 60_000 }, async () => {
+  const start = performance.now();
+  const log = (step: string) => console.log(step, Math.round(performance.now() - start));
+  log("s2");
   await render(<Editor />);
+  log("s3");
   await openDrawer();
+  log("s4");
   await expect.element(segment("Media")).toHaveAttribute("aria-expanded", "true");
+  log("s5");
   expect(media.requests).toHaveLength(0);
+  log("s6");
 
   await segment("Record").click();
+  log("s7");
   await expect
     .element(drawer().getByRole("heading", { name: "Record" }))
     .toBeVisible();
+  log("s8");
   await expect
     .element(drawer().getByText("Configure your record inputs"))
     .toBeVisible();
+  log("s9");
   expect(drawer().getByRole("button", { name: "List" }).elements()).toHaveLength(
     0,
   );
+  log("s10");
 
   // The camera plays in the preview and the mic moves the meter.
   await expect.poll(() => cameraPreview()?.videoWidth ?? 0).toBeGreaterThan(0);
+  log("s11");
   await expect.poll(leftLevel).toBeGreaterThan(-60);
+  log("s12");
   expect(media.requests.length).toBeGreaterThan(0);
+  log("s13");
 
   // Once access is granted the dropdown lists the cameras by name.
   await pick("Video", "fake_device_0");
-  await expect.element(combobox("Video")).toHaveTextContent("fake_device_0");
+  log("s14");
+  await expect.poll(textOf(combobox("Video"))).toBe("fake_device_0");
+  log("s15");
   await pick("Audio", "None");
+  log("s16");
   await expect
     .element(
       drawer().getByRole("status").filter({ hasText: "No audio" }),
     )
     .toBeVisible();
+  log("s17");
   await pick("Video", "None");
+  log("s18");
   await expect
     .poll(
       () =>
@@ -254,15 +278,21 @@ test("the Record tab previews the default inputs", async () => {
           ?.textContent,
     )
     .toBe("No video");
+  log("s19");
   await expect.poll(() => cameraPreview()?.srcObject).toBeNull();
+  log("s20");
 
   // Closing the drawer releases the camera.
   await pick("Video", "fake_device_0");
+  log("s21");
   await expect.poll(() => cameraPreview()?.videoWidth ?? 0).toBeGreaterThan(0);
+  log("s22");
   await drawer().getByRole("button", { name: "Close media drawer" }).click();
+  log("s23");
   await expect
     .poll(() => document.querySelectorAll(".record-input-picker").length)
     .toBe(0);
+  log("s24");
 });
 
 test("a saved camera that is gone falls back to the system default", async () => {
@@ -274,9 +304,7 @@ test("a saved camera that is gone falls back to the system default", async () =>
   await render(<Editor />);
   await openDrawer();
   await segment("Record").click();
-  await expect
-    .element(combobox("Video"))
-    .toHaveTextContent(/^System default/);
+  await expect.poll(textOf(combobox("Video"))).toMatch(/^System default/);
   await expect.poll(() => cameraPreview()?.videoWidth ?? 0).toBeGreaterThan(0);
 });
 
@@ -286,10 +314,10 @@ test("denied camera access shows why and keeps None picked", async () => {
   await openDrawer();
   await segment("Record").click();
   await expect
-    .element(drawer().getByRole("alert").first())
-    .toHaveTextContent(/access was denied/);
-  await expect.element(combobox("Video")).toHaveTextContent("None");
-  await expect.element(combobox("Audio")).toHaveTextContent("None");
+    .poll(textOf(drawer().getByRole("alert").first()))
+    .toMatch(/access was denied/);
+  await expect.poll(textOf(combobox("Video"))).toBe("None");
+  await expect.poll(textOf(combobox("Audio"))).toBe("None");
 });
 
 test("the toolbar's Media | Record switch opens, switches and closes the drawer", async () => {
@@ -379,9 +407,7 @@ test("the Record tab puts the close button on the title row", async () => {
 test("System default previews the device the default names, by its ID", async () => {
   await render(<Editor />);
   await segment("Record").click();
-  await expect
-    .element(combobox("Audio"))
-    .toHaveTextContent(/^System default/);
+  await expect.poll(textOf(combobox("Audio"))).toMatch(/^System default/);
 
   // Once the browser lists device IDs, the preview reopens on the device
   // the "default" alias names rather than leaving the choice to

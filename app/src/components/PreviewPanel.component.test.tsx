@@ -48,7 +48,7 @@ function previewPanelProps(width: number): PreviewPanelProps {
     },
     mediaRange: { setPoint: noop, clear: noop },
     mediaTimeFormat: {
-      timelineMode: "bars",
+      timelineMode: "musical",
       bpm: 120,
       signature: { numerator: 4, denominator: 4 },
       fps: 30,
@@ -70,7 +70,7 @@ function previewPanelProps(width: number): PreviewPanelProps {
     resolvePreviewLayersAt: () => [],
     selectedClip: undefined,
     selectPreviewLayer: noop,
-    textEdit: null,
+    textEdit: undefined,
     timelineDragState: null,
     transformPreviewLayer: noop,
   };

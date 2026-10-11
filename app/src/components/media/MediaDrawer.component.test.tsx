@@ -67,7 +67,7 @@ function Editor({ mediaItems }: { mediaItems: MediaItem[] }) {
         mediaDrawerTab={drawer.tab}
         onSelectMediaDrawerTab={drawer.selectTab}
         playheadSignal={createPlayheadSignal()}
-        signature={{ numerator: 4, denominator: 4 }}
+        signature={{ id: "4/4", numerator: 4, denominator: 4 }}
         signatureId="4/4"
         snapEnabled={false}
         timelineMode="timecode"
