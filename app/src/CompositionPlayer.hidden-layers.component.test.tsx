@@ -85,6 +85,7 @@ async function render({ layers, effects, samples }: Scenario): Promise<Rgb[]> {
       lanes: rendered.lanes,
       effects: rendered.effects,
       bpm: 120,
+      fps: 30,
       canvasWidth: SIZE,
       canvasHeight: SIZE,
     },

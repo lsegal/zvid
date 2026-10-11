@@ -9,6 +9,7 @@ import type { ProjectState, SourceSpan } from "../../app/types.ts";
 import { resolveAudioClips } from "../../audio-mix/resolve.ts";
 import { useAppLayout } from "../../hooks/useAppLayout.ts";
 import { useAudioMix } from "../../hooks/useAudioMix.ts";
+import { installHarness } from "../../harness";
 import { useFxEditing } from "../../hooks/useFxEditing.ts";
 import { useFxPanelModel } from "../../hooks/useFxPanelModel.ts";
 import {
@@ -101,6 +102,12 @@ export type TimelineHarnessProps = {
 export function TimelineHarness({
   project: initialProject,
 }: TimelineHarnessProps) {
+  // The web harness decodes thumbnails, as main.tsx installs it at startup.
+  useState(() => {
+    if (!window.harness) {
+      void installHarness();
+    }
+  });
   const store = useProjectStore({ access: "owner", restoredSession: null });
   const { dispatchProjectHistory } = store;
   // Opens the given session as the app opens a saved one: no undo step.
