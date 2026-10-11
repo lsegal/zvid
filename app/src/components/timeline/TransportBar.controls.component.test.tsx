@@ -266,7 +266,9 @@ describe("TransportBar layout and preview volume", () => {
     const bar = document.querySelector(".transport-bar") as HTMLElement;
     expect({
       bar: bar.scrollWidth - bar.clientWidth,
-      page: document.documentElement.scrollWidth - window.innerWidth,
+      page:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
     }).toEqual({ bar: 0, page: 0 });
     const volume = query(".volume-control");
     expect(volume.x + volume.width).toBeLessThanOrEqual(375);
