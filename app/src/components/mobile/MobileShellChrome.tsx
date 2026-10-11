@@ -8,6 +8,7 @@ import { MobileTransport } from "./MobileTransport";
 import { MediaSheetHeader } from "./SheetHeaders";
 import "./mobile-shell.css";
 import "./mobile-panels.css";
+import "./mobile-fx-panels.css";
 import "./mobile-sheet-motion.css";
 import "./mobile-timeline.css";
 
