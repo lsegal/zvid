@@ -41,14 +41,9 @@ function cssColor(value: string) {
 }
 
 // Whether each CSS pixel down a 1px-wide line is mostly yellow, sampled
-// from a screenshot.
-async function yellowPixels(clip: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}) {
-  const data = await page.screenshot({ save: false, clip });
+// from a screenshot of the page.
+async function yellowPixels(line: { x: number; y: number; height: number }) {
+  const data = await page.screenshot({ save: false });
   const image = new Image();
   image.src = `data:image/png;base64,${data}`;
   await image.decode();
@@ -60,12 +55,12 @@ async function yellowPixels(clip: {
     throw new Error("No 2D context");
   }
   context.drawImage(image, 0, 0);
-  const scale = image.height / clip.height;
-  const column = Math.floor(image.width / 2);
-  return Array.from({ length: clip.height }, (_, y) => {
+  const scale = image.width / document.documentElement.clientWidth;
+  const column = Math.floor((line.x + 0.5) * scale);
+  return Array.from({ length: line.height }, (_, y) => {
     const [r, g, b] = context.getImageData(
       column,
-      Math.floor((y + 0.5) * scale),
+      Math.floor((line.y + y + 0.5) * scale),
       1,
       1,
     ).data;
@@ -193,7 +188,6 @@ describe(LoopOverlay, () => {
     const pixels = await yellowPixels({
       x: Math.floor(start.x),
       y: sampleTop,
-      width: 1,
       height: 30,
     });
     const offset = sampleTop - start.y;

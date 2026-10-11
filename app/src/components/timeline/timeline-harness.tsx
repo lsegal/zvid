@@ -7,9 +7,9 @@ import { patchProjectState } from "../../app/session-project.ts";
 import { selectSourceSpan } from "../../app/source-selection.ts";
 import type { ProjectState, SourceSpan } from "../../app/types.ts";
 import { resolveAudioClips } from "../../audio-mix/resolve.ts";
+import { installHarness } from "../../harness";
 import { useAppLayout } from "../../hooks/useAppLayout.ts";
 import { useAudioMix } from "../../hooks/useAudioMix.ts";
-import { installHarness } from "../../harness";
 import { useFxEditing } from "../../hooks/useFxEditing.ts";
 import { useFxPanelModel } from "../../hooks/useFxPanelModel.ts";
 import {
