@@ -17,7 +17,7 @@
 
 .vu-meter__channel {
   position: relative;
-  height: 4px;
+  height: 5px;
   overflow: hidden;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.08);

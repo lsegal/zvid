@@ -72,6 +72,18 @@
     translate: 0 -50%;
   }
 
+  /* The transport bar's buttons are 35px tall (#1222), and their ::before
+     and ::after draw the skip bars and the recording pulse, so the icon
+     takes the 44px touch instead: its padding reaches past the button. */
+  :where(:root:not(:has(.app-shell--phone)))
+    .transport-bar
+    .transport-button
+    > svg {
+    box-sizing: content-box;
+    padding-block: 15px;
+    margin-block: -15px;
+  }
+
   /* A folded device stacks its switches, so they reach across instead. */
   :where(:root:not(:has(.app-shell--phone)))
     .fx-device-panel--collapsed
