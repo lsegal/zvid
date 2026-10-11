@@ -15,9 +15,7 @@ import {
 // The width of the timeline's track labels, which the rail between the
 // labels and the lanes resizes by dragging or from the keyboard, within
 // `limits` (the phone's labels have their own).
-export function useLabelResize(
-  limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH,
-) {
+export function useLabelResize(limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH) {
   const [labelWidth, setLabelWidth] = useState(() => readLabelWidth(limits));
   const labelResizeRef = useRef<{
     pointerId: number;

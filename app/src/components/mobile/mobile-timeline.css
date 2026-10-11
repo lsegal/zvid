@@ -1,0 +1,112 @@
+/* The phone shell's timeline rows (app-shell--phone): narrow track labels,
+   source tracks behind a toggle, and finger-sized handles that resize the
+   labels and rows, reorder layers and trim the selected clip, since touch
+   has no hover. */
+
+/* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
+   and the labels only take a strip of it, which the rail at their right
+   edge resizes (--track-label-width). */
+.app-shell--phone .timeline-canvas {
+  --phone-label-width: min(var(--track-label-width), var(--label-width));
+}
+
+.app-shell--phone .track-label {
+  justify-self: start;
+  width: var(--phone-label-width);
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+/* The rail's handle: a finger-wide target centered on the labels' edge. */
+.app-shell--phone .label-resize-handle {
+  left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+  width: var(--mobile-tap);
+  margin-left: calc(var(--phone-label-width) - var(--mobile-tap) / 2);
+}
+
+.app-shell--phone .label-resize-handle::before {
+  background: var(--line-strong);
+  opacity: 0.6;
+}
+
+/* A row's bottom edge resizes it: a finger-tall target rising from the
+   edge. It stays inside the label, since the next row's label covers
+   anything below, and under the label's controls, so the name, number and
+   switches still take taps and long presses. */
+.app-shell--phone .row-resize-handle {
+  z-index: 2;
+}
+
+.app-shell--phone .row-resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--mobile-tap);
+}
+
+.app-shell--phone .track-label__grip,
+.app-shell--phone .track-label__index,
+.app-shell--phone .track-label__select,
+.app-shell--phone .track-label__hide {
+  position: relative;
+  z-index: 3;
+}
+
+.app-shell--phone .track-label small,
+.app-shell--phone .track-label__fx,
+.app-shell--phone .track-label__arm {
+  display: none;
+}
+
+/* A long press on a label picks its layer up (LayerHeader), so the grips
+   only show in Reorder mode. */
+.app-shell--phone:not(.app-shell--reordering) .track-label__grip {
+  display: none;
+}
+
+.app-shell--phone.app-shell--reordering .track-label {
+  outline: 1px dashed var(--line-strong);
+  outline-offset: -3px;
+}
+
+/* Source tracks hide behind the overflow menu's toggle. */
+.app-shell--phone:not(.app-shell--source-tracks) .source-header,
+.app-shell--phone:not(.app-shell--source-tracks) .source-track-list,
+.app-shell--phone:not(.app-shell--source-tracks) .track-row--source-drop {
+  display: none;
+}
+
+/* Clip edges scroll like the rest of the clip, except the selected clip's:
+   its handles show, with 44px targets, since touch has no hover. */
+.app-shell--phone .clip-card__handle {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.app-shell--phone .clip-card--selected .clip-card__handle {
+  pointer-events: auto;
+  opacity: 1;
+  touch-action: none;
+}
+
+.app-shell--phone .clip-card--selected .clip-card__handle::before {
+  content: "";
+  position: absolute;
+  inset: -8px calc((var(--mobile-tap) - 100%) / -2);
+}
+
+.app-shell--phone .clip-card--lifted {
+  z-index: var(--z-timeline-selection);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--phone .clip-card--lifted {
+    transform: none;
+    transition: none;
+  }
+}

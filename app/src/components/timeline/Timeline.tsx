@@ -6,9 +6,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import {
-  LABEL_WIDTH_NARROW,
-} from "../../app/constants.ts";
+import { LABEL_WIDTH_NARROW } from "../../app/constants.ts";
 import type { LoopRegion } from "../../app/loop-region.ts";
 import type { useLabelResize } from "../../hooks/useLabelResize.ts";
 import type { useRulerGestures } from "../../hooks/useRulerGestures.ts";

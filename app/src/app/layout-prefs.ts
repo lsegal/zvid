@@ -34,9 +34,7 @@ export function clampLabelWidth(
   return Math.round(clamp(width, limits.min, limits.max));
 }
 
-export function readLabelWidth(
-  limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH,
-) {
+export function readLabelWidth(limits: LabelWidthLimits = DESKTOP_LABEL_WIDTH) {
   if (typeof window === "undefined") {
     return limits.default;
   }
