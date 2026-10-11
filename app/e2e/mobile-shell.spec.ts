@@ -7,6 +7,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The touch-first phone shell (#1168): a phone-sized touch viewport gets
 // the mobile layout, while fine pointers and tablets keep the desktop one.
@@ -405,6 +406,92 @@ test("tapping elsewhere clears a lane selection", async ({ page }) => {
   await expect(
     page.getByRole("toolbar", { name: "Selection actions" }),
   ).toBeHidden();
+});
+
+test("a selected clip shows its trim handles, and dragging one trims it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addClip(page);
+  const start = page.locator(".clip-card__handle--start");
+  // Until the clip is selected its edges belong to the swipe.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+  await expect(start).toHaveCSS("opacity", "0");
+  await expect(start).toHaveCSS("pointer-events", "none");
+  await page.locator(".clip-card__body").tap();
+  await expect(start).toHaveCSS("opacity", "1");
+  await expect(
+    page.getByRole("toolbar", { name: "Clip actions" }).getByText("Trim"),
+  ).toHaveCount(0);
+
+  const before = await page.locator(".clip-card").boundingBox();
+  const handle = await centerOf(page, ".clip-card__handle--start");
+  await drag(page, client, handle, { x: handle.x + 60, y: handle.y });
+  await expect
+    .poll(async () => (await page.locator(".clip-card").boundingBox())?.x)
+    .toBeGreaterThan((before?.x ?? 0) + 30);
+});
+
+test("dragging a layer's bottom edge resizes its row", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const header = page.locator('[data-layer-header-id="1"]');
+  const before = await header.boundingBox();
+  if (!before) {
+    throw new Error("Layer 1's header is not visible");
+  }
+  // Below the name, inside the edge's finger-tall target.
+  const from = { x: before.x + 60, y: before.y + before.height - 4 };
+  await drag(page, client, from, { x: from.x, y: from.y + 40 });
+  await expect
+    .poll(async () => (await header.boundingBox())?.height)
+    .toBeGreaterThan(before.height + 30);
+});
+
+test("dragging the labels' right edge resizes them", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const header = page.locator('[data-layer-header-id="1"]');
+  const before = await header.boundingBox();
+  const rail = page.getByRole("separator", { name: "Resize track labels" });
+  await expect(rail).toBeVisible();
+  const railBox = await rail.boundingBox();
+  if (!before || !railBox) {
+    throw new Error("The labels or their rail are not visible");
+  }
+  expect(railBox.width).toBeGreaterThanOrEqual(44);
+  const from = { x: before.x + before.width + 8, y: before.y + 20 };
+  await drag(page, client, from, { x: from.x + 50, y: from.y });
+  await expect
+    .poll(async () => (await header.boundingBox())?.width)
+    .toBeGreaterThan(before.width + 40);
+});
+
+test("a long press on a layer's label picks it up to reorder", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addLayers(page, 1);
+  const names = page.locator(
+    "[data-layer-header-id] .track-label__select > span",
+  );
+  await expect(names).toHaveText(["Layer 1", "Layer 2"]);
+  const first = await centerOf(
+    page,
+    '[data-layer-header-id="1"] .track-label__index',
+  );
+  const second = await page.locator('[data-layer-header-id="2"]').boundingBox();
+  await drag(
+    page,
+    client,
+    first,
+    { x: first.x, y: (second?.y ?? 0) + (second?.height ?? 0) - 8 },
+    600,
+  );
+  await expect(names).toHaveText(["Layer 2", "Layer 1"]);
 });
 
 test("FX opens as a half or full sheet and Media as a full screen", async ({

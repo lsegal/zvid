@@ -6,12 +6,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import {
-  LABEL_WIDTH_DEFAULT,
-  LABEL_WIDTH_MAX,
-  LABEL_WIDTH_MIN,
-  LABEL_WIDTH_NARROW,
-} from "../../app/constants.ts";
+import { LABEL_WIDTH_NARROW } from "../../app/constants.ts";
 import type { LoopRegion } from "../../app/loop-region.ts";
 import type { useLabelResize } from "../../hooks/useLabelResize.ts";
 import type { useRulerGestures } from "../../hooks/useRulerGestures.ts";
@@ -23,7 +18,9 @@ import "./timeline.css";
 type TimelineProps = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   timelineDragScroll: ReturnType<typeof useRulerGestures>["timelineDragScroll"];
-  labelResize: ReturnType<typeof useLabelResize>;
+  // The rail resizes the labels, trackLabelWidth wide, inside a column
+  // labelWidth wide; only a phone makes the two differ.
+  labelResize: ReturnType<typeof useLabelResize> & { trackLabelWidth: number };
   playheadSignal: PlayheadSignal;
   quarterPx: number;
   loopRegion: LoopRegion | null;
@@ -61,7 +58,7 @@ export function Timeline({
   children,
   footer,
 }: TimelineProps) {
-  const { labelWidth } = labelResize;
+  const { labelWidth, trackLabelWidth, limits } = labelResize;
   const footerRef = useRef<HTMLDivElement>(null);
 
   // The footer can't be scrolled by hand (it would leave the rows behind):
@@ -121,7 +118,10 @@ export function Timeline({
   return (
     <div
       className="timeline-panel"
-      style={{ ["--label-width" as string]: `${labelWidth}px` }}
+      style={{
+        ["--label-width" as string]: `${labelWidth}px`,
+        ["--track-label-width" as string]: `${trackLabelWidth}px`,
+      }}
     >
       <div
         ref={timelineScrollRef}
@@ -156,18 +156,16 @@ export function Timeline({
               className="label-resize-handle"
               aria-orientation="vertical"
               aria-label="Resize track labels"
-              aria-valuenow={labelWidth}
-              aria-valuemin={LABEL_WIDTH_MIN}
-              aria-valuemax={LABEL_WIDTH_MAX}
+              aria-valuenow={trackLabelWidth}
+              aria-valuemin={limits.min}
+              aria-valuemax={limits.max}
               tabIndex={0}
               title="Drag to resize. Double-click to reset."
               onPointerDown={labelResize.handleLabelResizePointerDown}
               onPointerMove={labelResize.handleLabelResizePointerMove}
               onPointerUp={labelResize.handleLabelResizePointerEnd}
               onPointerCancel={labelResize.handleLabelResizePointerEnd}
-              onDoubleClick={() =>
-                labelResize.commitLabelWidth(LABEL_WIDTH_DEFAULT)
-              }
+              onDoubleClick={() => labelResize.commitLabelWidth(limits.default)}
               onKeyDown={labelResize.handleLabelResizeKeyDown}
             />
           </div>

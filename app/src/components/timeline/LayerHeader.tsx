@@ -19,6 +19,11 @@ import "./layer-header.css";
 
 type LayerActions = ReturnType<typeof useLayerActions>;
 
+// Parts of the header a touch keeps for themselves instead of picking the
+// layer up: the grip already does, and the rest are their own controls.
+const TOUCH_REORDER_EXCLUDED =
+  ".track-label__grip, .track-label__hide, .track-label__fx, .track-label__rename, .row-resize-handle";
+
 // What every layer header shares.
 export type LayerHeaderContext = {
   layerReorder: LayerActions["layerReorder"];
@@ -56,7 +61,8 @@ type LayerHeaderProps = {
 // renaming it) with a summary, and the Hide and FX bypass switches. Double-clicking the
 // name renames the layer, like Rename… in its menu, and double-clicking the
 // rest of the header collapses or expands its row. Dragging the separator
-// along its bottom resizes the row.
+// along its bottom resizes the row. On touch, a long press anywhere else on
+// the header picks the layer up, as its grip does.
 export function LayerHeader({
   lane,
   laneIndex,
@@ -77,6 +83,7 @@ export function LayerHeader({
   toggleRowCollapsed,
   resizeRow,
 }: LayerHeaderProps) {
+  const grip = layerReorder.gripProps(lane, laneIndex);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent
     // biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard
@@ -84,6 +91,17 @@ export function LayerHeader({
       className="track-label track-label--lane"
       data-layer-header-id={lane.id}
       onContextMenu={(event) => openLayerMenu(event, lane.id)}
+      onPointerDown={(event) => {
+        if (
+          event.pointerType === "touch" &&
+          !(
+            event.target instanceof Element &&
+            event.target.closest(TOUCH_REORDER_EXCLUDED)
+          )
+        ) {
+          grip.onPointerDown(event);
+        }
+      }}
       onClick={(event) => {
         if (
           event.target instanceof Element &&
@@ -102,7 +120,7 @@ export function LayerHeader({
       }}
     >
       <button
-        {...layerReorder.gripProps(lane, laneIndex)}
+        {...grip}
         aria-label={`Reorder ${lane.name}`}
         className="track-label__grip"
         tabIndex={lane.id === fxLaneId ? 0 : -1}
