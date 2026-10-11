@@ -6,6 +6,7 @@ import viteConfig from "./vite.config.ts";
 // components in Chromium with their real stylesheets. Unit tests stay on
 // `node --test` (test:unit) and the app-level e2e specs on Playwright
 // (test:web). See ARCHITECTURE.md (Testing).
+
 // What every component test depends on: the setup file and the global CSS
 // it imports, with the shared tokens. `vitest --changed` follows only the
 // tests' own imports, so a change to any of these reruns the whole suite.
@@ -21,9 +22,6 @@ const GLOBAL_TRIGGERS = [
 export default mergeConfig(
   viteConfig({ command: "serve", mode: "test" }),
   defineConfig({
-    // Processes the imported stylesheets instead of stubbing them, so a
-    // test sees the styles the app ships.
-    css: {},
     server: {
       // The dev server's fixed port doesn't apply: Vitest picks the browser
       // server's port, and moves past one in use by another run.
@@ -41,6 +39,8 @@ export default mergeConfig(
         ...configDefaults.forceRerunTriggers,
         ...GLOBAL_TRIGGERS,
       ],
+      // Processes every imported stylesheet through Vite rather than
+      // stubbing it, so a test sees the styles the app ships.
       css: { include: /.+/ },
       browser: {
         enabled: true,

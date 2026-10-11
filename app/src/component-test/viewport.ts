@@ -1,3 +1,5 @@
+/// <reference types="@vitest/browser-playwright" />
+
 import { cdp, page } from "vitest/browser";
 
 // The desktop size vitest.config.ts opens the page at, Playwright's
