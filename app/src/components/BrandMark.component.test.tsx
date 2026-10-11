@@ -57,7 +57,14 @@ describe("BrandMark", () => {
       .querySelector<HTMLLinkElement>('link[rel="icon"]');
     const href = icon?.getAttribute("href");
     expect(href).toBeTruthy();
-    const response = await fetch(new URL(href as string, location.origin));
+    // The test server answers /favicon.svg with Vitest's own icon, so
+    // fetch the app's public file by its path instead. (Vite would rewrite
+    // a `new URL(…, import.meta.url)` written out in full.)
+    const testFileUrl = import.meta.url;
+    const response = await fetch(
+      new URL(`../../public${href}`, testFileUrl),
+    );
+    console.log("FAV", import.meta.url, response.url, response.status, [...response.headers].join(";"), (await response.clone().text()).slice(0, 80));
     expect(response.ok).toBe(true);
     expect(response.headers.get("content-type")).toContain("image/svg+xml");
     const svg = await response.text();

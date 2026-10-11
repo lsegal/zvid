@@ -111,8 +111,8 @@ describe("MobileTopBar", () => {
   test("Export and Share are labeled and fit a 375px top bar", async () => {
     const screen = await renderTopBar();
     const exportButton = screen.getByRole("button", { name: /^Export/ });
-    await expect.element(exportButton).toHaveTextContent(/^Export$/);
-    await expect.element(shareButton()).toHaveTextContent(/^Share$/);
+    expect(exportButton.element().textContent).toBe("Export");
+    expect(shareButton().textContent).toBe("Share");
     await expect.element(shareButton()).toHaveAccessibleName("Share");
     expectNothingClipped();
 

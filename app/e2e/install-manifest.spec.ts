@@ -1,3 +1,4 @@
+// Stays in Playwright: it fetches the served manifest, icons and index.html, which a component test never loads.
 import { expect, type Page, test } from "@playwright/test";
 
 // The web app is installable (#1182): its manifest meets Chrome's install

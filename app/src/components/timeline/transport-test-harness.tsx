@@ -65,6 +65,8 @@ type TransportHarnessProps = {
   playheadSignal: PlayheadSignal;
   clips?: ArrangementClip[];
   loop?: LoopRegion | null;
+  // Rendered above the workspace, as App renders the top bar.
+  header?: ReactNode;
   // Rendered in the timeline area, inside `.timeline-scroll`.
   children?: ReactNode;
   // The timeline's scroll box, for content that needs it.
@@ -75,6 +77,7 @@ export function TransportHarness({
   playheadSignal,
   clips = [],
   loop = null,
+  header,
   children,
   timelineScrollRef: outerScrollRef,
 }: TransportHarnessProps) {
@@ -191,6 +194,7 @@ export function TransportHarness({
 
   return (
     <DesktopShell>
+      {header}
       <main className="workspace">
         <div className="workspace__main">
           <section className="editor-panel">
