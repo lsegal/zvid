@@ -10,6 +10,14 @@ on:
   push:
     branches:
       - main
+  # A manual run; full-component-suite runs every component test rather
+  # than those the branch's changes affect.
+  workflow_dispatch:
+    inputs:
+      full-component-suite:
+        description: Run the whole component test suite
+        type: boolean
+        default: true
 
 # A ready_for_review run gets its own group so a push right after marking
 # the pull request ready can't cancel its browser tests.
@@ -70,6 +78,72 @@ jobs:
       - name: Plugin UI build
         if: ${{ !cancelled() }}
         run: pnpm --dir daw/ui run build
+
+  # Vitest browser-mode component tests (pnpm test:component), selected by
+  # what changed: `vitest --changed` follows each test's imports, CSS
+  # included, and a change to the global CSS or the harness reruns them all.
+  # A pull request compares against its merge base with main, a push to main
+  # against the commit main pointed at before it, and a manual run with
+  # full-component-suite runs everything. Nothing selected passes. See
+  # app/ARCHITECTURE.md (Testing).
+  component-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+
+      # Dialogs that probe export support import the harness, whose dynamic
+      # import of the wasm bridge must resolve when Vite serves the tests.
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: app
+
+      - name: Component tests
+        working-directory: app
+        env:
+          EVENT: ${{ github.event_name }}
+          FULL: ${{ inputs.full-component-suite }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          since=""
+          case "$EVENT" in
+            pull_request)
+              since=$(git merge-base "origin/$BASE_REF" HEAD) ;;
+            push)
+              # A new branch has no before commit, and a force-push's may be
+              # gone; run everything then.
+              if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                since=$BEFORE
+              fi ;;
+            workflow_dispatch)
+              if [ "$FULL" != "true" ]; then
+                since=$(git merge-base origin/main HEAD)
+              fi ;;
+          esac
+          if [ -n "$since" ]; then
+            echo "Running the component tests affected since $since"
+            pnpm exec vitest run --changed "$since" --passWithNoTests
+          else
+            echo "Running the whole component test suite"
+            pnpm exec vitest run
+          fi
+
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-test-results
+          path: app/src/**/__screenshots__
+          if-no-files-found: ignore
 
   # The browser tests are slow, so they run on pushes to main and when a
   # pull request is marked ready for review; other pull request events skip

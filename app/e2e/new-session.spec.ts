@@ -1,5 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Playwright, not a component test: it replaces the whole app's session, saving
+// or discarding it first.
+//
 // File → New Session replaces the session with a blank project, asking
 // first when the session has unsaved changes.
 
