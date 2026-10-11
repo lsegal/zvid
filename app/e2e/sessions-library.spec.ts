@@ -1,10 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Playwright, not a component test: these save, open and reload whole
+// sessions in the app.
+//
 // The Sessions library: File ▸ Save (Mod+S) keeps the session in the
 // Sessions tab of the drawer left of the timeline, where it outlives Close
 // and reloads, reopens with a click and renames, duplicates or deletes from
-// its context menu.
+// its context menu. The context menu's rename, duplicate and delete are
+// covered by SessionsTab.component.test.tsx.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -131,32 +135,6 @@ test("saving again updates the same entry", async ({ page }) => {
     page.getByText("Saved Untitled Session to Sessions."),
   ).toBeVisible();
   await expect(entries(page)).toHaveCount(1);
-});
-
-test("entries rename, duplicate and delete from their context menu", async ({
-  page,
-}) => {
-  await saveNewSession(page);
-
-  await openEntryMenu(page, "Untitled Session", "Rename…");
-  const name = drawer(page).getByRole("textbox", { name: "Session name" });
-  await name.fill("Demo");
-  await name.press("Enter");
-  await expect(entry(page, "Demo")).toHaveCount(1);
-
-  await openEntryMenu(page, "Demo", "Duplicate");
-  await expect(entry(page, "Demo copy")).toHaveCount(1);
-  await expect(entries(page)).toHaveCount(2);
-
-  await openEntryMenu(page, "Demo copy", "Delete…");
-  const confirm = page.getByRole("dialog", { name: "Delete Demo copy?" });
-  await confirm.getByRole("button", { name: "Delete" }).click();
-  await expect(entries(page)).toHaveCount(1);
-  await expect(entry(page, "Demo copy")).toHaveCount(0);
-
-  // The drawer stays open on the Sessions tab across the reload.
-  await page.reload();
-  await expect(entries(page)).toHaveText([/^Demo/]);
 });
 
 test("opening an entry over unsaved changes asks first", async ({ page }) => {

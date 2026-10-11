@@ -94,6 +94,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/setup
+
+      # Dialogs that probe export support import the harness, whose dynamic
+      # import of the wasm bridge must resolve when Vite serves the tests.
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
+
       - uses: ./.github/actions/setup-playwright
         with:
           dir: app

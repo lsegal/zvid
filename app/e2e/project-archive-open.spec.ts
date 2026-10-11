@@ -6,6 +6,9 @@ import {
 } from "../src/project-archive.ts";
 import type { ProjectSession } from "../src/session.ts";
 
+// Playwright, not a component test: it loads .zvd archives end to end through
+// File ▸ Open, media included.
+//
 // File ▸ Open ▸ Session… opens a `.zvd` project archive with the media bundled
 // under its `media/` folder, so a project exported with its media opens with
 // nothing offline.

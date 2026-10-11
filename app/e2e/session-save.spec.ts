@@ -2,6 +2,9 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import { readProjectArchive } from "../src/project-archive.ts";
 
+// Playwright, not a component test: it exports whole projects as downloads and
+// reopens them in the app.
+//
 // File ▸ Export ▸ Project… in the browser build prompts for a location, which is
 // a download where the save picker is missing.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
