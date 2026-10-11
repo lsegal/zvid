@@ -196,3 +196,12 @@
     flex-wrap: wrap;
   }
 }
+
+/* On touch screens that keep this bar (#1168), it grows to 44px so the
+   menubar items' 44px touch areas stay on screen. Last, so it wins over
+   the narrow-window padding. */
+@media (pointer: coarse) {
+  .topbar {
+    padding-block: 9px;
+  }
+}
