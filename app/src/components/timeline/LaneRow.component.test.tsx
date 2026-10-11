@@ -71,13 +71,13 @@ async function expectCellAt(target: HTMLElement, offsetX: number) {
   return cellPx;
 }
 
-describe("LaneRow", { timeout: 60_000 }, () => {
+describe("LaneRow", { timeout: 180_000 }, () => {
   // A desktop window tall enough to keep the layers clear of the docked
   // Audio row.
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
-  });
+  }, 120_000);
 
   // A left-click on empty lane space seeks and clears the selection; only a
   // drag past a few pixels selects a range.

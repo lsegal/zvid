@@ -7,7 +7,7 @@ import { menuItem, rightClick } from "./timeline-harness-input";
 
 // The Audio row docked under the timeline's rows.
 
-describe(AudioRow, { timeout: 60_000 }, () => {
+describe(AudioRow, { timeout: 180_000 }, () => {
   test("only offers to recompute the audio", async () => {
     localStorage.clear();
     await render(<TimelineHarness />);

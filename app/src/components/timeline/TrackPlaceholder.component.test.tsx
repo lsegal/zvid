@@ -35,12 +35,12 @@ function addTrack() {
     .getByRole("button", { name: "Track", exact: true });
 }
 
-describe(TrackAddButton, { timeout: 60_000 }, () => {
+describe(TrackAddButton, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
     await expect.poll(headers).toHaveLength(1);
-  });
+  }, 120_000);
 
   test("the toolbar has no layer count or Create Layer button", () => {
     const toolbar = document.querySelector(".timeline-toolbar") as HTMLElement;

@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { expect, onTestFinished } from "vitest";
-import { cdp } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import type { ClipClipboard } from "../app/clip-ops.ts";
@@ -38,7 +38,7 @@ import { useTimelineEditing } from "../hooks/useTimelineEditing.ts";
 import { useTimelineSelection } from "../hooks/useTimelineSelection.ts";
 import type { MediaItem } from "../media";
 import { createSpaceHold } from "../space-shortcut";
-import { resetMouse } from "./timeline-mouse.ts";
+import { center, click, down, move, resetMouse, up } from "./timeline-mouse.ts";
 
 // The desktop editor's timeline, wired as App wires it: the top bar, the
 // toolbar, the timeline with its ruler, layers and source tracks, the
@@ -553,4 +553,93 @@ export async function renderTimelineEditor({
     .poll(() => document.querySelector('[data-timeline-lane-id="1"]'))
     .not.toBeNull();
   return screen;
+}
+
+// A generous per-test timeout: each test renders the whole editor, which is
+// slow on a busy machine.
+export const TIMELINE_EDITOR_TIMEOUT = 60_000;
+
+// Draws a selection on Layer 1 from `fromX` to `toX` (offsets into the
+// lane) and inserts a text clip over it from the selection's menu, as the
+// e2e specs do. The clip stays selected, with its Text effect in the FX
+// panel.
+export async function insertTextClip(fromX = 20, toX = 400) {
+  const lane = document.querySelector(
+    '[data-timeline-lane-id="1"]',
+  ) as HTMLElement;
+  const bounds = lane.getBoundingClientRect();
+  const y = bounds.y + bounds.height / 2;
+  await move(bounds.x + fromX, y);
+  await down();
+  await move(bounds.x + (fromX + toX) / 2, y);
+  await move(bounds.x + toX, y);
+  await up();
+  await click(bounds.x + (fromX + toX) / 2, bounds.y + 20, {
+    button: "right",
+  });
+  const item = page
+    .getByRole("menu", { name: "Selection actions" })
+    .getByRole("menuitem", { name: "Insert Text Clip" });
+  await expect.element(item).toBeVisible();
+  await click(center(item.element()).x, center(item.element()).y);
+  await expect
+    .poll(() => lane.querySelectorAll(".clip-card--text").length)
+    .toBe(1);
+  return bounds;
+}
+
+// Drags out a playback selection in the loop strip from `fromX` to `toX`
+// (client x) and locks it into the loop with L.
+export async function createLoop(fromX: number, toX: number) {
+  const strip = (
+    document.querySelector(".ruler-loop-strip") as HTMLElement
+  ).getBoundingClientRect();
+  const y = strip.y + strip.height / 2;
+  await move(fromX, y);
+  await down();
+  await move(toX, y, { steps: 10 });
+  await up();
+  await userEvent.keyboard("L");
+  await expect
+    .poll(() => document.querySelector(".ruler-loop-region"))
+    .not.toBeNull();
+  const region = document.querySelector(".ruler-loop-region") as HTMLElement;
+  return {
+    region,
+    box: region.getBoundingClientRect(),
+    startQ: Number(region.dataset.startQ),
+    endQ: Number(region.dataset.endQ),
+  };
+}
+
+// Where the playhead is, in quarters: the ruler marker's `translateX` is the
+// playhead's position less a pixel, and the second bar marker sits a bar
+// (four quarters, in 4/4) in.
+export function readPlayheadQ() {
+  const marker = document.querySelector(
+    ".timeline-playhead-marker",
+  ) as HTMLElement;
+  const bars = document.querySelectorAll<HTMLElement>(".ruler-marker");
+  const left = Number(
+    /translateX\((-?[\d.]+)px\)/.exec(marker.style.transform)?.[1],
+  );
+  const quarterPx = Number.parseFloat(bars[1].style.left) / 4;
+  return (left + 1) / quarterPx;
+}
+
+// The playhead in quarters every frame for `durationMs`.
+export function samplePlayheadQ(durationMs: number) {
+  return new Promise<number[]>((resolve) => {
+    const samples: number[] = [];
+    const startedAt = performance.now();
+    const sample = () => {
+      samples.push(readPlayheadQ());
+      if (performance.now() - startedAt < durationMs) {
+        requestAnimationFrame(sample);
+      } else {
+        resolve(samples);
+      }
+    };
+    requestAnimationFrame(sample);
+  });
 }

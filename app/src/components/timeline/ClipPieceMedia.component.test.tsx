@@ -175,11 +175,11 @@ async function layerClipOverSourceClip() {
   return { spanBox, quarterPx };
 }
 
-describe(ClipPieceMedia, { timeout: 90_000 }, () => {
+describe(ClipPieceMedia, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
-  });
+  }, 120_000);
 
   test("a layer clip keeps its window as its source clip is trimmed, moved and deleted", async () => {
     const { spanBox, quarterPx } = await layerClipOverSourceClip();

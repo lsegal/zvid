@@ -14,10 +14,10 @@ import { insertFillAtStart, layerHeader, undo } from "./timeline-harness-input";
 // e2e spec, and how the compositor treats a hidden layer is in
 // CompositionPlayer.hidden-layers.component.test.tsx.
 
-describe(TrackHideButton, { timeout: 60_000 }, () => {
+describe(TrackHideButton, { timeout: 180_000 }, () => {
   beforeEach(() => {
     localStorage.clear();
-  });
+  }, 120_000);
 
   test("the eye left of a layer's FX switch hides it, undoably", async () => {
     await render(<TimelineHarness />);

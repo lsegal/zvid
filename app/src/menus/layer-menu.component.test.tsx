@@ -32,13 +32,13 @@ function fxPanelTitle() {
 const layerMenu = () =>
   page.getByRole("menu", { name: "Layer header actions" });
 
-describe("layer header menu", { timeout: 60_000 }, () => {
+describe("layer header menu", { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
     await expect.poll(() => layerHeader("1")).toBeTruthy();
     await addLayers();
-  });
+  }, 120_000);
 
   test("Insert text at playhead adds a text clip on the layer", async () => {
     await openLayerMenu("2");

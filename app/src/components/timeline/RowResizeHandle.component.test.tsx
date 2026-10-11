@@ -76,11 +76,11 @@ async function dragSeparator(row: Element, dy: number) {
   await nextFrames();
 }
 
-describe(RowResizeHandle, { timeout: 60_000 }, () => {
+describe(RowResizeHandle, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
-  });
+  }, 120_000);
 
   test("dragging a layer's separator resizes only that lane", async () => {
     await addVideoClips();

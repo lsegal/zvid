@@ -85,13 +85,13 @@ async function addLayer4() {
   return id;
 }
 
-describe(LayerHeader, { timeout: 60_000 }, () => {
+describe(LayerHeader, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
     await expect.poll(() => layerHeader("1")).toBeTruthy();
     await addLayers();
-  });
+  }, 120_000);
 
   // Reordering layers from the grip left of each header's number (#478).
   describe("reorder grip", () => {

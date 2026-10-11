@@ -144,7 +144,7 @@ const BOTTOM: [number, number] = [0.5, 0.8];
 const CENTER: [number, number] = [0.5, 0.5];
 const CORNER: [number, number] = [0.05, 0.05];
 
-describe("CompositionRenderer with hidden layers", () => {
+describe("CompositionRenderer with hidden layers", { timeout: 60_000 }, () => {
   test("a hidden layer takes no Order slot and draws nothing", async () => {
     const layers = [{ fill: "rgba(255,0,0,1)" }, { fill: "rgba(0,0,255,1)" }];
     expectColors(

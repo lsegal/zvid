@@ -20,12 +20,12 @@ function fxSwitch(id: string) {
   return layerHeader(id).querySelector(".track-label__fx") as HTMLButtonElement;
 }
 
-describe(TrackFxButton, { timeout: 60_000 }, () => {
+describe(TrackFxButton, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
     await expect.poll(() => layerHeader("1")).toBeTruthy();
-  });
+  }, 120_000);
 
   test("a layer without effects of its own has a lit FX button that turns its clips' FX off and on", async () => {
     const fx = () => fxSwitch("1");

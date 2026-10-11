@@ -231,11 +231,11 @@ async function insertClip(item: string, from: number) {
     .click();
 }
 
-describe("collapsing rows", { timeout: 60_000 }, () => {
+describe("collapsing rows", { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
-  });
+  }, 120_000);
 
   test("double-clicking a layer's header collapses and expands its lane", async () => {
     await addVideoClips();

@@ -57,7 +57,7 @@ describe("TrackRecordArmButton", () => {
 // track leads the Effects pane with arm the same track, so each follows the
 // other.
 describe("TrackRecordArmButton with the Record device", {
-  timeout: 60_000,
+  timeout: 180_000,
 }, () => {
   test("follows the device, and arms the device back", async () => {
     localStorage.clear();

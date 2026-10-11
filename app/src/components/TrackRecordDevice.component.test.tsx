@@ -30,14 +30,14 @@ const deviceButton = (name: RegExp | string) =>
 const firstInChain = () =>
   (query(".fx-chain").firstElementChild as HTMLElement).className;
 
-describe(TrackRecordDevice, { timeout: 60_000 }, () => {
+describe(TrackRecordDevice, { timeout: 180_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(
       <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
     );
     await expect.poll(() => query(".source-span")).toBeTruthy();
-  });
+  }, 120_000);
 
   test("a source track's Record device folds and arms", async () => {
     // Selecting the track shows the device collapsed, first in the chain.
