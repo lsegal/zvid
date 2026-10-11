@@ -18,9 +18,7 @@ import "./timeline.css";
 type TimelineProps = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   timelineDragScroll: ReturnType<typeof useRulerGestures>["timelineDragScroll"];
-  // The rail resizes the labels, trackLabelWidth wide, inside a column
-  // labelWidth wide; only a phone makes the two differ.
-  labelResize: ReturnType<typeof useLabelResize> & { trackLabelWidth: number };
+  labelResize: ReturnType<typeof useLabelResize>;
   playheadSignal: PlayheadSignal;
   quarterPx: number;
   loopRegion: LoopRegion | null;
@@ -58,7 +56,7 @@ export function Timeline({
   children,
   footer,
 }: TimelineProps) {
-  const { labelWidth, trackLabelWidth, limits } = labelResize;
+  const { labelWidth, limits } = labelResize;
   const footerRef = useRef<HTMLDivElement>(null);
 
   // The footer can't be scrolled by hand (it would leave the rows behind):
@@ -120,7 +118,6 @@ export function Timeline({
       className="timeline-panel"
       style={{
         ["--label-width" as string]: `${labelWidth}px`,
-        ["--track-label-width" as string]: `${trackLabelWidth}px`,
       }}
     >
       <div
@@ -156,7 +153,7 @@ export function Timeline({
               className="label-resize-handle"
               aria-orientation="vertical"
               aria-label="Resize track labels"
-              aria-valuenow={trackLabelWidth}
+              aria-valuenow={labelWidth}
               aria-valuemin={limits.min}
               aria-valuemax={limits.max}
               tabIndex={0}

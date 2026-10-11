@@ -1,5 +1,6 @@
 // The math behind the mobile timeline: the playhead stays at the center of
-// the view while the timeline scrolls under it, two fingers zoom, and a
+// the view while the timeline scrolls under it (near the start, where it
+// can't, the playhead moves from the labels' edge to the center), two fingers zoom, and a
 // press held still picks up a clip or starts a lane selection.
 import type { ContextMenuEntry, ContextMenuItem } from "../context-menu.ts";
 import { clampZoom } from "../zoom.ts";
@@ -16,22 +17,54 @@ export const DOUBLE_TAP_SLOP_PX = 24;
 export type TouchTap = { x: number; y: number; timeMs: number };
 
 type CenterGeometry = {
-  // The space ahead of time 0. The mobile shell makes it half the view, so
-  // time 0 can reach the center.
+  // The track labels' width: time 0 starts at their edge.
   labelWidth: number;
   quarterPx: number;
   clientWidth: number;
 };
 
-/** The scroll that puts `playheadQ` at the center of the view. */
-export function centeredScrollLeft(
+/**
+ * The scroll that puts `playheadQ` at the center of the view, unclamped: it
+ * is negative near the start, where the timeline can't scroll that far and
+ * the playhead sits left of the center instead.
+ */
+export function playheadScrollLeft(
   playheadQ: number,
   { labelWidth, quarterPx, clientWidth }: CenterGeometry,
 ) {
-  return Math.max(0, labelWidth + playheadQ * quarterPx - clientWidth / 2);
+  return labelWidth + playheadQ * quarterPx - clientWidth / 2;
 }
 
-/** The time under the center of the view at `scrollLeft`, never before 0. */
+/** The scroll that puts `playheadQ` at the center of the view, or 0. */
+export function centeredScrollLeft(
+  playheadQ: number,
+  geometry: CenterGeometry,
+) {
+  return Math.max(0, playheadScrollLeft(playheadQ, geometry));
+}
+
+/**
+ * The time a sideways swipe `dx` pixels long scrubs to from `startQ`, as
+ * though the timeline could scroll past its start (`playheadScrollLeft`), up
+ * to `maxScrollLeft`. At the start the playhead moves instead of the
+ * timeline: from the labels' edge to the center.
+ */
+export function swipePlayheadQ(
+  startQ: number,
+  dx: number,
+  maxScrollLeft: number,
+  geometry: CenterGeometry,
+) {
+  return centerPlayheadQ(
+    Math.min(Math.max(0, maxScrollLeft), playheadScrollLeft(startQ, geometry) - dx),
+    geometry,
+  );
+}
+
+/**
+ * The time under the center of the view at `scrollLeft`, never before 0.
+ * Takes a negative scroll from `playheadScrollLeft` too.
+ */
 export function centerPlayheadQ(
   scrollLeft: number,
   { labelWidth, quarterPx, clientWidth }: CenterGeometry,
