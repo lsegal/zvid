@@ -386,7 +386,11 @@ jobs:
   # (the push's `before` SHA), so a multi-commit push that changed /daw in
   # any of its commits still runs it. When the changed files can't be
   # determined (a new branch, a force-push whose old head can't be fetched,
-  # or a filter error), `daw` is true and the job runs anyway.
+  # or a filter error), `daw` is true and the job runs anyway. Only a push
+  # has a `before` SHA: on other events it is null, and expressions compare
+  # null and the all-zero SHA as the number 0, so the new-branch check must
+  # be limited to pushes or every pull_request run would build the DAW.
+  # A manual run (workflow_dispatch) always builds it.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -394,7 +398,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      daw: ${{ steps.filter.outcome != 'success' || github.event.before == '0000000000000000000000000000000000000000' || steps.filter.outputs.daw == 'true' }}
+      daw: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outcome != 'success' || (github.event_name == 'push' && github.event.before == '0000000000000000000000000000000000000000') || steps.filter.outputs.daw == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
