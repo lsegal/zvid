@@ -1,5 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Kept in Playwright: recording into a track needs getUserMedia and
+// MediaRecorder end to end; RecordTab.component.test.tsx covers the Record
+// tab's preview opening the default device by its ID.
+//
 // The default audio input (#875): left on System default, the preview and
 // the recording open the device the default names, by its ID, the same way
 // as picking that device, rather than leaving the choice to getUserMedia.
@@ -70,9 +74,7 @@ function recordSegment(page: Page) {
     .getByRole("button", { name: "Record", exact: true });
 }
 
-test("System default previews and records the device it names", async ({
-  page,
-}) => {
+test("System default records the device it names", async ({ page }) => {
   test.setTimeout(90_000);
   await logAudioRequests(page);
   await page.goto("/");
@@ -83,22 +85,8 @@ test("System default previews and records the device it names", async ({
     drawer(page).getByRole("combobox", { name: "Audio input" }),
   ).toHaveText(/^System default/);
 
-  // Once the browser lists device IDs, the preview reopens on the device.
   await expect.poll(() => firstMicrophone(page)).toBeTruthy();
   const microphone = await firstMicrophone(page);
-  await expect
-    .poll(async () => (await audioRequests(page)).at(-1))
-    .toBe(microphone);
-  const meter = drawer(page).locator(".record-input-picker__audio");
-  await expect
-    .poll(async () =>
-      Number(
-        await meter
-          .getByRole("meter", { name: "Left level" })
-          .getAttribute("aria-valuenow"),
-      ),
-    )
-    .toBeGreaterThan(-60);
   await recordSegment(page).click();
   await expect(drawer(page)).toBeHidden();
 

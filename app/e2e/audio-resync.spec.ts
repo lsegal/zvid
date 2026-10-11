@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it times steady playback of imported media in the
+// app, in Chromium and WebKit.
+//
 // Steady preview playback never re-seeks its media: each seek is an audible
 // gap, and iOS Safari reported choppy audio (#1111). With `?debugAudio=1`
 // the preview counts its re-syncs, and the diagnostics panel reports them.

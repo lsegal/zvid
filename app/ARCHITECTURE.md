@@ -50,15 +50,28 @@ component. The harness lives in `src/component-test/`:
   report the held buttons (drags, pointer capture), touches, keyboard
   helpers (`undo`, `redo`, `pressShiftF10`) and menu helpers (`menuItem`,
   `openLayerMenu`, `addLayers`). It releases buttons a test leaves down.
-- `editor.tsx` renders the desktop editor wired through App's hooks
-  (`renderEditor`), with sessions to open it with (`sessionWithLayers`,
-  `withTestPatternTrack`, `withMedia`); `preview: true` adds the
-  preview. `editor-steps.ts` holds steps several editor tests share, such
-  as inserting a text clip or creating a loop. Prefer rendering the single
-  component you test; render the editor only when the behavior needs App's
-  hooks wired together, such as undo, menus, keyboard shortcuts or drags
-  across rows. Such a test still imports the component it covers, and uses
-  `EDITOR_TEST_TIMEOUT`.
+  `commands.ts` adds Playwright's mouse as browser commands, which `app.tsx`
+  exposes as `mouse`.
+
+Render the least that shows the behavior:
+
+1. The component itself, in a shell if its CSS needs one, when the test
+   needs only its rendering, styles and props.
+2. `renderEditor` (`editor.tsx`) when the behavior needs App's hooks wired
+   together around the timeline, such as undo, menus, keyboard shortcuts or
+   drags across rows. It renders the desktop editor through those hooks
+   without the preview and the rest of App (`preview: true` adds the
+   preview), so the test imports the component it covers and `vitest
+   --changed` selects it for that component's changes. It opens sessions
+   from `sessionWithLayers`, `withTestPatternTrack` and `withMedia`;
+   `editor-steps.ts` holds steps several such tests share, such as
+   inserting a text clip or creating a loop. Use `EDITOR_TEST_TIMEOUT`.
+3. `renderApp` (`app.tsx`) when it needs the whole App: behavior that
+   crosses App-level state outside the timeline, such as selection shared
+   by the timeline, the FX panel and the arrangement, or dropped media
+   (`fixtureFile`, `dropFiles`). A test that renders it imports App, so any
+   change under App selects it. App imports the wasm export bridge, so
+   build `export-bridge/pkg` first.
 
 To keep changed-only selection accurate:
 

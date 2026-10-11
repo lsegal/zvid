@@ -1,5 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays in Playwright: it meters the app's real mixer playing imported
+// clips through their Gains and the preview volume.
+//
 // Calibrates the VU meter against the preview's real mixer: the meter reads
 // the program mix, after every clip and master Gain and before the preview
 // volume. Each clip's element plays a Web Audio-generated -12 dBFS 1 kHz

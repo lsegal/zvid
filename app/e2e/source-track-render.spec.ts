@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// With no layer clips, the preview and export render the source tracks as
-// layers; once a layer clip exists, they render the layers again.
+// With no layer clips, the export renders the source tracks as layers. The
+// preview tests are in source-track-render.component.test.tsx.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 test.use({ viewport: { width: 1600, height: 1200 } });
@@ -68,57 +68,7 @@ async function recordExportedFrames(page: Page) {
   });
 }
 
-const monitor = ".preview-monitor";
-
-test("the preview renders the source tracks until there is a layer clip", async ({
-  page,
-}) => {
-  await addSourceVideo(page);
-  await expect(page.locator(".clip-card")).toHaveCount(0);
-
-  // The source media plays at the playhead, so nothing covers the preview.
-  await expect(page.locator(monitor)).toHaveAttribute(
-    "data-render-source",
-    "source-tracks",
-  );
-  await expect(page.locator(".preview-placeholder")).toHaveCount(0, {
-    timeout: 30_000,
-  });
-  await expect(page.locator(".preview-panel__clip")).not.toHaveText(
-    "No clip at playhead",
-  );
-  // The source tracks don't show as layers in the timeline.
-  await expect(
-    page.locator("[data-timeline-lane-id^='source-render:']"),
-  ).toHaveCount(0);
-
-  // Ctrl/Cmd-click on a source clip drops it on the arrangement.
-  await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
-  await expect(page.locator(".clip-card")).toHaveCount(1);
-  await expect(page.locator(monitor)).toHaveAttribute(
-    "data-render-source",
-    "layers",
-  );
-
-  // Removing the last layer clip renders the source tracks again.
-  await page.locator(".clip-card").click();
-  await page.keyboard.press("Delete");
-  await expect(page.locator(".clip-card")).toHaveCount(0);
-  await expect(page.locator(monitor)).toHaveAttribute(
-    "data-render-source",
-    "source-tracks",
-  );
-  await expect(page.locator(".preview-placeholder")).toHaveCount(0);
-});
-
-test("export needs a layer clip or a source track", async ({ page }) => {
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByText("Open a session or import media before exporting."),
-  ).toBeVisible();
-});
-
+// Waits for the export's download, which a component test cannot see.
 test("exporting a session with no layer clips renders the source tracks", async ({
   page,
 }) => {
