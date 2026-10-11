@@ -206,7 +206,11 @@ jobs:
         working-directory: app
         run: |
           echo "Running shard $SHARD of the component tests${SINCE:+ affected since $SINCE}"
-          pnpm test:component ${SINCE:+--changed "$SINCE"} --shard "$SHARD" --passWithNoTests
+          # Without a base commit, --all opts out of the script's local
+          # changed-only default and runs the whole suite.
+          select=(--all)
+          if [ -n "$SINCE" ]; then select=(--changed "$SINCE"); fi
+          pnpm test:component "${select[@]}" --shard "$SHARD" --passWithNoTests
 
       - name: Upload test output
         if: failure() && env.SELECTED != '0'
