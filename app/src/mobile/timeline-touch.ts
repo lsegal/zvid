@@ -1,10 +1,11 @@
 // The math behind the mobile timeline: the playhead stays at the center of
 // the view while the timeline scrolls under it, two fingers zoom, and a
-// press held still turns into a clip move.
+// press held still picks up a clip or starts a lane selection.
 import type { ContextMenuEntry, ContextMenuItem } from "../context-menu.ts";
 import { clampZoom } from "../zoom.ts";
 
-// How long a finger has to stay still before the press picks up a clip.
+// How long a finger has to stay still before the press picks up a clip or
+// starts a selection.
 export const LONG_PRESS_MS = 450;
 // How far a finger may wander and still count as holding still or tapping.
 export const TOUCH_SLOP_PX = 10;
@@ -54,6 +55,14 @@ export function pinchZoom(
 /** Whether a finger has moved past the slop since it touched down. */
 export function exceedsTouchSlop(dx: number, dy: number) {
   return Math.hypot(dx, dy) > TOUCH_SLOP_PX;
+}
+
+/**
+ * Whether a finger lifted after `elapsedMs`, `dx` and `dy` from where it
+ * touched down, was a tap: quick, and without wandering past the slop.
+ */
+export function isTouchTap(dx: number, dy: number, elapsedMs: number) {
+  return elapsedMs < LONG_PRESS_MS && !exceedsTouchSlop(dx, dy);
 }
 
 /**

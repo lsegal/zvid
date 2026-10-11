@@ -2,11 +2,11 @@ import type { RefObject } from "react";
 import { getClipEndQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
+import type { MobileShareButtonProps } from "../components/mobile/MobileShareButton";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
-import type { CollaborationStateResult } from "./useCollaboration.ts";
 import { useMasterMeterTap } from "./useMasterMeterTap.ts";
 import type { useMediaDrawer } from "./useMediaDrawer.ts";
 import { useMobileShell } from "./useMobileShell.ts";
@@ -38,7 +38,8 @@ export type PhoneShellInputs = {
   isExporting: boolean;
   openExportDialog: () => void;
   editing: Pick<TimelineEditing, "getClipMenuEntries" | "getEditMenuEntries">;
-  collaboration: Pick<CollaborationStateResult, "setIsShareDialogOpen">;
+  collaboration: MobileShareButtonProps["collaboration"];
+  sharing: MobileShareButtonProps["sharing"];
   library: { saveToLibrary: () => unknown };
   sessionFiles: { handleImport: () => Promise<unknown> };
   setStatus: (status: string) => void;
@@ -83,6 +84,14 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     timelineScrollRef: inputs.timelineScrollRef,
     timelineClips: selection.timelineClips,
     bpm: project.bpm,
+    pendingSelection: selection.pendingSelection,
+    labelWidth: layout.labelWidth,
+    quarterPx: timeline.quarterPx,
+    totalQuarters: timeline.totalQuarters,
+    snapUnit: timeline.snapUnit,
+    snapEnabled: project.snapEnabled,
+    // As useClipDrag's shortest selection.
+    minimumSelectionQ: Math.max(timeline.snapUnit, timeline.beatUnit / 4),
     setSelectedClipId: selection.setSelectedClipId,
     setSelectedLaneId: selection.setSelectedLaneId,
     setPendingSelection: selection.setPendingSelection,
@@ -149,12 +158,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         label: "Save to Library",
         onSelect: () => void inputs.library.saveToLibrary(),
       },
-      {
-        type: "item",
-        id: "share",
-        label: "Share Session",
-        onSelect: () => inputs.collaboration.setIsShareDialogOpen(true),
-      },
       { type: "separator" },
       {
         type: "item",
@@ -181,6 +184,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           anchor: { x: 0, y: 0 },
         })
       : [];
+  // A lane selection's actions, while no clip is selected.
+  const { pendingSelection } = selection;
+  const showsSelectionActions = isPhone && !selectedClip && pendingSelection;
+  const selectionMenuEntries = showsSelectionActions
+    ? editing.getClipMenuEntries({ kind: "selection", anchor: { x: 0, y: 0 } })
+    : [];
 
   const shellClassName = isPhone
     ? [
@@ -206,6 +215,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       isExporting: inputs.isExporting,
       openExportDialog: inputs.openExportDialog,
       getOverflowEntries,
+      share: { collaboration: inputs.collaboration, sharing: inputs.sharing },
       mediaDrawer,
       importMedia: () => void inputs.sessionFiles.handleImport(),
       playheadSignal: store.playheadSignal,
@@ -232,6 +242,10 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           clipId: selectedClip.id,
           anchor: { x: 0, y: 0 },
         }),
+      hasSelection: Boolean(showsSelectionActions),
+      selectionMenuEntries,
+      openSelectionMenu: () =>
+        selection.setClipMenu({ kind: "selection", anchor: { x: 0, y: 0 } }),
     },
   };
 }

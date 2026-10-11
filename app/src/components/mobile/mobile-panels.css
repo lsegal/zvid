@@ -2,6 +2,14 @@
    transport's VU meter and the status toast (#1177). Scoped to the phone
    shell like mobile-shell.css, and loaded after it. */
 
+/* The header and monitor span the width; the Scopes and Audio panes share
+   a short row under them, side by side when both are open. */
+.app-shell--phone .preview-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .app-shell--phone .preview-panel__header,
 .app-shell--phone .preview-monitor {
   grid-column: 1 / -1;
@@ -97,6 +105,13 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   font-size: 0.8rem;
   line-height: 1.2;
+}
+
+/* The monitor takes whatever height the header and panes leave. */
+.app-shell--phone-landscape .preview-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: center;
+  overflow: hidden;
 }
 
 .app-shell--phone-landscape .preview-panel:has(.scopes-pane, .audio-analysis)

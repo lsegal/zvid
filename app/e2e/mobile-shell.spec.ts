@@ -3,6 +3,7 @@ import {
   type CDPSession,
   devices,
   expect,
+  type Locator,
   type Page,
   test,
 } from "@playwright/test";
@@ -70,6 +71,19 @@ async function playheadQ(page: Page) {
   const text = await page.locator(".mobile-transport__position").innerText();
   const [bar, beat, sixteenth] = text.split(".").map(Number);
   return (bar - 1) * 4 + (beat - 1) + (sixteenth - 1) / 4;
+}
+
+// Waits out a swipe's fling: touches during one can't stop the scroll.
+async function settledPlayheadQ(page: Page) {
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      const previous = last;
+      last = await playheadQ(page);
+      return last === previous;
+    })
+    .toBe(true);
+  return last;
 }
 
 // Puts the test pattern on Layer 1 through the phone's own menus: show the
@@ -236,6 +250,83 @@ test("a long press opens the clip menu as a sheet; hold and drag moves", async (
     .toBeGreaterThan((before?.x ?? 0) + 40);
 });
 
+// #1179: a swipe on empty lane space scrolls, so a hold starts a selection.
+test("a long press and drag on empty lane space selects a range", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const laneBox = await page
+    .locator('[data-timeline-lane-id="1"]')
+    .boundingBox();
+  const y = (laneBox?.y ?? 0) + (laneBox?.height ?? 0) / 2;
+  const selection = page.locator(".timeline-selection");
+  const toolbar = page.getByRole("toolbar", { name: "Selection actions" });
+
+  // A plain swipe still scrubs and draws nothing.
+  await drag(page, client, { x: scroll.x + 60, y }, { x: scroll.x - 60, y });
+  await expect.poll(() => playheadQ(page)).toBeGreaterThan(1);
+  await expect(selection).toHaveCount(0);
+
+  const before = await settledPlayheadQ(page);
+  await drag(page, client, { x: scroll.x, y }, { x: scroll.x + 120, y }, 600);
+  await expect(selection).toBeVisible();
+  await expect(toolbar).toBeVisible();
+  // The hold drew instead of scrolling, so the playhead stayed put.
+  expect(await playheadQ(page)).toBe(before);
+  const drawn = await selection.boundingBox();
+  expect(drawn?.width ?? 0).toBeGreaterThan(80);
+
+  // The end handle has a 44px target and stretches the selection.
+  const end = await page
+    .getByRole("button", { name: "Resize selection end" })
+    .boundingBox();
+  expect(end?.width).toBe(44);
+  const endAt = {
+    x: (end?.x ?? 0) + (end?.width ?? 0) / 2,
+    y: (end?.y ?? 0) + (end?.height ?? 0) / 2,
+  };
+  await drag(page, client, endAt, { x: endAt.x + 60, y: endAt.y });
+  await expect
+    .poll(async () => (await selection.boundingBox())?.width ?? 0)
+    .toBeGreaterThan((drawn?.width ?? 0) + 30);
+
+  // A swipe keeps it; a tap on it opens its menu as a sheet.
+  await drag(page, client, { x: scroll.x - 40, y }, { x: scroll.x + 40, y });
+  await settledPlayheadQ(page);
+  await expect(selection).toBeVisible();
+  await expect(
+    toolbar.getByRole("button", { name: "Insert Fill Clip" }),
+  ).toBeEnabled();
+  await selection.tap();
+  const sheet = page.getByRole("menu", { name: "Selection actions" });
+  await expect(sheet).toBeVisible();
+  await expect(
+    sheet.getByRole("menuitem", { name: "Insert Track" }),
+  ).toBeVisible();
+  await sheet.getByRole("menuitem", { name: "Insert Fill Clip" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+});
+
+test("tapping elsewhere clears a lane selection", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const laneBox = await page
+    .locator('[data-timeline-lane-id="1"]')
+    .boundingBox();
+  const y = (laneBox?.y ?? 0) + (laneBox?.height ?? 0) / 2;
+  await drag(page, client, { x: scroll.x, y }, { x: scroll.x + 80, y }, 600);
+  await expect(page.locator(".timeline-selection")).toBeVisible();
+  await hold(page, client, { x: scroll.x + 150, y }, 50);
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+  await expect(
+    page.getByRole("toolbar", { name: "Selection actions" }),
+  ).toBeHidden();
+});
+
 test("FX opens as a half or full sheet and Media as a full screen", async ({
   page,
 }) => {
@@ -305,6 +396,27 @@ test("dragging the FX sheet's header moves it between heights", async ({
   await expect(fx).toBeHidden();
 });
 
+test("the top bar's Export opens the export flow, or explains the desktop app", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addClip(page);
+  const exportButton = page
+    .locator(".mobile-topbar")
+    .getByRole("button", { name: /^Export/ });
+  await expect(exportButton).toHaveText("Export");
+  await expect(exportButton).toBeEnabled({ timeout: 15_000 });
+  const support = await exportButton.getAttribute("data-export-support");
+  await exportButton.click();
+  await expect(
+    page.getByRole("heading", {
+      name:
+        support === "supported" ? "Export" : "Download the zvid desktop app",
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
 test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
   await page.goto("/");
   const client = await page.context().newCDPSession(page);
@@ -316,6 +428,54 @@ test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
   await expect(sheet).toBeVisible();
   await drag(page, client, handle, { x: handle.x, y: handle.y + 120 });
   await expect(sheet).toBeHidden();
+});
+
+// Menus portal to <body>, outside the sheets (#1170). An open menu blocks
+// pointer events everywhere else, so a hit test can't see a sheet drawn over
+// it; compare stacking instead. The sheet layer (.mobile-sheet-layer) sits
+// at 90, above the FX sheet.
+async function expectAboveSheets(page: Page, list: Locator) {
+  const viewport = page.viewportSize();
+  const box = await list.boundingBox();
+  // A pixel of slack for subpixel layout at the screen's edge.
+  expect(box?.x).toBeGreaterThanOrEqual(-1);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+    (viewport?.width ?? 0) + 1,
+  );
+  const [layer, sheet] = await list.evaluate((element) => {
+    const zIndex = (node: Element | null) =>
+      node ? Number(getComputedStyle(node).zIndex) || 0 : 0;
+    return [
+      zIndex(element.closest("[data-radix-popper-content-wrapper]")),
+      zIndex(document.querySelector(".fx-panel")),
+    ];
+  });
+  expect(layer).toBeGreaterThan(Math.max(sheet, 90));
+}
+
+test("menus and selects in the FX sheet open above it", async ({ page }) => {
+  await page.goto("/");
+  const tabs = page.getByRole("navigation", { name: "Editor" });
+  await tabs.getByRole("button", { name: "FX" }).click();
+  const fx = page.locator(".fx-panel");
+  await expect(fx).toBeVisible();
+
+  await fx.getByRole("button", { name: "Add device to Global" }).click();
+  const menu = page.getByRole("menu").first();
+  await expect(menu).toBeVisible();
+  await expectAboveSheets(page, menu);
+  await menu.getByRole("menuitem", { name: "Transform" }).click();
+  const submenu = page.getByRole("menu").nth(1);
+  await expect(submenu).toBeVisible();
+  await expectAboveSheets(page, submenu);
+  await submenu.getByRole("menuitem", { name: /^Zoom & Pan/ }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  await fx.getByRole("button", { name: "Animation", exact: true }).click();
+  await fx.getByRole("combobox", { name: "Motion In" }).click();
+  const options = page.getByRole("listbox");
+  await expect(options).toBeVisible();
+  await expectAboveSheets(page, options);
 });
 
 test.describe("landscape phone", () => {
