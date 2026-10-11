@@ -204,7 +204,10 @@ describe("the transport bar's VU meter", () => {
     for (const color of zoneBackgrounds()) {
       expect(isRed(color), color).toBe(true);
     }
-    expect(query(".vu-meter__readout").textContent).toMatch(/^\+\d+\.\d dB$/);
+    // The readout's average rises after the clip zone latches.
+    await expect
+      .poll(() => query(".vu-meter__readout").textContent)
+      .toMatch(/^\+\d+\.\d dB$/);
   });
 
   test("spaces the readout evenly between the bars and the mute button", async () => {
