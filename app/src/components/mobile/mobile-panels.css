@@ -85,6 +85,7 @@
   padding: 0;
   border: 0;
   background: none;
+  overflow: visible;
   pointer-events: none;
 }
 
