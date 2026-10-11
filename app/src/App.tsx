@@ -98,7 +98,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const layout = useAppLayout({
     sourceTrackCount: sourceTracks.length,
-    timelineScrollRef,
   });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
   const mediaDrawer = useMediaDrawer({

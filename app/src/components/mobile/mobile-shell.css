@@ -88,10 +88,17 @@
 
 .app-shell--phone .timeline-scroll {
   /* Swipes scroll (and scrub, see useCenterPlayhead); pinches zoom the
-     timeline, not the page. */
+     timeline, not the page. The end's room is half its width. */
+  container-type: inline-size;
   touch-action: pan-x pan-y;
   overscroll-behavior: contain;
   scrollbar-width: none;
+}
+
+/* At the start the timeline can't scroll left, so a sideways swipe moves
+   the playhead from the labels' edge instead (useCenterPlayhead). */
+.app-shell--phone .timeline-scroll[data-at-start] {
+  touch-action: pan-y;
 }
 
 .app-shell--phone .timeline-scroll::-webkit-scrollbar {
@@ -104,7 +111,7 @@
   position: absolute;
   top: 0;
   left: 100%;
-  width: var(--label-width);
+  width: 50cqw;
   height: 1px;
 }
 

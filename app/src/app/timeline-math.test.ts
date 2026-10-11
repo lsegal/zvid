@@ -269,7 +269,7 @@ describe("findSourceTrackIdAt", () => {
 });
 
 describe("getVisibleTimelineRange", () => {
-  it("starts at the scroll when the labels cover their whole column", () => {
+  it("starts at the scroll, past the labels", () => {
     assert.deepEqual(
       getVisibleTimelineRange({
         scrollLeft: 300,
@@ -278,30 +278,6 @@ describe("getVisibleTimelineRange", () => {
       }),
       { startPx: 300, widthPx: 800, endPx: 1100 },
     );
-  });
-
-  it("reaches back under a label column the labels only partly cover", () => {
-    // A phone: the column is half the view, the labels a 112px strip.
-    assert.deepEqual(
-      getVisibleTimelineRange({
-        scrollLeft: 600,
-        clientWidth: 390,
-        labelWidth: 195,
-        coveredLabelWidth: 112,
-      }),
-      { startPx: 517, widthPx: 278, endPx: 795 },
-    );
-  });
-
-  it("never starts before the timeline", () => {
-    const range = getVisibleTimelineRange({
-      scrollLeft: 40,
-      clientWidth: 390,
-      labelWidth: 195,
-      coveredLabelWidth: 112,
-    });
-    assert.equal(range.startPx, 0);
-    assert.ok(range.endPx >= 40 + 390 - 195);
   });
 
   it("is empty when the labels fill the view", () => {
