@@ -82,14 +82,14 @@ test("in a browser tab the top bar is compact and keeps its brand mark", async (
   await expect(page.getByRole("menubar")).toBeVisible();
   await expect(topbar(page).locator(".brand-mark")).toBeVisible();
 
-  // At most 20 px of padding above and below the tallest group (was 28).
+  // 6 px of padding above and below the tallest group (#1220).
   const bar = await box(page, ".topbar");
   const groups = await Promise.all([
     box(page, ".topbar__group"),
     box(page, ".topbar__group--right"),
   ]);
   const content = Math.max(...groups.map((group) => group.height));
-  expect(bar.height - content).toBeLessThanOrEqual(20);
+  expect(bar.height - content).toBeCloseTo(12, 0);
   await expectControlsCentered(page);
 });
 
@@ -106,7 +106,7 @@ test("installed display modes hide the brand mark from the first paint", async (
   ]);
 });
 
-test("an iOS home screen app hides the brand mark and moves the menubar left", async ({
+test("an iOS home screen app hides the brand mark and starts File at the left edge", async ({
   page,
 }) => {
   await emulateIosStandalone(page);
@@ -114,9 +114,13 @@ test("an iOS home screen app hides the brand mark and moves the menubar left", a
   await expect(page.getByRole("menubar")).toBeVisible();
   await expect(topbar(page).locator(".brand-mark")).toBeHidden();
 
+  // No bar padding before File (#1220), only the menu item's own; the
+  // right side keeps its 24 px.
   const bar = await box(page, ".topbar");
   const menubar = await box(page, ".topbar__menubar");
-  expect(menubar.x - bar.x).toBeCloseTo(24, 0);
+  const right = await box(page, ".topbar__group--right");
+  expect(menubar.x - bar.x).toBeCloseTo(0, 0);
+  expect(bar.x + bar.width - (right.x + right.width)).toBeCloseTo(24, 0);
   await expectControlsCentered(page);
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
