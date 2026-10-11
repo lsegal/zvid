@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
+import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
 import { PhoneShell } from "../../component-test/shells.tsx";
 import { usePhone, useTablet } from "../../component-test/viewport.ts";
 import { TrackRecordArmButton } from "./TrackRecordArmButton";
@@ -44,5 +50,53 @@ describe("TrackRecordArmButton", () => {
     const hitArea = getComputedStyle(button as Element, "::before");
     expect(hitArea.content).toBe('""');
     expect(hitArea.height).toBe("44px");
+  });
+});
+
+// The source track handle's arm button and the Record device the selected
+// track leads the Effects pane with arm the same track, so each follows the
+// other.
+describe("TrackRecordArmButton with the Record device", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
+  test("follows the device, and arms the device back", async () => {
+    localStorage.clear();
+    await renderEditor({ project: withTestPatternTrack() });
+    await expect
+      .poll(() => document.querySelector(".track-label--source"))
+      .toBeTruthy();
+    await page
+      .elementLocator(
+        document.querySelector(".track-label--source") as HTMLElement,
+      )
+      .click();
+    const device = () =>
+      document.querySelector(".track-record-device") as HTMLElement;
+    await expect.poll(device).toBeTruthy();
+    const collapsed = () =>
+      device().className.includes("fx-device-panel--collapsed");
+    const deviceArm = () =>
+      page
+        .elementLocator(device())
+        .getByRole("button", { name: /^(Arm .+ for recording|Disarm .+)$/ });
+    const handleArm = () =>
+      document.querySelector(".track-label__arm") as HTMLElement;
+
+    await deviceArm().click();
+    await expect.poll(collapsed).toBe(false);
+    await expect.element(deviceArm()).toHaveAttribute("aria-pressed", "true");
+    // The track handle's arm button follows, and arms the device back.
+    expect(handleArm().getAttribute("aria-pressed")).toBe("true");
+    await page.elementLocator(handleArm()).click();
+    await expect.element(deviceArm()).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(collapsed).toBe(true);
+    await page.elementLocator(handleArm()).click();
+    await expect.element(deviceArm()).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(collapsed).toBe(false);
+    // Disarmed again, so no other test finds it armed.
+    await page.elementLocator(handleArm()).click();
+    await expect
+      .poll(() => handleArm().getAttribute("aria-pressed"))
+      .toBe("false");
   });
 });

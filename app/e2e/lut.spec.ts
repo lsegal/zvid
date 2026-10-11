@@ -1,27 +1,14 @@
+// Whole app: File › Import Media, and reopening from Sessions brings the LUT's file back from the media cache.
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
 // The LUT effect (#1135): a .cube file imported as media grades a layer
-// through a 3D lookup table, blended in by Intensity.
+// through a 3D lookup table. The picker, the import's checks and the
+// rendering are covered in src/fx/effects/lut/lut.component.test.tsx.
 
 type Rgba = [number, number, number, number];
-
-// A 2-point LUT that inverts each channel.
-const INVERT_CUBE = [
-  'TITLE "Invert"',
-  "LUT_3D_SIZE 2",
-  "1 1 1",
-  "0 1 1",
-  "1 0 1",
-  "0 0 1",
-  "1 1 0",
-  "0 1 0",
-  "1 0 0",
-  "0 0 0",
-  "",
-].join("\n");
 
 // Every color to pure red, so the default gray fill visibly changes.
 const RED_CUBE = ["LUT_3D_SIZE 2", ...Array(8).fill("1 0 0"), ""].join("\n");
@@ -115,7 +102,7 @@ async function previewColor(page: Page) {
 const isRed = ([red, green, blue]: Rgba) =>
   red > 240 && green < 15 && blue < 15;
 
-test("an imported .cube grades the layer through LUT and survives a reload", async ({
+test("an imported .cube grades the layer through LUT and survives a save and reopen", async ({
   page,
 }) => {
   const folder = mkdtempSync(join(tmpdir(), "zvid-lut-"));
@@ -127,21 +114,10 @@ test("an imported .cube grades the layer through LUT and survives a reload", asy
 
     await page.goto("/");
     await insertFillAtStart(page, "1");
-    await page.mouse.move(0, 0);
-    expect(isRed(await previewColor(page))).toBe(false);
     await addLut(page);
     const device = page.locator('.fx-chain section[aria-label="LUT"]');
     await expect(device).toHaveCount(1);
-    await expect(device.getByText("Intensity")).toBeVisible();
-
-    // Without LUT media, the picker says how to get some.
     const trigger = device.getByRole("button", { name: /^LUT: / });
-    await expect(trigger).toHaveAccessibleName("LUT: None");
-    await trigger.click();
-    await expect(
-      page.getByText("Import a .cube file as media to use it here."),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
 
     // A malformed file is turned away with the reason.
     await importMedia(page, badPath);
@@ -193,190 +169,4 @@ test("an imported .cube grades the layer through LUT and survives a reload", asy
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
-});
-
-const WIDTH = 64;
-const HEIGHT = 32;
-
-// The center of a WIDTH×HEIGHT frame of a `color` fill on Layer 1 under
-// LUT with `cube` as its media at `intensity`, as export renders it.
-async function renderLut(
-  page: Page,
-  cube: string,
-  color: string,
-  intensity: number,
-) {
-  return page.evaluate(
-    async ({ cube, color, intensity, width, height }) => {
-      // Variables keep TypeScript from resolving the dev server's paths.
-      const playerPath = "/src/CompositionPlayer.tsx";
-      const lutPath = "/src/fx/effects/lut/lut-media.ts";
-      const [{ CompositionRenderer }, { setLutMedia }] = await Promise.all([
-        import(/* @vite-ignore */ playerPath),
-        import(/* @vite-ignore */ lutPath),
-      ]);
-      const url = URL.createObjectURL(new Blob([cube]));
-      const media = {
-        id: "lut-1",
-        name: "look.cube",
-        kind: "lut",
-        durationSeconds: 0,
-        hasAudio: false,
-        hasVideo: false,
-        color: "#000",
-        accent: "#fff",
-        previewUrl: url,
-        availability: "ready",
-      };
-      setLutMedia([media]);
-      const canvas = document.createElement("canvas");
-      const renderer = new CompositionRenderer(
-        {
-          mediaItems: [media],
-          clips: [
-            {
-              id: "fill-1",
-              kind: "fill",
-              sourceSpanId: "",
-              sourceTrackId: "",
-              laneId: "1",
-              label: "Fill",
-              mediaPath: "",
-              startQ: 0,
-              durationSeconds: 4,
-              trimStartSeconds: 0,
-              sourceOffsetSeconds: 0,
-              sourceWindowStartSeconds: 0,
-              sourceWindowEndSeconds: 4,
-              tint: "#000",
-              accent: "#fff",
-            },
-          ],
-          lanes: [{ id: "1", name: "Layer 1", colorIndex: 0 }],
-          effects: [
-            {
-              id: "color-1",
-              trackId: "1",
-              effectName: "Color",
-              enabled: true,
-              parameters: [
-                { key: "Mode", value: "Solid" },
-                { key: "Color", value: color },
-                { key: "Opacity", value: "1", numericValue: 1 },
-              ],
-            },
-            {
-              id: "lut-1",
-              trackId: "1",
-              effectName: "LUT",
-              enabled: true,
-              parameters: [
-                { key: "LUT", value: "Custom:look.cube" },
-                {
-                  key: "_Intensity",
-                  value: String(intensity),
-                  numericValue: intensity,
-                },
-              ],
-            },
-          ],
-          bpm: 120,
-          canvasWidth: width,
-          canvasHeight: height,
-        },
-        { canvas, audioAnalysis: "offline" },
-      );
-      try {
-        // An exact frame waits for the LUT.
-        await renderer.renderFrameAt(1, 0.5);
-        const gl = canvas.getContext("webgl");
-        if (!gl) throw new Error("WebGL is unavailable.");
-        const pixel = new Uint8Array(4);
-        gl.readPixels(
-          width / 2,
-          height / 2,
-          1,
-          1,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          pixel,
-        );
-        return Array.from(pixel);
-      } finally {
-        renderer.destroy();
-        setLutMedia([]);
-        URL.revokeObjectURL(url);
-      }
-    },
-    { cube, color, intensity, width: WIDTH, height: HEIGHT },
-  ) as Promise<Rgba>;
-}
-
-// Each output channel is the square of its input, over 17 points a side.
-function squareCube() {
-  const size = 17;
-  const lines = [`LUT_3D_SIZE ${size}`];
-  for (let b = 0; b < size; b++) {
-    for (let g = 0; g < size; g++) {
-      for (let r = 0; r < size; r++) {
-        lines.push(
-          [r, g, b].map((index) => (index / (size - 1)) ** 2).join(" "),
-        );
-      }
-    }
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-const near = (actual: Rgba, expected: number[], tolerance = 4) =>
-  expected.every(
-    (value, channel) => Math.abs(actual[channel] - value) <= tolerance,
-  );
-
-test.describe("LUT rendering", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/export-smoke.html");
-  });
-
-  test("maps colors through the LUT on the GPU, interpolating between points", async ({
-    page,
-  }) => {
-    const inverted = await renderLut(
-      page,
-      INVERT_CUBE,
-      "rgba(51,153,204,1)",
-      1,
-    );
-    expect(near(inverted, [204, 102, 51]), String(inverted)).toBe(true);
-    // 0.3 falls between the points at 0.25 and 0.3125: trilinear
-    // interpolation lands within a step of 0.09.
-    const squared = await renderLut(
-      page,
-      squareCube(),
-      "rgba(77,128,230,1)",
-      1,
-    );
-    const expected = [77, 128, 230].map((value) => (value / 255) ** 2 * 255);
-    expect(near(squared, expected, 5), `${squared} vs ${expected}`).toBe(true);
-  });
-
-  test("blends by Intensity and leaves the picture at 0", async ({ page }) => {
-    const color = "rgba(51,153,204,1)";
-    expect(
-      near(await renderLut(page, INVERT_CUBE, color, 0), [51, 153, 204]),
-    ).toBe(true);
-    expect(
-      near(await renderLut(page, INVERT_CUBE, color, 0.5), [128, 128, 128]),
-    ).toBe(true);
-  });
-
-  test("leaves the picture as it is for a malformed file", async ({ page }) => {
-    const color = "rgba(51,153,204,1)";
-    expect(
-      near(
-        await renderLut(page, "LUT_3D_SIZE 2\n0 0 0\n", color, 1),
-        [51, 153, 204],
-      ),
-    ).toBe(true);
-  });
 });

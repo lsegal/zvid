@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// Selecting a source track, or one of its clips, leads the Effects pane
-// with a Record device, ahead of the Clip device and the Global section:
-// collapsed by default, expanded while the track is armed, holding the
-// track's own Video and Audio inputs.
-// Chromium's fake camera and microphone stand in for real devices.
+// Stays in Playwright: it needs Chromium's fake camera and microphone, which
+// take launch flags and permissions. An armed source track's Record device
+// holds the track's own Video and Audio inputs, with live previews. How the
+// device folds, arms and orders itself is covered in
+// TrackRecordDevice.component.test.tsx and TrackRecordArmButton's.
+
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 test.use({
@@ -17,12 +18,6 @@ test.use({
   },
   permissions: ["camera", "microphone"],
 });
-
-async function left(locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error("Element has no bounding box");
-  return box.x;
-}
 
 async function dropVideo(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
@@ -64,7 +59,7 @@ async function expectInside(container: Locator, parts: Locator[]) {
   }
 }
 
-test("a source track's Record device folds, arms and overrides its inputs", async ({
+test("an armed source track's Record device previews and overrides its inputs", async ({
   page,
 }) => {
   await page.goto("/");
@@ -73,35 +68,13 @@ test("a source track's Record device folds, arms and overrides its inputs", asyn
     timeout: 30_000,
   });
 
-  // Selecting the track shows the device collapsed, first in the chain.
+  // Arming the selected track's device shows the track's inputs on their
+  // defaults, with live previews.
   await page.locator(".track-label--source").click();
   const device = page.locator(".track-record-device");
-  await expect(device).toHaveCount(1);
-  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
-  const arm = device.getByRole("button", { name: /^Arm .+ for recording$/ });
-  await expect(arm).toHaveAttribute("aria-pressed", "false");
-  const chain = page.locator(".fx-chain");
-  await expect(chain.locator(":scope > *").first()).toHaveClass(
-    /track-record-device/,
-  );
-  const global = page.locator('.fx-chain [data-fx-divider="global"]');
-  expect(await left(device)).toBeLessThan(await left(global));
-
-  // Arming expands it, with the track's inputs on their defaults and live
-  // previews.
-  await arm.click();
-  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
+  await device.getByRole("button", { name: /^Arm .+ for recording$/ }).click();
   const disarm = device.getByRole("button", { name: /^Disarm / });
   await expect(disarm).toHaveAttribute("aria-pressed", "true");
-  // The track handle's arm button follows, and arms the device back.
-  const handleArm = page.locator(".track-label__arm");
-  await expect(handleArm).toHaveAttribute("aria-pressed", "true");
-  await handleArm.click();
-  await expect(arm).toHaveAttribute("aria-pressed", "false");
-  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
-  await handleArm.click();
-  await expect(disarm).toHaveAttribute("aria-pressed", "true");
-  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
   const videoInput = device.getByRole("combobox", { name: "Video input" });
   const audioInput = device.getByRole("combobox", { name: "Audio input" });
   await expect(videoInput).toHaveText(/^Default \(.+\)$/);
@@ -137,31 +110,8 @@ test("a source track's Record device folds, arms and overrides its inputs", asyn
   await expect(videoInput).toHaveText(/^Default \(.+\)$/);
   await expect(device.getByText("No video")).toHaveCount(0);
 
-  // Selecting the track's clip keeps the device and its arm state.
-  await page.locator(".source-span").click();
-  // Record still comes first, left of the Clip device, which is left of the
-  // Global divider.
-  const clip = page.locator(".source-clip-properties");
-  await expect(clip).toHaveCount(1);
-  await expect(chain.locator(":scope > *").first()).toHaveClass(
-    /track-record-device/,
-  );
-  const clipLeft = await left(clip);
-  expect(await left(device)).toBeLessThan(clipLeft);
-  expect(clipLeft).toBeLessThan(await left(global));
-  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
-  await expect(disarm).toHaveAttribute("aria-pressed", "true");
-
   // Disarming folds it, and the previews stop.
   await disarm.click();
   await expect(device).toHaveClass(/fx-device-panel--collapsed/);
   await expect(device.getByLabel("Camera preview")).toHaveCount(0);
-
-  // Expanded by hand, it stays expanded through arming and disarming.
-  await device.getByRole("button", { name: "Expand Record" }).click();
-  await device.getByRole("button", { name: /^Arm / }).click();
-  await device.getByRole("button", { name: /^Disarm / }).click();
-  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
-  await device.getByRole("button", { name: "Collapse Record" }).click();
-  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
 });

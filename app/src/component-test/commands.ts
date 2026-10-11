@@ -19,18 +19,17 @@ export const mouseMove: BrowserCommand<
   await context.page.mouse.move(offset.x + x, offset.y + y, { steps });
 };
 
-export const mouseDown: BrowserCommand<[button?: MouseButton]> = async (
-  context,
-  button = "left",
-) => {
-  await context.page.mouse.down({ button });
+// `clickCount` numbers the presses of a double or triple click.
+export const mouseDown: BrowserCommand<
+  [button?: MouseButton, clickCount?: number]
+> = async (context, button = "left", clickCount = 1) => {
+  await context.page.mouse.down({ button, clickCount });
 };
 
-export const mouseUp: BrowserCommand<[button?: MouseButton]> = async (
-  context,
-  button = "left",
-) => {
-  await context.page.mouse.up({ button });
+export const mouseUp: BrowserCommand<
+  [button?: MouseButton, clickCount?: number]
+> = async (context, button = "left", clickCount = 1) => {
+  await context.page.mouse.up({ button, clickCount });
 };
 
 export const mouseWheel: BrowserCommand<[dx: number, dy: number]> = async (
@@ -44,8 +43,8 @@ export const mouseWheel: BrowserCommand<[dx: number, dy: number]> = async (
 declare module "vitest/browser" {
   interface BrowserCommands {
     mouseMove(x: number, y: number, steps?: number): Promise<void>;
-    mouseDown(button?: MouseButton): Promise<void>;
-    mouseUp(button?: MouseButton): Promise<void>;
+    mouseDown(button?: MouseButton, clickCount?: number): Promise<void>;
+    mouseUp(button?: MouseButton, clickCount?: number): Promise<void>;
     mouseWheel(dx: number, dy: number): Promise<void>;
   }
 }
