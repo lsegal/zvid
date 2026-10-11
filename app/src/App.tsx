@@ -422,6 +422,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     openExportDialog,
     editing,
     collaboration,
+    sharing,
     library,
     sessionFiles,
     setStatus,

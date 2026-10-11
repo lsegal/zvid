@@ -224,8 +224,60 @@
   outline-offset: -2px;
 }
 
-.mobile-icon-button[data-export-support="unsupported"] {
+/* Export and Share are labeled pills so neither reads as the other:
+   Export is filled, Share is outlined with a globe or the share's
+   connection state. */
+.mobile-pill-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-pill-button:disabled {
+  opacity: 0.5;
+}
+
+.mobile-pill-button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+
+.mobile-export-button {
+  border-color: transparent;
+  background: var(--amber);
+  color: var(--ink-on-accent);
+}
+
+.mobile-export-button[data-export-support="unsupported"] {
+  border-color: var(--line);
+  background: transparent;
   color: var(--muted);
+}
+
+.mobile-share-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.mobile-share-button[data-collaboration-mode="idle"] {
+  color: var(--ink);
+}
+
+.mobile-share-button[data-collaboration-mode="sharing"],
+.mobile-share-button[data-collaboration-mode="connected"] {
+  border-color: currentColor;
 }
 
 .mobile-topbar {
