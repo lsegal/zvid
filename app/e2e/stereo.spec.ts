@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// The Stereo audio effect: it is added from a clip's Audio add menu with
-// Width at 100% and Pan at center, and panning a centered tone hard left
-// moves it all to the left channel in the preview and the export alike.
-
-const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
+// Stereo's effect on real playback and export needs the whole app; its add
+// menu, defaults and Pan knob are covered by FxChain.mono-stereo.component.test.tsx.
+// Panning a centered tone hard left moves it all to the left channel in the
+// preview and the export alike.
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 120_000 });
@@ -126,46 +125,7 @@ async function playFromStart(page: Page) {
   await page.getByRole("button", { name: "Play timeline" }).click();
 }
 
-test("a video clip lists Stereo in its add menu's Audio group", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  const dataTransfer = await page.evaluateHandle(
-    (base64) => {
-      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-      const transfer = new DataTransfer();
-      transfer.items.add(
-        new File([bytes], "test-pattern.mp4", { type: "video/mp4" }),
-      );
-      return transfer;
-    },
-    (await readFile(VIDEO)).toString("base64"),
-  );
-  for (const type of ["dragenter", "dragover", "drop"]) {
-    await page.dispatchEvent('[aria-label="Source track drop area"]', type, {
-      dataTransfer,
-    });
-  }
-  await expect(page.locator(".source-span")).toHaveCount(1, {
-    timeout: 30_000,
-  });
-  await page.locator(".source-span").click();
-  await page
-    .getByRole("button", { name: "Add device to this clip" })
-    .first()
-    .click();
-  const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio
-    .getByRole("menuitem", { name: "Volume & Stereo" })
-    .press("ArrowRight");
-  await page.getByRole("menuitem", { name: /^Stereo/ }).click();
-  await expect(page.locator(`${clipDevices}[aria-label="Stereo"]`)).toHaveCount(
-    1,
-  );
-});
-
-test("Stereo adds with its defaults and pans the preview", async ({ page }) => {
+test("Stereo pans the preview", async ({ page }) => {
   await probeAnalysers(page);
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
@@ -174,18 +134,6 @@ test("Stereo adds with its defaults and pans the preview", async ({ page }) => {
   await page.locator(".source-span").click();
 
   const stereo = await addStereo(page);
-  await expect(stereo.getByRole("img", { name: "Audio effect" })).toBeVisible();
-  await expect(
-    stereo.getByRole("button", { name: /Turn Animation/ }),
-  ).toHaveCount(0);
-  await expect(stereo.getByRole("slider", { name: "Width" })).toHaveAttribute(
-    "aria-valuetext",
-    "100%",
-  );
-  await expect(stereo.getByRole("slider", { name: "Pan" })).toHaveAttribute(
-    "aria-valuetext",
-    "C",
-  );
 
   await playFromStart(page);
   let centered = 0;
