@@ -176,6 +176,29 @@
   inset: -8px calc((var(--mobile-tap) - 100%) / -2);
 }
 
+/* A lane selection scrolls like the lane under it (a hold picks it up, see
+   useTouchClipGestures), and its edge handles get 44px targets centered on
+   the edges. */
+.app-shell--phone .timeline-selection {
+  overflow: visible;
+  touch-action: pan-x pan-y;
+}
+
+.app-shell--phone .timeline-selection__handle {
+  top: -8px;
+  bottom: -8px;
+  width: var(--mobile-tap);
+  touch-action: none;
+}
+
+.app-shell--phone .timeline-selection__handle--start {
+  left: calc(var(--mobile-tap) / -2);
+}
+
+.app-shell--phone .timeline-selection__handle--end {
+  right: calc(var(--mobile-tap) / -2);
+}
+
 .app-shell--phone .clip-card--lifted {
   z-index: var(--z-timeline-selection);
   transform: translateY(-3px) scale(1.02);

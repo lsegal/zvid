@@ -1,4 +1,5 @@
 import type { MobileShellChromeProps } from "../../hooks/usePhoneShell.ts";
+import { MobileRangeToolbar } from "./MobileRangeToolbar";
 import { MobileSelectionToolbar } from "./MobileSelectionToolbar";
 import { MobileTabBar } from "./MobileTabBar";
 import { MobileTopBar } from "./MobileTopBar";
@@ -8,7 +9,7 @@ import "./mobile-shell.css";
 
 // The phone shell's own controls around the editor's panels, which its
 // stylesheet lays out preview first: the top bar, the thin transport, the
-// selection toolbar, the bottom tabs and the Media sheet's header.
+// clip or lane selection's toolbar, the bottom tabs and the Media sheet's header.
 export function MobileShellChrome({
   mobile,
   sessionName,
@@ -30,6 +31,9 @@ export function MobileShellChrome({
   hasSelectedClip,
   clipMenuEntries,
   openClipMenu,
+  hasSelection,
+  selectionMenuEntries,
+  openSelectionMenu,
 }: MobileShellChromeProps) {
   return (
     <>
@@ -61,6 +65,11 @@ export function MobileShellChrome({
           onOpenFx={mobile.openFxSheet}
           onOpenMenu={openClipMenu}
           onToggleTrim={() => mobile.setIsTrimming(!mobile.isTrimming)}
+        />
+      ) : hasSelection ? (
+        <MobileRangeToolbar
+          entries={selectionMenuEntries}
+          onOpenMenu={openSelectionMenu}
         />
       ) : null}
       <MobileTabBar
