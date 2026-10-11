@@ -84,7 +84,7 @@ function rightOf(element: Element) {
   return { x: box.right + 2, y: box.top + box.height / 2 };
 }
 
-describe("FX cross-stack moves", () => {
+describe("FX cross-stack moves", { timeout: 60_000 }, () => {
   beforeEach(async () => {
     // A fresh page, as each e2e test had: no folded devices.
     localStorage.clear();

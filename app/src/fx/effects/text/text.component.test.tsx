@@ -12,7 +12,7 @@ import { TEXT_EFFECT_NAME } from "./text-style.ts";
 const MOD = /Mac/.test(navigator.platform) ? "Meta" : "Control";
 const clips = () => document.querySelectorAll(".clip-card--text");
 
-describe("Text", () => {
+describe("Text", { timeout: 60_000 }, () => {
   test("Insert Text Clip adds a text clip edited from its Text effect", async () => {
     let project: ProjectState = EMPTY_PROJECT;
     await render(

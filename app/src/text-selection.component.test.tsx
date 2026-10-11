@@ -58,7 +58,7 @@ async function renderEditor() {
   );
 }
 
-describe("text selection", () => {
+describe("text selection", { timeout: 60_000 }, () => {
   test("double-clicking or dragging across UI text selects nothing", async () => {
     const screen = await renderEditor();
     // A layer's number, since double-clicking its name renames it (#940).

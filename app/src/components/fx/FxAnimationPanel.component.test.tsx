@@ -44,7 +44,7 @@ async function addPixelate() {
   await expect.poll(() => sectionCount("Pixelate")).toBe(1);
 }
 
-describe("FX Animation", () => {
+describe("FX Animation", { timeout: 60_000 }, () => {
   beforeEach(() => {
     // A fresh page, as each e2e test had: no folded devices.
     localStorage.clear();

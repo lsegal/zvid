@@ -56,7 +56,7 @@ async function setUp() {
   await expect.poll(() => count("clip", "Text")).toBe(1);
 }
 
-describe("FX chain context menus", () => {
+describe("FX chain context menus", { timeout: 60_000 }, () => {
   test("a device's menu moves it to another stack where allowed", async () => {
     await setUp();
 

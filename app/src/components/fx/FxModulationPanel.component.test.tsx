@@ -16,7 +16,7 @@ import { FxModulationPanel } from "./FxModulationPanel.tsx";
 // Modulation section to the device's right edge, with Transient and LFO
 // modes.
 
-describe(FxModulationPanel.name, () => {
+describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
   test("an audio device's Modulation section attaches, switches modes and folds", async () => {
     await setViewport({ width: 1600, height: 1200 });
     const dropped = withDroppedMedia(

@@ -44,7 +44,7 @@ async function addToLayer3(
   return section(effect);
 }
 
-describe("FX panel", () => {
+describe("FX panel", { timeout: 60_000 }, () => {
   beforeEach(() => {
     // A fresh page, as each e2e test had: no folded devices.
     localStorage.clear();

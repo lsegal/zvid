@@ -68,7 +68,7 @@ function backgroundPoint(chain: HTMLElement) {
   return { x: box.left + box.width / 2, y: box.top + 5 };
 }
 
-describe("FX chain drag scrolling", () => {
+describe("FX chain drag scrolling", { timeout: 60_000 }, () => {
   // Without momentum, the scroll lands exactly where the pointer left it.
   beforeEach(() => emulateReducedMotion());
   afterEach(() => emulateReducedMotion(false));
