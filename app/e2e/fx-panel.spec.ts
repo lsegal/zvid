@@ -1,6 +1,4 @@
-// Needs App's whole layout: the capped FX row beside the arrangement, whose
-// layer headers and their menu must stay usable; the rest of the FX panel is
-// covered by src/components/FxPanel.component.test.tsx.
+// Needs App's whole layout: a tall FX row must leave the arrangement's layer headers usable.
 import { expect, test } from "@playwright/test";
 import { addEffect } from "../src/fx/stack/ops.ts";
 import type { SessionEffect } from "../src/fx/stack/types.ts";

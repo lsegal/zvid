@@ -5,14 +5,6 @@ import type { ProjectState } from "../../../app/types.ts";
 import { addFromMenu, device } from "../../../component-test/fx-actions.ts";
 import { FxEditor } from "../../../component-test/fx-editor.tsx";
 import {
-  colorEffect,
-  pixelAtFraction,
-  type Rgba,
-  syntheticClip,
-  syntheticLanes,
-  syntheticState,
-} from "../../../component-test/fx-scenes.ts";
-import {
   EMPTY_PROJECT,
   withFillClip,
 } from "../../../component-test/fx-projects.ts";
@@ -21,6 +13,14 @@ import {
   rendererState,
   renderFrame,
 } from "../../../component-test/fx-render.ts";
+import {
+  colorEffect,
+  pixelAtFraction,
+  type Rgba,
+  syntheticClip,
+  syntheticLanes,
+  syntheticState,
+} from "../../../component-test/fx-scenes.ts";
 import {
   libraryPayload,
   restoreHistory,

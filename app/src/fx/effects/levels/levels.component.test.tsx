@@ -5,10 +5,6 @@ import type { ProjectState } from "../../../app/types.ts";
 import { addFromMenu, device } from "../../../component-test/fx-actions.ts";
 import { FxEditor } from "../../../component-test/fx-editor.tsx";
 import {
-  meanColor,
-  previewForAnalysis,
-} from "../../../component-test/fx-scenes.ts";
-import {
   EMPTY_PROJECT,
   withFillClip,
 } from "../../../component-test/fx-projects.ts";
@@ -16,6 +12,10 @@ import {
   rendererState,
   renderFrame,
 } from "../../../component-test/fx-render.ts";
+import {
+  meanColor,
+  previewForAnalysis,
+} from "../../../component-test/fx-scenes.ts";
 import {
   autosavePayload,
   restoreHistory,

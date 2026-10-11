@@ -4,6 +4,11 @@ import { render } from "vitest-browser-react";
 import { addFromMenu, devicesIn } from "../../../component-test/fx-actions.ts";
 import { FxEditor } from "../../../component-test/fx-editor.tsx";
 import {
+  EMPTY_PROJECT,
+  withFillClip,
+} from "../../../component-test/fx-projects.ts";
+import { renderFrame } from "../../../component-test/fx-render.ts";
+import {
   colorEffect,
   pixelAtFraction,
   type Rgba,
@@ -11,11 +16,6 @@ import {
   syntheticLanes,
   syntheticState,
 } from "../../../component-test/fx-scenes.ts";
-import {
-  EMPTY_PROJECT,
-  withFillClip,
-} from "../../../component-test/fx-projects.ts";
-import { renderFrame } from "../../../component-test/fx-render.ts";
 import { getDefaultFillColor } from "../../../fill-clip.ts";
 import type { SessionEffect } from "../../../fx-stack";
 import "./pass.ts";

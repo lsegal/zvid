@@ -5,6 +5,8 @@ import { patchProjectState } from "../../../app/session-project.ts";
 import type { Lane, ProjectState } from "../../../app/types.ts";
 import { addFromMenu, device } from "../../../component-test/fx-actions.ts";
 import { FxEditor } from "../../../component-test/fx-editor.tsx";
+import { EMPTY_PROJECT } from "../../../component-test/fx-projects.ts";
+import { renderFrame } from "../../../component-test/fx-render.ts";
 import {
   colorEffect,
   pixelAtFraction,
@@ -13,8 +15,6 @@ import {
   syntheticLanes,
   syntheticState,
 } from "../../../component-test/fx-scenes.ts";
-import { EMPTY_PROJECT } from "../../../component-test/fx-projects.ts";
-import { renderFrame } from "../../../component-test/fx-render.ts";
 import type { SessionEffect } from "../../../fx-stack";
 import { createLaneId, getNextLaneName, insertLane } from "../../../lanes.ts";
 import { MASK_EFFECT_NAME } from "./mask.ts";
