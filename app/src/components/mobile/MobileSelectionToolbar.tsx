@@ -70,6 +70,7 @@ export function MobileSelectionToolbar({
       <MenuItemButton item={remove} />
       <button
         aria-haspopup="menu"
+        aria-label="More clip actions"
         className="mobile-tool-button"
         onClick={onOpenMenu}
         type="button"

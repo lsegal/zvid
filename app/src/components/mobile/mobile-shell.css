@@ -1,0 +1,669 @@
+/* The phone shell (app-shell--phone): the editor's own panels, laid out
+   preview first, around the mobile chrome (MobileShellChrome). Every rule
+   is scoped to the phone shell, so the desktop layout is untouched. */
+
+.app-shell.app-shell--phone {
+  --mobile-bar-height: 48px;
+  --mobile-tap: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "top"
+    "preview"
+    "transport"
+    "timeline"
+    "tools"
+    "tabs";
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The desktop containers step aside so their panels sit in the grid. */
+.app-shell--phone .workspace,
+.app-shell--phone .workspace__main,
+.app-shell--phone .editor-panel,
+.app-shell--phone .editor-grid,
+.app-shell--phone .media-drawer-column {
+  display: contents;
+}
+
+.app-shell--phone .topbar,
+.app-shell--phone .timeline-toolbar,
+.app-shell--phone .transport-bar,
+.app-shell--phone .status-bar,
+.app-shell--phone .preview-resize-handle,
+.app-shell--phone .media-drawer-resize-handle,
+.app-shell--phone .label-resize-rail,
+.app-shell--phone .playhead-jump,
+.app-shell--phone .fx-panel__toggle,
+.app-shell--phone .preview-panel__header {
+  display: none;
+}
+
+.mobile-topbar {
+  grid-area: top;
+}
+
+.app-shell--phone .preview-panel {
+  grid-area: preview;
+  min-height: 0;
+  margin: 0;
+  padding: 0 8px;
+  overflow: visible;
+}
+
+.app-shell--phone .preview-monitor {
+  flex: none;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 34dvh;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+}
+
+.mobile-transport {
+  grid-area: transport;
+}
+
+.app-shell--phone .timeline-panel {
+  grid-area: timeline;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  border-right: 0;
+  border-radius: 0;
+}
+
+.app-shell--phone .timeline-scroll {
+  /* Swipes scroll (and scrub, see useCenterPlayhead); pinches zoom the
+     timeline, not the page. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.app-shell--phone .timeline-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Room after the end, so the last moments can reach the center too. */
+.app-shell--phone .timeline-canvas::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: var(--label-width);
+  height: 1px;
+}
+
+.app-shell--phone .timeline-playhead {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-selection-toolbar {
+  grid-area: tools;
+}
+
+.mobile-tab-bar {
+  grid-area: tabs;
+}
+
+/* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
+   and the labels only take a narrow strip of it. */
+.app-shell--phone .track-label {
+  justify-self: start;
+  width: min(112px, var(--label-width));
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+.app-shell--phone .track-label small,
+.app-shell--phone .track-label__fx,
+.app-shell--phone .track-label__arm {
+  display: none;
+}
+
+/* Reorder mode: grips and row resizing only while it is on. */
+.app-shell--phone:not(.app-shell--reordering) .track-label__grip,
+.app-shell--phone:not(.app-shell--reordering) .row-resize-handle {
+  display: none;
+}
+
+.app-shell--phone.app-shell--reordering .track-label {
+  outline: 1px dashed var(--line-strong);
+  outline-offset: -3px;
+}
+
+/* Source tracks hide behind the overflow menu's toggle. */
+.app-shell--phone:not(.app-shell--source-tracks) .source-header,
+.app-shell--phone:not(.app-shell--source-tracks) .source-track-list,
+.app-shell--phone:not(.app-shell--source-tracks) .track-row--source-drop {
+  display: none;
+}
+
+/* Clip edges scroll like the rest of the clip until Trim is on; then the
+   selected clip's handles show with 44px targets. */
+.app-shell--phone .clip-card__handle {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.app-shell--phone.app-shell--trimming .clip-card--selected .clip-card__handle {
+  pointer-events: auto;
+  opacity: 1;
+  touch-action: none;
+}
+
+.app-shell--phone.app-shell--trimming
+  .clip-card--selected
+  .clip-card__handle::before {
+  content: "";
+  position: absolute;
+  inset: -8px calc((var(--mobile-tap) - 100%) / -2);
+}
+
+.app-shell--phone .clip-card--lifted {
+  z-index: var(--z-timeline-selection);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell--phone .clip-card--lifted {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ----- The mobile chrome ----- */
+
+.mobile-icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--mobile-tap, 44px);
+  height: var(--mobile-tap, 44px);
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-icon-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mobile-icon-button:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.mobile-icon-button:focus-visible,
+.mobile-tool-button:focus-visible,
+.mobile-tab-bar__tab:focus-visible,
+.mobile-menu-sheet__item:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: -2px;
+}
+
+.mobile-icon-button[data-export-support="unsupported"] {
+  color: var(--muted);
+}
+
+.mobile-topbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: calc(env(safe-area-inset-top) + 2px) 4px 2px;
+}
+
+.mobile-topbar__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-transport {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+}
+
+.mobile-transport__play[aria-pressed="true"],
+.mobile-transport__loop[aria-pressed="true"] {
+  color: var(--amber);
+}
+
+.mobile-transport__record svg {
+  color: #ff5c5c;
+}
+
+.mobile-transport__record[aria-pressed="true"] {
+  background: rgba(255, 92, 92, 0.18);
+}
+
+.mobile-transport__position {
+  flex: 1;
+  color: var(--amber);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.mobile-selection-toolbar {
+  display: flex;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 4px 4px 2px;
+  border-top: 1px solid var(--line);
+  background: rgba(17, 19, 28, 0.6);
+}
+
+.mobile-tool-button,
+.mobile-tab-bar__tab {
+  display: inline-flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: var(--mobile-tap, 44px);
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.68rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tool-button svg,
+.mobile-tab-bar__tab svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mobile-tool-button:disabled {
+  opacity: 0.4;
+}
+
+.mobile-tool-button[aria-pressed="true"] {
+  background: rgba(246, 183, 60, 0.16);
+  color: var(--amber);
+}
+
+.mobile-tab-bar {
+  display: flex;
+  padding: 2px 4px;
+  border-top: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.5);
+}
+
+.mobile-tab-bar__tab {
+  color: var(--muted);
+}
+
+.mobile-tab-bar__tab.is-active {
+  color: var(--amber);
+}
+
+.mobile-segmented {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(12, 14, 20, 0.32);
+}
+
+.mobile-segmented button {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mobile-segmented button.is-active {
+  background: rgba(246, 183, 60, 0.2);
+  color: var(--amber);
+}
+
+.mobile-pill-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--mobile-tap, 44px);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(12, 14, 20, 0.32);
+  color: var(--ink);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.mobile-pill-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ----- Sheets ----- */
+
+.mobile-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mobile-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mobile-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 80dvh;
+  padding: 6px 8px calc(env(safe-area-inset-bottom) + 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 18px 18px 0 0;
+  background: var(--bg-panel, #262839);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+}
+
+.mobile-sheet__grabber {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 5px;
+  margin: 2px auto 8px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.mobile-menu-sheet__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1rem;
+  text-align: left;
+}
+
+.mobile-menu-sheet__item > span {
+  flex: 1;
+}
+
+.mobile-menu-sheet__item svg {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.mobile-menu-sheet__item:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mobile-menu-sheet__item:disabled {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.mobile-menu-sheet__back {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.mobile-menu-sheet__separator {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.mobile-menu-sheet__swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+/* The FX panel as a bottom sheet, at half or full height. */
+.app-shell--phone .fx-panel {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 70;
+  display: none;
+  height: 52dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 18px 18px 0 0;
+  background: var(--bg-panel, #262839);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.app-shell--phone.app-shell--fx-half .fx-panel,
+.app-shell--phone.app-shell--fx-full .fx-panel {
+  display: flex;
+}
+
+.app-shell--phone.app-shell--fx-full .fx-panel {
+  height: calc(100dvh - env(safe-area-inset-top) - 8px);
+}
+
+.app-shell--phone .fx-panel__body {
+  flex: 1;
+}
+
+.mobile-sheet-header {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-sheet-header__grabber {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.mobile-sheet-header__grabber .mobile-sheet__grabber {
+  margin: 0;
+}
+
+.mobile-sheet-header__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-sheet-header__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Devices stack down the sheet instead of across it. */
+.app-shell--phone .fx-chain {
+  flex-direction: column;
+  padding: 10px;
+  overflow: visible;
+  cursor: auto;
+}
+
+.app-shell--phone .fx-device-unit {
+  flex-direction: column;
+}
+
+.app-shell--phone .fx-chain .fx-device-panel,
+.app-shell--phone .fx-chain .fx-animation-panel {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.app-shell--phone .fx-chain .fx-animation-panel {
+  margin-left: 0;
+  border-left-style: solid;
+  border-radius: 16px;
+}
+
+.app-shell--phone .fx-chain__divider {
+  width: auto;
+  height: 1px;
+  align-self: stretch;
+}
+
+/* Larger controls for fingers. */
+.app-shell--phone .fx-chain input[type="range"] {
+  min-height: 36px;
+}
+
+.app-shell--phone .fx-chain button {
+  min-height: 36px;
+}
+
+/* The second screen: only the Animation and Modulation sections. */
+.app-shell--phone.app-shell--fx-devices .fx-animation-panel {
+  display: none;
+}
+
+.app-shell--phone.app-shell--fx-motion .fx-chain > :not(.fx-device-unit),
+.app-shell--phone.app-shell--fx-motion
+  .fx-device-unit
+  > :not(.fx-animation-panel) {
+  display: none;
+}
+
+.app-shell--phone.app-shell--fx-motion .fx-chain::before {
+  content: "Turn on a device's Animation or Modulation to edit it here.";
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.app-shell--phone.app-shell--fx-motion .fx-chain:has(.fx-animation-panel)::before {
+  content: none;
+}
+
+/* The Media drawer as a full-screen sheet under its header. */
+.mobile-media-header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 61;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: calc(env(safe-area-inset-top) + 6px) 6px 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel, #262839);
+}
+
+.mobile-media-header .mobile-segmented {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-media-header .mobile-segmented button {
+  padding: 0 6px;
+}
+
+.app-shell--phone .media-drawer,
+.app-shell--phone .media-drawer-column.is-open .media-drawer {
+  inset: calc(env(safe-area-inset-top) + 56px) 0 0;
+  width: 100vw;
+  padding: 0;
+  transform: translateY(100%);
+}
+
+.app-shell--phone .media-drawer-column.is-open .media-drawer {
+  transform: none;
+}
+
+.app-shell--phone .media-drawer__panel {
+  box-shadow: none;
+}
+
+.app-shell--phone .media-drawer__close {
+  display: none;
+}
+
+/* ----- Landscape phone: preview left, timeline right ----- */
+
+.app-shell.app-shell--phone.app-shell--phone-landscape {
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "top timeline"
+    "preview timeline"
+    "transport timeline"
+    "tabs tools";
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+
+.app-shell--phone-landscape .preview-panel {
+  align-self: center;
+}
+
+.app-shell--phone-landscape .preview-monitor {
+  max-height: none;
+}
+
+.app-shell--phone-landscape .mobile-tab-bar,
+.app-shell--phone-landscape .mobile-selection-toolbar {
+  border-top: 1px solid var(--line);
+}
+
+.app-shell--phone-landscape .timeline-panel {
+  grid-row: 1 / 4;
+}
+
+.app-shell--phone-landscape .mobile-selection-toolbar {
+  grid-column: 2;
+  grid-row: 4;
+}

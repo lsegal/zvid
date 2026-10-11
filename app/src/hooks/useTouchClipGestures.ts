@@ -85,6 +85,9 @@ export function useTouchClipGestures({
     // Android follows a long press with a contextmenu event; the hold
     // already handled it.
     let suppressContextMenu = false;
+    // A held press opens a sheet on release; the click the browser would
+    // follow it with would land on the sheet's backdrop and close it.
+    let suppressClick = false;
 
     const liftedCard = (clipId: string | undefined) =>
       clipId
@@ -186,6 +189,7 @@ export function useTouchClipGestures({
         return;
       }
       const latest = latestRef.current;
+      suppressClick = current.held;
       if (current.held && !current.moved && current.clipId) {
         latest.setClipMenu({
           kind: "clip",
@@ -216,6 +220,13 @@ export function useTouchClipGestures({
       }
     };
 
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (suppressClick && event.cancelable) {
+        event.preventDefault();
+      }
+      suppressClick = false;
+    };
+
     const handleContextMenu = (event: Event) => {
       if (press || suppressContextMenu) {
         event.preventDefault();
@@ -227,6 +238,7 @@ export function useTouchClipGestures({
     scroll.addEventListener("pointerdown", handlePointerDown, true);
     scroll.addEventListener("contextmenu", handleContextMenu, true);
     scroll.addEventListener("touchmove", handleTouchMove, { passive: false });
+    scroll.addEventListener("touchend", handleTouchEnd, { passive: false });
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", endPress);
@@ -235,6 +247,7 @@ export function useTouchClipGestures({
       scroll.removeEventListener("pointerdown", handlePointerDown, true);
       scroll.removeEventListener("contextmenu", handleContextMenu, true);
       scroll.removeEventListener("touchmove", handleTouchMove);
+      scroll.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", endPress);

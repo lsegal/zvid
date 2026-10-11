@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import "./App.css";
+import "./coarse-pointer.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import { selectSourceSpan } from "./app/source-selection.ts";
 import type { SourceSpan } from "./app/types.ts";
