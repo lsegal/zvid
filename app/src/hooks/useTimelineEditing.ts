@@ -382,6 +382,7 @@ export function useTimelineEditing({
     openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,
+    getHistoryEntries,
   } = useMenus({
     addLayerFx,
     barLength,
@@ -558,6 +559,7 @@ export function useTimelineEditing({
     createEmptySourceTrack,
     getClipMenuEntries,
     getEditMenuEntries,
+    getHistoryEntries,
     timelineContentEndQ,
   };
 }

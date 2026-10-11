@@ -1,5 +1,7 @@
 import {
   ArrowUpTrayIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
   ChevronLeftIcon,
   EllipsisHorizontalIcon,
 } from "@heroicons/react/24/solid";
@@ -16,13 +18,15 @@ type MobileTopBarProps = {
   onOpenSessions: () => void;
   onExport: () => void;
   getMenuEntries: () => ContextMenuEntry[];
+  // Undo and Redo, as the Edit menu has them.
+  historyEntries: ContextMenuEntry[];
   isMenuOpen: boolean;
   setIsMenuOpen: (open: boolean) => void;
 };
 
 // The mobile shell's top bar: back to the session list, the session's
-// name, Export (or, without an encoder a phone can export with, the
-// desktop app), and the overflow menu.
+// name, Undo and Redo, Export (or, without an encoder a phone can export
+// with, the desktop app), and the overflow menu.
 export function MobileTopBar({
   sessionName,
   exportSupport,
@@ -30,6 +34,7 @@ export function MobileTopBar({
   onOpenSessions,
   onExport,
   getMenuEntries,
+  historyEntries,
   isMenuOpen,
   setIsMenuOpen,
 }: MobileTopBarProps) {
@@ -52,6 +57,25 @@ export function MobileTopBar({
         <ChevronLeftIcon aria-hidden="true" />
       </button>
       <h1 className="mobile-topbar__title">{sessionName || "Untitled"}</h1>
+      {historyEntries.map((entry) =>
+        entry.type === "item" ? (
+          <button
+            aria-label={entry.label}
+            className="mobile-icon-button"
+            disabled={entry.disabled}
+            key={entry.id}
+            onClick={entry.onSelect}
+            title={entry.label}
+            type="button"
+          >
+            {entry.id === "undo" ? (
+              <ArrowUturnLeftIcon aria-hidden="true" />
+            ) : (
+              <ArrowUturnRightIcon aria-hidden="true" />
+            )}
+          </button>
+        ) : null,
+      )}
       <button
         aria-label={exportLabel}
         className="mobile-icon-button"

@@ -16,6 +16,7 @@ export function MobileShellChrome({
   isExporting,
   openExportDialog,
   getOverflowEntries,
+  historyEntries,
   mediaDrawer,
   importMedia,
   playheadSignal,
@@ -36,6 +37,7 @@ export function MobileShellChrome({
       <MobileTopBar
         exportSupport={exportSupport}
         getMenuEntries={getOverflowEntries}
+        historyEntries={historyEntries}
         isExporting={isExporting}
         isMenuOpen={mobile.isMenuOpen}
         onExport={openExportDialog}

@@ -404,6 +404,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     projectDurationFrames: project.projectDurationFrames,
   });
   const timeFormat = { timelineMode, bpm, fps, signature: timeline.signature };
+  const fileMenu = {
+    ...dialogs,
+    ...sessionFiles,
+    ...sharing,
+    ...newSession,
+    collaboration,
+    handleSaveToLibrary: library.saveToLibrary,
+    isExporting,
+    offlineMedia: mediaImport.offlineMedia,
+    openExportDialog,
+    showsMediaSync: mediaImport.showsMediaSync,
+  };
   const phone = usePhoneShell({
     project,
     layout,
@@ -418,12 +430,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     playbackOriginRef,
     isPlaying,
     setIsPlaying,
-    isExporting,
-    openExportDialog,
     editing,
-    collaboration,
-    library,
-    sessionFiles,
+    fileMenu,
     setStatus,
   });
 
@@ -437,20 +445,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         cursors={collaboration.collaborationView.remoteCursors}
       />
       <TopBar
-        {...dialogs}
-        {...sessionFiles}
-        {...sharing}
-        {...newSession}
-        collaboration={collaboration}
+        {...fileMenu}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
-        handleSaveToLibrary={library.saveToLibrary}
-        isExporting={isExporting}
-        offlineMedia={mediaImport.offlineMedia}
-        openExportDialog={openExportDialog}
         renamingLaneIdRef={selection.renamingLaneIdRef}
         setStatus={setStatus}
-        showsMediaSync={mediaImport.showsMediaSync}
       />
 
       <main className="workspace">

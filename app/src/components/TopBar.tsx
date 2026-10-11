@@ -1,22 +1,20 @@
-import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import {
   type Dispatch,
   type RefObject,
   type SetStateAction,
   useState,
 } from "react";
-import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
 import type {
   CollaborationStateResult,
   useCollaboration,
 } from "../hooks/useCollaboration.ts";
-import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
 import { useMenubar } from "../hooks/useMenubar.ts";
-import type { useNewSession } from "../hooks/useNewSession.ts";
-import type { useSampleProject } from "../hooks/useSampleProject.ts";
-import type { useSessionIO } from "../hooks/useSessionIO.ts";
+import {
+  buildFileMenuEntries,
+  type FileMenuInputs,
+} from "../menus/file-menu.ts";
 import { shareLinkVisible } from "../share-link";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
 import { DesktopAppDialog } from "./DesktopAppDialog";
@@ -28,75 +26,42 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import "./top-bar.css";
 
-type CollaborationActions = ReturnType<typeof useCollaboration>;
-type SessionIO = ReturnType<typeof useSessionIO>;
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 
 const MENUS = ["file", "edit", "help"] as const;
 
-export type TopBarProps = Pick<
-  CollaborationActions,
-  "handleDisconnectConnection" | "handleStopShare" | "showShareCopiedBadge"
-> &
-  Pick<SessionIO, "handleImport" | "handleOpenSession"> &
-  Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> &
+export type TopBarProps = FileMenuInputs &
   Pick<
-    ReturnType<typeof useNewSession>,
-    "canStartNewSession" | "handleNewSession"
+    ReturnType<typeof useCollaboration>,
+    "handleStopShare" | "showShareCopiedBadge"
   > & {
     collaboration: CollaborationStateResult;
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
-    handleSaveToLibrary: () => Promise<boolean>;
-    isExporting: boolean;
-    openExportDialog: () => void;
     renamingLaneIdRef: RefObject<string | undefined>;
-    sample: Pick<ReturnType<typeof useSampleProject>, "handleOpenSample">;
     setIsCaptureInstallerDialogOpen: SetOpen;
-    setIsMediaStorageDialogOpen: SetOpen;
-    setIsMediaSyncDialogOpen: SetOpen;
-    setIsOfflineMediaDialogOpen: SetOpen;
-    setIsProjectExportDialogOpen: SetOpen;
-    setIsSessionSettingsOpen: SetOpen;
     setStatus: (message: string) => void;
   };
 
 // The app's top bar: the brand mark, the File, Edit and Help menubar, and
 // the export, collaboration status and share controls.
-export function TopBar({
-  canStartNewSession,
-  collaboration,
-  exportButtonLabel,
-  getEditMenuEntries,
-  handleDisconnectConnection,
-  handleImport,
-  handleNewSession,
-  handleOpenSession,
-  handleSaveToLibrary,
-  handleStopShare,
-  showsMediaSync,
-  isExporting,
-  offlineMedia,
-  openExportDialog,
-  renamingLaneIdRef,
-  sample,
-  setIsCaptureInstallerDialogOpen,
-  setIsMediaStorageDialogOpen,
-  setIsMediaSyncDialogOpen,
-  setIsOfflineMediaDialogOpen,
-  setIsProjectExportDialogOpen,
-  setIsSessionSettingsOpen,
-  setStatus,
-  showShareCopiedBadge,
-}: TopBarProps) {
+export function TopBar(props: TopBarProps) {
+  const {
+    collaboration,
+    exportButtonLabel,
+    getEditMenuEntries,
+    handleStopShare,
+    isExporting,
+    openExportDialog,
+    renamingLaneIdRef,
+    setIsCaptureInstallerDialogOpen,
+    setStatus,
+    showShareCopiedBadge,
+  } = props;
   const {
     collaborationMode,
     collaborationView,
@@ -104,13 +69,11 @@ export function TopBar({
     isConnectedClient,
     isSharing,
     isStartingShare,
-    setIsConnectDialogOpen,
     setIsDiagnosticsDialogOpen,
     setIsShareDialogOpen,
     shareUrl,
   } = collaboration;
   const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
-  const [saveShortcut] = useState(() => getShortcutLabels().save);
   const menu = useMenubar(MENUS);
   const fileMenu = menu("file");
   const editMenu = menu("edit");
@@ -133,110 +96,7 @@ export function TopBar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" {...fileMenu.content}>
-              <DropdownMenuItem
-                disabled={!canStartNewSession}
-                onSelect={handleNewSession}
-              >
-                <span>New Session</span>
-                {/* Browsers keep the shortcut for a new window. */}
-                {supportsHarnessCapability("native-dialogs") ? (
-                  <DropdownMenuShortcut>
-                    {getShortcutLabels().newSession}
-                  </DropdownMenuShortcut>
-                ) : null}
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <span>Open</span>
-                  <ChevronRightIcon
-                    aria-hidden="true"
-                    className="dropdown-menu-sub-chevron"
-                  />
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onSelect={() => void handleOpenSession()}>
-                    Session…
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={sample.handleOpenSample}>
-                    Sample
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onSelect={() => void handleImport()}>
-                Import Media
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!offlineMedia.length}
-                onSelect={() => setIsOfflineMediaDialogOpen(true)}
-              >
-                {offlineMedia.length
-                  ? "Locate Offline Media…"
-                  : "All Media Linked"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setIsMediaStorageDialogOpen(true)}
-              >
-                Media Storage…
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
-                Session Settings…
-              </DropdownMenuItem>
-              {showsMediaSync ? (
-                <DropdownMenuItem
-                  onSelect={() => setIsMediaSyncDialogOpen(true)}
-                >
-                  Media Sync Status…
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  if (isConnectedClient) {
-                    handleDisconnectConnection();
-                    return;
-                  }
-
-                  setIsConnectDialogOpen(true);
-                }}
-              >
-                {isConnectedClient
-                  ? "Disconnect from Share"
-                  : "Connect to Share"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  void handleSaveToLibrary();
-                }}
-              >
-                Save
-                <DropdownMenuShortcut>{saveShortcut}</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <span>Export</span>
-                  <ChevronRightIcon
-                    aria-hidden="true"
-                    className="dropdown-menu-sub-chevron"
-                  />
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {/* Like the Export button, one export at a time. */}
-                  <DropdownMenuItem
-                    disabled={isExporting}
-                    onSelect={openExportDialog}
-                  >
-                    Video…
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      setIsProjectExportDialogOpen(true);
-                    }}
-                  >
-                    Project…
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+              <DropdownMenuEntries entries={buildFileMenuEntries(props)} />
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu {...editMenu.root}>
