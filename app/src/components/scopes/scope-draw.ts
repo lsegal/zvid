@@ -1,5 +1,10 @@
 import type { FrameSample } from "../../fx-shaders/frame-analysis.ts";
-import { WAVEFORM_MAX_LEVEL, WAVEFORM_TICKS } from "../fx/controls/waveform.ts";
+import { WAVEFORM_MAX_LEVEL } from "../fx/controls/waveform.ts";
+import {
+  graticuleLevels,
+  HISTOGRAM_LABEL_INSET_PX,
+  histogramShares,
+} from "./scope-graticule.ts";
 import { chromaOf, type ScopeKind, scopeImage } from "./scope-pixels.ts";
 
 const GRATICULE = "rgba(242, 209, 75, 0.55)";
@@ -54,7 +59,7 @@ function drawImage(
 function drawLevels(context: CanvasRenderingContext2D, area: Rect) {
   context.textAlign = "right";
   context.textBaseline = "middle";
-  for (const level of WAVEFORM_TICKS) {
+  for (const level of graticuleLevels(area.height)) {
     const y = area.y + area.height * (1 - level / WAVEFORM_MAX_LEVEL);
     context.setLineDash(level === 512 ? [3, 3] : []);
     context.beginPath();
@@ -84,7 +89,7 @@ function drawParadeDividers(context: CanvasRenderingContext2D, area: Rect) {
 function drawHistogramScale(context: CanvasRenderingContext2D, area: Rect) {
   context.textAlign = "center";
   context.textBaseline = "top";
-  for (const share of [0, 0.25, 0.5, 0.75, 1]) {
+  for (const share of histogramShares(area.width)) {
     const x = area.x + area.width * share;
     context.beginPath();
     context.moveTo(x, area.y);
@@ -92,7 +97,10 @@ function drawHistogramScale(context: CanvasRenderingContext2D, area: Rect) {
     context.stroke();
     context.fillText(
       String(Math.round(share * 255)),
-      Math.min(Math.max(x, area.x + 8), area.x + area.width - 8),
+      Math.min(
+        Math.max(x, area.x + HISTOGRAM_LABEL_INSET_PX),
+        area.x + area.width - HISTOGRAM_LABEL_INSET_PX,
+      ),
       area.y + area.height + 2,
     );
   }
