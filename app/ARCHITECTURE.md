@@ -84,6 +84,17 @@ To keep changed-only selection accurate:
   `GLOBAL_TRIGGERS` in `vitest.config.ts`, which must stay in step with the
   setup file's imports.
 
+### Component tests on Linux
+
+Run the suite with `pnpm test:component` (`scripts/component-tests.mjs`),
+which CI runs too. On Linux it runs Chromium headed: headless Chromium there
+has no pointer device, so once a test turns touch emulation off,
+`(hover: none)` keeps matching for every later test file and hover tests
+fail. It runs under `xvfb-run` when Xvfb is installed (`apt-get install
+xvfb`), on the desktop's display otherwise, and fails with a pointer to Xvfb
+when there is neither. Running `vitest` headless on Linux directly fails the
+first test that turns touch off, with the same pointer.
+
 ### Component tests in CI
 
 The `component-tests` job in `.github/workflows/ci.yml` runs only the

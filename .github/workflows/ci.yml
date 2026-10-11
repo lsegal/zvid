@@ -131,18 +131,14 @@ jobs:
                 since=$(git merge-base origin/main HEAD)
               fi ;;
           esac
-          # Headed under Xvfb, so Chromium sees a pointer device. Headless
-          # Linux has none: turning touch emulation back off (emulateTouch)
-          # leaves `(hover: none)` matching for every later file in the page.
-          vitest() {
-            xvfb-run -a pnpm exec vitest run --browser.headless=false "$@"
-          }
+          # test:component runs Chromium headed under Xvfb on Linux; see
+          # app/scripts/component-tests.mjs.
           if [ -n "$since" ]; then
             echo "Running the component tests affected since $since"
-            vitest --changed "$since" --passWithNoTests
+            pnpm test:component --changed "$since" --passWithNoTests
           else
             echo "Running the whole component test suite"
-            vitest
+            pnpm test:component
           fi
 
       - name: Upload test output
