@@ -390,6 +390,25 @@
   justify-content: flex-end;
 }
 
+/* Menus, selects and popovers portal to <body>, outside the shell, so they
+   must clear the FX sheet, the Media sheet and the sheet layer above. */
+body:has(.app-shell--phone)
+  :is(
+    .dropdown-menu-content,
+    .popover-content,
+    .select-content,
+    .context-menu-layer
+  ) {
+  z-index: 100;
+}
+
+/* A submenu beside a menu has little room on a phone: it narrows to fit
+   instead of running off the screen's edge. */
+body:has(.app-shell--phone) .dropdown-menu-content {
+  min-width: min(220px, var(--radix-dropdown-menu-content-available-width));
+  max-width: var(--radix-dropdown-menu-content-available-width);
+}
+
 .mobile-sheet-backdrop {
   position: absolute;
   inset: 0;
