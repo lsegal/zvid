@@ -42,6 +42,4 @@ shard-tests.txt
 
 # Vitest browser-mode failure screenshots
 __screenshots__
-
-# Vitest browser-mode failure screenshots
 .vitest
