@@ -20,6 +20,7 @@ export function MobileShellChrome({
   importMedia,
   playheadSignal,
   readout,
+  getMeterTap,
   isPlaying,
   isRecording,
   isLooping,
@@ -45,6 +46,7 @@ export function MobileShellChrome({
       />
       <MobileTransport
         {...readout}
+        getMeterTap={getMeterTap}
         isLooping={isLooping}
         isPlaying={isPlaying}
         isRecording={isRecording}
