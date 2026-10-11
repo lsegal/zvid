@@ -1,8 +1,10 @@
 .topbar {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  /* One row while both groups fit; the right group wraps below only when
+     they would touch. */
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 8px 16px;
   padding: 12px 24px 8px;
 }
 
@@ -14,6 +16,7 @@
 
 .topbar__group--right {
   justify-content: flex-end;
+  margin-left: auto;
 }
 
 .collaboration-status {
@@ -166,12 +169,6 @@
 .share-copy-badge svg {
   width: 16px;
   height: 16px;
-}
-
-@media (max-width: 1240px) {
-  .topbar {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 900px) {
