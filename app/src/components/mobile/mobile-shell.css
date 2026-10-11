@@ -46,7 +46,6 @@
 .app-shell--phone .transport-bar,
 .app-shell--phone .preview-resize-handle,
 .app-shell--phone .media-drawer-resize-handle,
-.app-shell--phone .label-resize-rail,
 .app-shell--phone .playhead-jump,
 .app-shell--phone .fx-panel__toggle,
 .app-shell--phone .scopes-pane__resize,
@@ -120,97 +119,6 @@
 
 .mobile-tab-bar {
   grid-area: tabs;
-}
-
-/* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
-   and the labels only take a narrow strip of it. */
-.app-shell--phone .track-label {
-  justify-self: start;
-  width: min(112px, var(--label-width));
-  gap: 6px;
-  padding-inline: 8px;
-}
-
-.app-shell--phone .track-label small,
-.app-shell--phone .track-label__fx,
-.app-shell--phone .track-label__arm {
-  display: none;
-}
-
-/* Reorder mode: grips and row resizing only while it is on. */
-.app-shell--phone:not(.app-shell--reordering) .track-label__grip,
-.app-shell--phone:not(.app-shell--reordering) .row-resize-handle {
-  display: none;
-}
-
-.app-shell--phone.app-shell--reordering .track-label {
-  outline: 1px dashed var(--line-strong);
-  outline-offset: -3px;
-}
-
-/* Source tracks hide behind the overflow menu's toggle. */
-.app-shell--phone:not(.app-shell--source-tracks) .source-header,
-.app-shell--phone:not(.app-shell--source-tracks) .source-track-list,
-.app-shell--phone:not(.app-shell--source-tracks) .track-row--source-drop {
-  display: none;
-}
-
-/* Clip edges scroll like the rest of the clip until Trim is on; then the
-   selected clip's handles show with 44px targets. */
-.app-shell--phone .clip-card__handle {
-  pointer-events: none;
-  opacity: 0;
-}
-
-.app-shell--phone.app-shell--trimming .clip-card--selected .clip-card__handle {
-  pointer-events: auto;
-  opacity: 1;
-  touch-action: none;
-}
-
-.app-shell--phone.app-shell--trimming
-  .clip-card--selected
-  .clip-card__handle::before {
-  content: "";
-  position: absolute;
-  inset: -8px calc((var(--mobile-tap) - 100%) / -2);
-}
-
-/* A lane selection scrolls like the lane under it (a hold picks it up, see
-   useTouchClipGestures), and its edge handles get 44px targets centered on
-   the edges. */
-.app-shell--phone .timeline-selection {
-  overflow: visible;
-  touch-action: pan-x pan-y;
-}
-
-.app-shell--phone .timeline-selection__handle {
-  top: -8px;
-  bottom: -8px;
-  width: var(--mobile-tap);
-  touch-action: none;
-}
-
-.app-shell--phone .timeline-selection__handle--start {
-  left: calc(var(--mobile-tap) / -2);
-}
-
-.app-shell--phone .timeline-selection__handle--end {
-  right: calc(var(--mobile-tap) / -2);
-}
-
-.app-shell--phone .clip-card--lifted {
-  z-index: var(--z-timeline-selection);
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-  transition: transform 120ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-shell--phone .clip-card--lifted {
-    transform: none;
-    transition: none;
-  }
 }
 
 /* ----- The mobile chrome ----- */

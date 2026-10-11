@@ -7,6 +7,7 @@ import { MobileTransport } from "./MobileTransport";
 import { MediaSheetHeader } from "./SheetHeaders";
 import "./mobile-shell.css";
 import "./mobile-panels.css";
+import "./mobile-timeline.css";
 
 // The phone shell's own controls around the editor's panels, which its
 // stylesheet lays out preview first: the top bar, the thin transport, the
@@ -18,6 +19,7 @@ export function MobileShellChrome({
   isExporting,
   openExportDialog,
   getOverflowEntries,
+  historyEntries,
   share,
   mediaDrawer,
   importMedia,
@@ -43,6 +45,7 @@ export function MobileShellChrome({
       <MobileTopBar
         exportSupport={exportSupport}
         getMenuEntries={getOverflowEntries}
+        historyEntries={historyEntries}
         isExporting={isExporting}
         isMenuOpen={mobile.isMenuOpen}
         onExport={openExportDialog}
@@ -66,10 +69,8 @@ export function MobileShellChrome({
       {hasSelectedClip ? (
         <MobileSelectionToolbar
           entries={clipMenuEntries}
-          isTrimming={mobile.isTrimming}
           onOpenFx={mobile.openFxSheet}
           onOpenMenu={openClipMenu}
-          onToggleTrim={() => mobile.setIsTrimming(!mobile.isTrimming)}
         />
       ) : hasSelection ? (
         <MobileRangeToolbar

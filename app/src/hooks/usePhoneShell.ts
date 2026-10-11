@@ -4,6 +4,10 @@ import type { ProjectState } from "../app/types.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
 import type { MobileShareButtonProps } from "../components/mobile/MobileShareButton";
 import type { ContextMenuEntry } from "../context-menu.ts";
+import {
+  buildFileMenuEntries,
+  type FileMenuInputs,
+} from "../menus/file-menu.ts";
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
@@ -35,13 +39,13 @@ export type PhoneShellInputs = {
   playbackOriginRef: { current: number };
   isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
-  isExporting: boolean;
-  openExportDialog: () => void;
-  editing: Pick<TimelineEditing, "getClipMenuEntries" | "getEditMenuEntries">;
+  editing: Pick<
+    TimelineEditing,
+    "getClipMenuEntries" | "getEditMenuEntries" | "getHistoryEntries"
+  >;
+  fileMenu: FileMenuInputs;
   collaboration: MobileShareButtonProps["collaboration"];
   sharing: MobileShareButtonProps["sharing"];
-  library: { saveToLibrary: () => unknown };
-  sessionFiles: { handleImport: () => Promise<unknown> };
   setStatus: (status: string) => void;
 };
 
@@ -51,13 +55,12 @@ export type PhoneShellInputs = {
 export function usePhoneShell(inputs: PhoneShellInputs) {
   const { project, layout, store, selection, timeline, playback } = inputs;
   const { recording, mediaDrawer, isPlaying, setIsPlaying } = inputs;
-  const { editing } = inputs;
+  const { editing, fileMenu } = inputs;
   const { isPhone } = layout;
   const { selectedClip } = selection;
 
   const mobile = useMobileShell({
     isPhone,
-    selectedClipId: selectedClip?.id,
     isMediaDrawerOpen: mediaDrawer.isOpen,
     setMediaDrawerOpen: mediaDrawer.setOpen,
     openMediaTab: () => mediaDrawer.selectTab("media"),
@@ -148,6 +151,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     return [
       {
         type: "item",
+        id: "file",
+        label: "File",
+        submenu: buildFileMenuEntries(fileMenu),
+      },
+      {
+        type: "item",
         id: "edit",
         label: "Edit",
         submenu: editing.getEditMenuEntries(),
@@ -156,7 +165,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         type: "item",
         id: "save",
         label: "Save to Library",
-        onSelect: () => void inputs.library.saveToLibrary(),
+        onSelect: () => void fileMenu.handleSaveToLibrary(),
       },
       { type: "separator" },
       {
@@ -197,7 +206,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         layout.shell === "phone-landscape" ? "app-shell--phone-landscape" : "",
         mobile.isReordering ? "app-shell--reordering" : "",
         mobile.showsSourceTracks ? "app-shell--source-tracks" : "",
-        mobile.isTrimming ? "app-shell--trimming" : "",
         mobile.fxSheet ? `app-shell--fx-${mobile.fxSheet}` : "",
         `app-shell--fx-${mobile.fxScreen}`,
       ]
@@ -212,12 +220,13 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       mobile,
       sessionName: project.sessionName,
       exportSupport,
-      isExporting: inputs.isExporting,
-      openExportDialog: inputs.openExportDialog,
+      isExporting: fileMenu.isExporting,
+      openExportDialog: fileMenu.openExportDialog,
       getOverflowEntries,
+      historyEntries: isPhone ? editing.getHistoryEntries() : [],
       share: { collaboration: inputs.collaboration, sharing: inputs.sharing },
       mediaDrawer,
-      importMedia: () => void inputs.sessionFiles.handleImport(),
+      importMedia: () => void fileMenu.handleImport(),
       playheadSignal: store.playheadSignal,
       readout: {
         timelineMode: project.timelineMode,

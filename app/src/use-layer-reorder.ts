@@ -357,10 +357,20 @@ export function useLayerReorder({
       finish(false);
     };
 
-    // A long press opens the browser's context menu on some devices.
+    // A long press opens the browser's context menu on some devices, and
+    // the layer's own menu with it.
     const handleContextMenu = (menuEvent: Event) => {
       if (session.active) {
         menuEvent.preventDefault();
+        menuEvent.stopPropagation();
+      }
+    };
+
+    // Once a touch has picked the layer up, the finger drags it instead of
+    // scrolling, wherever it started (a header's label as well as a grip).
+    const handleTouchMove = (touchEvent: TouchEvent) => {
+      if (session.active && touchEvent.cancelable) {
+        touchEvent.preventDefault();
       }
     };
 
@@ -370,12 +380,14 @@ export function useLayerReorder({
       window.removeEventListener("pointercancel", handleCancel);
       window.removeEventListener("keydown", handleKey, true);
       window.removeEventListener("contextmenu", handleContextMenu, true);
+      window.removeEventListener("touchmove", handleTouchMove);
     };
     window.addEventListener("pointermove", handleMove, { passive: false });
     window.addEventListener("pointerup", handleUp);
     window.addEventListener("pointercancel", handleCancel);
     window.addEventListener("keydown", handleKey, true);
     window.addEventListener("contextmenu", handleContextMenu, true);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
   }
 
   function onKeyDown(

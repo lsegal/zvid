@@ -7,6 +7,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { addLayers } from "./layers.ts";
 
 // The touch-first phone shell (#1168): a phone-sized touch viewport gets
 // the mobile layout, while fine pointers and tablets keep the desktop one.
@@ -227,6 +228,86 @@ test("a tap shows the selection toolbar and Split cuts at the center", async ({
   await expect(toolbar).toBeHidden();
 });
 
+test("Undo and Redo are one tap away in the top bar", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const topBar = page.locator(".mobile-topbar");
+  const undo = topBar.getByRole("button", { name: /^Undo/ });
+  const redo = topBar.getByRole("button", { name: /^Redo/ });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  await addClip(page);
+  await expect(undo).toBeEnabled();
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const y = (await centerOf(page, ".clip-card")).y;
+  await drag(page, client, { x: scroll.x + 60, y }, { x: scroll.x - 60, y });
+  await expect.poll(() => playheadQ(page)).toBeGreaterThan(1);
+  await page.locator(".clip-card__body").tap();
+  await page
+    .getByRole("toolbar", { name: "Clip actions" })
+    .getByRole("button", { name: "Split at playhead" })
+    .click();
+  await expect(page.locator(".clip-card")).toHaveCount(2);
+  // Named like the Edit menu's items.
+  await expect(undo).toHaveAccessibleName("Undo Split clip");
+  await undo.tap();
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+  await expect(redo).toHaveAccessibleName("Redo Split clip");
+  await redo.tap();
+  await expect(page.locator(".clip-card")).toHaveCount(2);
+  await expect(redo).toBeDisabled();
+});
+
+test("the More sheet has the desktop File and Edit menus", async ({ page }) => {
+  await page.goto("/");
+  const more = page.getByRole("button", { name: "More", exact: true });
+  const sheet = page.locator(".mobile-menu-sheet");
+  const items = sheet.locator(
+    ".mobile-menu-sheet__item:not(.mobile-menu-sheet__back)",
+  );
+  await more.click();
+  await expect(items).toHaveText([
+    "File",
+    "Edit",
+    "Save to Library",
+    "Reorder Layers",
+    "Show Source Tracks",
+  ]);
+  await sheet.getByRole("menuitem", { name: "File" }).click();
+  await expect(items).toHaveText([
+    "New Session",
+    "Open",
+    "Import Media",
+    "All Media Linked",
+    "Media Storage…",
+    "Session Settings…",
+    "Connect to Share",
+    "Save",
+    "Export",
+  ]);
+  await sheet.getByRole("menuitem", { name: "Open" }).click();
+  await expect(items).toHaveText(["Session…", "Sample"]);
+  // Back to File.
+  await sheet.locator(".mobile-menu-sheet__back").click();
+  const chooser = page.waitForEvent("filechooser");
+  await sheet.getByRole("menuitem", { name: "Import Media" }).click();
+  await chooser;
+  await expect(sheet).toBeHidden();
+  await more.click();
+  await sheet.getByRole("menuitem", { name: "File" }).click();
+  await sheet.getByRole("menuitem", { name: "Session Settings…" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await addClip(page);
+  await more.click();
+  await sheet.getByRole("menuitem", { name: "Edit" }).click();
+  await expect(items.first()).toHaveText(/^Undo /);
+  await items.first().click();
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+});
+
 test("a long press opens the clip menu as a sheet; hold and drag moves", async ({
   page,
 }) => {
@@ -325,6 +406,92 @@ test("tapping elsewhere clears a lane selection", async ({ page }) => {
   await expect(
     page.getByRole("toolbar", { name: "Selection actions" }),
   ).toBeHidden();
+});
+
+test("a selected clip shows its trim handles, and dragging one trims it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addClip(page);
+  const start = page.locator(".clip-card__handle--start");
+  // Until the clip is selected its edges belong to the swipe.
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+  await expect(start).toHaveCSS("opacity", "0");
+  await expect(start).toHaveCSS("pointer-events", "none");
+  await page.locator(".clip-card__body").tap();
+  await expect(start).toHaveCSS("opacity", "1");
+  await expect(
+    page.getByRole("toolbar", { name: "Clip actions" }).getByText("Trim"),
+  ).toHaveCount(0);
+
+  const before = await page.locator(".clip-card").boundingBox();
+  const handle = await centerOf(page, ".clip-card__handle--start");
+  await drag(page, client, handle, { x: handle.x + 60, y: handle.y });
+  await expect
+    .poll(async () => (await page.locator(".clip-card").boundingBox())?.x)
+    .toBeGreaterThan((before?.x ?? 0) + 30);
+});
+
+test("dragging a layer's bottom edge resizes its row", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const header = page.locator('[data-layer-header-id="1"]');
+  const before = await header.boundingBox();
+  if (!before) {
+    throw new Error("Layer 1's header is not visible");
+  }
+  // Below the name, inside the edge's finger-tall target.
+  const from = { x: before.x + 60, y: before.y + before.height - 4 };
+  await drag(page, client, from, { x: from.x, y: from.y + 40 });
+  await expect
+    .poll(async () => (await header.boundingBox())?.height)
+    .toBeGreaterThan(before.height + 30);
+});
+
+test("dragging the labels' right edge resizes them", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const header = page.locator('[data-layer-header-id="1"]');
+  const before = await header.boundingBox();
+  const rail = page.getByRole("separator", { name: "Resize track labels" });
+  await expect(rail).toBeVisible();
+  const railBox = await rail.boundingBox();
+  if (!before || !railBox) {
+    throw new Error("The labels or their rail are not visible");
+  }
+  expect(railBox.width).toBeGreaterThanOrEqual(44);
+  const from = { x: before.x + before.width + 8, y: before.y + 20 };
+  await drag(page, client, from, { x: from.x + 50, y: from.y });
+  await expect
+    .poll(async () => (await header.boundingBox())?.width)
+    .toBeGreaterThan(before.width + 40);
+});
+
+test("a long press on a layer's label picks it up to reorder", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addLayers(page, 1);
+  const names = page.locator(
+    "[data-layer-header-id] .track-label__select > span",
+  );
+  await expect(names).toHaveText(["Layer 1", "Layer 2"]);
+  const first = await centerOf(
+    page,
+    '[data-layer-header-id="1"] .track-label__index',
+  );
+  const second = await page.locator('[data-layer-header-id="2"]').boundingBox();
+  await drag(
+    page,
+    client,
+    first,
+    { x: first.x, y: (second?.y ?? 0) + (second?.height ?? 0) - 8 },
+    600,
+  );
+  await expect(names).toHaveText(["Layer 2", "Layer 1"]);
 });
 
 test("FX opens as a half or full sheet and Media as a full screen", async ({
@@ -504,12 +671,107 @@ test.describe("tablet", () => {
     await expect(page.locator(".app-shell")).not.toHaveClass(
       /app-shell--phone/,
     );
-    const zoomButton = await page
-      .getByRole("button", { name: "Zoom in" })
-      .boundingBox();
-    expect(zoomButton?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
+  // Toolbar controls keep their desktop size and take a 44px-tall touch
+  // through an invisible hit area that no neighbor's covers (#1186).
+  test("keeps desktop-sized controls with 44px touch targets", async ({
+    browser,
+    page,
+  }) => {
+    // A mouse on the same window size; touch must be off explicitly.
+    const desktop = await browser.newContext({
+      viewport: { width: 820, height: 1180 },
+      hasTouch: false,
+      isMobile: false,
+    });
+    const desktopPage = await desktop.newPage();
+    const desktopSizes = await controlSizes(desktopPage);
+    await desktop.close();
+    const sizes = await controlSizes(page);
+    expect(Object.keys(sizes)).toEqual(
+      expect.arrayContaining([
+        "Record",
+        "Snap On",
+        "Tempo",
+        "Timeline",
+        "Zoom in",
+      ]),
+    );
+    expect(sizes).toEqual(desktopSizes);
+
+    const hits = await page.locator(TOUCH_CONTROLS).evaluateAll((controls) =>
+      controls
+        .filter((control) => control.getClientRects().length > 0)
+        .map((control) => {
+          const box = control.getBoundingClientRect();
+          const x = box.x + box.width / 2;
+          const y = box.y + box.height / 2;
+          const hit = (dy: number) =>
+            document.elementFromPoint(x, y + dy)?.closest("button") === control;
+          return {
+            name: control.getAttribute("aria-label") ?? control.textContent,
+            center: hit(0),
+            touch: hit(-21) && hit(21),
+          };
+        }),
+    );
+    expect(hits.length).toBeGreaterThan(5);
+    for (const hit of hits) {
+      expect(hit, String(hit.name)).toEqual({
+        ...hit,
+        center: true,
+        touch: true,
+      });
+    }
+
+    // Every other button still takes a tap at its own center.
+    const stolen = await page.locator("button:visible").evaluateAll((buttons) =>
+      buttons
+        .filter((button) => {
+          const box = button.getBoundingClientRect();
+          if (box.width === 0 || box.height === 0) return false;
+          const hit = document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          );
+          return (
+            hit !== null &&
+            !button.contains(hit) &&
+            hit.closest("button") !== null
+          );
+        })
+        .map(
+          (button) => button.getAttribute("aria-label") ?? button.textContent,
+        ),
+    );
+    expect(stolen).toEqual([]);
   });
 });
+
+// The Sessions/Media/Record, Tempo/Time and Snap switches, the preview
+// tabs, the menubar and the zoom buttons.
+const TOUCH_CONTROLS = [
+  ".timeline-toolbar .segmented-control button",
+  ".preview-panel__tabs button",
+  ".menubar-item",
+  ".zoom-control__button",
+].join(", ");
+
+async function controlSizes(page: Page) {
+  await page.goto("/");
+  await expect(page.locator(".topbar")).toBeVisible();
+  const sizes = await page.locator(TOUCH_CONTROLS).evaluateAll((controls) =>
+    controls
+      .filter((control) => control.getClientRects().length > 0)
+      .map((control) => {
+        const { width, height } = control.getBoundingClientRect();
+        const name = control.getAttribute("aria-label") ?? control.textContent;
+        return [String(name), { width, height }] as const;
+      }),
+  );
+  return Object.fromEntries(sizes);
+}
 
 test.describe("narrow window with a mouse", () => {
   test.use({ hasTouch: false, isMobile: false });

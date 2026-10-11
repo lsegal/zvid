@@ -1,6 +1,5 @@
 import {
   AdjustmentsHorizontalIcon,
-  ArrowsRightLeftIcon,
   DocumentDuplicateIcon,
   EllipsisHorizontalIcon,
   ScissorsIcon,
@@ -24,19 +23,16 @@ const MENU_ITEM_ICONS: Record<
 
 type MobileSelectionToolbarProps = {
   entries: ContextMenuEntry[];
-  isTrimming: boolean;
-  onToggleTrim: () => void;
   onOpenFx: () => void;
   onOpenMenu: () => void;
 };
 
 // Shown while a clip is selected on the mobile timeline, in place of a
-// right-click menu: Split, Duplicate, Trim, FX and Delete, with the rest
-// of the clip's menu behind More.
+// right-click menu: Split, Duplicate, FX and Delete, with the rest of the
+// clip's menu behind More. The selected clip's trim handles show on their
+// own, so there is no Trim mode.
 export function MobileSelectionToolbar({
   entries,
-  isTrimming,
-  onToggleTrim,
   onOpenFx,
   onOpenMenu,
 }: MobileSelectionToolbarProps) {
@@ -54,15 +50,6 @@ export function MobileSelectionToolbar({
     >
       <MenuItemButton item={split} />
       <MenuItemButton item={duplicate} />
-      <button
-        aria-pressed={isTrimming}
-        className="mobile-tool-button"
-        onClick={onToggleTrim}
-        type="button"
-      >
-        <ArrowsRightLeftIcon aria-hidden="true" />
-        <span>Trim</span>
-      </button>
       <button className="mobile-tool-button" onClick={onOpenFx} type="button">
         <AdjustmentsHorizontalIcon aria-hidden="true" />
         <span>FX</span>

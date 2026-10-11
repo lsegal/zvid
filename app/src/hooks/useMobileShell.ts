@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export type FxSheetHeight = "half" | "full";
 // The FX sheet's two screens: the devices and their settings, and the
@@ -8,7 +8,6 @@ export type MobileTab = "media" | "edit" | "fx" | "audio";
 
 export type MobileShellInputs = {
   isPhone: boolean;
-  selectedClipId: string | undefined;
   isMediaDrawerOpen: boolean;
   setMediaDrawerOpen: (open: boolean) => void;
   openMediaTab: () => void;
@@ -16,12 +15,10 @@ export type MobileShellInputs = {
   setAudioRowCollapsed: (collapsed: boolean) => void;
 };
 
-// The mobile shell's own view state: which sheet is open and how tall, the
-// Reorder and source-track toggles, and the selected clip's trim mode. The
-// Media sheet is the Media drawer, so it keeps the drawer's open state.
+// The mobile shell's own view state: which sheet is open and how tall, and
+// the Reorder and source-track toggles. The Media sheet is the Media drawer, so it keeps the drawer's open state.
 export function useMobileShell({
   isPhone,
-  selectedClipId,
   isMediaDrawerOpen,
   setMediaDrawerOpen,
   openMediaTab,
@@ -32,14 +29,7 @@ export function useMobileShell({
   const [fxScreen, setFxScreen] = useState<FxSheetScreen>("devices");
   const [isReordering, setIsReordering] = useState(false);
   const [showsSourceTracks, setShowsSourceTracks] = useState(false);
-  const [isTrimming, setIsTrimming] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  // Trim mode belongs to the clip it was turned on for.
-  useEffect(() => {
-    void selectedClipId;
-    setIsTrimming(false);
-  }, [selectedClipId]);
 
   const isMediaOpen = isPhone && isMediaDrawerOpen;
   const activeTab: MobileTab = isMediaOpen ? "media" : fxSheet ? "fx" : "edit";
@@ -88,8 +78,6 @@ export function useMobileShell({
     setIsReordering,
     showsSourceTracks,
     setShowsSourceTracks,
-    isTrimming,
-    setIsTrimming,
     isMenuOpen,
     setIsMenuOpen,
   };

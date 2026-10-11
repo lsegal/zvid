@@ -23,6 +23,68 @@
     min-height: 44px;
   }
 
+  /* Outside the phone shell, these controls keep their desktop size
+     (#1186): an invisible hit area takes the 44px touch instead. It
+     reaches 44px across the row and only 3px, half the tightest gap,
+     along it, so neighbors keep their own taps. The phone shell, and
+     browsers without :has(), keep the larger controls above. */
+  :where(:root:not(:has(.app-shell--phone)))
+    :is(
+      .zoom-control__button,
+      .media-drawer__close,
+      .media-drawer__clear,
+      .track-label__hide,
+      .track-label__fx,
+      .track-label__arm,
+      .fx-device-panel__power,
+      .fx-device-panel__animate,
+      .fx-device-panel__remove,
+      .fx-device-panel__collapse,
+      .menubar-item,
+      .segmented-control button
+    ) {
+    position: relative;
+    min-width: auto;
+    min-height: auto;
+  }
+
+  :where(:root:not(:has(.app-shell--phone)))
+    :is(
+      .zoom-control__button,
+      .media-drawer__close,
+      .media-drawer__clear,
+      .track-label__hide,
+      .track-label__fx,
+      .track-label__arm,
+      .fx-device-panel__power,
+      .fx-device-panel__animate,
+      .fx-device-panel__remove,
+      .fx-device-panel__collapse,
+      .menubar-item,
+      .segmented-control button
+    )::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -3px;
+    left: -3px;
+    height: max(100%, 44px);
+    translate: 0 -50%;
+  }
+
+  /* A folded device stacks its switches, so they reach across instead. */
+  :where(:root:not(:has(.app-shell--phone)))
+    .fx-device-panel--collapsed
+    :is(.fx-device-panel__power, .fx-device-panel__animate)::before {
+    top: -3px;
+    right: auto;
+    bottom: -3px;
+    left: 50%;
+    width: max(100%, 44px);
+    height: auto;
+    translate: -50% 0;
+  }
+
   /* Trim handles keep their look but take a 44px-wide touch. */
   .clip-card__handle::before,
   .source-span__handle::before {

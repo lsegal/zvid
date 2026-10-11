@@ -534,44 +534,46 @@ export function useMenus({
     });
   }
 
+  // Undo and Redo, which the phone also shows as buttons.
+  function getHistoryEntries(): ContextMenuEntry[] {
+    return buildHistoryEntries({
+      undoLabel,
+      redoLabel,
+      canUndo,
+      canRedo,
+      shortcuts: shortcutLabels,
+      undo: handleUndo,
+      redo: handleRedo,
+    });
+  }
+
   // Built when the Edit menu opens, so it reflects the current selection.
   function getEditMenuEntries(): ContextMenuEntry[] {
     const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
-    return buildEditMenuEntries(
-      buildHistoryEntries({
-        undoLabel,
-        redoLabel,
-        canUndo,
-        canRedo,
-        shortcuts: shortcutLabels,
-        undo: handleUndo,
-        redo: handleRedo,
-      }),
-      {
-        clip: selectedClip?.label,
-        // A selected source clip gives Cut, Copy and Paste only: Edit has no
-        // Clip submenu for it, so its Split never splits a source clip. With
-        // a source track selected, Paste goes into it.
-        clipEntries:
-          selectedSourceSpan && !selectedClip
-            ? getSourceSpanMenuEntries(selectedSourceSpan)
-            : getArrangementClipEntries(
-                selectedClip,
-                undefined,
-                selectedClip ? undefined : selectedSourceTrack?.id,
-              ),
-        selectionEntries: pendingSelection
-          ? getSelectionMenuEntries(pendingSelection)
-          : undefined,
-        layer: selectedLane
-          ? {
-              name: selectedLane.name,
-              entries: getLayerMenuEntries(selectedLane),
-            }
-          : undefined,
-        audioEntries: getAudioMenuEntries(),
-      },
-    );
+    return buildEditMenuEntries(getHistoryEntries(), {
+      clip: selectedClip?.label,
+      // A selected source clip gives Cut, Copy and Paste only: Edit has no
+      // Clip submenu for it, so its Split never splits a source clip. With
+      // a source track selected, Paste goes into it.
+      clipEntries:
+        selectedSourceSpan && !selectedClip
+          ? getSourceSpanMenuEntries(selectedSourceSpan)
+          : getArrangementClipEntries(
+              selectedClip,
+              undefined,
+              selectedClip ? undefined : selectedSourceTrack?.id,
+            ),
+      selectionEntries: pendingSelection
+        ? getSelectionMenuEntries(pendingSelection)
+        : undefined,
+      layer: selectedLane
+        ? {
+            name: selectedLane.name,
+            entries: getLayerMenuEntries(selectedLane),
+          }
+        : undefined,
+      audioEntries: getAudioMenuEntries(),
+    });
   }
 
   return {
@@ -584,5 +586,6 @@ export function useMenus({
     openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,
+    getHistoryEntries,
   };
 }
