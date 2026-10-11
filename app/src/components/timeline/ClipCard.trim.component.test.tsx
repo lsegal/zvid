@@ -18,5 +18,5 @@ test("smoke", async () => {
   const cards = [...document.querySelectorAll(".clip-card, .source-span, [data-timeline-lane-id], .timeline-scroll, .fx-panel__toggle, .topbar")].map((c) => [c.className.slice(0,40), JSON.stringify(c.getBoundingClientRect().toJSON())]);
   console.log(JSON.stringify(cards, null, 1));
   console.log(document.querySelectorAll(".source-span__tile").length);
-  expect(screen).toBeTruthy();
+  expect(JSON.stringify(cards) + document.querySelectorAll(".source-span__tile").length).toBe("");
 });
