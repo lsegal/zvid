@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { TrackHideButton } from "./TrackHideButton";
 import {
   projectWithMedia,
   TimelineHarness,
   testPatternVideo,
 } from "./timeline-harness";
 import { insertFillAtStart, layerHeader, undo } from "./timeline-harness-input";
-import { TrackHideButton } from "./TrackHideButton";
 
 // The Hide switch on each layer and source track header (#1026), left of
 // its FX switch. What hiding does to the preview stays in the track-hide
@@ -30,7 +30,9 @@ describe(TrackHideButton, { timeout: 60_000 }, () => {
     expect(pressed()).toBe("false");
     expect(eye().getAttribute("title")).toBe("Hide Layer 1");
     // It sits just left of the FX switch.
-    const fx = layerHeader("1").querySelector(".track-label__fx") as HTMLElement;
+    const fx = layerHeader("1").querySelector(
+      ".track-label__fx",
+    ) as HTMLElement;
     const eyeBox = eye().getBoundingClientRect();
     expect(eyeBox.x + eyeBox.width).toBeLessThanOrEqual(
       fx.getBoundingClientRect().x + 1,

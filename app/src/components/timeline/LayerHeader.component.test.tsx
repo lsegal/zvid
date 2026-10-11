@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { emulateTouch } from "../../component-test/viewport.ts";
+import { LayerHeader } from "./LayerHeader";
 import { TimelineHarness } from "./timeline-harness";
 import {
   addLayers,
@@ -14,7 +15,6 @@ import {
   touch,
   undo,
 } from "./timeline-harness-input";
-import { LayerHeader } from "./LayerHeader";
 
 // A layer's header (LayerHeader) in the timeline and its reorder grip.
 // Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
@@ -123,7 +123,11 @@ describe(LayerHeader, { timeout: 60_000 }, () => {
       await mouse.move(from.x, ruler.y + ruler.height + 4, { steps: 12 });
       await expect.poll(status).toBe("Layer 4, position 1 of 4");
       await expect
-        .element(page.elementLocator(document.querySelector(".layer-drop-indicator") as HTMLElement))
+        .element(
+          page.elementLocator(
+            document.querySelector(".layer-drop-indicator") as HTMLElement,
+          ),
+        )
         .toBeVisible();
       await mouse.up();
 
@@ -175,7 +179,11 @@ describe(LayerHeader, { timeout: 60_000 }, () => {
       expect(names()).toEqual(["Layer 1", "Layer 2", "Layer 3"]);
       await expect.poll(lifted).toHaveLength(0);
       await expect
-        .element(page.elementLocator(document.querySelector(".layer-drop-indicator") as HTMLElement))
+        .element(
+          page.elementLocator(
+            document.querySelector(".layer-drop-indicator") as HTMLElement,
+          ),
+        )
         .not.toBeVisible();
     });
 

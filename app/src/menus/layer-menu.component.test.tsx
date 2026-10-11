@@ -29,7 +29,8 @@ function fxPanelTitle() {
   return document.querySelector(".fx-panel__toggle")?.textContent;
 }
 
-const layerMenu = () => page.getByRole("menu", { name: "Layer header actions" });
+const layerMenu = () =>
+  page.getByRole("menu", { name: "Layer header actions" });
 
 describe("layer header menu", { timeout: 60_000 }, () => {
   beforeEach(async () => {

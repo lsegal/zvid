@@ -80,7 +80,9 @@ test("the wand adds an Audio layer holding a full-length song uncut", async () =
     ...document.querySelectorAll<HTMLElement>("[data-lane-label-id]"),
   ];
   await expect
-    .poll(() => labels().map((label) => label.querySelector("span")?.textContent))
+    .poll(() =>
+      labels().map((label) => label.querySelector("span")?.textContent),
+    )
     .toEqual(["Layer 1", "Layer 2", "Layer 3", "Audio"]);
   const audioLaneId = labels().at(-1)?.getAttribute("data-lane-label-id");
   const audioClips = document.querySelectorAll(

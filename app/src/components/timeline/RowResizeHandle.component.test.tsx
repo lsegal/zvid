@@ -156,9 +156,7 @@ describe(RowResizeHandle, { timeout: 60_000 }, () => {
     expect(topAtGripBottom).toContain("track-label__grip");
 
     // Resizing doesn't select the row; clicking its label still does.
-    await page
-      .elementLocator(query(".track-label__index", layerRow()))
-      .click();
+    await page.elementLocator(query(".track-label__index", layerRow())).click();
     await expect
       .poll(() => layerRow().className)
       .toMatch(/track-row--selected/);
@@ -187,9 +185,7 @@ describe(RowResizeHandle, { timeout: 60_000 }, () => {
     await doubleClick(query(".track-label__select", label));
     await expect
       .element(
-        page
-          .elementLocator(label)
-          .getByRole("textbox", { name: "Layer name" }),
+        page.elementLocator(label).getByRole("textbox", { name: "Layer name" }),
       )
       .toHaveFocus();
   });

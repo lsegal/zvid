@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { TrackRecordDevice } from "./TrackRecordDevice";
 import {
   projectWithMedia,
   TimelineHarness,
   testPatternVideo,
 } from "./timeline/timeline-harness";
-import { TrackRecordDevice } from "./TrackRecordDevice";
 
 // Selecting a source track, or one of its clips, leads the Effects pane
 // with a Record device, ahead of the Clip device and the Global section:
@@ -23,7 +23,8 @@ function left(element: Element) {
 }
 
 const device = () => query(".track-record-device");
-const collapsed = () => device().className.includes("fx-device-panel--collapsed");
+const collapsed = () =>
+  device().className.includes("fx-device-panel--collapsed");
 const deviceButton = (name: RegExp | string) =>
   page.elementLocator(device()).getByRole("button", { name });
 const firstInChain = () =>

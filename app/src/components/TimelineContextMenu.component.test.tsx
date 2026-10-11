@@ -86,6 +86,16 @@ function blurFocus() {
   (document.activeElement as HTMLElement | null)?.blur();
 }
 
+// Chromium turns Shift+F10 into a contextmenu event everywhere but macOS,
+// where only the context-menu key does, so there it presses that instead.
+const SHIFT_F10_OPENS_MENUS = !/mac/i.test(navigator.platform);
+
+async function pressShiftF10() {
+  await userEvent.keyboard(
+    SHIFT_F10_OPENS_MENUS ? "{Shift>}{F10}{/Shift}" : "{ContextMenu}",
+  );
+}
+
 async function expectHighlighted(item: Locator) {
   await expect.element(item).toHaveAttribute("data-highlighted", "");
 }
@@ -260,7 +270,7 @@ describe(TimelineContextMenu, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     // With nothing focused, Shift+F10 and the context-menu key open it on
     // the selected layer.
     blurFocus();
-    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await pressShiftF10();
     await expect.element(layerMenu).toBeVisible();
     expect(fxPanelTitle()).toBe("Layer 3 Effects");
     await userEvent.keyboard("{Escape}");
@@ -334,7 +344,7 @@ describe(TimelineContextMenu, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     // Shift+F10 opens the menu on the selected clip; End reaches Delete.
     blurFocus();
-    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await pressShiftF10();
     await expect.element(clipMenu).toBeVisible();
     // The menu takes focus a tick after it opens; keys before that are lost.
     await expect
@@ -583,7 +593,7 @@ describe(TimelineContextMenu, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     // With nothing focused, Shift+F10 opens the selection menu on it.
     await dragSelection(lane("3"), 600, 700);
     blurFocus();
-    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await pressShiftF10();
     await expect.element(selectionMenu).toBeVisible();
     expect(count(".timeline-selection", lane("3"))).toBe(1);
   });

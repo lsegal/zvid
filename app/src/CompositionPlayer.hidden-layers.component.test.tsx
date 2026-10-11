@@ -33,11 +33,7 @@ const SIZE = 120;
 
 // Renders the layers at 1 s and returns the pixels at `samples`, fractions
 // of the canvas from its top-left corner.
-async function render({
-  layers,
-  effects,
-  samples,
-}: Scenario): Promise<Rgb[]> {
+async function render({ layers, effects, samples }: Scenario): Promise<Rgb[]> {
   const lanes: Lane[] = layers.map((layer, index) => ({
     id: `${index + 1}`,
     name: `Layer ${index + 1}`,

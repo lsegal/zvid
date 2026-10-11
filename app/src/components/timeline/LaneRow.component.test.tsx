@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { render } from "vitest-browser-react";
-import { MIN_GRID_SELECTION_PX } from "../../lane-selection-gesture.ts";
 import { setViewport } from "../../component-test/viewport.ts";
+import { MIN_GRID_SELECTION_PX } from "../../lane-selection-gesture.ts";
 import {
   projectWithMedia,
   TimelineHarness,
@@ -52,7 +52,9 @@ function minimumSelectionPx(cellPx: number) {
 async function expectCellAt(target: HTMLElement, offsetX: number) {
   const laneBox = target.getBoundingClientRect();
   await mouse.dblclick(laneBox.x + offsetX, laneBox.y + 20);
-  await expect.poll(() => target.querySelectorAll(".timeline-selection")).toHaveLength(1);
+  await expect
+    .poll(() => target.querySelectorAll(".timeline-selection"))
+    .toHaveLength(1);
   const selection = target.querySelector(".timeline-selection") as HTMLElement;
   const cellPx = finestGridPx(target);
   const selectionBox = selection.getBoundingClientRect();
@@ -154,7 +156,9 @@ describe("LaneRow", { timeout: 60_000 }, () => {
     expect(Math.min(zoomedOut, zoomedInPx)).toBeLessThan(64);
 
     // The selection is the same as a dragged one: its edge resizes it.
-    const selection = target.querySelector(".timeline-selection") as HTMLElement;
+    const selection = target.querySelector(
+      ".timeline-selection",
+    ) as HTMLElement;
     const before = selection.getBoundingClientRect();
     const end = center(
       screen.getByRole("button", { name: "Resize selection end" }).element(),
@@ -192,7 +196,9 @@ describe("LaneRow", { timeout: 60_000 }, () => {
     await screen.getByRole("menuitem", { name: "Copy to layer" }).hover();
     await screen.getByRole("menuitem", { name: "Layer 1" }).click();
     const clipLane = lane("1");
-    await expect.poll(() => clipLane.querySelectorAll(".clip-card")).toHaveLength(1);
+    await expect
+      .poll(() => clipLane.querySelectorAll(".clip-card"))
+      .toHaveLength(1);
 
     const laneBox = clipLane.getBoundingClientRect();
     const clip = clipLane.querySelector(".clip-card") as HTMLElement;

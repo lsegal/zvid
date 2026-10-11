@@ -39,9 +39,10 @@ function pieceRanges() {
   const clipBox = box(clip());
   return [...clip().querySelectorAll(".clip-card__piece")].map((piece) => {
     const pieceBox = box(piece);
-    return [pieceBox.x - clipBox.x, pieceBox.x + pieceBox.width - clipBox.x].map(
-      (px) => Math.round((px / clipBox.width) * 10) / 10,
-    );
+    return [
+      pieceBox.x - clipBox.x,
+      pieceBox.x + pieceBox.width - clipBox.x,
+    ].map((px) => Math.round((px / clipBox.width) * 10) / 10);
   });
 }
 

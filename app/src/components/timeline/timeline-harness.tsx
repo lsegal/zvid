@@ -1,17 +1,9 @@
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import testPatternUrl from "../../../e2e/fixtures/test-pattern.mp4?url";
 import type { ClipClipboard } from "../../app/clip-ops.ts";
-import {
-  INITIAL_PROJECT_STATE,
-  signatureById,
-} from "../../app/constants.ts";
-import { patchProjectState } from "../../app/session-project.ts";
+import { INITIAL_PROJECT_STATE, signatureById } from "../../app/constants.ts";
 import { DEFAULT_PREVIEW_VOLUME } from "../../app/preview-volume.ts";
+import { patchProjectState } from "../../app/session-project.ts";
 import { selectSourceSpan } from "../../app/source-selection.ts";
 import type { ProjectState, SourceSpan } from "../../app/types.ts";
 import { resolveAudioClips } from "../../audio-mix/resolve.ts";
@@ -31,7 +23,6 @@ import { useTimelineSelection } from "../../hooks/useTimelineSelection.ts";
 import type { MediaItem } from "../../media";
 import { addMediaToSourceTrack } from "../../source-track-media.ts";
 import { createSpaceHold } from "../../space-shortcut";
-import testPatternUrl from "../../../e2e/fixtures/test-pattern.mp4?url";
 import { FxPanel } from "../FxPanel";
 import { TimelineContextMenu } from "../TimelineContextMenu";
 import { ArrangementLanes } from "./ArrangementLanes";
@@ -47,9 +38,11 @@ import { TransportBar } from "./TransportBar";
 // layers, source tracks and Audio row), the transport bar, the FX panel and
 // the context menus, wired through the hooks App wires them with
 // (useProjectStore, useTimelineSelection, useAppLayout, useTimeline,
-// useFxEditing, useFxPanelModel and useTimelineEditing), so edits, undo,
-// menus, drags and keyboard shortcuts behave as in the app. Playback is a
-// stub that only moves the playhead.
+// useFxEditing, useFxPanelModel, useSourceClipProperties and
+// useTimelineEditing), so edits, undo, menus, drags and keyboard shortcuts
+// behave as in the app. Playback is a stub that only moves the playhead, and
+// media comes in through the session it opens (projectWithMedia) rather
+// than a file drop. Nothing records.
 
 // What a source track drop shows while nothing is being dragged.
 const NO_DROP = {
@@ -105,7 +98,9 @@ export type TimelineHarnessProps = {
   project?: ProjectState;
 };
 
-export function TimelineHarness({ project: initialProject }: TimelineHarnessProps) {
+export function TimelineHarness({
+  project: initialProject,
+}: TimelineHarnessProps) {
   const store = useProjectStore({ access: "owner", restoredSession: null });
   const { dispatchProjectHistory } = store;
   // Opens the given session as the app opens a saved one: no undo step.
@@ -115,7 +110,7 @@ export function TimelineHarness({ project: initialProject }: TimelineHarnessProp
       dispatchProjectHistory({ type: "replace", snapshot: initialProject });
       setOpened(true);
     }
-  }, [dispatchProjectHistory, initialProject, opened]);
+  }, [initialProject, opened]);
   const {
     projectHistory,
     playheadQ,

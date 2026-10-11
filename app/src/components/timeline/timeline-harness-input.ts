@@ -58,9 +58,13 @@ async function mouseEvent(
 }
 
 export const mouse = {
-  async move(x: number, y: number, { steps = 1, ...modifiers } = {} as {
-    steps?: number;
-  } & Modifiers) {
+  async move(
+    x: number,
+    y: number,
+    { steps = 1, ...modifiers } = {} as {
+      steps?: number;
+    } & Modifiers,
+  ) {
     const from = pointer;
     for (let step = 1; step <= steps; step += 1) {
       await mouseEvent(
@@ -226,9 +230,12 @@ export async function copySourceClipToLayer1() {
     .poll(() => document.querySelectorAll(`${layer} .clip-card`))
     .toHaveLength(1);
   await expect
-    .poll(() => isVisible(document.querySelector(`${layer} .clip-card__tile`)), {
-      timeout: 30_000,
-    })
+    .poll(
+      () => isVisible(document.querySelector(`${layer} .clip-card__tile`)),
+      {
+        timeout: 30_000,
+      },
+    )
     .toBe(true);
   await expect
     .poll(() =>

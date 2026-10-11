@@ -255,7 +255,11 @@ describe("collapsing rows", { timeout: 60_000 }, () => {
 
     await doubleClick(query(".track-label__index", label));
     await expect.poll(() => row.className).toMatch(/track-row--collapsed/);
-    expectSameLayout(label, query(".clip-card__text strong", row), expandedLayout);
+    expectSameLayout(
+      label,
+      query(".clip-card__text strong", row),
+      expandedLayout,
+    );
     expect(height(row)).toBe(COLLAPSED_HEIGHT);
     expect(height(label)).toBe(COLLAPSED_HEIGHT);
     expectBadgePadding(row, label);
@@ -285,9 +289,7 @@ describe("collapsing rows", { timeout: 60_000 }, () => {
     await doubleClick(query(".track-label__select", label));
     await expect
       .element(
-        page
-          .elementLocator(label)
-          .getByRole("textbox", { name: "Layer name" }),
+        page.elementLocator(label).getByRole("textbox", { name: "Layer name" }),
       )
       .toHaveFocus();
     expect(height(row)).toBe(expandedHeight);
@@ -306,7 +308,11 @@ describe("collapsing rows", { timeout: 60_000 }, () => {
     await doubleClickBesideName(label);
     await expect.poll(() => row.className).toMatch(/track-row--collapsed/);
     expect(height(row)).toBe(COLLAPSED_HEIGHT);
-    expectSameLayout(label, query(".source-span__body span", row), expandedLayout);
+    expectSameLayout(
+      label,
+      query(".source-span__body span", row),
+      expandedLayout,
+    );
     const span = query(".source-span", row);
     expect(height(span)).toBe(COLLAPSED_CLIP_HEIGHT);
     expect(span.offsetTop).toBe(COLLAPSED_CLIP_INSET);

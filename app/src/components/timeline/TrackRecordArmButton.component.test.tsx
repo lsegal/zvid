@@ -3,12 +3,12 @@ import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { PhoneShell } from "../../component-test/shells.tsx";
 import { usePhone, useTablet } from "../../component-test/viewport.ts";
+import { TrackRecordArmButton } from "./TrackRecordArmButton";
 import {
   projectWithMedia,
   TimelineHarness,
   testPatternVideo,
 } from "./timeline-harness";
-import { TrackRecordArmButton } from "./TrackRecordArmButton";
 
 const track = { id: "track-1", name: "Camera" };
 
@@ -56,7 +56,9 @@ describe("TrackRecordArmButton", () => {
 // The source track handle's arm button and the Record device the selected
 // track leads the Effects pane with arm the same track, so each follows the
 // other.
-describe("TrackRecordArmButton with the Record device", { timeout: 60_000 }, () => {
+describe("TrackRecordArmButton with the Record device", {
+  timeout: 60_000,
+}, () => {
   test("follows the device, and arms the device back", async () => {
     localStorage.clear();
     await render(
@@ -95,8 +97,8 @@ describe("TrackRecordArmButton with the Record device", { timeout: 60_000 }, () 
     await expect.poll(collapsed).toBe(false);
     // Disarmed again, so no other test finds it armed.
     await page.elementLocator(handleArm()).click();
-    await expect.poll(() => handleArm().getAttribute("aria-pressed")).toBe(
-      "false",
-    );
+    await expect
+      .poll(() => handleArm().getAttribute("aria-pressed"))
+      .toBe("false");
   });
 });

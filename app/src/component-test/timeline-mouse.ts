@@ -36,6 +36,13 @@ function modifierBits(modifiers: readonly Modifier[] = held) {
   return modifiers.reduce((bits, key) => bits | MODIFIER_BITS[key], 0);
 }
 
+function heldButton() {
+  const button = (Object.keys(BUTTON_BITS) as MouseButton[]).find(
+    (name) => pressed & BUTTON_BITS[name],
+  );
+  return button ?? "none";
+}
+
 function send(params: Record<string, unknown>) {
   const session = cdp() as unknown as {
     send: (method: string, params: Record<string, unknown>) => Promise<void>;
@@ -59,6 +66,8 @@ export async function move(x: number, y: number, { steps = 1 } = {}) {
     await send({
       type: "mouseMoved",
       ...position,
+      // Chromium takes the held button from `button`, not `buttons`.
+      button: heldButton(),
       buttons: pressed,
       modifiers: modifierBits(),
     });

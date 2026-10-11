@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { TrackFxButton } from "./TrackFxButton";
 import { TimelineHarness } from "./timeline-harness";
 import {
   addLayers,
@@ -9,7 +10,6 @@ import {
   mouse,
   undo,
 } from "./timeline-harness-input";
-import { TrackFxButton } from "./TrackFxButton";
 
 // The FX button in each layer header (#693): always toggleable, lit while
 // the layer's FX are on, and turning it off turns off every effect on the
@@ -35,8 +35,13 @@ describe(TrackFxButton, { timeout: 60_000 }, () => {
 
     await insertFillAtStart("1");
     await page.getByRole("button", { name: "Add device to this clip" }).click();
-    await page.getByRole("menuitem", { name: "Stylize" }).click();
-    await page.getByRole("menuitem", { name: "Negative Split" }).click();
+    // The keyboard opens the submenu, so the pointer can't close it on its
+    // way there.
+    (
+      page.getByRole("menuitem", { name: "Stylize" }).element() as HTMLElement
+    ).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await page.getByRole("menuitem", { name: /^Negative Split/ }).click();
     const device = () =>
       document.querySelectorAll(
         `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Negative Split"]`,

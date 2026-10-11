@@ -11,7 +11,9 @@ describe(AudioRow, { timeout: 60_000 }, () => {
   test("only offers to recompute the audio", async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
-    await expect.poll(() => document.querySelector("[data-audio-row]")).toBeTruthy();
+    await expect
+      .poll(() => document.querySelector("[data-audio-row]"))
+      .toBeTruthy();
     const audioRow = document.querySelector("[data-audio-row]") as HTMLElement;
     // It takes no files: no picker, and no import or replace button.
     expect(audioRow.querySelectorAll('input[type="file"]')).toHaveLength(0);
