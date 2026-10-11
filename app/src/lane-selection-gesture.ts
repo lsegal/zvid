@@ -39,19 +39,45 @@ export function buildSelection(
   };
 }
 
+// A touch handle is a 44px target centered on its edge, so it reaches 22px
+// into the selection. Two of them plus a 20px strip in the middle, which
+// belongs to neither handle so a tap there still hits the selection body.
+const SELECTION_HANDLE_TAP_PX = 44;
+export const MIN_GRID_SELECTION_PX = 2 * (SELECTION_HANDLE_TAP_PX / 2) + 20;
+
 /**
- * The grid cell `cellQ` long that holds `timeQ`: from the grid line at or
- * before it to the next one. A double-click or double-tap on empty lane
- * space selects it, with or without Snap.
+ * The fewest whole grid cells `cellQ` long that are at least
+ * `MIN_GRID_SELECTION_PX` wide at `quarterPx`, and never fewer than one.
+ */
+export function gridSelectionCells(cellQ: number, quarterPx: number): number {
+  const cellPx = cellQ * quarterPx;
+  if (!(cellPx > 0)) {
+    return 1;
+  }
+  // The epsilon keeps a cell exactly the minimum wide from rounding up.
+  return Math.max(1, Math.ceil(MIN_GRID_SELECTION_PX / cellPx - 1e-9));
+}
+
+/**
+ * The grid-aligned range from the grid line at or before `timeQ`: the fewest
+ * whole cells `cellQ` long that are at least `MIN_GRID_SELECTION_PX` wide at
+ * `quarterPx`, so both edge handles stay reachable. A double-click or
+ * double-tap on empty lane space selects it, with or without Snap.
  */
 export function gridCellSelection(
   laneId: string,
   timeQ: number,
   cellQ: number,
+  quarterPx: number,
 ): TimelineSelection {
   // The epsilon keeps a time on a grid line from landing a cell early.
   const startQ = Math.floor(Math.max(0, timeQ) / cellQ + 1e-9) * cellQ;
-  return { id: `selection-${laneId}`, laneId, startQ, durationQ: cellQ };
+  return {
+    id: `selection-${laneId}`,
+    laneId,
+    startQ,
+    durationQ: gridSelectionCells(cellQ, quarterPx) * cellQ,
+  };
 }
 
 export function startLaneSelectionGesture(

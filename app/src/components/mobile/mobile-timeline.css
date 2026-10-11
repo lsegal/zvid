@@ -46,6 +46,7 @@
   height: var(--mobile-tap);
 }
 
+.app-shell--phone .track-label__grip,
 .app-shell--phone .track-label__index,
 .app-shell--phone .track-label__select,
 .app-shell--phone .track-label__hide {
@@ -59,10 +60,28 @@
   display: none;
 }
 
-/* A long press on a label picks its layer up (LayerHeader), so the labels
-   leave their narrow width to the name rather than a grip. */
-.app-shell--phone .track-label__grip {
+/* A long press on a label picks its layer up (LayerHeader), so the grips
+   only show in Reorder mode, where a touch drags them right away
+   (use-layer-reorder) from a finger-sized target. */
+.app-shell--phone:not(.app-shell--reordering) .track-label__grip {
   display: none;
+}
+
+.app-shell--phone.app-shell--reordering .track-label__grip {
+  width: var(--mobile-tap);
+  height: var(--mobile-tap);
+  margin-inline: -8px -6px;
+  opacity: 1;
+}
+
+.app-shell--phone.app-shell--reordering .track-label__grip svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-shell--phone.app-shell--reordering .track-label {
+  outline: 1px dashed var(--line-strong);
+  outline-offset: -3px;
 }
 
 /* Source tracks hide behind the overflow menu's toggle. */
