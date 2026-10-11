@@ -97,8 +97,8 @@ first test that turns touch off, with the same pointer.
 
 ### Component tests in CI
 
-The `component-tests` job in `.github/workflows/ci.yml` runs only the
-component tests affected by a change:
+`component-select` in `.github/workflows/ci.yml` picks the component tests
+affected by a change, and `component-tests` runs them:
 
 - On a pull request, against the merge base with `main`.
 - On a push to `main`, against the commit `main` pointed at before the
@@ -107,7 +107,12 @@ component tests affected by a change:
 - A manual run (`workflow_dispatch`) with `full-suite` set runs the whole
   suite.
 
-When no test is affected, the job passes without running any.
+A shared component, such as one the `renderEditor` timeline renders, selects
+every test that renders it, often dozens of files. Headed Chromium (see
+above) runs one test file at a time, so `component-tests` splits the
+selection into shards of about 15 files, at most 6, that run in parallel
+(`componentTestShards` in `scripts/component-tests.mjs`). When no test is
+affected, one shard passes without running any.
 
 ### Playwright specs in CI
 
