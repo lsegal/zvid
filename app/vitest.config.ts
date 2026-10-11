@@ -25,6 +25,9 @@ export default mergeConfig(
     // test sees the styles the app ships.
     css: {},
     server: {
+      // The dev server's fixed port doesn't apply: Vitest picks the browser
+      // server's port, and moves past one in use by another run.
+      strictPort: false,
       // `vitest --changed` walks the tests' imports through the server's
       // ssr environment, whose CSS plugins only initialize when each
       // environment runs its own buildStart.
