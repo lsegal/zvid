@@ -414,12 +414,107 @@ test.describe("tablet", () => {
     await expect(page.locator(".app-shell")).not.toHaveClass(
       /app-shell--phone/,
     );
-    const zoomButton = await page
-      .getByRole("button", { name: "Zoom in" })
-      .boundingBox();
-    expect(zoomButton?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
+  // Toolbar controls keep their desktop size and take a 44px-tall touch
+  // through an invisible hit area that no neighbor's covers (#1186).
+  test("keeps desktop-sized controls with 44px touch targets", async ({
+    browser,
+    page,
+  }) => {
+    // A mouse on the same window size; touch must be off explicitly.
+    const desktop = await browser.newContext({
+      viewport: { width: 820, height: 1180 },
+      hasTouch: false,
+      isMobile: false,
+    });
+    const desktopPage = await desktop.newPage();
+    const desktopSizes = await controlSizes(desktopPage);
+    await desktop.close();
+    const sizes = await controlSizes(page);
+    expect(Object.keys(sizes)).toEqual(
+      expect.arrayContaining([
+        "Record",
+        "Snap On",
+        "Tempo",
+        "Timeline",
+        "Zoom in",
+      ]),
+    );
+    expect(sizes).toEqual(desktopSizes);
+
+    const hits = await page.locator(TOUCH_CONTROLS).evaluateAll((controls) =>
+      controls
+        .filter((control) => control.getClientRects().length > 0)
+        .map((control) => {
+          const box = control.getBoundingClientRect();
+          const x = box.x + box.width / 2;
+          const y = box.y + box.height / 2;
+          const hit = (dy: number) =>
+            document.elementFromPoint(x, y + dy)?.closest("button") === control;
+          return {
+            name: control.getAttribute("aria-label") ?? control.textContent,
+            center: hit(0),
+            touch: hit(-21) && hit(21),
+          };
+        }),
+    );
+    expect(hits.length).toBeGreaterThan(5);
+    for (const hit of hits) {
+      expect(hit, String(hit.name)).toEqual({
+        ...hit,
+        center: true,
+        touch: true,
+      });
+    }
+
+    // Every other button still takes a tap at its own center.
+    const stolen = await page.locator("button:visible").evaluateAll((buttons) =>
+      buttons
+        .filter((button) => {
+          const box = button.getBoundingClientRect();
+          if (box.width === 0 || box.height === 0) return false;
+          const hit = document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          );
+          return (
+            hit !== null &&
+            !button.contains(hit) &&
+            hit.closest("button") !== null
+          );
+        })
+        .map(
+          (button) => button.getAttribute("aria-label") ?? button.textContent,
+        ),
+    );
+    expect(stolen).toEqual([]);
   });
 });
+
+// The Sessions/Media/Record, Tempo/Time and Snap switches, the preview
+// tabs, the menubar and the zoom buttons.
+const TOUCH_CONTROLS = [
+  ".timeline-toolbar .segmented-control button",
+  ".preview-panel__tabs button",
+  ".menubar-item",
+  ".zoom-control__button",
+].join(", ");
+
+async function controlSizes(page: Page) {
+  await page.goto("/");
+  await expect(page.locator(".topbar")).toBeVisible();
+  const sizes = await page.locator(TOUCH_CONTROLS).evaluateAll((controls) =>
+    controls
+      .filter((control) => control.getClientRects().length > 0)
+      .map((control) => {
+        const { width, height } = control.getBoundingClientRect();
+        const name = control.getAttribute("aria-label") ?? control.textContent;
+        return [String(name), { width, height }] as const;
+      }),
+  );
+  return Object.fromEntries(sizes);
+}
 
 test.describe("narrow window with a mouse", () => {
   test.use({ hasTouch: false, isMobile: false });
