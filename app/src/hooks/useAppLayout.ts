@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -26,6 +27,7 @@ import {
   writeAudioRowCollapsed,
 } from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
+import { isPhoneShell } from "../mobile/shell-kind.ts";
 import {
   COLLAPSED_ROW_METRICS,
   clampRowHeight,
@@ -41,19 +43,30 @@ import {
   writeSourceTracksCollapsed,
 } from "../source-tracks-section.ts";
 import { useLabelResize } from "./useLabelResize.ts";
+import { useShellKind } from "./useShellKind.ts";
 
 export type AppLayoutInputs = {
   sourceTrackCount: number;
+  timelineScrollRef: RefObject<HTMLDivElement | null>;
 };
 
 // The editor's layout preferences: the FX panel's collapsed state, the
 // source tracks section, the Audio row, each row's height, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
-// motion preference.
-export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
+// motion preference. On a phone it picks the mobile shell, where the FX
+// panel is a sheet and the timeline's labels give way to half a view of
+// lead-in, so the playhead can stay at the center from time 0.
+export function useAppLayout({
+  sourceTrackCount,
+  timelineScrollRef,
+}: AppLayoutInputs) {
+  const shell = useShellKind();
+  const isPhone = isPhoneShell(shell);
+  const [timelineViewWidth, setTimelineViewWidth] = useState(0);
+  const [isInspectorCollapsedPref, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
+  const isInspectorCollapsed = isInspectorCollapsedPref && !isPhone;
   const [sourceTracksCollapsedPref, setSourceTracksCollapsedPref] = useState(
     () =>
       readSourceTracksCollapsed(
@@ -68,7 +81,10 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const [rowHeights, setRowHeights] = useState<RowHeights>(NO_ROW_HEIGHTS);
   // The Audio row's expanded height; its collapse is the pref above.
   const [audioRowHeight, setAudioRowHeight] = useState(AUDIO_ROW_HEIGHT);
-  const labelResize = useLabelResize();
+  const deskLabelResize = useLabelResize();
+  const labelResize = isPhone
+    ? { ...deskLabelResize, labelWidth: Math.round(timelineViewWidth / 2) }
+    : deskLabelResize;
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
@@ -155,8 +171,21 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const timelineScroll = timelineScrollRef.current;
+    if (!isPhone || !timelineScroll) {
+      return;
+    }
+
+    const measure = () => setTimelineViewWidth(timelineScroll.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(timelineScroll);
+    return () => observer.disconnect();
+  }, [isPhone, timelineScrollRef]);
+
   function toggleInspectorCollapsed() {
-    const nextCollapsed = !isInspectorCollapsed;
+    const nextCollapsed = !isInspectorCollapsedPref;
     setIsInspectorCollapsed(nextCollapsed);
     try {
       window.localStorage.setItem(
@@ -250,6 +279,8 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   }
 
   return {
+    shell,
+    isPhone,
     isInspectorCollapsed,
     toggleInspectorCollapsed,
     isSourceTracksCollapsed,

@@ -18,9 +18,10 @@ import {
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
+import { MobileShellChrome } from "./components/mobile/MobileShellChrome";
+import { PhoneFxSheetHeader } from "./components/mobile/SheetHeaders";
 import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
-import { ProjectExportDialog } from "./components/ProjectExportDialog";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
@@ -36,6 +37,7 @@ import { useAppMedia } from "./hooks/useAppMedia.ts";
 import { useAudioMix } from "./hooks/useAudioMix.ts";
 import { useCollaborationState } from "./hooks/useCollaboration.ts";
 import { useExport, useExportState } from "./hooks/useExport.ts";
+import { useFxContexts } from "./hooks/useFxContexts.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
 import { useMasterMeterTap } from "./hooks/useMasterMeterTap.ts";
@@ -45,6 +47,7 @@ import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { useMediaPreview } from "./hooks/useMediaPreview.ts";
 import { useMediaRange } from "./hooks/useMediaRange.ts";
 import { useNewSession } from "./hooks/useNewSession.ts";
+import { usePhoneShell } from "./hooks/usePhoneShell.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
 import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
@@ -91,7 +94,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
   const { setSelectedClipId, setDragPreviewClips, setDragState } = selection;
-  const layout = useAppLayout({ sourceTrackCount: sourceTracks.length });
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const layout = useAppLayout({
+    sourceTrackCount: sourceTracks.length,
+    timelineScrollRef,
+  });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
   const mediaDrawer = useMediaDrawer({
     editorGridWidth: layout.editorGridWidth,
@@ -113,7 +120,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const previewVolume = usePreviewVolume(compositionPlayerRef);
   const getMeterTap = useMasterMeterTap(compositionPlayerRef);
   const appShellRef = useRef<HTMLDivElement | null>(null);
-  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
@@ -384,44 +390,48 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     (span: SourceSpan) => selectSource(selectSourceSpan(span)),
     [selectSource],
   );
-  const modulationClock = useMemo(
-    () => ({
-      signal: playheadSignal,
-      bpm,
-      signature: timeline.signature,
-      isPlaying,
-    }),
-    [playheadSignal, bpm, timeline.signature, isPlaying],
-  );
-  const { fxLaneId, fxClipId } = fxPanel;
-  const { projectDurationFrames } = project;
-  const animationTimeline = useMemo(
-    () => ({
-      fps,
-      clips: timelineClips,
-      lanePriority,
-      laneId: fxLaneId,
-      clipId: fxClipId,
-      sessionEndSeconds:
-        projectDurationFrames && fps > 0
-          ? projectDurationFrames / fps
-          : undefined,
-    }),
-    [
-      fps,
-      timelineClips,
-      lanePriority,
-      fxLaneId,
-      fxClipId,
-      projectDurationFrames,
-    ],
-  );
+  const { modulationClock, animationTimeline } = useFxContexts({
+    playheadSignal,
+    bpm,
+    fps,
+    signature: timeline.signature,
+    isPlaying,
+    timelineClips,
+    lanePriority,
+    fxLaneId: fxPanel.fxLaneId,
+    fxClipId: fxPanel.fxClipId,
+    projectDurationFrames: project.projectDurationFrames,
+  });
+  const timeFormat = { timelineMode, bpm, fps, signature: timeline.signature };
+  const phone = usePhoneShell({
+    project,
+    layout,
+    store,
+    selection,
+    timeline,
+    playback,
+    recording,
+    mediaDrawer,
+    timelineScrollRef,
+    compositionPlayerRef,
+    playbackOriginRef,
+    isPlaying,
+    setIsPlaying,
+    isExporting,
+    openExportDialog,
+    editing,
+    collaboration,
+    library,
+    sessionFiles,
+    setStatus,
+  });
 
   return (
     <div
-      className={`app-shell${recording.isRecording ? " app-shell--recording" : ""}`}
+      className={`app-shell${recording.isRecording ? " app-shell--recording" : ""} ${phone.shellClassName}`}
       ref={appShellRef}
     >
+      {layout.isPhone ? <MobileShellChrome {...phone.chrome} /> : null}
       <CollaborationCursors
         cursors={collaboration.collaborationView.remoteCursors}
       />
@@ -471,12 +481,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 mediaItems={mediaItems}
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
-                timeFormat={{
-                  timelineMode,
-                  bpm,
-                  fps,
-                  signature: timeline.signature,
-                }}
+                timeFormat={timeFormat}
                 onImport={() => void sessionFiles.handleImport()}
                 onOpenMedia={(mediaId) =>
                   mediaPreview.loadPreviewMedia(mediaId, true)
@@ -687,12 +692,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 mediaItems={mediaItems}
                 mediaPreview={mediaPreview}
                 mediaRange={mediaRange}
-                mediaTimeFormat={{
-                  timelineMode,
-                  bpm,
-                  fps,
-                  signature: timeline.signature,
-                }}
+                mediaTimeFormat={timeFormat}
                 previewVolume={previewVolume.previewVolume}
                 playheadSignal={playheadSignal}
                 previewLaneId={selection.previewLaneId}
@@ -722,6 +722,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 {...fxPanel}
                 {...layout}
                 sourceClip={sourceClip}
+                sheetHeader={
+                  <PhoneFxSheetHeader
+                    mobile={phone.mobile}
+                    title={fxPanel.fxPanelTitle}
+                  />
+                }
               />
             </FxAnimationTimelineContext.Provider>
           </FxModulationClockContext.Provider>
@@ -736,6 +742,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         collaboration={collaboration}
         commitProjectChange={commitProjectChange}
         exportDialog={exportDialog}
+        exportProject={sessionFiles.handleExportProject}
+        setStatus={setStatus}
         handleMediaStorageCleared={media.handleMediaStorageCleared}
         isTakeOverPromptOpen={store.isTakeOverPromptOpen}
         isWorkspaceReadOnly={store.isWorkspaceReadOnly}
@@ -747,18 +755,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       />
       <SessionLibraryDialogs library={library} />
       <NewSessionDialog {...newSession} />
-      <ProjectExportDialog
-        initialIncludeMedia={false}
-        onCancel={() => {
-          dialogs.setIsProjectExportDialogOpen(false);
-          setStatus("Export canceled.");
-        }}
-        onExport={(options) => {
-          dialogs.setIsProjectExportDialogOpen(false);
-          void sessionFiles.handleExportProject(options);
-        }}
-        open={dialogs.isProjectExportDialogOpen}
-      />
       {recording.failureNotice && (
         <ImportNotice
           notice={recording.failureNotice}
@@ -791,6 +787,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}
         onClose={() => selection.setClipMenu(null)}
+        asSheet={layout.isPhone}
       />
     </div>
   );

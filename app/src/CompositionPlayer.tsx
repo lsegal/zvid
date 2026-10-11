@@ -47,7 +47,10 @@ import {
 } from "./composition-effect-index.ts";
 import { renderOfflineAudioBands } from "./composition-offline-bands.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
-import type { CompositionRendererState } from "./composition-renderer-state.ts";
+import type {
+  CompositionPlaybackState,
+  CompositionRendererState,
+} from "./composition-renderer-state.ts";
 import { findTransitionClips } from "./composition-transition.ts";
 import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
 import { recordHeardOnsets } from "./fx-animation-onsets.ts";
@@ -104,20 +107,12 @@ type CompositionPlayerProps = {
   frameAnalysis?: FrameAnalysisHub;
 };
 
-type CompositionPlaybackState = {
-  playheadQ: number;
-  playheadSeconds: number;
-  isPlaying: boolean;
-  isScrubbing: boolean;
-  isAudibleScrubbing: boolean;
-  isContinuousScrubbing: boolean;
-};
-
 export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setVolume(volume: number, muted: boolean): void;
   getMasterMeterTap(): MasterMeterTap | null;
+  unlockAudio(): void;
 };
 
 // "live" plays the audio mix and measures it as it plays (preview).
@@ -216,6 +211,11 @@ export class CompositionRenderer {
   // The preview playback volume, which export renders never set.
   setVolume(volume: number, muted: boolean) {
     this.mixer?.setVolume({ volume, muted });
+  }
+
+  // Starts the preview mix from inside a tap or click, which iOS requires.
+  unlockAudio() {
+    this.mixer?.resume();
   }
 
   // The program mix for the transport VU meter, before the preview volume.
@@ -673,6 +673,7 @@ export const CompositionPlayer = forwardRef<
       setVolume: (volume, muted) =>
         rendererRef.current?.setVolume(volume, muted),
       getMasterMeterTap: () => rendererRef.current?.getMasterMeterTap() ?? null,
+      unlockAudio: () => rendererRef.current?.unlockAudio(),
     }),
     [],
   );
