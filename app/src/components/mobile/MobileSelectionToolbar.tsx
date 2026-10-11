@@ -69,11 +69,21 @@ export function MobileSelectionToolbar({
   );
 }
 
-function MenuItemButton({ item }: { item: ContextMenuItem | undefined }) {
+// A toolbar button for a menu item, with the item's own label, disabled
+// state and action. `label` replaces the item's first word as its caption.
+export function MenuItemButton({
+  item,
+  icon,
+  label,
+}: {
+  item: ContextMenuItem | undefined;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
+  label?: string;
+}) {
   if (!item) {
     return null;
   }
-  const Icon = MENU_ITEM_ICONS[item.id];
+  const Icon = icon ?? MENU_ITEM_ICONS[item.id];
   return (
     <button
       aria-label={item.label}
@@ -84,7 +94,7 @@ function MenuItemButton({ item }: { item: ContextMenuItem | undefined }) {
       type="button"
     >
       {Icon ? <Icon aria-hidden="true" /> : null}
-      <span>{shortLabel(item.label)}</span>
+      <span>{label ?? shortLabel(item.label)}</span>
     </button>
   );
 }

@@ -4,6 +4,10 @@ import type { ProjectState } from "../app/types.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
 import type { MobileShareButtonProps } from "../components/mobile/MobileShareButton";
 import type { ContextMenuEntry } from "../context-menu.ts";
+import {
+  buildFileMenuEntries,
+  type FileMenuInputs,
+} from "../menus/file-menu.ts";
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
@@ -34,13 +38,13 @@ export type PhoneShellInputs = {
   playbackOriginRef: { current: number };
   isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
-  isExporting: boolean;
-  openExportDialog: () => void;
-  editing: Pick<TimelineEditing, "getClipMenuEntries" | "getEditMenuEntries">;
+  editing: Pick<
+    TimelineEditing,
+    "getClipMenuEntries" | "getEditMenuEntries" | "getHistoryEntries"
+  >;
+  fileMenu: FileMenuInputs;
   collaboration: MobileShareButtonProps["collaboration"];
   sharing: MobileShareButtonProps["sharing"];
-  library: { saveToLibrary: () => unknown };
-  sessionFiles: { handleImport: () => Promise<unknown> };
   setStatus: (status: string) => void;
 };
 
@@ -50,7 +54,7 @@ export type PhoneShellInputs = {
 export function usePhoneShell(inputs: PhoneShellInputs) {
   const { project, layout, store, selection, timeline, playback } = inputs;
   const { recording, mediaDrawer, isPlaying, setIsPlaying } = inputs;
-  const { editing } = inputs;
+  const { editing, fileMenu } = inputs;
   const { isPhone } = layout;
   const { selectedClip } = selection;
 
@@ -82,6 +86,14 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     timelineScrollRef: inputs.timelineScrollRef,
     timelineClips: selection.timelineClips,
     bpm: project.bpm,
+    pendingSelection: selection.pendingSelection,
+    labelWidth: layout.labelWidth,
+    quarterPx: timeline.quarterPx,
+    totalQuarters: timeline.totalQuarters,
+    snapUnit: timeline.snapUnit,
+    snapEnabled: project.snapEnabled,
+    // As useClipDrag's shortest selection.
+    minimumSelectionQ: Math.max(timeline.snapUnit, timeline.beatUnit / 4),
     setSelectedClipId: selection.setSelectedClipId,
     setSelectedLaneId: selection.setSelectedLaneId,
     setPendingSelection: selection.setPendingSelection,
@@ -135,6 +147,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     return [
       {
         type: "item",
+        id: "file",
+        label: "File",
+        submenu: buildFileMenuEntries(fileMenu),
+      },
+      {
+        type: "item",
         id: "edit",
         label: "Edit",
         submenu: editing.getEditMenuEntries(),
@@ -143,7 +161,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         type: "item",
         id: "save",
         label: "Save to Library",
-        onSelect: () => void inputs.library.saveToLibrary(),
+        onSelect: () => void fileMenu.handleSaveToLibrary(),
       },
       { type: "separator" },
       {
@@ -171,6 +189,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           anchor: { x: 0, y: 0 },
         })
       : [];
+  // A lane selection's actions, while no clip is selected.
+  const { pendingSelection } = selection;
+  const showsSelectionActions = isPhone && !selectedClip && pendingSelection;
+  const selectionMenuEntries = showsSelectionActions
+    ? editing.getClipMenuEntries({ kind: "selection", anchor: { x: 0, y: 0 } })
+    : [];
 
   const shellClassName = isPhone
     ? [
@@ -192,12 +216,13 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       mobile,
       sessionName: project.sessionName,
       exportSupport,
-      isExporting: inputs.isExporting,
-      openExportDialog: inputs.openExportDialog,
+      isExporting: fileMenu.isExporting,
+      openExportDialog: fileMenu.openExportDialog,
       getOverflowEntries,
+      historyEntries: isPhone ? editing.getHistoryEntries() : [],
       share: { collaboration: inputs.collaboration, sharing: inputs.sharing },
       mediaDrawer,
-      importMedia: () => void inputs.sessionFiles.handleImport(),
+      importMedia: () => void fileMenu.handleImport(),
       playheadSignal: store.playheadSignal,
       readout: {
         timelineMode: project.timelineMode,
@@ -221,6 +246,10 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
           clipId: selectedClip.id,
           anchor: { x: 0, y: 0 },
         }),
+      hasSelection: Boolean(showsSelectionActions),
+      selectionMenuEntries,
+      openSelectionMenu: () =>
+        selection.setClipMenu({ kind: "selection", anchor: { x: 0, y: 0 } }),
     },
   };
 }

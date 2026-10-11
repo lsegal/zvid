@@ -57,7 +57,7 @@ async function expectNothingClipped(page: Page) {
         };
       }),
     );
-  expect(boxes).toHaveLength(5);
+  expect(boxes).toHaveLength(7);
   for (const [index, box] of boxes.entries()) {
     expect(box.clipped).toBe(false);
     expect(box.left).toBeGreaterThanOrEqual(0);

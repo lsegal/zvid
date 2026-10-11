@@ -106,13 +106,22 @@ describe("the brand purple", () => {
 });
 
 describe("the favicon", () => {
-  it("is the zvid logo in the darker purple, not the bolt", () => {
-    assert.match(faviconSvg, /viewBox="-8 -8 258 212"/);
+  it("is the white zvid logo on a rounded square in the darker purple", () => {
+    assert.match(faviconSvg, /viewBox="0 0 512 512"/);
+    assert.match(
+      faviconSvg,
+      /<rect width="512" height="512" rx="\d+" fill="#863bff"/,
+    );
+    assert.match(faviconSvg, /<g fill="#fff"/);
     assert.deepEqual(pathData(faviconSvg), pathData(brandMarkTsx));
     assert.equal((faviconSvg.match(/fill-rule="evenodd"/g) ?? []).length, 2);
-    assert.match(faviconSvg, /fill="#863bff"/);
-    assert.doesNotMatch(faviconSvg, /<ellipse|<mask|<filter|<rect/);
+    assert.doesNotMatch(faviconSvg, /<ellipse|<mask|<filter/);
     assert.doesNotMatch(faviconSvg, /<title|role=|aria-labelledby/);
+  });
+
+  it("keeps the white logo legible on the purple", () => {
+    const square = faviconSvg.match(/<rect\b[^>]*fill="(#[0-9a-f]{6})"/i)?.[1];
+    assert.ok(contrast("#ffffff", square ?? "#ffffff") >= 4.5);
   });
 
   it("stands out at 3:1 against a light tab bar", () => {
