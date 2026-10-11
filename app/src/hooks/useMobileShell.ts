@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSheetPresence } from "./useSheetPresence.ts";
 
 export type FxSheetHeight = "half" | "full";
 // The FX sheet's two screens: the devices and their settings, and the
@@ -26,6 +27,12 @@ export function useMobileShell({
   setAudioRowCollapsed,
 }: MobileShellInputs) {
   const [fxSheet, setFxSheet] = useState<FxSheetHeight | null>(null);
+  // The FX sheet stays up at its last height while it slides away.
+  const fxPresence = useSheetPresence(fxSheet !== null);
+  const [lastFxSheet, setLastFxSheet] = useState<FxSheetHeight>("half");
+  if (fxSheet && fxSheet !== lastFxSheet) {
+    setLastFxSheet(fxSheet);
+  }
   const [fxScreen, setFxScreen] = useState<FxSheetScreen>("devices");
   const [isReordering, setIsReordering] = useState(false);
   const [showsSourceTracks, setShowsSourceTracks] = useState(false);
@@ -71,6 +78,8 @@ export function useMobileShell({
     isAudioShown: !isAudioRowCollapsed,
     fxSheet,
     setFxSheet,
+    fxSheetShown: fxPresence.present ? (fxSheet ?? lastFxSheet) : null,
+    isFxSheetClosing: fxPresence.closing,
     fxScreen,
     setFxScreen,
     openFxSheet,

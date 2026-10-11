@@ -1,7 +1,8 @@
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ContextMenuEntry, ContextMenuItem } from "../../context-menu.ts";
-import { MenuSheetFrame } from "./MenuSheetFrame.tsx";
+import { useSheetPresence } from "../../hooks/useSheetPresence.ts";
+import { MenuSheetFrame, navigateMenuSheet } from "./MenuSheetFrame.tsx";
 
 type MenuSheetProps = {
   open: boolean;
@@ -14,27 +15,39 @@ type MenuSheetProps = {
 // entries the right-click menu shows, with submenus opening in place
 // behind a Back row.
 export function MenuSheet({ open, ...props }: MenuSheetProps) {
-  if (!open) {
+  const presence = useSheetPresence(open);
+  if (!presence.present) {
     return null;
   }
-  return <OpenMenuSheet {...props} />;
+  return (
+    <OpenMenuSheet {...props} closing={presence.closing} key={presence.key} />
+  );
 }
 
 function OpenMenuSheet({
   entries,
   label,
+  closing,
   onClose,
-}: Omit<MenuSheetProps, "open">) {
+}: Omit<MenuSheetProps, "open"> & { closing: boolean }) {
   const [trail, setTrail] = useState<ContextMenuItem[]>([]);
+  // Owners drop their entries once the menu closes; the sheet keeps
+  // showing its rows as it slides away.
+  const shownEntries = useRef(entries);
+  if (!closing) {
+    shownEntries.current = entries;
+  }
   const parent = trail.at(-1);
-  const level = parent?.submenu ?? entries;
+  const level = parent?.submenu ?? shownEntries.current;
 
   function activate(item: ContextMenuItem) {
     if (item.disabled) {
       return;
     }
     if (item.submenu) {
-      setTrail((current) => [...current, item]);
+      navigateMenuSheet("forward", () =>
+        setTrail((current) => [...current, item]),
+      );
       return;
     }
     onClose();
@@ -43,6 +56,7 @@ function OpenMenuSheet({
 
   return (
     <MenuSheetFrame
+      closing={closing}
       label={label}
       levelKey={trail.map((item) => item.id).join("/")}
       onBack={() => setTrail((current) => current.slice(0, -1))}
