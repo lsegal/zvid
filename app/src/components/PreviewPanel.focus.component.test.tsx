@@ -36,6 +36,12 @@ const LAYER = (() => {
 
 type Point = { x: number; y: number };
 
+// A point on the layer, clear of the origin marker at its center.
+function onLayer(): Point {
+  const { x, y } = center(overlay());
+  return { x: x - 60, y: y - 40 };
+}
+
 async function renderPreview() {
   const moves: PreviewLayerMove[] = [];
   const transforms: PreviewLayerTransformEdit[] = [];
@@ -105,7 +111,7 @@ describe(PreviewPanel.name, () => {
     const { moves } = await renderPreview();
     expect(shield()).not.toBeNull();
 
-    const from = center(overlay());
+    const from = onLayer();
     await touchDrag(from, { x: from.x, y: from.y + 80 });
 
     expect(moves).toEqual([]);
@@ -116,13 +122,11 @@ describe(PreviewPanel.name, () => {
     await usePhone();
     const { moves, transforms } = await renderPreview();
 
-    const from = center(overlay());
+    const from = onLayer();
     await tap(from);
     expect(shield()).toBeNull();
     expect(moves).toEqual([]);
-    expect(
-      document.querySelector(".preview-monitor--focused"),
-    ).not.toBeNull();
+    expect(document.querySelector(".preview-monitor--focused")).not.toBeNull();
 
     await touchDrag(from, { x: from.x + 40, y: from.y + 30 });
     expect(moves.at(-1)).toMatchObject({ laneId: "1", mode: "commit" });
@@ -143,7 +147,7 @@ describe(PreviewPanel.name, () => {
     await usePhone();
     await renderPreview();
 
-    await tap(center(overlay()));
+    await tap(onLayer());
     expect(shield()).toBeNull();
 
     const tabs = document.querySelector(".preview-panel__header") as Element;
@@ -156,7 +160,7 @@ describe(PreviewPanel.name, () => {
     const { moves } = await renderPreview();
     expect(shield()).toBeNull();
 
-    const from = center(overlay());
+    const from = onLayer();
     await touchDrag(from, { x: from.x + 40, y: from.y + 30 });
     expect(moves.at(-1)).toMatchObject({ laneId: "1", mode: "commit" });
   });
@@ -165,7 +169,7 @@ describe(PreviewPanel.name, () => {
     const { moves } = await renderPreview();
     expect(shield()).toBeNull();
 
-    const from = center(overlay());
+    const from = onLayer();
     await drag(from, { x: from.x + 40, y: from.y + 30 });
     expect(moves.at(-1)).toMatchObject({ laneId: "1", mode: "commit" });
   });

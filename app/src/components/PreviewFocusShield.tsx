@@ -78,9 +78,6 @@ export function PreviewFocusShield({ onFocus }: { onFocus: () => void }) {
     <div
       className="preview-focus-shield"
       data-testid="preview-focus-shield"
-      role="button"
-      tabIndex={-1}
-      aria-label="Tap to edit the preview"
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => {
