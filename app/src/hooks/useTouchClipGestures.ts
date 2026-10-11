@@ -298,8 +298,7 @@ export function useTouchClipGestures({
       }
       const latest = latestRef.current;
       // A tap on the selection opens a sheet too, like a held press.
-      suppressClick =
-        current.held || (current.onSelection && !current.moved);
+      suppressClick = current.held || (current.onSelection && !current.moved);
       if (current.held && !current.moved && current.clipId) {
         latest.setClipMenu({
           kind: "clip",

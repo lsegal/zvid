@@ -72,6 +72,19 @@ async function playheadQ(page: Page) {
   return (bar - 1) * 4 + (beat - 1) + (sixteenth - 1) / 4;
 }
 
+// Waits out a swipe's fling: touches during one can't stop the scroll.
+async function settledPlayheadQ(page: Page) {
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      const previous = last;
+      last = await playheadQ(page);
+      return last === previous;
+    })
+    .toBe(true);
+  return last;
+}
+
 // Puts the test pattern on Layer 1 through the phone's own menus: show the
 // source tracks, drop the file, then Copy to layer from the clip's menu
 // sheet.
@@ -234,6 +247,83 @@ test("a long press opens the clip menu as a sheet; hold and drag moves", async (
   await expect
     .poll(async () => (await page.locator(".clip-card").boundingBox())?.x)
     .toBeGreaterThan((before?.x ?? 0) + 40);
+});
+
+// #1179: a swipe on empty lane space scrolls, so a hold starts a selection.
+test("a long press and drag on empty lane space selects a range", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const laneBox = await page
+    .locator('[data-timeline-lane-id="1"]')
+    .boundingBox();
+  const y = (laneBox?.y ?? 0) + (laneBox?.height ?? 0) / 2;
+  const selection = page.locator(".timeline-selection");
+  const toolbar = page.getByRole("toolbar", { name: "Selection actions" });
+
+  // A plain swipe still scrubs and draws nothing.
+  await drag(page, client, { x: scroll.x + 60, y }, { x: scroll.x - 60, y });
+  await expect.poll(() => playheadQ(page)).toBeGreaterThan(1);
+  await expect(selection).toHaveCount(0);
+
+  const before = await settledPlayheadQ(page);
+  await drag(page, client, { x: scroll.x, y }, { x: scroll.x + 120, y }, 600);
+  await expect(selection).toBeVisible();
+  await expect(toolbar).toBeVisible();
+  // The hold drew instead of scrolling, so the playhead stayed put.
+  expect(await playheadQ(page)).toBe(before);
+  const drawn = await selection.boundingBox();
+  expect(drawn?.width ?? 0).toBeGreaterThan(80);
+
+  // The end handle has a 44px target and stretches the selection.
+  const end = await page
+    .getByRole("button", { name: "Resize selection end" })
+    .boundingBox();
+  expect(end?.width).toBe(44);
+  const endAt = {
+    x: (end?.x ?? 0) + (end?.width ?? 0) / 2,
+    y: (end?.y ?? 0) + (end?.height ?? 0) / 2,
+  };
+  await drag(page, client, endAt, { x: endAt.x + 60, y: endAt.y });
+  await expect
+    .poll(async () => (await selection.boundingBox())?.width ?? 0)
+    .toBeGreaterThan((drawn?.width ?? 0) + 30);
+
+  // A swipe keeps it; a tap on it opens its menu as a sheet.
+  await drag(page, client, { x: scroll.x - 40, y }, { x: scroll.x + 40, y });
+  await settledPlayheadQ(page);
+  await expect(selection).toBeVisible();
+  await expect(
+    toolbar.getByRole("button", { name: "Insert Fill Clip" }),
+  ).toBeEnabled();
+  await selection.tap();
+  const sheet = page.getByRole("menu", { name: "Selection actions" });
+  await expect(sheet).toBeVisible();
+  await expect(
+    sheet.getByRole("menuitem", { name: "Insert Track" }),
+  ).toBeVisible();
+  await sheet.getByRole("menuitem", { name: "Insert Fill Clip" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+});
+
+test("tapping elsewhere clears a lane selection", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const laneBox = await page
+    .locator('[data-timeline-lane-id="1"]')
+    .boundingBox();
+  const y = (laneBox?.y ?? 0) + (laneBox?.height ?? 0) / 2;
+  await drag(page, client, { x: scroll.x, y }, { x: scroll.x + 80, y }, 600);
+  await expect(page.locator(".timeline-selection")).toBeVisible();
+  await hold(page, client, { x: scroll.x + 150, y }, 50);
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+  await expect(
+    page.getByRole("toolbar", { name: "Selection actions" }),
+  ).toBeHidden();
 });
 
 test("FX opens as a half or full sheet and Media as a full screen", async ({

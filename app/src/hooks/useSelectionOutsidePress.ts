@@ -36,7 +36,10 @@ export function useSelectionOutsidePress(
       ) {
         return;
       }
-      if (event.pointerType === "touch" && target.closest(".app-shell--phone")) {
+      if (
+        event.pointerType === "touch" &&
+        target.closest(".app-shell--phone")
+      ) {
         touch = {
           pointerId: event.pointerId,
           x: event.clientX,
