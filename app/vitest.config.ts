@@ -1,11 +1,23 @@
 import { playwright } from "@vitest/browser-playwright";
-import { defineConfig, mergeConfig } from "vitest/config";
+import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
 import viteConfig from "./vite.config.ts";
 
 // Component tests (`pnpm test:component`): Vitest browser mode renders
 // components in Chromium with their real stylesheets. Unit tests stay on
 // `node --test` (test:unit) and the app-level e2e specs on Playwright
 // (test:web). See ARCHITECTURE.md (Testing).
+// What every component test depends on: the setup file and the global CSS
+// it imports, with the shared tokens. `vitest --changed` follows only the
+// tests' own imports, so a change to any of these reruns the whole suite.
+const GLOBAL_TRIGGERS = [
+  "**/src/component-test/setup.ts",
+  "**/src/index.css",
+  "**/src/text-fonts.css",
+  "**/src/App.css",
+  "**/src/coarse-pointer.css",
+  "**/packages/tokens/**",
+];
+
 export default mergeConfig(
   viteConfig({ command: "serve", mode: "test" }),
   defineConfig({
@@ -20,9 +32,12 @@ export default mergeConfig(
     },
     test: {
       include: ["src/**/*.component.test.tsx"],
-      // Imports the global CSS. Every test depends on it, so a change to
-      // global CSS selects the whole suite under `vitest --changed`.
+      // Imports the global CSS; see GLOBAL_TRIGGERS.
       setupFiles: ["src/component-test/setup.ts"],
+      forceRerunTriggers: [
+        ...configDefaults.forceRerunTriggers,
+        ...GLOBAL_TRIGGERS,
+      ],
       css: { include: /.+/ },
       browser: {
         enabled: true,
