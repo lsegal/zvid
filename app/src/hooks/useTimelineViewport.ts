@@ -12,7 +12,11 @@ import {
   SIGNATURES,
 } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
-import { getClipDurationQ, getSelectionEndQ } from "../app/timeline-math.ts";
+import {
+  getClipDurationQ,
+  getSelectionEndQ,
+  getVisibleTimelineRange,
+} from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
   ProjectState,
@@ -43,6 +47,9 @@ export type TimelineViewportInputs = {
   // The end of the clips being recorded, which aren't source spans yet.
   recordingEndQ?: number;
   labelWidth: number;
+  // How much of the label column the track labels cover (less than
+  // labelWidth on a phone); the lanes show past it.
+  trackLabelWidth?: number;
   playheadQRef: { current: number };
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   arrangementLanesRef: RefObject<HTMLDivElement | null>;
@@ -64,6 +71,7 @@ export function useTimelineViewport({
   pendingSelection,
   recordingEndQ = 0,
   labelWidth,
+  trackLabelWidth = labelWidth,
   playheadQRef,
   timelineScrollRef,
   arrangementLanesRef,
@@ -161,12 +169,16 @@ export function useTimelineViewport({
     barLength * quarterPx,
     RULER_LABEL_MIN_PX[timelineMode],
   );
-  const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
-  const visibleTimelineWidthPx = Math.max(
-    0,
-    timelineViewport.clientWidth - labelWidth,
-  );
-  const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
+  const {
+    startPx: visibleTimelineStartPx,
+    widthPx: visibleTimelineWidthPx,
+    endPx: visibleTimelineEndPx,
+  } = getVisibleTimelineRange({
+    scrollLeft: timelineViewport.scrollLeft,
+    clientWidth: timelineViewport.clientWidth,
+    labelWidth,
+    coveredLabelWidth: trackLabelWidth,
+  });
   const filmstripRange = getFilmstripRange(
     visibleTimelineStartPx,
     visibleTimelineWidthPx,
