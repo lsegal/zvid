@@ -270,7 +270,6 @@ test("the More sheet has the desktop File and Edit menus", async ({ page }) => {
     "File",
     "Edit",
     "Save to Library",
-    "Reorder Layers",
     "Show Source Tracks",
   ]);
   await sheet.getByRole("menuitem", { name: "File" }).click();
@@ -479,6 +478,8 @@ test("a long press on a layer's label picks it up to reorder", async ({
     "[data-layer-header-id] .track-label__select > span",
   );
   await expect(names).toHaveText(["Layer 1", "Layer 2"]);
+  // The long press replaces the grips.
+  await expect(page.locator(".track-label__grip").first()).toBeHidden();
   const first = await centerOf(
     page,
     '[data-layer-header-id="1"] .track-label__index',
