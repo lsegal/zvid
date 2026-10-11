@@ -1,5 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
+// Stays an e2e test: it records from a (fake) camera and microphone through
+// the app's real recording pipeline. The light's look per transport state is
+// covered by TimelineToolbar.status-light.component.test.tsx.
+
 // The toolbar's status light follows the transport (#1097): yellow when
 // stopped, green while playing, red while recording.
 test.use({
@@ -33,41 +37,9 @@ async function expectLight(page: Page, label: string, color: string) {
     .toContain(color);
 }
 
-// A text clip on Layer 1, so there is something to play.
-async function insertTextClip(page: Page) {
-  const lane = page.locator('[data-timeline-lane-id="1"]');
-  const bounds = await lane.boundingBox();
-  if (!bounds) {
-    throw new Error("Lane is not visible");
-  }
-  const y = bounds.y + bounds.height / 2;
-  await page.mouse.move(bounds.x + 40, y);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + 150, y);
-  await page.mouse.move(bounds.x + 260, y);
-  await page.mouse.up();
-  await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
-  await page
-    .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Text Clip" })
-    .click();
-  await expect(lane.locator(".clip-card--text")).toHaveCount(1);
-}
-
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("[data-layer-header-id]").first()).toBeVisible();
-});
-
-test("the light is yellow when stopped and green while playing", async ({
-  page,
-}) => {
-  await insertTextClip(page);
-  await expectLight(page, "Stopped", YELLOW);
-  await page.getByRole("button", { name: "Play timeline" }).click();
-  await expectLight(page, "Playing", GREEN);
-  await page.getByRole("button", { name: "Pause playback" }).click();
-  await expectLight(page, "Stopped", YELLOW);
 });
 
 test("the light is red while recording and yellow once stopped", async ({

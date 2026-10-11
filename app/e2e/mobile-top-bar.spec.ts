@@ -1,9 +1,10 @@
+// Stays in Playwright: it starts a real share against a signaling server (layout: MobileTopBar.component.test.tsx).
 import { devices, expect, type Page, test } from "@playwright/test";
 import { startSignalingServer } from "./signaling-server.ts";
 
-// The phone top bar's Export and Share controls (#1175) at the narrowest
-// portrait width the shell targets, with sharing pointed at a local
-// signaling server.
+// The phone top bar's Share control (#1175) at the narrowest portrait
+// width the shell targets, with sharing pointed at a local signaling
+// server.
 const { defaultBrowserType: _, ...PHONE } = devices["Pixel 7"];
 
 test.use({
@@ -67,27 +68,6 @@ async function expectNothingClipped(page: Page) {
     }
   }
 }
-
-test("Export and Share are labeled and fit a 375px top bar", async ({
-  page,
-}) => {
-  const exportButton = topBar(page).getByRole("button", { name: /^Export/ });
-  await expect(exportButton).toHaveText("Export");
-  await expect(shareButton(page)).toHaveText("Share");
-  await expect(shareButton(page)).toHaveAccessibleName("Share");
-  await expectNothingClipped(page);
-
-  // A long session name ellipsizes instead of pushing either one out.
-  await topBar(page)
-    .locator("h1")
-    .evaluate((title) => {
-      title.textContent =
-        "A very long session name that cannot fit next to the controls";
-    });
-  await expectNothingClipped(page);
-  await expect(exportButton).toBeVisible();
-  await expect(shareButton(page)).toBeVisible();
-});
 
 test("Share starts a share, then offers the link, status and Stop Sharing", async ({
   page,
