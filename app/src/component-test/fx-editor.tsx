@@ -35,6 +35,9 @@ export type FxEditorSelection = {
 
 export type FxEditorProps = {
   project?: ProjectState;
+  // A whole history to start from instead of `project`, such as one
+  // restored from a saved session.
+  history?: ProjectHistoryState<ProjectState>;
   selection?: FxEditorSelection;
   playheadQ?: number;
   onChange?: (history: ProjectHistoryState<ProjectState>) => void;
@@ -44,6 +47,7 @@ const HISTORY_SHORTCUTS: Shortcut[] = [undoShortcut, redoShortcut];
 
 export function FxEditor({
   project = INITIAL_PROJECT_STATE,
+  history: initialHistory,
   selection = {},
   playheadQ = 0,
   onChange,
@@ -51,7 +55,7 @@ export function FxEditor({
   const [history, dispatchProject] = useReducer(
     projectHistoryReducer<ProjectState>,
     project,
-    createProjectHistoryState,
+    (initial) => initialHistory ?? createProjectHistoryState(initial),
   );
   const present = history.present;
   const projectSnapshotRef = useRef(present);
