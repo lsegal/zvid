@@ -14,6 +14,7 @@
     "test": "pnpm run test:unit && pnpm run build",
     "pretest:unit": "pnpm run gen:fx-index",
     "test:unit": "node --test \"src/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
+    "test:component": "vitest run",
     "test:web": "playwright test",
     "preview": "vite preview",
     "cf:prepare": "pnpm run build",
@@ -56,10 +57,13 @@
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/browser-playwright": "^5.0.3",
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.4",
+    "vitest": "^5.0.3",
+    "vitest-browser-react": "^2.3.0",
     "wrangler": "^4.137.0",
     "ws": "^8.21.3"
   }
