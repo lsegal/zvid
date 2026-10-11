@@ -92,17 +92,20 @@
   aspect-ratio: 288 / 168;
 }
 
-/* Labeled knob rows (a Move's Start and End): the label, then its knobs,
-   wrapping under it when they don't fit. */
+/* Labeled knob rows (a Move's Start and End): each its own grid, led by
+   its label, its knobs wrapping onto more rows. */
 .app-shell--phone .fx-device-panel__knob-row {
   grid-column: 1 / -1;
   justify-self: stretch;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  justify-items: center;
   gap: 12px 8px;
 }
 
+/* Floated, the legend is a grid item rather than the fieldset's caption. */
 .app-shell--phone .fx-device-panel__row-label {
-  flex: 0 0 48px;
+  float: left;
+  justify-self: start;
+  padding: 0;
 }
