@@ -334,6 +334,7 @@ export function PhoneMenuLabel({
 type GroupProps = ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Group>;
 
 export function PhoneMenuGroup({ asChild: _asChild, ...props }: GroupProps) {
+  // biome-ignore lint/a11y/useSemanticElements: a menu's group, as Radix renders it
   return <div role="group" {...props} />;
 }
 
