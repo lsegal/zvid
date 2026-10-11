@@ -1,53 +1,14 @@
+// Kept in Playwright: it checks the real export's downloaded MP4.
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// The Reverse audio effect: it is added from a clip's Audio add menu, but
-// not a track's, with no parameters, and plays the clip's audio backwards:
-// a clip whose first half is a low tone and second half a high one starts
-// on the high tone in the preview, and an export's loud first half and
-// quiet second half come out the other way round.
-
-const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
+// An export with the Reverse audio effect plays the clip's audio
+// backwards: a loud first half and quiet second half come out the other
+// way round. The rest of Reverse is covered by
+// src/fx/effects/reverse/reverse.component.test.tsx.
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 120_000 });
-
-// Records the analysers the preview's mixer makes, which hear the mix after
-// every chain, downmixed to mono.
-async function probeAnalysers(page: Page) {
-  await page.addInitScript(() => {
-    const probe = window as unknown as { analysers: AnalyserNode[] };
-    probe.analysers = [];
-    const createAnalyser = AudioContext.prototype.createAnalyser;
-    AudioContext.prototype.createAnalyser = function (this: AudioContext) {
-      const analyser = createAnalyser.call(this);
-      probe.analysers.push(analyser);
-      return analyser;
-    };
-  });
-}
-
-// The loudest frequency the mix plays now, in Hz, or 0 while it is silent.
-function dominantFrequency(page: Page) {
-  return page.evaluate(() => {
-    const probe = window as unknown as { analysers: AnalyserNode[] };
-    const analyser = probe.analysers.at(-1);
-    if (!analyser) {
-      return 0;
-    }
-    const bins = new Float32Array(analyser.frequencyBinCount);
-    analyser.getFloatFrequencyData(bins);
-    let loudest = 1;
-    for (let bin = 2; bin < bins.length; bin++) {
-      if (bins[bin] > bins[loudest]) {
-        loudest = bin;
-      }
-    }
-    return bins[loudest] > -70
-      ? (loudest * analyser.context.sampleRate) / analyser.fftSize
-      : 0;
-  });
-}
 
 // A 16-bit mono WAV whose first half plays `first` and second half
 // `second`: a frequency in Hz and a peak out of 32767 each.
@@ -113,116 +74,6 @@ async function addReverse(page: Page) {
   await expect(reverse).toHaveCount(1);
   return reverse;
 }
-
-async function playFromStart(page: Page) {
-  const pause = page.getByRole("button", { name: "Pause playback" });
-  if (await pause.isVisible()) {
-    await pause.click();
-  }
-  await page.getByRole("button", { name: "Jump to timeline start" }).click();
-  await page.getByRole("button", { name: "Play timeline" }).click();
-}
-
-// Waits for the preview to play a tone within 15% of `hz`.
-async function expectTone(page: Page, hz: number) {
-  await expect
-    .poll(
-      async () => {
-        const frequency = await dominantFrequency(page);
-        return Math.abs(frequency - hz) < hz * 0.15;
-      },
-      { timeout: 6_000 },
-    )
-    .toBe(true);
-}
-
-test("a video clip lists Reverse in its add menu's Audio group, and a track doesn't", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  const dataTransfer = await page.evaluateHandle(
-    (base64) => {
-      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-      const transfer = new DataTransfer();
-      transfer.items.add(
-        new File([bytes], "test-pattern.mp4", { type: "video/mp4" }),
-      );
-      return transfer;
-    },
-    (await readFile(VIDEO)).toString("base64"),
-  );
-  for (const type of ["dragenter", "dragover", "drop"]) {
-    await page.dispatchEvent('[aria-label="Source track drop area"]', type, {
-      dataTransfer,
-    });
-  }
-  await expect(page.locator(".source-span")).toHaveCount(1, {
-    timeout: 30_000,
-  });
-  await page.locator(".source-span").click();
-
-  const trackAdd = page
-    .getByRole("button", { name: "Add device to this track" })
-    .first();
-  await trackAdd.click();
-  const trackMenu = page.getByRole("menu");
-  await expect(
-    trackMenu.getByRole("menuitem", { name: "Volume & Stereo" }),
-  ).toBeVisible();
-  await expect(
-    trackMenu.getByRole("menuitem", { name: "Utility" }),
-  ).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(trackMenu).toHaveCount(0);
-
-  await page
-    .getByRole("button", { name: "Add device to this clip" })
-    .first()
-    .click();
-  const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: "Utility" }).press("ArrowRight");
-  await page.getByRole("menuitem", { name: /^Reverse/ }).click();
-  await expect(
-    page.locator(`${clipDevices}[aria-label="Reverse"]`),
-  ).toHaveCount(1);
-});
-
-test("Reverse adds with no controls and plays the preview backwards", async ({
-  page,
-}) => {
-  await probeAnalysers(page);
-  await page.goto("/");
-  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  // Long enough halves to keep each check within one.
-  await addWav(
-    page,
-    twoPartWav(24, { hz: 300, peak: 10_000 }, { hz: 1500, peak: 10_000 }),
-  );
-  await page.locator(".source-span").click();
-
-  // Forwards, it starts on the low tone.
-  await playFromStart(page);
-  await expectTone(page, 300);
-
-  const reverse = await addReverse(page);
-  await expect(
-    reverse.getByRole("img", { name: "Audio effect" }),
-  ).toBeVisible();
-  await expect(
-    reverse.getByRole("button", { name: /Turn Animation/ }),
-  ).toHaveCount(0);
-  await expect(reverse.getByRole("slider")).toHaveCount(0);
-
-  // Reversed, it starts on the high tone.
-  await playFromStart(page);
-  await expectTone(page, 1500);
-
-  // Bypassing it plays forwards again.
-  await reverse.getByRole("button", { name: "Bypass Reverse" }).click();
-  await playFromStart(page);
-  await expectTone(page, 300);
-});
 
 test("an export with Reverse plays the clip's audio backwards", async ({
   page,
