@@ -91,3 +91,81 @@ test("the sliders still drag accurately", async ({ page }) => {
   expect(value).toBeGreaterThan(0.4);
   expect(value).toBeLessThan(0.6);
 });
+
+// Sharp icons (#1224): the bars shrink by padding, never by scaling icons,
+// and everything lands on whole pixels, so nothing renders blurred.
+
+async function rects(page: Page, selector: string) {
+  return page.locator(selector).evaluateAll((elements) =>
+    elements.map((element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      const control = element.closest("button, [aria-label]");
+      return {
+        name: control?.getAttribute("aria-label") ?? element.className,
+        className: control?.className ?? "",
+        x,
+        y,
+        width,
+        height,
+      };
+    }),
+  );
+}
+
+function expectWhole(
+  rect: Record<string, string | number>,
+  keys: string[] = ["x", "y", "width", "height"],
+) {
+  for (const key of keys) {
+    const value = Number(rect[key]);
+    expect(
+      Math.abs(value - Math.round(value)),
+      `${rect.name} ${key} = ${value}`,
+    ).toBeLessThan(0.01);
+  }
+}
+
+function defaultIconSize(className: string) {
+  if (className.includes("transport-button--record")) return 18;
+  if (className.includes("transport-button")) return 20;
+  if (className.includes("zoom-control__button")) return 16;
+  if (className.includes("select-trigger")) return 14;
+  return undefined;
+}
+
+test("icons keep their default sizes on whole pixels", async ({ page }) => {
+  await page.goto("/");
+  const icons = await rects(page, ".timeline-toolbar svg, .transport-bar svg");
+  // Seven transport buttons, zoom − / +, mute and the time signature chevron.
+  expect(icons.length).toBeGreaterThanOrEqual(11);
+  for (const icon of icons) {
+    const size = defaultIconSize(String(icon.className));
+    expect(size, `${icon.name} has a known default size`).toBeDefined();
+    expect([icon.name, icon.width, icon.height]).toEqual([
+      icon.name,
+      size,
+      size,
+    ]);
+    expectWhole(icon);
+  }
+});
+
+test("the bars and their buttons sit on whole pixels", async ({ page }) => {
+  await page.goto("/");
+  for (const bar of await rects(page, ".timeline-toolbar, .transport-bar")) {
+    expectWhole(bar, ["y", "height"]);
+  }
+  // Text buttons are as wide as their labels; their heights and rows are
+  // still whole.
+  const buttons = await rects(
+    page,
+    ".timeline-toolbar button, .transport-bar :is(.transport-button, .zoom-control__button, .zoom-control__readout)",
+  );
+  for (const button of buttons) expectWhole(button, ["y", "height"]);
+  // Icon buttons are whole all round, so their icons center on whole pixels.
+  const iconButtons = await rects(
+    page,
+    ".transport-bar :is(.transport-button, .zoom-control__button)",
+  );
+  for (const button of iconButtons) expectWhole(button);
+});

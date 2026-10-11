@@ -4,6 +4,13 @@
   --record-red: #ff5c5c;
 }
 
+/* App.css caps the FX row under the editor at 40%; rounding that down to a
+   whole pixel keeps this bar, and its icons, on whole pixels (#1224).
+   Browsers without round() keep the unrounded cap. */
+.workspace__main {
+  grid-template-rows: minmax(0, 1fr) fit-content(round(down, 40%, 1px));
+}
+
 /* Equal side columns keep the transport cluster centered in the row however
    wide the zoom and volume controls are. */
 .transport-bar {
@@ -24,8 +31,12 @@
   min-width: 220px;
 }
 
+/* A fixed width keeps the zoom buttons after it on whole pixels (#1224). */
 .zoom-control__label {
+  flex: none;
+  width: 44px;
   margin-right: 4px;
+  line-height: 16px;
 }
 
 .zoom-control__button,
@@ -52,8 +63,8 @@
 }
 
 .zoom-control__button > svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
@@ -61,7 +72,8 @@
   min-width: 50px;
   padding: 0 7px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.74rem;
+  font-size: 12px;
+  line-height: 16px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -169,22 +181,21 @@
 }
 
 /* About 20% smaller than the shared transport buttons, to match the
-   compact menu bar (#1222). */
+   compact menu bar (#1222). Only the padding shrinks: the icons keep their
+   default sizes, and the even box sizes center them on whole pixels, so
+   they stay sharp (#1224). */
 .transport-bar .transport-button {
-  min-width: 42px;
-  height: 35px;
-  padding: 9px;
-  border-radius: 11px;
+  min-width: 44px;
+  height: 36px;
+  padding: 7px;
+  border-radius: 12px;
 }
 
-.transport-bar .transport-button > svg {
-  width: 16px;
-  height: 16px;
-}
-
-.transport-bar .transport-button--skip-start::before,
-.transport-bar .transport-button--skip-end::after {
-  height: 14px;
+/* Whole pixels (#1224): a whole font size, and 8ch rounded up, so the meter
+   beside the readout stays sharp. */
+.transport-bar .vu-meter__readout {
+  width: 58px;
+  font-size: 12px;
 }
 
 .volume-control {
@@ -246,7 +257,7 @@
 
   .transport-bar .transport-button {
     min-width: 0;
-    padding: 9px 0;
+    padding: 7px 0;
   }
 
   .volume-control {
@@ -263,11 +274,6 @@
 .transport-button--record > svg {
   width: 18px;
   height: 18px;
-}
-
-.transport-bar .transport-button--record > svg {
-  width: 14px;
-  height: 14px;
 }
 
 .transport-button--record:disabled {

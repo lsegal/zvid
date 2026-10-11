@@ -744,8 +744,8 @@
 }
 
 .tempo-pill__adjust {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border-radius: 999px;
   border: none;
@@ -1243,7 +1243,7 @@
 
 .transport-button--skip-start,
 .transport-button--skip-end {
-  gap: 3px;
+  gap: 4px;
 }
 
 .transport-button--primary,
