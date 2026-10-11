@@ -20,7 +20,7 @@ import type { StatusMessage } from "../../status-bar";
 import type { TimeValueFormat } from "../../time-value.ts";
 import { FxPanel } from "../FxPanel";
 import { MediaDrawer } from "../media/MediaDrawer";
-import { PreviewPanel } from "../PreviewPanel";
+import { PreviewPanel, type PreviewPanelProps } from "../PreviewPanel";
 import { StatusBar } from "../StatusBar";
 import type { MobileShareButtonProps } from "./MobileShareButton";
 import { MobileShellChrome } from "./MobileShellChrome";
@@ -139,8 +139,9 @@ const share = {
 
 type PhoneEditorProps = {
   session?: FixtureSession;
-  // Shows the preview panel, with its composition player.
-  preview?: boolean;
+  // Shows the preview panel, with its composition player, and any props
+  // given here in place of its empty program's.
+  preview?: boolean | Partial<PreviewPanelProps>;
   status?: StatusMessage;
   // The program mix the transport's VU meter reads while playing.
   getMeterTap?: () => MasterMeterTap | null;
@@ -221,7 +222,9 @@ export function PhoneEditor({
                 timeFormat={TIME_FORMAT}
               />
               <section className="timeline-panel" />
-              {preview ? <FixturePreviewPanel /> : null}
+              {preview ? (
+                <FixturePreviewPanel {...(preview === true ? {} : preview)} />
+              ) : null}
             </div>
           </section>
           <FixtureFxPanel
@@ -237,8 +240,8 @@ export function PhoneEditor({
   );
 }
 
-// The preview panel with an empty program.
-function FixturePreviewPanel() {
+// The preview panel with an empty program, unless `props` says otherwise.
+function FixturePreviewPanel(props: Partial<PreviewPanelProps>) {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const [playheadSignal] = useState(() => createPlayheadSignal());
   const mediaItemsById = useMemo(() => new Map(), []);
@@ -296,6 +299,7 @@ function FixturePreviewPanel() {
       textEdit={undefined}
       timelineDragState={null}
       transformPreviewLayer={noop}
+      {...props}
     />
   );
 }
