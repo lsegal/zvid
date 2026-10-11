@@ -56,7 +56,10 @@ export function swipePlayheadQ(
   geometry: CenterGeometry,
 ) {
   return centerPlayheadQ(
-    Math.min(Math.max(0, maxScrollLeft), playheadScrollLeft(startQ, geometry) - dx),
+    Math.min(
+      Math.max(0, maxScrollLeft),
+      playheadScrollLeft(startQ, geometry) - dx,
+    ),
     geometry,
   );
 }

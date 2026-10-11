@@ -1,7 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -55,9 +54,7 @@ export type AppLayoutInputs = {
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference. On a phone it picks the mobile shell, where the FX
 // panel is a sheet and the track labels have their own, narrower width.
-export function useAppLayout({
-  sourceTrackCount,
-}: AppLayoutInputs) {
+export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const shell = useShellKind();
   const isPhone = isPhoneShell(shell);
   const [isInspectorCollapsedPref, setIsInspectorCollapsed] = useState(
@@ -166,7 +163,6 @@ export function useAppLayout({
     }
     return () => observer.disconnect();
   }, []);
-
 
   function toggleInspectorCollapsed() {
     const nextCollapsed = !isInspectorCollapsedPref;

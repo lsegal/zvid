@@ -184,8 +184,84 @@ test("the playhead stays centered while a swipe scrubs", async ({ page }) => {
   ).toBeLessThan(2);
 });
 
-// The lanes show from the labels' edge, not from the half-view label
-// column's, so the Audio row's waveform starts there too (#1194).
+// Where the playhead line, the labels' right edge, the view's center and
+// time 0 (Layer 1's lane) sit, and how far the timeline has scrolled.
+async function timelineEdges(page: Page) {
+  return page.evaluate(() => {
+    const left = (selector: string) =>
+      document.querySelector(selector)?.getBoundingClientRect().left ?? 0;
+    const label = document
+      .querySelector('[data-layer-header-id="1"]')
+      ?.getBoundingClientRect();
+    const scroll = document.querySelector(".timeline-scroll") as HTMLElement;
+    const view = scroll.getBoundingClientRect();
+    return {
+      line: left(".timeline-playhead"),
+      labels: label ? label.right : 0,
+      center: view.left + view.width / 2,
+      lane: left('[data-timeline-lane-id="1"]'),
+      scrollLeft: scroll.scrollLeft,
+    };
+  });
+}
+
+// #1204: time 0 hugs the labels, with no lead-in before it. From there a
+// swipe moves the playhead to the center, and only then scrolls.
+test("the timeline starts at the labels, and the playhead moves to the center from there", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await addClip(page);
+  await page.keyboard.press("Escape");
+  const start = await timelineEdges(page);
+  // Within the lane's 1px border.
+  expect(Math.abs(start.lane - start.labels)).toBeLessThanOrEqual(1);
+  expect(Math.abs(start.line - start.labels)).toBeLessThan(4);
+  const clip = await page.locator(".clip-card").boundingBox();
+  expect(Math.abs((clip?.x ?? 0) - start.labels)).toBeLessThan(4);
+  expect(start.scrollLeft).toBe(0);
+
+  const scroll = await centerOf(page, ".timeline-scroll");
+  const y = (await centerOf(page, ".clip-card")).y;
+  // A short swipe left moves the playhead, not the timeline.
+  await drag(page, client, { x: scroll.x + 60, y }, { x: scroll.x + 20, y });
+  await expect.poll(() => playheadQ(page)).toBeGreaterThan(0);
+  const moved = await timelineEdges(page);
+  expect(moved.scrollLeft).toBe(0);
+  expect(moved.line - start.line).toBeGreaterThan(30);
+  expect(moved.line - start.line).toBeLessThan(50);
+
+  // A longer one carries it to the center, and the timeline scrolls on.
+  await drag(page, client, { x: scroll.x + 100, y }, { x: scroll.x - 100, y });
+  await expect
+    .poll(async () => (await timelineEdges(page)).scrollLeft)
+    .toBeGreaterThan(0);
+  const centered = await timelineEdges(page);
+  expect(Math.abs(centered.line - centered.center)).toBeLessThan(4);
+
+  // Swiping all the way back brings it to time 0 at the labels' edge.
+  await settledPlayheadQ(page);
+  await drag(page, client, { x: scroll.x - 120, y }, { x: scroll.x + 150, y });
+  await drag(page, client, { x: scroll.x - 120, y }, { x: scroll.x + 150, y });
+  await expect.poll(() => playheadQ(page)).toBe(0);
+  const back = await timelineEdges(page);
+  expect(back.scrollLeft).toBe(0);
+  expect(Math.abs(back.line - back.labels)).toBeLessThan(4);
+
+  // Playback from 0 moves the playhead to the center, then scrolls.
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect
+    .poll(async () => (await timelineEdges(page)).scrollLeft, {
+      timeout: 10_000,
+    })
+    .toBeGreaterThan(0);
+  const playing = await timelineEdges(page);
+  expect(Math.abs(playing.line - playing.center)).toBeLessThan(6);
+});
+
+// The lanes show from the labels' edge, so the Audio row's waveform starts
+// there too (#1194).
 test("the Audio row's waveform reaches the labels' edge when scrolled", async ({
   page,
 }) => {
@@ -549,6 +625,10 @@ test("dragging the labels' right edge resizes them", async ({ page }) => {
   await expect
     .poll(async () => (await header.boundingBox())?.width)
     .toBeGreaterThan(before.width + 40);
+  // Time 0 follows the labels' edge (#1204).
+  const edges = await timelineEdges(page);
+  expect(Math.abs(edges.lane - edges.labels)).toBeLessThanOrEqual(1);
+  expect(Math.abs(edges.line - edges.labels)).toBeLessThan(4);
 });
 
 test("a long press on a layer's label picks it up to reorder", async ({
