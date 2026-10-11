@@ -24,6 +24,7 @@
    setting it. */
 .topbar .ghost-button {
   padding: 4px 12px;
+  line-height: 16px;
   border-radius: 10px;
 }
 
@@ -104,6 +105,9 @@
   color: var(--ink);
   font: inherit;
   font-size: 0.72rem;
+  /* Whole-pixel line boxes keep the top bar, and every bar under it, on
+     whole pixels, so their icons stay sharp (#1224). */
+  line-height: 16px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;

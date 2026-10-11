@@ -13,7 +13,7 @@ button.brand-mark {
   color: var(--ink);
   font-size: 1.15rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 22px;
   letter-spacing: 0.02em;
 }
 
