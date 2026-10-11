@@ -1,0 +1,110 @@
+/* The phone shell's preview header, its Scopes and Audio panes, the
+   transport's VU meter and the status toast (#1177). Scoped to the phone
+   shell like mobile-shell.css, and loaded after it. */
+
+.app-shell--phone .preview-panel__header,
+.app-shell--phone .preview-monitor {
+  grid-column: 1 / -1;
+}
+
+.app-shell--phone .preview-panel__header {
+  gap: 8px;
+  height: 40px;
+  padding: 0 4px;
+}
+
+.app-shell--phone .preview-panel__tabs button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+
+.app-shell--phone .preview-panel__clip {
+  display: none;
+}
+
+.app-shell--phone .preview-panel__scopes {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.app-shell--phone .preview-panel__scopes svg {
+  width: 18px;
+  height: 18px;
+}
+
+.app-shell--phone .preview-panel__mode {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+
+.app-shell--phone .scopes-pane,
+.app-shell--phone .audio-analysis {
+  height: 112px;
+  min-height: 0;
+}
+
+.app-shell--phone .preview-panel:not(:has(.audio-analysis)) .scopes-pane,
+.app-shell--phone .preview-panel:not(:has(.scopes-pane)) .audio-analysis {
+  grid-column: 1 / -1;
+}
+
+.app-shell--phone .audio-analysis {
+  padding: 6px;
+}
+
+/* The master VU meter: a strip across the foot of the transport row. */
+.mobile-transport .vu-meter {
+  flex: 1 0 100%;
+  padding: 0 4px 4px;
+}
+
+.mobile-transport .vu-meter__bars {
+  flex: 1;
+  width: auto;
+}
+
+.mobile-transport .vu-meter__readout {
+  font-size: 0.7rem;
+}
+
+/* Status messages show as a toast over the foot of the timeline, clear of
+   the transport above it and the toolbars below; taps pass through. It sits
+   above the Media sheet (60), which Record opens along with its hint, and
+   under the FX and menu sheets. */
+.app-shell--phone .status-bar {
+  grid-area: timeline;
+  z-index: 65;
+  align-self: end;
+  justify-self: center;
+  max-width: calc(100% - 24px);
+  height: auto;
+  margin-bottom: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.app-shell--phone .status-bar__message {
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(17, 19, 28, 0.94);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.app-shell--phone-landscape .preview-panel:has(.scopes-pane, .audio-analysis)
+  .preview-monitor {
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.app-shell--phone-landscape .scopes-pane,
+.app-shell--phone-landscape .audio-analysis {
+  height: 96px;
+}

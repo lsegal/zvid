@@ -5,6 +5,7 @@ import { MobileTopBar } from "./MobileTopBar";
 import { MobileTransport } from "./MobileTransport";
 import { MediaSheetHeader } from "./SheetHeaders";
 import "./mobile-shell.css";
+import "./mobile-panels.css";
 
 // The phone shell's own controls around the editor's panels, which its
 // stylesheet lays out preview first: the top bar, the thin transport, the
