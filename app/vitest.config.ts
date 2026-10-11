@@ -1,3 +1,5 @@
+import { globSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { playwright } from "@vitest/browser-playwright";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
 import {
@@ -6,6 +8,7 @@ import {
   mouseUp,
   mouseWheel,
 } from "./src/component-test/commands.ts";
+import { prebundledDependencies } from "./src/component-test/prebundle.ts";
 import viteConfig from "./vite.config.ts";
 
 // Component tests (`pnpm test:component`): Vitest browser mode renders
@@ -25,6 +28,22 @@ const GLOBAL_TRIGGERS = [
   "**/packages/tokens/**",
 ];
 
+// Every package the browser-side source imports, so the dependency cache
+// never misses one mid-run. `*.test.ts` files are node unit tests.
+function readSources() {
+  return globSync("src/**/*.{ts,tsx}", {
+    cwd: import.meta.dirname,
+    exclude: (file) => file.endsWith(".test.ts"),
+  }).map((file) => readFileSync(path.join(import.meta.dirname, file), "utf8"));
+}
+
+const PREBUNDLED = prebundledDependencies(
+  readSources(),
+  JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "package.json"), "utf8"),
+  ),
+);
+
 export default mergeConfig(
   viteConfig({ command: "serve", mode: "test" }),
   defineConfig({
@@ -37,6 +56,7 @@ export default mergeConfig(
       // environment runs its own buildStart.
       perEnvironmentStartEndDuringDev: true,
     },
+    optimizeDeps: { include: PREBUNDLED },
     test: {
       include: ["src/**/*.component.test.tsx"],
       // Imports the global CSS; see GLOBAL_TRIGGERS.
