@@ -2,6 +2,9 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import { addLayers } from "./layers.ts";
 
+// Playwright, not a component test: it reloads the page and opens second tabs
+// against the session saved in IndexedDB.
+//
 // The open session, its undo history and view state are saved in IndexedDB,
 // so a refresh brings them back. Only one tab saves the session at a time.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);

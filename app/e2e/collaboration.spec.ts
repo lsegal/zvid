@@ -9,6 +9,9 @@ import {
 import { addLayers } from "./layers.ts";
 import { startSignalingServer } from "./signaling-server.ts";
 
+// Playwright, not a component test: it shares a session between two browser
+// contexts over a real signaling server and WebRTC.
+//
 // Sharing between two browser contexts: separate storage, so no
 // BroadcastChannel shortcut between them, and everything has to go through
 // the signaling server and WebRTC, like two different browsers.

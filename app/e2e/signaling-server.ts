@@ -1,6 +1,9 @@
 import type { AddressInfo } from "node:net";
 import { type WebSocket, WebSocketServer } from "ws";
 
+// Used by collaboration.spec.ts, which stays in Playwright: it needs a real
+// signaling server.
+//
 // A local y-webrtc signaling server (the same subscribe/publish protocol as
 // ../signaling and y-webrtc's bin/server.js), so browser tests don't depend on
 // a public relay.
