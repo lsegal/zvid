@@ -1,10 +1,14 @@
+// Stays in Playwright: it saves the session to IndexedDB, edits the saved
+// payload with the app closed and reloads the app, which only the whole app's
+// session restore and save can show.
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// Snapping always follows the zoom-adaptive grid: there is no snap grid
-// selector, only the Snap On/Off toggle, with the tempo control right of it
-// (#732). A four-second test pattern at 120 BPM spans eight quarters. At 100%
-// zoom the grid is in eighth notes (half a quarter); at 25% it is in quarters.
+// Snapping always follows the zoom-adaptive grid (#732), also in a session
+// saved with an old snap mode. A four-second test pattern at 120 BPM spans
+// eight quarters. At 100% zoom the grid is in eighth notes (half a quarter).
+// The toolbar and the snapping drags are component tests:
+// TimelineToolbar.component.test.tsx and SourceSpan.snap.component.test.tsx.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 const header = '[aria-label="Source track drop area"]';
@@ -96,62 +100,6 @@ function readSavedPayload(page: Page) {
       }),
   );
 }
-
-test("the toolbar has no snap grid selector and the tempo sits right of Snap", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const toolbar = page.locator(".timeline-toolbar");
-  await expect(toolbar).toBeVisible();
-  await expect(page.getByRole("tablist", { name: "Snap grid" })).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: /^Auto/ })).toHaveCount(0);
-
-  // The tempo control directly follows the Snap toggle's group.
-  const snap = toolbar.getByRole("button", { name: "Snap On" });
-  await expect(snap).toBeVisible();
-  const tempo = toolbar.locator(".tempo-pill");
-  await expect(tempo).toHaveCount(1);
-  expect(
-    await snap.evaluate(
-      (button) =>
-        button.parentElement?.nextElementSibling?.classList.contains(
-          "tempo-pill",
-        ) ?? false,
-    ),
-  ).toBe(true);
-  await expect(page.locator(".topbar .tempo-pill")).toHaveCount(0);
-
-  // −/+ still step the tempo, with undo.
-  await expect(tempo).toContainText("120 BPM");
-  await tempo.getByRole("button", { name: "Increase tempo" }).click();
-  await expect(tempo).toContainText("125 BPM");
-  await tempo.getByRole("button", { name: "Decrease tempo" }).click();
-  await tempo.getByRole("button", { name: "Decrease tempo" }).click();
-  await expect(tempo).toContainText("115 BPM");
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect(tempo).toContainText("120 BPM");
-});
-
-test("dragging a clip snaps to the zoom-dependent grid", async ({ page }) => {
-  const { span, quarterPx } = await openWithSpan(page);
-  expect(await startQ(span, quarterPx)).toBe(0);
-
-  // At 100% the grid is in eighth notes, so 3.4 quarters snaps to 3.5.
-  await dragBy(page, span, 3.4 * quarterPx);
-  await expect.poll(() => startQ(span, quarterPx)).toBe(3.5);
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect.poll(() => startQ(span, quarterPx)).toBe(0);
-
-  // Zoomed out to 25% the grid is in quarters, so 3.4 quarters snaps to 3.
-  const zoomOut = page.getByRole("button", { name: "Zoom out", exact: true });
-  while (await zoomOut.isEnabled()) {
-    await zoomOut.click();
-  }
-  await expect(page.locator(".zoom-control__readout")).toHaveText("25%");
-  const zoomedQuarterPx = await quarterWidth(span);
-  await dragBy(page, span, 3.4 * zoomedQuarterPx);
-  await expect.poll(() => startQ(span, zoomedQuarterPx)).toBe(3);
-});
 
 test("a session saved with a snap mode loads and snaps adaptively", async ({
   page,

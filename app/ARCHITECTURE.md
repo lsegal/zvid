@@ -44,16 +44,34 @@ component. The harness lives in `src/component-test/`:
   `useTablet`, `setViewport` and `emulateTouch`. Touch emulation makes
   `(pointer: coarse)` and `(hover: none)` match. The setup file restores the
   desktop viewport and a mouse after each test.
-- `app.tsx` renders the whole editor (`renderApp`) from a blank session,
-  for behavior that crosses App-level state: undo, global shortcuts,
-  context menus, and selection shared by the timeline, the FX panel and
-  the arrangement. It also drops media fixtures (`fixtureFile`,
-  `dropFiles`), presses Ctrl/Cmd shortcuts (`pressMod`) and drives the
-  real mouse (`mouse`, through the commands in `commands.ts`). A test that
-  renders the editor imports App, so any change under App selects it;
-  render the component itself when the test only needs its rendering and
-  styles. The editor imports the wasm export bridge, so build
-  `export-bridge/pkg` first.
+- `input.ts` sends trusted input through the Chrome DevTools Protocol, so
+  the browser hit tests, captures pointers and fires `click` and
+  `contextmenu` itself: a mouse with any button and modifiers whose moves
+  report the held buttons (drags, pointer capture), touches, keyboard
+  helpers (`undo`, `redo`, `pressShiftF10`) and menu helpers (`menuItem`,
+  `openLayerMenu`, `addLayers`). It releases buttons a test leaves down.
+  `commands.ts` adds Playwright's mouse as browser commands, which `app.tsx`
+  exposes as `mouse`.
+
+Render the least that shows the behavior:
+
+1. The component itself, in a shell if its CSS needs one, when the test
+   needs only its rendering, styles and props.
+2. `renderEditor` (`editor.tsx`) when the behavior needs App's hooks wired
+   together around the timeline, such as undo, menus, keyboard shortcuts or
+   drags across rows. It renders the desktop editor through those hooks
+   without the preview and the rest of App (`preview: true` adds the
+   preview), so the test imports the component it covers and `vitest
+   --changed` selects it for that component's changes. It opens sessions
+   from `sessionWithLayers`, `withTestPatternTrack` and `withMedia`;
+   `editor-steps.ts` holds steps several such tests share, such as
+   inserting a text clip or creating a loop. Use `EDITOR_TEST_TIMEOUT`.
+3. `renderApp` (`app.tsx`) when it needs the whole App: behavior that
+   crosses App-level state outside the timeline, such as selection shared
+   by the timeline, the FX panel and the arrangement, or dropped media
+   (`fixtureFile`, `dropFiles`). A test that renders it imports App, so any
+   change under App selects it. App imports the wasm export bridge, so
+   build `export-bridge/pkg` first.
 
 To keep changed-only selection accurate:
 
