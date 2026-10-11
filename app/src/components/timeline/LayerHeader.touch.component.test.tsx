@@ -74,11 +74,7 @@ describe(`${LayerHeader.name} on a phone`, { timeout: 60_000 }, () => {
     expect(isVisible(document.querySelector(".track-label__grip"))).toBe(false);
     const first = centerOf('[data-layer-header-id="1"] .track-label__index');
     const second = header("2");
-    await drag(
-      first,
-      { x: first.x, y: second.y + second.height - 8 },
-      600,
-    );
+    await drag(first, { x: first.x, y: second.y + second.height - 8 }, 600);
     await expect.poll(names).toEqual(["Layer 2", "Layer 1"]);
   });
 });
@@ -97,9 +93,7 @@ describe(`${useLayerReorder.name} on a phone`, { timeout: 60_000 }, () => {
     await expect.poll(isReordering).toBe(true);
     await expect.poll(() => isVisible(grip())).toBe(true);
     expect(getComputedStyle(grip() as Element).touchAction).toBe("none");
-    expect(getComputedStyle(query(".track-label")).outlineStyle).toBe(
-      "dashed",
-    );
+    expect(getComputedStyle(query(".track-label")).outlineStyle).toBe("dashed");
     const gripBox = (grip() as Element).getBoundingClientRect();
     expect(gripBox.width).toBeGreaterThanOrEqual(44);
     expect(gripBox.height).toBeGreaterThanOrEqual(44);

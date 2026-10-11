@@ -353,8 +353,9 @@ describe(`${Timeline.name} on a tablet`, { timeout: 60_000 }, () => {
     const cellPx = gridCellPx(lane);
     // Whole cells at least 64px wide (#1214).
     expect(
-      query('[data-timeline-lane-id="1"] .timeline-selection').getBoundingClientRect()
-        .width,
+      query(
+        '[data-timeline-lane-id="1"] .timeline-selection',
+      ).getBoundingClientRect().width,
     ).toBeCloseTo(Math.ceil(64 / cellPx - 1e-6) * cellPx, 0);
   });
 });

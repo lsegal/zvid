@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { describe, expect, test } from "vitest";
-import { cdp, page } from "vitest/browser";
+import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { MediaItem } from "../../media";
 import { MediaThumbnail } from "./MediaThumbnail";
@@ -41,47 +41,45 @@ function containedLogoPoint(
   ];
 }
 
-// The pixels of a base64 PNG screenshot at `points`, in fractions from the
-// top-left.
-async function screenshotPixels(data: string, points: Array<[number, number]>) {
-  const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-  const bitmap = await createImageBitmap(
-    new Blob([bytes], { type: "image/png" }),
-  );
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+// The thumbnail's pixels at `points`, in fractions from the top-left, as
+// the browser draws its image `object-fit: contain` over `backdrop`. Paints
+// in a canvas rather than taking a screenshot: test files share one page,
+// where an element screenshot scrolls and waits on the other files' frames.
+function paintedPixels(
+  image: HTMLImageElement,
+  backdrop: string,
+  points: Array<[number, number]>,
+) {
+  const { width, height } = image.getBoundingClientRect();
+  const canvas = new OffscreenCanvas(Math.round(width), Math.round(height));
   const context = canvas.getContext("2d");
   if (!context) throw new Error("2D canvas is unavailable.");
-  context.drawImage(bitmap, 0, 0);
+  context.fillStyle = backdrop;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const scale = Math.min(
+    canvas.width / image.naturalWidth,
+    canvas.height / image.naturalHeight,
+  );
+  const drawnWidth = image.naturalWidth * scale;
+  const drawnHeight = image.naturalHeight * scale;
+  context.drawImage(
+    image,
+    (canvas.width - drawnWidth) / 2,
+    (canvas.height - drawnHeight) / 2,
+    drawnWidth,
+    drawnHeight,
+  );
   return points.map(
     ([x, y]) =>
       Array.from(
         context.getImageData(
-          Math.floor(x * bitmap.width),
-          Math.floor(y * bitmap.height),
+          Math.floor(x * canvas.width),
+          Math.floor(y * canvas.height),
           1,
           1,
         ).data,
       ) as Rgba,
   );
-}
-
-// A PNG of `element` as the browser paints it, in base64. It asks Chromium
-// directly: test files run in parallel tabs, and Playwright's element
-// screenshot waits for frames a background tab doesn't paint.
-async function screenshot(element: Element) {
-  const frame = window.frameElement?.getBoundingClientRect() ?? { x: 0, y: 0 };
-  const box = element.getBoundingClientRect();
-  const { data } = (await cdp().send("Page.captureScreenshot", {
-    format: "png",
-    clip: {
-      x: frame.x + box.x,
-      y: frame.y + box.y,
-      width: box.width,
-      height: box.height,
-      scale: 1,
-    },
-  })) as { data: string };
-  return data;
 }
 
 describe("MediaThumbnail", () => {
@@ -118,18 +116,29 @@ describe("MediaThumbnail", () => {
       containedLogoPoint(box, 100, 152), // the bottom strip
     ];
     const outside = [containedLogoPoint(box, 30, 100)]; // between the strips
-    const png = await screenshot(image);
-    const pixels = await screenshotPixels(png, [...inside, ...outside]);
+    // The image sits on the checkerboard, contained in its box.
+    const style = getComputedStyle(image);
+    expect(style.objectFit).toBe("contain");
+    const checkers = style.backgroundImage.match(/rgb\([^)]*\)/g) ?? [];
+    expect(style.backgroundImage).toContain("repeating-conic-gradient");
+    expect(new Set(checkers).size).toBe(2);
     const luma = ([red, green, blue]: Rgba) =>
       0.299 * red + 0.587 * green + 0.114 * blue;
-    inside.forEach((point, index) => {
-      expect(luma(pixels[index]), `${point} inside`).toBeLessThan(80);
-    });
-    outside.forEach((point, index) => {
-      expect(
-        luma(pixels[inside.length + index]),
-        `${point} outside`,
-      ).toBeGreaterThan(200);
-    });
+    // Whichever square a point falls on.
+    for (const checker of new Set(checkers)) {
+      const pixels = paintedPixels(image, checker, [...inside, ...outside]);
+      inside.forEach((point, index) => {
+        expect(
+          luma(pixels[index]),
+          `${point} inside on ${checker}`,
+        ).toBeLessThan(80);
+      });
+      outside.forEach((point, index) => {
+        expect(
+          luma(pixels[inside.length + index]),
+          `${point} outside on ${checker}`,
+        ).toBeGreaterThan(200);
+      });
+    }
   });
 });

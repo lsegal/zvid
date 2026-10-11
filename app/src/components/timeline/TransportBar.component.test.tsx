@@ -67,11 +67,16 @@ describe("TransportBar skip buttons", () => {
       label: string,
       expected: string,
     ) => {
-      expect(button.getAttribute("aria-label")).toBe(label);
+      await expect.element(button).toHaveAttribute("aria-label", label);
       // The title adds the Ctrl/Cmd+arrow shortcut (#1107).
-      expect(button.title).toMatch(
-        new RegExp(`^${label} \\((Ctrl|Cmd)\\+(Left|Right)\\)$`),
-      );
+      await expect
+        .element(button)
+        .toHaveAttribute(
+          "title",
+          expect.stringMatching(
+            new RegExp(`^${label} \\((Ctrl|Cmd)\\+(Left|Right)\\)$`),
+          ),
+        );
       await userEvent.click(button);
       await expect.poll(() => playheadAt(signal.get())).toBe(expected);
     };

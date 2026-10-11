@@ -6,10 +6,10 @@ import { StrictMode } from "react";
 import { expect } from "vitest";
 import { cdp, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import App from "../App.tsx";
-import type { WorkspaceBoot } from "../app/workspace-types.ts";
 import videoUrl from "../../e2e/fixtures/test-pattern.mp4?url";
 import audioVideoUrl from "../../e2e/fixtures/test-pattern-audio.webm?url";
+import App from "../App.tsx";
+import type { WorkspaceBoot } from "../app/workspace-types.ts";
 import { installHarness } from "../harness";
 
 export type Point = { x: number; y: number };
@@ -177,9 +177,7 @@ export function boxOf(selector: string) {
 
 export function centerOf(target: string | Element) {
   const box =
-    typeof target === "string"
-      ? boxOf(target)
-      : target.getBoundingClientRect();
+    typeof target === "string" ? boxOf(target) : target.getBoundingClientRect();
   if (box.width === 0 && box.height === 0) {
     throw new Error(`${String(target)} is not visible`);
   }
@@ -205,7 +203,9 @@ function accessibleName(element: Element) {
   }
   const labelledBy = element.getAttribute("aria-labelledby");
   const labelElement = labelledBy && document.getElementById(labelledBy);
-  return ((labelElement || element).textContent ?? "").replace(/\s+/g, " ").trim();
+  return ((labelElement || element).textContent ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function nameMatches(element: Element, name: string | RegExp, exact: boolean) {
