@@ -20,6 +20,7 @@ import {
   touch,
   visibleByRole,
   wait,
+  waitAsLongAsPlaywright,
 } from "../../mobile/phone-app-test-utils.tsx";
 import { Timeline } from "./Timeline";
 
@@ -43,6 +44,8 @@ function laneMiddleY() {
   const lane = boxOf('[data-timeline-lane-id="1"]');
   return lane.y + lane.height / 2;
 }
+
+waitAsLongAsPlaywright();
 
 describe(`${Timeline.name} on a phone`, { timeout: 60_000 }, () => {
   test("the playhead stays centered while a swipe scrubs", async () => {

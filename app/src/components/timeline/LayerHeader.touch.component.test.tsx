@@ -13,6 +13,7 @@ import {
   renderApp,
   timelineEdges,
   touch,
+  waitAsLongAsPlaywright,
 } from "../../mobile/phone-app-test-utils.tsx";
 import { useLayerReorder } from "../../use-layer-reorder.ts";
 import { LayerHeader } from "./LayerHeader";
@@ -34,6 +35,8 @@ const header = (id: string) => boxOf(`[data-layer-header-id="${id}"]`);
 
 const isReordering = () =>
   query(".app-shell").classList.contains("app-shell--reordering");
+
+waitAsLongAsPlaywright();
 
 describe(`${LayerHeader.name} on a phone`, { timeout: 60_000 }, () => {
   test("dragging a layer's bottom edge resizes its row", async () => {
