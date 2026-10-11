@@ -6,6 +6,8 @@ import {
   editSelectionRange,
   editTimelineSelection,
   gridCellSelection,
+  gridSelectionCells,
+  MIN_GRID_SELECTION_PX,
   LANE_SELECTION_DRAG_THRESHOLD_PX,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
@@ -242,15 +244,47 @@ describe("lane press wiring", () => {
   });
 });
 
+describe("gridSelectionCells", () => {
+  it("is wide enough for two handle targets and a middle strip", () => {
+    assert.equal(MIN_GRID_SELECTION_PX, 64);
+  });
+
+  it("takes the fewest whole cells at least 64px wide", () => {
+    // A 16th note at 60px a quarter is 15px: five cells make 75px.
+    assert.equal(gridSelectionCells(0.25, 60), 5);
+    // An 8th at 40px is 20px: four cells make 80px.
+    assert.equal(gridSelectionCells(0.5, 40), 4);
+    // A bar at 10px a quarter is 40px: two bars make 80px.
+    assert.equal(gridSelectionCells(4, 10), 2);
+    // A quarter at 30px: three make 90px, two only 60px.
+    assert.equal(gridSelectionCells(1, 30), 3);
+  });
+
+  it("adds no extra cell when whole cells make exactly 64px", () => {
+    assert.equal(gridSelectionCells(0.25, 256), 1);
+    assert.equal(gridSelectionCells(0.1, 320), 2);
+    assert.equal(gridSelectionCells(0.5, 64), 2);
+  });
+
+  it("is one cell once a cell is wider than the minimum", () => {
+    assert.equal(gridSelectionCells(1, 120), 1);
+    assert.equal(gridSelectionCells(0.25, 400), 1);
+  });
+
+  it("falls back to one cell without a usable zoom", () => {
+    assert.equal(gridSelectionCells(1, 0), 1);
+  });
+});
+
 describe("gridCellSelection", () => {
   it("selects the grid cell holding the time", () => {
-    assert.deepEqual(gridCellSelection("2", 5.3, 0.25), {
+    assert.deepEqual(gridCellSelection("2", 5.3, 0.25, 400), {
       id: "selection-2",
       laneId: "2",
       startQ: 5.25,
       durationQ: 0.25,
     });
-    assert.deepEqual(gridCellSelection("1", 7.9, 4), {
+    assert.deepEqual(gridCellSelection("1", 7.9, 4, 20), {
       id: "selection-1",
       laneId: "1",
       startQ: 4,
@@ -258,11 +292,21 @@ describe("gridCellSelection", () => {
     });
   });
 
+  it("widens a narrow cell to the minimum, still on the grid", () => {
+    // 15px cells: five from the grid line before the time.
+    assert.deepEqual(gridCellSelection("1", 5.3, 0.25, 60), {
+      id: "selection-1",
+      laneId: "1",
+      startQ: 5.25,
+      durationQ: 1.25,
+    });
+  });
+
   it("starts a cell at a time on its grid line", () => {
-    assert.equal(gridCellSelection("1", 0.75, 0.25).startQ, 0.75);
+    assert.equal(gridCellSelection("1", 0.75, 0.25, 60).startQ, 0.75);
   });
 
   it("never starts before the song start", () => {
-    assert.equal(gridCellSelection("1", -2, 1).startQ, 0);
+    assert.equal(gridCellSelection("1", -2, 1, 60).startQ, 0);
   });
 });
