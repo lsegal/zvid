@@ -43,7 +43,12 @@ describe("componentTestCommand", () => {
   it("runs headed on the Linux desktop without xvfb-run", () => {
     for (const env of [{ DISPLAY: ":0" }, { WAYLAND_DISPLAY: "wayland-0" }]) {
       assert.deepEqual(
-        componentTestCommand({ platform: "linux", env, hasXvfbRun: false, args }),
+        componentTestCommand({
+          platform: "linux",
+          env,
+          hasXvfbRun: false,
+          args,
+        }),
         {
           command: "pnpm",
           args: ["exec", "vitest", "run", ...args, "--browser.headless=false"],
