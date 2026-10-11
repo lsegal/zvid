@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { click, down, move, up } from "../../component-test/cdp-mouse.ts";
+import "./SelectionOverlay";
 import {
+  EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
-} from "../../component-test/editor-harness.tsx";
-import "./SelectionOverlay";
+} from "../../component-test/editor.tsx";
+import { click, down, move, up } from "../../component-test/input.ts";
 
 // The timeline range selection renders before a lane's clips but paints over
 // them, so a range on a layer that already has clips stays visible. Clicks
@@ -62,7 +63,9 @@ async function copySpanToLayer(layer: string) {
   await userEvent.click(page.getByRole("menuitem", { name: layer }));
 }
 
-describe("SelectionOverlay stacking in the editor", () => {
+describe("SelectionOverlay stacking in the editor", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
   test("a range selection paints over the clips it overlaps", async () => {
     // Layers "1" and "2", and the test pattern in a new source track.
     await renderEditor({

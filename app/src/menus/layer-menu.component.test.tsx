@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { TimelineHarness } from "../components/timeline/timeline-harness";
+// The menu these tests open; importing it ties them to it.
+import "./layer-menu.ts";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../component-test/editor.tsx";
 import {
   addLayers,
   layerHeader,
@@ -9,9 +13,7 @@ import {
   openLayerMenu,
   pressShiftF10,
   undo,
-} from "../components/timeline/timeline-harness-input";
-// The menu these tests open; importing it ties them to it.
-import "./layer-menu.ts";
+} from "../component-test/input.ts";
 
 // Right-click menus on layer headers, in the timeline with the editing hooks
 // the app wires them to. Layers: "1" is Layer 1, and addLayers adds "2"
@@ -32,10 +34,10 @@ function fxPanelTitle() {
 const layerMenu = () =>
   page.getByRole("menu", { name: "Layer header actions" });
 
-describe("layer header menu", { timeout: 180_000 }, () => {
+describe("layer header menu", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerHeader("1")).toBeTruthy();
     await addLayers();
   }, 120_000);

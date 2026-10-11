@@ -1,16 +1,18 @@
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { menuItem, rightClick } from "../../component-test/input.ts";
 import { AudioRow } from "./AudioRow";
-import { TimelineHarness } from "./timeline-harness";
-import { menuItem, rightClick } from "./timeline-harness-input";
 
 // The Audio row docked under the timeline's rows.
 
-describe(AudioRow, { timeout: 180_000 }, () => {
+describe(AudioRow, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("only offers to recompute the audio", async () => {
     localStorage.clear();
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect
       .poll(() => document.querySelector("[data-audio-row]"))
       .toBeTruthy();

@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./components/timeline/timeline-harness";
 import type { MediaItem } from "./media";
 // The arrangement the wand builds; importing it ties this test to it.
 import "./random-arrangement.ts";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  testPatternVideo,
+  withMedia,
+} from "./component-test/editor.tsx";
 
 // The arrangement wand builds its video layers from video sources only and
 // puts audio-only sources on a separate Audio layer after them. A song that
@@ -61,14 +61,12 @@ function song(seconds: number): MediaItem {
   };
 }
 
-test("the wand adds an Audio layer holding a full-length song uncut", async () => {
+test("the wand adds an Audio layer holding a full-length song uncut", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
   // The song outlasts the four-second video. Each was dropped into a new
   // source track.
-  await render(
-    <TimelineHarness
-      project={projectWithMedia([testPatternVideo(), song(10)])}
-    />,
-  );
+  await renderEditor({ project: withMedia([testPatternVideo(), song(10)]) });
   await expect
     .poll(() => document.querySelectorAll(".source-span--audio"))
     .toHaveLength(1);

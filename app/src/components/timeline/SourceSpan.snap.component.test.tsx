@@ -3,10 +3,10 @@ import { userEvent } from "vitest/browser";
 import testPatternUrl from "../../../e2e/fixtures/test-pattern.mp4?url";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
-import { center, click, drag } from "../../component-test/timeline-mouse.ts";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { center, click, drag } from "../../component-test/input.ts";
 import type { MediaItem } from "../../media";
 import { addMediaToSourceTrack } from "../../source-track-media.ts";
 import { SourceSpan } from "./SourceSpan";
@@ -56,10 +56,10 @@ async function dragBy(element: HTMLElement, deltaPx: number) {
   await drag(from, { x: from.x + deltaPx, y: from.y }, { steps: 8 });
 }
 
-describe(SourceSpan, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(SourceSpan, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("dragging a clip snaps to the zoom-dependent grid", async () => {
     // One source track holding the test pattern at 0, as dropping it does.
-    await renderTimelineEditor({
+    await renderEditor({
       project: {
         mediaItems: [testPattern],
         ...addMediaToSourceTrack(INITIAL_PROJECT_STATE, [testPattern], {

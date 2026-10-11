@@ -1,20 +1,25 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { emulateTouch } from "../../component-test/viewport.ts";
-import { LayerHeader } from "./LayerHeader";
-import { TimelineHarness } from "./timeline-harness";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import {
   addLayers,
   center,
+  click,
+  down,
   layerHeader,
   menuItem,
-  mouse,
+  move,
   nextFrames,
   openLayerMenu,
   touch,
   undo,
-} from "./timeline-harness-input";
+  up,
+} from "../../component-test/input.ts";
+import { emulateTouch } from "../../component-test/viewport.ts";
+import { LayerHeader } from "./LayerHeader";
 
 // A layer's header (LayerHeader) in the timeline and its reorder grip.
 // Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer 3).
@@ -85,10 +90,10 @@ async function addLayer4() {
   return id;
 }
 
-describe(LayerHeader, { timeout: 180_000 }, () => {
+describe(LayerHeader, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerHeader("1")).toBeTruthy();
     await addLayers();
   }, 120_000);
@@ -113,14 +118,14 @@ describe(LayerHeader, { timeout: 180_000 }, () => {
         document.querySelector(".ruler-row") as HTMLElement
       ).getBoundingClientRect();
 
-      await mouse.move(from.x, from.y);
-      await mouse.down();
-      await mouse.move(from.x, from.y - 10, { steps: 2 });
+      await move(from.x, from.y);
+      await down();
+      await move(from.x, from.y - 10, { steps: 2 });
       const row = () =>
         document.querySelector(`[data-layer-row-id="${id}"]`) as HTMLElement;
       await expect.poll(() => row().className).toMatch(/track-row--lifted/);
       // Up past Layer 1, scrolling the list as it goes.
-      await mouse.move(from.x, ruler.y + ruler.height + 4, { steps: 12 });
+      await move(from.x, ruler.y + ruler.height + 4, { steps: 12 });
       await expect.poll(status).toBe("Layer 4, position 1 of 4");
       await expect
         .element(
@@ -129,7 +134,7 @@ describe(LayerHeader, { timeout: 180_000 }, () => {
           ),
         )
         .toBeVisible();
-      await mouse.up();
+      await up();
 
       await expect
         .poll(names)
@@ -167,15 +172,15 @@ describe(LayerHeader, { timeout: 180_000 }, () => {
         document.querySelector(".ruler-row") as HTMLElement
       ).getBoundingClientRect();
 
-      await mouse.move(from.x, from.y);
-      await mouse.down();
+      await move(from.x, from.y);
+      await down();
       // Just below the sticky ruler: the list scrolls up under the pointer.
-      await mouse.move(from.x, ruler.y + ruler.height + 4, { steps: 10 });
+      await move(from.x, ruler.y + ruler.height + 4, { steps: 10 });
       await expect.poll(status).toBe("Layer 3, position 1 of 3");
       await expect.poll(() => scroller.scrollTop).toBe(0);
       await userEvent.keyboard("{Escape}");
       await expect.poll(status).toBe("Canceled moving Layer 3");
-      await mouse.up();
+      await up();
       expect(names()).toEqual(["Layer 1", "Layer 2", "Layer 3"]);
       await expect.poll(lifted).toHaveLength(0);
       await expect
@@ -232,7 +237,7 @@ describe(LayerHeader, { timeout: 180_000 }, () => {
       await expect.poll(fxPanelTitle).toBe("Layer 3 Effects");
       // A click on the grip without dragging selects too, and moves nothing.
       const point = await centerInView(grip("2"));
-      await mouse.click(point.x, point.y);
+      await click(point.x, point.y);
       await expect.poll(fxPanelTitle).toBe("Layer 2 Effects");
       expect(names()).toEqual(["Layer 1", "Layer 2", "Layer 3"]);
       expect(lifted()).toHaveLength(0);

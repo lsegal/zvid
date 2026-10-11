@@ -4,17 +4,11 @@ import testPatternUrl from "../../e2e/fixtures/test-pattern.mp4?url";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
-  insertTextClip,
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../component-test/timeline-editor.tsx";
-import {
-  center,
-  click,
-  down,
-  move,
-  up,
-} from "../component-test/timeline-mouse.ts";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../component-test/editor.tsx";
+import { insertTextClip } from "../component-test/editor-steps.ts";
+import { center, click, down, move, up } from "../component-test/input.ts";
 import { setViewport } from "../component-test/viewport.ts";
 import type { MediaItem } from "../media";
 import { addMediaToSourceTrack } from "../source-track-media.ts";
@@ -126,12 +120,12 @@ function sessionWithTestPattern(): Partial<ProjectState> {
 // Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and "3" (Layer
 // 3).
 async function renderWithLayers(project?: Partial<ProjectState>) {
-  await renderTimelineEditor({ project });
+  await renderEditor({ project });
   await addLayers();
   (document.querySelector(".timeline-scroll") as HTMLElement).scrollLeft = 0;
 }
 
-describe(useKeyboardShortcuts, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(useKeyboardShortcuts, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // The three layers all fit at this size.
   beforeEach(async () => {
     await setViewport({ width: 1600, height: 1200 });

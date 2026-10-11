@@ -1,12 +1,12 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
-import { click, down, move, up } from "./component-test/cdp-mouse.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   type EditorState,
   renderEditor,
-} from "./component-test/editor-harness.tsx";
+} from "./component-test/editor.tsx";
+import { click, down, move, up } from "./component-test/input.ts";
 import { isFillClip } from "./fill-clip.ts";
 
 // The selection menu's Insert Fill Clip turns the timeline selection into a

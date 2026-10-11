@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { TrackRecordDevice } from "./TrackRecordDevice";
 import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline/timeline-harness";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../component-test/editor.tsx";
+import { TrackRecordDevice } from "./TrackRecordDevice";
 
 // Selecting a source track, or one of its clips, leads the Effects pane
 // with a Record device, ahead of the Clip device and the Global section:
@@ -30,12 +29,10 @@ const deviceButton = (name: RegExp | string) =>
 const firstInChain = () =>
   (query(".fx-chain").firstElementChild as HTMLElement).className;
 
-describe(TrackRecordDevice, { timeout: 180_000 }, () => {
+describe(TrackRecordDevice, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
-    await render(
-      <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-    );
+    await renderEditor({ project: withTestPatternTrack() });
     await expect.poll(() => query(".source-span")).toBeTruthy();
   }, 120_000);
 

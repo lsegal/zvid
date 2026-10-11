@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { undo } from "../../component-test/input.ts";
 import { TrackAddButton } from "./TrackPlaceholder";
-import { TimelineHarness } from "./timeline-harness";
-import { undo } from "./timeline-harness-input";
 
 // The placeholder rows that end the layers and the source tracks: their
 // [ + Layer ] and [ + Track ] buttons replace the toolbar's layer count and
@@ -35,10 +37,10 @@ function addTrack() {
     .getByRole("button", { name: "Track", exact: true });
 }
 
-describe(TrackAddButton, { timeout: 180_000 }, () => {
+describe(TrackAddButton, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(headers).toHaveLength(1);
   }, 120_000);
 

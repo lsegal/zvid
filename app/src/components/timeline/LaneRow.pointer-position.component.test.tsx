@@ -1,25 +1,20 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
-import {
-  down,
-  holdModifiers,
-  move,
-  up,
-} from "../../component-test/timeline-mouse.ts";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { down, holdModifiers, move, up } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { LaneRow } from "./LaneRow";
 
-describe(LaneRow, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(LaneRow, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // The timeline position under the pointer is measured from where clips
   // start, inside the timeline scroller's border and the content's left
   // border, so an unsnapped selection lands right under the pointer (#696).
   test("an unsnapped lane selection starts and ends under the pointer", async () => {
     await setViewport({ width: 1280, height: 900 });
-    await renderTimelineEditor({ reducedMotion: true });
+    await renderEditor({ reducedMotion: true });
     const target = document.querySelector(
       '[data-timeline-lane-id="1"]',
     ) as HTMLElement;

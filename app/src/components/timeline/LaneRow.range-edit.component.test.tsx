@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
-import { click, down, move, up } from "../../component-test/cdp-mouse.ts";
+import "./LaneRow";
 import {
+  EDITOR_TEST_TIMEOUT,
   type EditorState,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
-} from "../../component-test/editor-harness.tsx";
-import "./LaneRow";
+} from "../../component-test/editor.tsx";
+import { click, down, move, up } from "../../component-test/input.ts";
 
 // Cut, Copy and Delete with a timeline selection act on exactly the selected
 // span on its layer, and Paste reproduces what was cut. LaneRow draws the
@@ -84,7 +85,9 @@ async function expectEdges(laneId: string, expected: number[][]) {
 
 let editor: EditorState;
 
-describe("LaneRow range edits in the editor", () => {
+describe("LaneRow range edits in the editor", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
   // Layers "1" to "3", as Layer 1 with two layers inserted below it, and the
   // test pattern in a new source track.
   beforeEach(async () => {

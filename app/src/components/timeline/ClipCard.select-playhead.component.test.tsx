@@ -1,12 +1,12 @@
 import { beforeEach, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { click } from "../../component-test/cdp-mouse.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
-} from "../../component-test/editor-harness.tsx";
+} from "../../component-test/editor.tsx";
+import { click } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { ClipCard } from "./ClipCard";
 import { SourceSpan } from "./SourceSpan";

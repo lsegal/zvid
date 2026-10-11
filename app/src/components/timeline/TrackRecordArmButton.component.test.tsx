@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
 import { PhoneShell } from "../../component-test/shells.tsx";
 import { usePhone, useTablet } from "../../component-test/viewport.ts";
 import { TrackRecordArmButton } from "./TrackRecordArmButton";
-import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline-harness";
 
 const track = { id: "track-1", name: "Camera" };
 
@@ -57,13 +57,11 @@ describe("TrackRecordArmButton", () => {
 // track leads the Effects pane with arm the same track, so each follows the
 // other.
 describe("TrackRecordArmButton with the Record device", {
-  timeout: 180_000,
+  timeout: EDITOR_TEST_TIMEOUT,
 }, () => {
   test("follows the device, and arms the device back", async () => {
     localStorage.clear();
-    await render(
-      <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-    );
+    await renderEditor({ project: withTestPatternTrack() });
     await expect
       .poll(() => document.querySelector(".track-label--source"))
       .toBeTruthy();

@@ -1,22 +1,25 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
 import { setViewport } from "./component-test/viewport.ts";
-import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./components/timeline/timeline-harness";
-import {
-  addLayers,
-  center,
-  copySourceClipToLayer1,
-  isVisible,
-  mouse,
-} from "./components/timeline/timeline-harness-input";
 // What collapses a row and how tall it is; importing it ties these tests
 // to it.
 import "./row-heights.ts";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "./component-test/editor.tsx";
+import { copySourceClipToLayer1 } from "./component-test/editor-steps.ts";
+import {
+  addLayers,
+  center,
+  click,
+  dblclick,
+  down,
+  isVisible,
+  move,
+  up,
+} from "./component-test/input.ts";
 
 // Double-clicking a layer, source track or Audio row handle outside its name
 // collapses the row to 44px, with a 28px clip 8px down and no frames, and
@@ -53,9 +56,7 @@ function expectVisible(element: Element | null, visible = true) {
 
 // A video in a source track, copied to Layer 1, both showing frames.
 async function addVideoClips() {
-  await render(
-    <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-  );
+  await renderEditor({ project: withTestPatternTrack() });
   await expect.poll(() => layerRow()).toBeTruthy();
   await copySourceClipToLayer1();
 }
@@ -63,13 +64,13 @@ async function addVideoClips() {
 // Double-clicks a row's label just right of its name, where nothing else is.
 async function doubleClickBesideName(label: Element) {
   const name = query(".track-label__select", label).getBoundingClientRect();
-  await mouse.dblclick(name.x + name.width + 6, name.y + name.height / 2);
+  await dblclick(name.x + name.width + 6, name.y + name.height / 2);
 }
 
 // Double-clicks an element's center.
 async function doubleClick(element: Element) {
   const point = center(element);
-  await mouse.dblclick(point.x, point.y);
+  await dblclick(point.x, point.y);
 }
 
 function fontSize(element: Element) {
@@ -219,19 +220,19 @@ function thumbnails(row: Element) {
 async function insertClip(item: string, from: number) {
   const bounds = query('[data-timeline-lane-id="1"]').getBoundingClientRect();
   const y = bounds.y + bounds.height / 2;
-  await mouse.move(bounds.x + from, y);
-  await mouse.down();
-  await mouse.move(bounds.x + from + 100, y);
-  await mouse.move(bounds.x + from + 220, y);
-  await mouse.up();
-  await mouse.click(bounds.x + from + 110, bounds.y + 20, { button: "right" });
+  await move(bounds.x + from, y);
+  await down();
+  await move(bounds.x + from + 100, y);
+  await move(bounds.x + from + 220, y);
+  await up();
+  await click(bounds.x + from + 110, bounds.y + 20, { button: "right" });
   await page
     .getByRole("menu", { name: "Selection actions" })
     .getByRole("menuitem", { name: item })
     .click();
 }
 
-describe("collapsing rows", { timeout: 180_000 }, () => {
+describe("collapsing rows", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
@@ -345,7 +346,7 @@ describe("collapsing rows", { timeout: 180_000 }, () => {
   });
 
   test("collapsed text and FX clips keep their type glyphs", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerRow()).toBeTruthy();
     await insertClip("Insert Text Clip", 40);
     await insertClip("Insert FX Clip", 400);
@@ -380,7 +381,7 @@ describe("collapsing rows", { timeout: 180_000 }, () => {
   });
 
   test("double-clicking the Audio row's label collapses and expands it", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => query("[data-audio-row]")).toBeTruthy();
     const row = query("[data-audio-row]");
     const label = query(".track-label", row);
@@ -394,7 +395,7 @@ describe("collapsing rows", { timeout: 180_000 }, () => {
     // collapses and expands.
     const doubleClickPadding = async () => {
       const box = label.getBoundingClientRect();
-      await mouse.dblclick(box.x + 6, box.y + box.height / 2);
+      await dblclick(box.x + 6, box.y + box.height / 2);
     };
     await doubleClickPadding();
     await expect.poll(expanded).toBe("false");

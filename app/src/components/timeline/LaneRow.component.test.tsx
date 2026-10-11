@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { render } from "vitest-browser-react";
 import { setViewport } from "../../component-test/viewport.ts";
 import { MIN_GRID_SELECTION_PX } from "../../lane-selection-gesture.ts";
-import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline-harness";
-import { addLayers, center, mouse } from "./timeline-harness-input";
 // The harness renders LaneRow; importing it ties this test to it.
 import "./LaneRow";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
+import {
+  addLayers,
+  center,
+  click,
+  dblclick,
+  down,
+  move,
+  up,
+} from "../../component-test/input.ts";
 
 // A layer's lane (LaneRow) in the timeline: pressing, dragging and
 // double-clicking empty lane space, and how its clips and selection sit in
@@ -51,7 +58,7 @@ function minimumSelectionPx(cellPx: number) {
 // the grid cell under it and is the minimum width in whole cells.
 async function expectCellAt(target: HTMLElement, offsetX: number) {
   const laneBox = target.getBoundingClientRect();
-  await mouse.dblclick(laneBox.x + offsetX, laneBox.y + 20);
+  await dblclick(laneBox.x + offsetX, laneBox.y + 20);
   await expect
     .poll(() => target.querySelectorAll(".timeline-selection"))
     .toHaveLength(1);
@@ -71,7 +78,7 @@ async function expectCellAt(target: HTMLElement, offsetX: number) {
   return cellPx;
 }
 
-describe("LaneRow", { timeout: 180_000 }, () => {
+describe("LaneRow", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // A desktop window tall enough to keep the layers clear of the docked
   // Audio row.
   beforeEach(async () => {
@@ -82,7 +89,7 @@ describe("LaneRow", { timeout: 180_000 }, () => {
   // A left-click on empty lane space seeks and clears the selection; only a
   // drag past a few pixels selects a range.
   test("clicking empty lane space seeks without selecting, and dragging selects", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => lane("1")).toBeTruthy();
     const target = lane("1");
     const bounds = target.getBoundingClientRect();
@@ -90,7 +97,7 @@ describe("LaneRow", { timeout: 180_000 }, () => {
 
     // A plain click leaves no selection and moves the playhead there.
     const before = playheadX("1");
-    await mouse.click(bounds.x + 200, y);
+    await click(bounds.x + 200, y);
     expect(selections()).toHaveLength(0);
     await expect
       .poll(() => target.parentElement?.className)
@@ -99,25 +106,25 @@ describe("LaneRow", { timeout: 180_000 }, () => {
     expect(Math.abs(playheadX("1") - 200)).toBeLessThan(40);
 
     // Jitter under the threshold is still a click.
-    await mouse.move(bounds.x + 120, y);
-    await mouse.down();
-    await mouse.move(bounds.x + 122, y);
+    await move(bounds.x + 120, y);
+    await down();
+    await move(bounds.x + 122, y);
     expect(selections()).toHaveLength(0);
-    await mouse.move(bounds.x + 118, y);
-    await mouse.up();
+    await move(bounds.x + 118, y);
+    await up();
     expect(selections()).toHaveLength(0);
 
     // A drag past the threshold selects from the anchor to the pointer.
-    await mouse.move(bounds.x + 40, y);
-    await mouse.down();
-    await mouse.move(bounds.x + 150, y, { steps: 4 });
-    await mouse.move(bounds.x + 260, y, { steps: 4 });
-    await mouse.up();
+    await move(bounds.x + 40, y);
+    await down();
+    await move(bounds.x + 150, y, { steps: 4 });
+    await move(bounds.x + 260, y, { steps: 4 });
+    await up();
     await expect.poll(() => selections()).toHaveLength(1);
     expect(selections()[0].getBoundingClientRect().width).toBeGreaterThan(150);
 
     // Clicking elsewhere clears it.
-    await mouse.click(bounds.x + 400, y);
+    await click(bounds.x + 400, y);
     await expect.poll(() => selections()).toHaveLength(0);
   });
 
@@ -126,7 +133,7 @@ describe("LaneRow", { timeout: 180_000 }, () => {
   // takes the fewest cells at least 64px wide, so both edge handles stay
   // reachable (#1214).
   test("double-clicking empty lane space selects grid cells at least 64px wide", async () => {
-    const screen = await render(<TimelineHarness />);
+    const screen = await renderEditor();
     await expect.poll(() => lane("1")).toBeTruthy();
     const target = lane("1");
     expect(MIN_GRID_SELECTION_PX).toBe(64);
@@ -163,10 +170,10 @@ describe("LaneRow", { timeout: 180_000 }, () => {
     const end = center(
       screen.getByRole("button", { name: "Resize selection end" }).element(),
     );
-    await mouse.move(end.x, end.y);
-    await mouse.down();
-    await mouse.move(end.x + 120, end.y, { steps: 6 });
-    await mouse.up();
+    await move(end.x, end.y);
+    await down();
+    await move(end.x + 120, end.y, { steps: 6 });
+    await up();
     await expect
       .poll(
         () =>
@@ -183,12 +190,10 @@ describe("LaneRow", { timeout: 180_000 }, () => {
     const LANE_HEIGHT = 66;
     const CLIP_INSET = 11;
     const CLIP_HEIGHT = 44;
-    const screen = await render(
-      <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-    );
+    const screen = await renderEditor({ project: withTestPatternTrack() });
     await expect.poll(() => lane("1")).toBeTruthy();
     await addLayers(1);
-    await mouse.click(
+    await click(
       center(document.querySelector(".source-span") as Element).x,
       center(document.querySelector(".source-span") as Element).y,
       { button: "right" },
@@ -217,10 +222,10 @@ describe("LaneRow", { timeout: 180_000 }, () => {
     // A pending selection is drawn 2px outside the clip's top and bottom.
     const bounds = lane("2").getBoundingClientRect();
     const y = bounds.y + 20;
-    await mouse.move(bounds.x + 120, y);
-    await mouse.down();
-    await mouse.move(bounds.x + 260, y, { steps: 4 });
-    await mouse.up();
+    await move(bounds.x + 120, y);
+    await down();
+    await move(bounds.x + 260, y, { steps: 4 });
+    await up();
     await expect.poll(() => selections()).toHaveLength(1);
     const selection = selections()[0].getBoundingClientRect();
     expect(selection.y - bounds.y).toBe(CLIP_INSET - 2);

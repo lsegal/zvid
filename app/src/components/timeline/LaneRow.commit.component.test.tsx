@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { ProjectState } from "../../app/types.ts";
-import { down, move, up } from "../../component-test/cdp-mouse.ts";
-import {
-  renderEditor,
-  sessionWithLayers,
-} from "../../component-test/editor-harness.tsx";
 import { setViewport } from "../../component-test/viewport.ts";
 import type { MediaItem } from "../../media";
 import { addMediaToSourceTrack } from "../../source-track-media.ts";
 import "./LaneRow";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  sessionWithLayers,
+} from "../../component-test/editor.tsx";
+import { down, move, up } from "../../component-test/input.ts";
 
 // Committing a selection with a number key makes a layer clip over it from
 // that source track. LaneRow draws the selection and the clips; the editor
@@ -155,7 +156,7 @@ function drawnColumns(canvas: HTMLCanvasElement) {
 
 // Each test commits up to three clips.
 describe("LaneRow committing a selection in the editor", {
-  timeout: 90_000,
+  timeout: EDITOR_TEST_TIMEOUT,
 }, () => {
   beforeEach(async () => {
     await setViewport({ width: 1600, height: 1200 });

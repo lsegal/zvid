@@ -2,16 +2,16 @@ import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import {
   center,
   down,
   type MouseButton,
   move,
   up,
-} from "../../component-test/timeline-mouse.ts";
+} from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { addFillClip } from "../../fill-clip.ts";
 import { Timeline } from "./Timeline";
@@ -28,7 +28,7 @@ function box(selector: string) {
   return query(selector).getBoundingClientRect();
 }
 
-describe(Timeline, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(Timeline, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // The timeline sits flush against the window's left edge (just inside the
   // panel's 1px border), with square left corners, whether the FX row is
   // open or not. In the wide layout it also sits on the transport bar; the
@@ -56,7 +56,7 @@ describe(Timeline, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     ]) {
       test(`the timeline is flush with the window's left edge at ${viewport.width}px`, async () => {
         await setViewport(viewport);
-        await renderTimelineEditor();
+        await renderEditor();
         expectFlush(onTransport);
 
         // The FX row shares the workspace column and lines up with it.
@@ -90,7 +90,7 @@ describe(Timeline, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
       color: "#8d93a8",
       effectId: "effect-1",
     });
-    const screen = await renderTimelineEditor({ project: { clips, effects } });
+    const screen = await renderEditor({ project: { clips, effects } });
     const target = query('[data-timeline-lane-id="1"]');
     await expect
       .poll(() => target.querySelectorAll(".clip-card"))

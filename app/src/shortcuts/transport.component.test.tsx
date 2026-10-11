@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../component-test/editor.tsx";
+import {
   createLoop,
   insertTextClip,
   readPlayheadQ,
-  renderTimelineEditor,
   samplePlayheadQ,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../component-test/timeline-editor.tsx";
-import { center, click } from "../component-test/timeline-mouse.ts";
+} from "../component-test/editor-steps.ts";
+import { center, click } from "../component-test/input.ts";
 import { setViewport } from "../component-test/viewport.ts";
 import { skipShortcut } from "./transport.ts";
 
@@ -64,12 +66,12 @@ function expectWithinLoop(
 // A text clip across the start of Layer 1, so there is something to play,
 // and a loop over part of it.
 async function renderWithLoop() {
-  await renderTimelineEditor();
+  await renderEditor();
   const bounds = await insertTextClip();
   return createLoop(bounds.x + 60, bounds.x + 120);
 }
 
-describe("transport shortcuts", { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe("transport shortcuts", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     await setViewport({ width: 1600, height: 1200 });
   });

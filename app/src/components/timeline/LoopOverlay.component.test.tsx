@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import {
   center,
   click,
@@ -12,7 +12,7 @@ import {
   down,
   move,
   up,
-} from "../../component-test/timeline-mouse.ts";
+} from "../../component-test/input.ts";
 import { LoopOverlay } from "./LoopOverlay";
 
 // The loop region (#1099, #1103): its brace in the ruler is gray, and its in
@@ -120,9 +120,9 @@ function topmostAt(x: number, y: number) {
   return element?.closest(".loop-overlay") ? "loop" : "other";
 }
 
-describe(LoopOverlay, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(LoopOverlay, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("the loop is gray in the ruler and runs down the timeline behind clips", async () => {
-    const screen = await renderTimelineEditor({ reducedMotion: true });
+    const screen = await renderEditor({ reducedMotion: true });
     const fill = await insertFillClip(screen);
     expect(document.querySelectorAll(".loop-overlay")).toHaveLength(0);
 

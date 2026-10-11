@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
-import { center, click } from "../../component-test/timeline-mouse.ts";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { center, click } from "../../component-test/input.ts";
 import { TransportBar } from "./TransportBar";
 
 // The transport bar's zoom control: the -/+ buttons step along a ladder from
@@ -30,9 +30,9 @@ async function stepUntilDisabled(name: "Zoom in" | "Zoom out") {
   return seen;
 }
 
-describe(TransportBar, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
-    screen = await renderTimelineEditor();
+    screen = await renderEditor();
     await expect.poll(readout).toBe("100%");
   });
 

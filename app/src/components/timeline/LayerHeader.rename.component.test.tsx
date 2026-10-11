@@ -6,7 +6,7 @@ import {
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
-} from "../../component-test/editor-harness.tsx";
+} from "../../component-test/editor.tsx";
 import { setViewport } from "../../component-test/viewport.ts";
 import { NameInput } from "../NameInput";
 import { LayerHeader } from "./LayerHeader";

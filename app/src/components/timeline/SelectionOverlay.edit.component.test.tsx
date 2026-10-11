@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { click, down, move, up } from "../../component-test/cdp-mouse.ts";
-import {
-  renderEditor,
-  sessionWithLayers,
-} from "../../component-test/editor-harness.tsx";
 import { setViewport } from "../../component-test/viewport.ts";
 import "./SelectionOverlay";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  sessionWithLayers,
+} from "../../component-test/editor.tsx";
+import { click, down, move, up } from "../../component-test/input.ts";
 
 // A drawn range selection moves when its body is dragged, onto another
 // layer too, and resizes from either edge handle. A click inside it keeps
@@ -63,7 +64,9 @@ async function drawSelection(laneId: string, fromX: number, toX: number) {
   return selectionIn(laneId) as HTMLElement;
 }
 
-describe("SelectionOverlay in the editor", () => {
+describe("SelectionOverlay in the editor", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
   // The docked Audio row leaves less room for layers; all three layers fit
   // at this size.
   beforeEach(async () => {

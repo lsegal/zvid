@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
+import {
+  down,
+  move,
+  nextFrames,
+  redo,
+  undo,
+  up,
+} from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { ClipPieceMedia } from "./ClipPieceMedia";
-import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline-harness";
-import { mouse, nextFrames, redo, undo } from "./timeline-harness-input";
 
 // A layer clip made from a source track selection shows a window of that
 // track, piece by piece (ClipPieceMedia), not the source clip it was made
@@ -141,10 +147,10 @@ async function dragBy(handle: Element, deltaPx: number) {
   const bounds = box(handle);
   const x = bounds.x + bounds.width / 2;
   const y = bounds.y + bounds.height / 2;
-  await mouse.move(x, y, { shift: true });
-  await mouse.down({ shift: true });
-  await mouse.move(x + deltaPx, y, { steps: 8, shift: true });
-  await mouse.up({ shift: true });
+  await move(x, y, { modifiers: ["Shift"] });
+  await down({ modifiers: ["Shift"] });
+  await move(x + deltaPx, y, { steps: 8, modifiers: ["Shift"] });
+  await up({ modifiers: ["Shift"] });
 }
 
 // The video in a source track, with Layer 1 in view and the timeline
@@ -152,9 +158,7 @@ async function dragBy(handle: Element, deltaPx: number) {
 // clip, media seconds 1 to 3, made from a selection there. Returns the
 // source clip's box and the width of a quarter.
 async function layerClipOverSourceClip() {
-  await render(
-    <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-  );
+  await renderEditor({ project: withTestPatternTrack() });
   await expect.poll(() => span()).toBeTruthy();
   layer().scrollIntoView({ block: "center" });
   query(".timeline-scroll").scrollLeft = 0;
@@ -163,10 +167,10 @@ async function layerClipOverSourceClip() {
   const spanBox = box(span());
   const quarterPx = spanBox.width / 8;
   const y = box(layer()).y + 20;
-  await mouse.move(spanBox.x + 2 * quarterPx, y);
-  await mouse.down();
-  await mouse.move(spanBox.x + 6 * quarterPx, y, { steps: 6 });
-  await mouse.up();
+  await move(spanBox.x + 2 * quarterPx, y);
+  await down();
+  await move(spanBox.x + 6 * quarterPx, y, { steps: 6 });
+  await up();
   await expect.poll(() => query(".timeline-selection", layer())).toBeTruthy();
   await userEvent.keyboard("1");
   await expect
@@ -175,7 +179,7 @@ async function layerClipOverSourceClip() {
   return { spanBox, quarterPx };
 }
 
-describe(ClipPieceMedia, { timeout: 180_000 }, () => {
+describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });

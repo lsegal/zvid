@@ -1,16 +1,16 @@
 import { describe, expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import {
   click,
   down,
   type MouseButton,
   move,
   up,
-} from "../../component-test/timeline-mouse.ts";
+} from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { Ruler } from "./Ruler";
 
@@ -31,7 +31,7 @@ function timecode() {
     ?.textContent;
 }
 
-describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(Ruler, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // Hand-grab panning on the timeline ruler: the right and middle buttons pan
   // the timeline, a right-drag up or down zooms around the pointer, the left
   // button only scrubs the playhead, and the browser's context menu never
@@ -100,7 +100,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     // Records whether each contextmenu event reaching the window was
     // canceled, which is what keeps the browser's own menu closed.
     async function renderWatchingContextMenus() {
-      const screen = await renderTimelineEditor({
+      const screen = await renderEditor({
         // No momentum, so the pan lands exactly where the pointer let go.
         reducedMotion: true,
       });
@@ -307,7 +307,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     }
 
     test("scrubbing left past 00:00:00 leaves the view at the start", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       expect(query(".timeline-scroll").scrollLeft).toBe(0);
       const positions = watchScroll();
       await scrubToLabels();
@@ -318,7 +318,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("scrubbing left past 00:00:00 from a scrolled view only scrolls left", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       // Scrolled by less than the label column, so a drag to the timeline's
       // left edge carries the playhead past 00:00:00.
       const scroll = query(".timeline-scroll");
@@ -390,7 +390,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
 
     test("the ruler marker meets the playhead line", async () => {
       await setViewport({ width: 1600, height: 1200 });
-      await renderTimelineEditor();
+      await renderEditor();
       await seek();
 
       expectContinuousPlayhead();
@@ -398,7 +398,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
 
     test("the ruler marker meets the playhead line under a header status line", async () => {
       await setViewport({ width: 1600, height: 1200 });
-      await renderTimelineEditor();
+      await renderEditor();
       const before = box(".ruler-row").height;
 
       // Stand in for the offline/sync status, plus a second line so the
@@ -424,7 +424,7 @@ describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // border, so an unsnapped scrub lands right under the pointer (#696).
   test("clicking the ruler puts the playhead under the pointer", async () => {
     await setViewport({ width: 1280, height: 900 });
-    await renderTimelineEditor({ reducedMotion: true });
+    await renderEditor({ reducedMotion: true });
     const ruler = query(".ruler-row__content");
     const pointerX =
       ruler.getBoundingClientRect().left + ruler.clientLeft + 160;

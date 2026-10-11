@@ -2,16 +2,16 @@ import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import {
   center,
   click,
   dblclick,
   drag,
   move,
-} from "../../component-test/timeline-mouse.ts";
+} from "../../component-test/input.ts";
 import { LoopStrip } from "./LoopStrip";
 
 function query(selector: string) {
@@ -62,13 +62,13 @@ function selectionEnds() {
   };
 }
 
-describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(LoopStrip, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // The loop strip along the bottom of the ruler: dragging there highlights
   // a playback selection without moving the playhead, a click clears it, and
   // the ruler above it still scrubs.
   describe("playback selection", () => {
     test("the loop strip sits along the ruler's bottom with its own look", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       const { ruler, strip } = geometry();
       expect(strip.y + strip.height).toBeCloseTo(ruler.y + ruler.height, 0);
       // About as tall as the playhead diamond, below the timecodes.
@@ -85,7 +85,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("dragging in the loop strip highlights a range and keeps the playhead", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       const before = timecode();
       const markerBefore = box(".timeline-playhead-marker");
       const { view, y } = geometry();
@@ -108,7 +108,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("a click in the loop strip clears the selection", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       const { view, y } = geometry();
       await dragX(view.x + view.width * 0.4, view.x + view.width * 0.6, y);
       await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
@@ -119,7 +119,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("dragging in the ruler above the strip still scrubs", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       const before = timecode();
       const { view, ruler } = geometry();
       const y = ruler.y + ruler.height * 0.3;
@@ -157,7 +157,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     }
 
     test("L locks the selection into a loop that resizes, moves and deletes", async () => {
-      await renderTimelineEditor({ reducedMotion: true });
+      await renderEditor({ reducedMotion: true });
       const { view, y } = geometry();
 
       // L with no playback selection does nothing.
@@ -220,7 +220,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("the loop strip menu places markers, locks a selection and deletes the loop", async () => {
-      const screen = await renderTimelineEditor({ reducedMotion: true });
+      const screen = await renderEditor({ reducedMotion: true });
       const { view, y } = geometry();
       const timecodeBefore = timecode();
 
@@ -280,7 +280,7 @@ describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     });
 
     test("Create loop in and out marker always make a full loop at the click", async () => {
-      const screen = await renderTimelineEditor({ reducedMotion: true });
+      const screen = await renderEditor({ reducedMotion: true });
       const { view, strip, y } = geometry();
       // The visible part of the strip, right of the layer headers.
       const left = strip.x;

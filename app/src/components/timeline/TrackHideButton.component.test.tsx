@@ -1,26 +1,26 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { TrackHideButton } from "./TrackHideButton";
 import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline-harness";
-import { insertFillAtStart, layerHeader, undo } from "./timeline-harness-input";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
+import { insertFillAtStart } from "../../component-test/editor-steps.ts";
+import { layerHeader, undo } from "../../component-test/input.ts";
+import { TrackHideButton } from "./TrackHideButton";
 
 // The Hide switch on each layer and source track header (#1026), left of
 // its FX switch. What hiding does to the preview stays in the track-hide
 // e2e spec, and how the compositor treats a hidden layer is in
 // CompositionPlayer.hidden-layers.component.test.tsx.
 
-describe(TrackHideButton, { timeout: 180_000 }, () => {
+describe(TrackHideButton, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(() => {
     localStorage.clear();
   }, 120_000);
 
   test("the eye left of a layer's FX switch hides it, undoably", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerHeader("1")).toBeTruthy();
     await insertFillAtStart("1");
 
@@ -63,9 +63,7 @@ describe(TrackHideButton, { timeout: 180_000 }, () => {
   });
 
   test("a source track's eye hides it", async () => {
-    await render(
-      <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-    );
+    await renderEditor({ project: withTestPatternTrack() });
     await expect
       .poll(() => document.querySelector(".track-label--source"))
       .toBeTruthy();

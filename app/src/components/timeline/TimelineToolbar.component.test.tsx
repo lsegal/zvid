@@ -1,17 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import {
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../../component-test/timeline-editor.tsx";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
 import { TimelineToolbar } from "./TimelineToolbar";
 
 // The toolbar renders in the timeline editor, whose ruler it switches.
-describe(TimelineToolbar, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   // The scale toggle: Tempo shows bar numbers on the ruler, Time shows
   // timecode.
   test("the scale toggle reads Tempo / Time and switches the ruler", async () => {
-    const screen = await renderTimelineEditor();
+    const screen = await renderEditor();
     const tempo = screen.getByRole("button", { name: "Tempo", exact: true });
     const time = screen.getByRole("button", { name: "Time", exact: true });
     const firstLabel = () =>
@@ -39,7 +39,7 @@ describe(TimelineToolbar, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // There is no snap grid selector, only the Snap On/Off toggle, with the
   // tempo control right of it (#732).
   test("the toolbar has no snap grid selector and the tempo sits right of Snap", async () => {
-    const screen = await renderTimelineEditor();
+    const screen = await renderEditor();
     const toolbar = screen.container.querySelector(
       ".timeline-toolbar",
     ) as HTMLElement;

@@ -1,15 +1,15 @@
+/// <reference types="@vitest/browser-playwright" />
+
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { expect, onTestFinished } from "vitest";
+import { cdp } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import testPatternUrl from "../../e2e/fixtures/test-pattern.mp4?url";
 import type { ClipClipboard } from "../app/clip-ops.ts";
 import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
+import { patchProjectState } from "../app/session-project.ts";
 import { selectSourceSpan } from "../app/source-selection.ts";
-import type {
-  ArrangementClip,
-  Lane,
-  ProjectState,
-  SourceSpan,
-} from "../app/types.ts";
+import type { Lane, ProjectState, SourceSpan } from "../app/types.ts";
 import type { WorkspaceAccess } from "../app/workspace-types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
@@ -28,7 +28,6 @@ import { SourceTracks } from "../components/timeline/SourceTracks";
 import { Timeline } from "../components/timeline/Timeline";
 import { TimelineToolbar } from "../components/timeline/TimelineToolbar";
 import { TransportBar } from "../components/timeline/TransportBar";
-import { addFillClip } from "../fill-clip.ts";
 import { ensureLayerLayouts } from "../fx-stack.ts";
 import { installHarness } from "../harness";
 import { useAppLayout } from "../hooks/useAppLayout.ts";
@@ -46,7 +45,8 @@ import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "../hooks/useProjectStore.ts";
-import type { useSourceTrackDrop } from "../hooks/useSourceTrackDrop.ts";
+import { useSourceClipProperties } from "../hooks/useSourceClipProperties.ts";
+import { useSourceTrackDrop } from "../hooks/useSourceTrackDrop.ts";
 import { useTimeline } from "../hooks/useTimeline.ts";
 import { useTimelineEditing } from "../hooks/useTimelineEditing.ts";
 import { useTimelineSelection } from "../hooks/useTimelineSelection.ts";
@@ -54,35 +54,30 @@ import type { MediaItem } from "../media";
 import { addMediaToSourceTrack } from "../source-track-media.ts";
 import { createSpaceHold } from "../space-shortcut";
 
-// The desktop editor without the Media drawer, media import or session
-// persistence, for component tests of editing: the top bar's menubar, the
-// toolbar, the timeline (ruler, layers, source tracks and Audio row), the
-// transport bar, the FX panel, the context menus and, when asked for, the
-// preview, wired through the hooks App wires them with (useProjectStore,
-// useTimelineSelection, useAppLayout, useTimeline, usePlayback,
-// useFxEditing, useFxPanelModel, usePreview and useTimelineEditing), so
-// edits, undo, menus, drags, keyboard shortcuts and playback of the playhead
-// behave as in the app.
+// The desktop editor for component tests whose behavior needs App's hooks
+// wired together: the top bar's menubar, the toolbar, the timeline (ruler,
+// layers, source tracks and Audio row), the transport bar, the FX panel, the
+// context menus and, when asked for, the preview, wired through the hooks
+// App wires them with (useProjectStore, useTimelineSelection, useAppLayout,
+// useTimeline, usePlayback, useFxEditing, useFxPanelModel,
+// useSourceClipProperties, usePreview and useTimelineEditing), so edits,
+// undo, menus, drags, keyboard shortcuts and playback of the playhead behave
+// as in the app. A test of one component should render that component on
+// its own instead (see ARCHITECTURE.md).
+//
+// It leaves out the Media drawer, media import, recording, collaboration and
+// session persistence: media comes in through the session it opens (see
+// withMedia), and drops onto the source tracks import nothing.
 
 const noop = () => {};
 const noopAsync = async () => false;
 
-// What a source track drop shows while nothing is being dragged.
-const NO_DROP = {
-  isSourceTrackFileDragActive: false,
-  isNewSourceTrackDropTarget: false,
-  sourceTrackDragTarget: null,
-  sourceTrackDragPreview: null,
-  sourceTrackDragPreviewDetail: null,
-  sourceTrackDragPreviewOverflow: 0,
-  sourceTrackDragThumbnails: [],
-} as unknown as ReturnType<typeof useSourceTrackDrop>;
 const NO_IDS: ReadonlySet<string> = new Set();
 const NO_LIVE_TAKES = new Map();
 const NO_REMOTE_PROGRESS = new Map();
 
-// Tests that drive the whole editor through many presses and menus take
-// longer than the 15 s default allows on a busy machine.
+// Tests that render the whole editor and drive it through many presses and
+// menus take longer than the 15 s default allows on a busy machine.
 export const EDITOR_TEST_TIMEOUT = 60_000;
 
 // What a test reads back from the editor.
@@ -97,9 +92,10 @@ export type EditorState = {
   status: string;
 };
 
-type EditorHarnessProps = {
-  // The session the editor opens, swapped in without an undo step.
-  project?: ProjectState;
+type EditorProps = {
+  // The session the editor opens, swapped in without an undo step: a whole
+  // one, or changes from the blank session.
+  project?: Partial<ProjectState>;
   // "read-only" opens it as a tab that doesn't own the session.
   access?: WorkspaceAccess;
   // Shows the preview panel, which composites the clips at the playhead.
@@ -108,14 +104,17 @@ type EditorHarnessProps = {
   onState?: (state: EditorState) => void;
 };
 
-export function EditorHarness({
-  project: initialProject,
+export function Editor({
+  project: projectPatch,
   access = "owner",
   preview: showsPreview = false,
   onState,
-}: EditorHarnessProps) {
+}: EditorProps) {
   const store = useProjectStore({ access, restoredSession: null });
   const { dispatchProjectHistory } = store;
+  const [initialProject] = useState(
+    () => projectPatch && { ...INITIAL_PROJECT_STATE, ...projectPatch },
+  );
   const [opened, setOpened] = useState(!initialProject);
   useLayoutEffect(() => {
     if (initialProject && !opened) {
@@ -149,6 +148,7 @@ export function EditorHarness({
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
+  const appShellRef = useRef<HTMLDivElement | null>(null);
   const playbackOriginRef = useRef(store.initialPlayheadQ);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const layout = useAppLayout({ sourceTrackCount: sourceTracks.length });
@@ -221,6 +221,21 @@ export function EditorHarness({
     playheadQ,
     bpm,
   });
+  const sourceClip = useSourceClipProperties({
+    sourceSelection: selection.sourceSelection,
+    sourceSpans: project.sourceSpans,
+    timelineSourceSpans: selection.timelineSourceSpans,
+    setDragPreviewSourceSpans: selection.setDragPreviewSourceSpans,
+    mediaItemsById,
+    timelineMode: project.timelineMode,
+    signatureId: project.signatureId,
+    bpm,
+    fps,
+    totalQuarters: timeline.totalQuarters,
+    isWorkspaceReadOnlyRef: store.isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit: store.refuseReadOnlyEdit,
+    commitProjectChange,
+  });
   const [audioMixRevision, setAudioMixRevision] = useState(0);
   const resolvedAudioMix = useMemo(() => {
     void audioMixRevision;
@@ -287,6 +302,19 @@ export function EditorHarness({
     setTimelineDragState: selection.setTimelineDragState,
     setStatus,
   });
+  // Drops onto the source tracks import nothing.
+  const sourceTrackDrop = useSourceTrackDrop({
+    mediaItems: project.mediaItems,
+    appShellRef,
+    timelineScrollRef,
+    labelWidth,
+    quarterPx,
+    snapUnit: timeline.snapUnit,
+    snapEnabled: project.snapEnabled,
+    importMediaIntoSourceTrack: async () => {},
+    placeMediaInSourceTrack: noop,
+    setStatus,
+  });
   const editing = useTimelineEditing({
     project,
     store,
@@ -338,7 +366,7 @@ export function EditorHarness({
   });
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={appShellRef}>
       <TopBar
         canStartNewSession={false}
         handleNewSession={noop}
@@ -516,7 +544,7 @@ export function EditorHarness({
                   setSourceTracksCollapsed={layout.setSourceTracksCollapsed}
                   sourceTracksLocked={editing.sourceTracksLocked}
                   setSourceTracksLocked={editing.setSourceTracksLocked}
-                  drop={NO_DROP}
+                  drop={sourceTrackDrop}
                   readOnly={store.isWorkspaceReadOnly}
                   onCreateSourceTrack={editing.createEmptySourceTrack}
                   sourceSelection={selection.sourceSelection}
@@ -598,7 +626,10 @@ export function EditorHarness({
                 />
               ) : (
                 // The preview's resize handle and panel.
-                <div style={{ gridColumn: "3 / 5" }} />
+                <>
+                  <div />
+                  <div />
+                </>
               )}
             </div>
             <TransportBar
@@ -621,7 +652,7 @@ export function EditorHarness({
                 {...fxEditing}
                 {...fxPanel}
                 {...layout}
-                sourceClip={null}
+                sourceClip={sourceClip}
               />
             </FxAnimationTimelineContext.Provider>
           </FxModulationClockContext.Provider>
@@ -636,15 +667,36 @@ export function EditorHarness({
   );
 }
 
+function emulateReducedMotion(reduce: boolean) {
+  return cdp().send("Emulation.setEmulatedMedia", {
+    features: reduce
+      ? [{ name: "prefers-reduced-motion", value: "reduce" }]
+      : [],
+  });
+}
+
 // Renders the editor in a fresh layout: the layout preferences the app
 // keeps in localStorage start from their defaults. Like main.tsx, it first
-// installs the web harness, which media thumbnails are read through.
-export async function renderEditor(props: EditorHarnessProps = {}) {
+// installs the web harness, which media thumbnails are read through. With
+// `reducedMotion`, the page prefers reduced motion, so pans have no momentum
+// and scrolls don't animate, until the test ends.
+export async function renderEditor({
+  reducedMotion = false,
+  ...props
+}: EditorProps & { reducedMotion?: boolean } = {}) {
   localStorage.clear();
   if (!window.harness) {
     await installHarness();
   }
-  return render(<EditorHarness {...props} />);
+  if (reducedMotion) {
+    await emulateReducedMotion(true);
+    onTestFinished(() => emulateReducedMotion(false));
+  }
+  const screen = await render(<Editor {...props} />);
+  await expect
+    .poll(() => document.querySelector("[data-timeline-lane-id]"))
+    .not.toBeNull();
+  return screen;
 }
 
 // Sessions to open the editor with.
@@ -667,57 +719,45 @@ export function sessionWithLayers(count = 1): ProjectState {
   };
 }
 
-// The e2e specs' four-second, 160×90 test pattern with no sound, as
-// importing it makes it.
-export const TEST_PATTERN: MediaItem = {
-  id: "media-test-pattern",
-  name: "test-pattern.mp4",
-  kind: "video",
-  durationSeconds: 4,
-  width: 160,
-  height: 90,
-  fps: 30,
-  hasAudio: false,
-  hasVideo: true,
-  color: "#3d4052",
-  accent: "#7ca1ff",
-  previewUrl: testPatternUrl,
-  availability: "ready",
-};
-
-// `project` with the test pattern dropped into a new source track, as
-// dropping the file there does.
-export function withTestPatternTrack(project: ProjectState): ProjectState {
+// The e2e specs' four-second, 160×90, 15 fps test pattern, without sound,
+// as importing it makes it.
+export function testPatternVideo(id = "media-test-pattern"): MediaItem {
   return {
-    ...project,
-    mediaItems: [...project.mediaItems, TEST_PATTERN],
-    ...addMediaToSourceTrack(project, [TEST_PATTERN], { kind: "new-track" }),
+    id,
+    name: "test-pattern.mp4",
+    kind: "video",
+    durationSeconds: 4,
+    width: 160,
+    height: 90,
+    fps: 15,
+    hasAudio: false,
+    hasVideo: true,
+    color: "#3d4052",
+    accent: "#7ca1ff",
+    previewUrl: testPatternUrl,
+    availability: "ready",
   };
 }
 
-// `project` with a fill clip, `id`, of `durationQ` quarters from `startQ`
-// on layer `laneId`, as Insert Fill Clip makes one.
-export function withFillClip(
-  project: ProjectState,
-  { id, laneId, startQ = 0, durationQ = 8 }: FillClipFixture,
+// `project` with each of `items` dropped into a new source track of its
+// own, as dropping their files does.
+export function withMedia(
+  items: MediaItem[],
+  project: ProjectState = INITIAL_PROJECT_STATE,
 ): ProjectState {
-  const { clips, effects } = addFillClip(project, {
-    id,
-    laneId,
-    startQ,
-    durationQ,
-    bpm: project.bpm,
-    tint: "#2a2d38",
-    accent: "#8d93a8",
-    color: "#8d93a8",
-    effectId: `${id}-color`,
-  });
-  return { ...project, clips: clips as ArrangementClip[], effects };
+  return items.reduce(
+    (current, item) =>
+      patchProjectState(current, {
+        mediaItems: [...current.mediaItems, item],
+        ...addMediaToSourceTrack(current, [item], { kind: "new-track" }),
+      }),
+    project,
+  );
 }
 
-type FillClipFixture = {
-  id: string;
-  laneId: string;
-  startQ?: number;
-  durationQ?: number;
-};
+// `project` with the test pattern dropped into a new source track.
+export function withTestPatternTrack(
+  project: ProjectState = INITIAL_PROJECT_STATE,
+): ProjectState {
+  return withMedia([testPatternVideo()], project);
+}

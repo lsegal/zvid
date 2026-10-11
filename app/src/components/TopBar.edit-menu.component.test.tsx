@@ -6,7 +6,7 @@ import {
   renderEditor,
   sessionWithLayers,
   withTestPatternTrack,
-} from "../component-test/editor-harness.tsx";
+} from "../component-test/editor.tsx";
 import { TopBar } from "./TopBar";
 
 // The top-bar Edit menu mirrors the clip, layer and Audio row right-click

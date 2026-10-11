@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { TrackFxButton } from "./TrackFxButton";
-import { TimelineHarness } from "./timeline-harness";
+import {
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../../component-test/editor.tsx";
+import { insertFillAtStart } from "../../component-test/editor-steps.ts";
 import {
   addLayers,
-  insertFillAtStart,
   layerHeader,
-  mouse,
+  move,
   undo,
-} from "./timeline-harness-input";
+} from "../../component-test/input.ts";
+import { TrackFxButton } from "./TrackFxButton";
 
 // The FX button in each layer header (#693): always toggleable, lit while
 // the layer's FX are on, and turning it off turns off every effect on the
@@ -20,10 +22,10 @@ function fxSwitch(id: string) {
   return layerHeader(id).querySelector(".track-label__fx") as HTMLButtonElement;
 }
 
-describe(TrackFxButton, { timeout: 180_000 }, () => {
+describe(TrackFxButton, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerHeader("1")).toBeTruthy();
   }, 120_000);
 
@@ -82,7 +84,7 @@ describe(TrackFxButton, { timeout: 180_000 }, () => {
   // with no chip, border or background either way.
   test("a layer's FX button is plain text, amber when on and muted when off", async () => {
     const fx = fxSwitch("1");
-    await mouse.move(0, 0);
+    await move(0, 0);
     expect(fx.getAttribute("aria-pressed")).toBe("true");
     const style = getComputedStyle(fx);
     expect(style.color).toBe("rgb(246, 183, 60)");
@@ -90,7 +92,7 @@ describe(TrackFxButton, { timeout: 180_000 }, () => {
     expect(style.borderTopWidth).toBe("0px");
 
     await page.elementLocator(fx).click();
-    await mouse.move(0, 0);
+    await move(0, 0);
     await expect.poll(() => fx.getAttribute("aria-pressed")).toBe("false");
     await expect.poll(() => style.color).toBe("rgb(164, 169, 191)");
     expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");

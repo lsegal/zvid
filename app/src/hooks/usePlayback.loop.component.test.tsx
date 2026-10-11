@@ -1,12 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
 import {
-  createLoop,
-  insertTextClip,
-  renderTimelineEditor,
-  TIMELINE_EDITOR_TIMEOUT,
-} from "../component-test/timeline-editor.tsx";
-import { center, click, dblclick } from "../component-test/timeline-mouse.ts";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+} from "../component-test/editor.tsx";
+import { createLoop, insertTextClip } from "../component-test/editor-steps.ts";
+import { center, click, dblclick } from "../component-test/input.ts";
 import { usePlayback } from "./usePlayback.ts";
 
 // With a loop region, playback that reaches the out marker jumps back to the
@@ -44,9 +43,9 @@ async function pressButton(button: ReturnType<typeof playButton>) {
   await click(x, y);
 }
 
-describe(usePlayback, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
+describe(usePlayback, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("playback loops between the in and out markers until stopped", async () => {
-    await renderTimelineEditor();
+    await renderEditor();
     // A text clip across the start of Layer 1, so there is something to
     // play.
     const bounds = await insertTextClip();
@@ -79,7 +78,7 @@ describe(usePlayback, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   });
 
   test("Play at the out marker starts from the in marker", async () => {
-    await renderTimelineEditor();
+    await renderEditor();
     const bounds = await insertTextClip();
     const { box, startQ, endQ } = await createLoop(
       bounds.x + 60,
@@ -109,7 +108,7 @@ describe(usePlayback, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   });
 
   test("deleting the loop during playback lets playback run on", async () => {
-    await renderTimelineEditor();
+    await renderEditor();
     const bounds = await insertTextClip();
     const { region, box } = await createLoop(bounds.x + 60, bounds.x + 120);
     const outX = box.x + box.width;

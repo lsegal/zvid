@@ -1,21 +1,23 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { setViewport } from "../../component-test/viewport.ts";
-import { RowResizeHandle } from "./RowResizeHandle";
 import {
-  projectWithMedia,
-  TimelineHarness,
-  testPatternVideo,
-} from "./timeline-harness";
+  EDITOR_TEST_TIMEOUT,
+  renderEditor,
+  withTestPatternTrack,
+} from "../../component-test/editor.tsx";
+import { copySourceClipToLayer1 } from "../../component-test/editor-steps.ts";
 import {
   addLayers,
   center,
-  copySourceClipToLayer1,
+  dblclick,
+  down,
   isVisible,
-  mouse,
+  move,
   nextFrames,
-} from "./timeline-harness-input";
+  up,
+} from "../../component-test/input.ts";
+import { setViewport } from "../../component-test/viewport.ts";
+import { RowResizeHandle } from "./RowResizeHandle";
 
 // Dragging the separator along the bottom of a layer, source track or Audio
 // row handle resizes that row alone, between the 44px collapsed form and 4x
@@ -49,16 +51,14 @@ function thumbnails(row: Element) {
 
 // A video in a source track, copied to Layer 1, both showing frames.
 async function addVideoClips() {
-  await render(
-    <TimelineHarness project={projectWithMedia([testPatternVideo()])} />,
-  );
+  await renderEditor({ project: withTestPatternTrack() });
   await expect.poll(() => layerRow()).toBeTruthy();
   await copySourceClipToLayer1();
 }
 
 async function doubleClick(element: Element) {
   const point = center(element);
-  await mouse.dblclick(point.x, point.y);
+  await dblclick(point.x, point.y);
 }
 
 // Drags a row's separator by dy pixels, right of its grip.
@@ -69,14 +69,14 @@ async function dragSeparator(row: Element, dy: number) {
   const box = separator.getBoundingClientRect();
   const x = box.x + box.width * 0.6;
   const y = box.y + box.height / 2;
-  await mouse.move(x, y);
-  await mouse.down();
-  await mouse.move(x, y + dy, { steps: 8 });
-  await mouse.up();
+  await move(x, y);
+  await down();
+  await move(x, y + dy, { steps: 8 });
+  await up();
   await nextFrames();
 }
 
-describe(RowResizeHandle, { timeout: 180_000 }, () => {
+describe(RowResizeHandle, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
@@ -136,7 +136,7 @@ describe(RowResizeHandle, { timeout: 180_000 }, () => {
   });
 
   test("the separator leaves the grip, selection and rename alone", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => layerRow()).toBeTruthy();
     await addLayers(1);
     const row = layerRow("2");
@@ -172,10 +172,10 @@ describe(RowResizeHandle, { timeout: 180_000 }, () => {
     expect(firstRow().getAttribute("data-layer-row-id")).toBe("1");
     const target = layerRow().getBoundingClientRect();
     const from = center(grip);
-    await mouse.move(from.x, from.y);
-    await mouse.down();
-    await mouse.move(target.x + 20, target.y + 4, { steps: 10 });
-    await mouse.up();
+    await move(from.x, from.y);
+    await down();
+    await move(target.x + 20, target.y + 4, { steps: 10 });
+    await up();
     await expect
       .poll(() => firstRow().getAttribute("data-layer-row-id"))
       .toBe("2");
@@ -217,7 +217,7 @@ describe(RowResizeHandle, { timeout: 180_000 }, () => {
   });
 
   test("dragging the Audio row's separator resizes and collapses it", async () => {
-    await render(<TimelineHarness />);
+    await renderEditor();
     await expect.poll(() => query("[data-audio-row]")).toBeTruthy();
     const row = query("[data-audio-row]");
     const toggle = () => query(".audio-row__toggle", row);
