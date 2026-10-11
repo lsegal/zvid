@@ -72,3 +72,24 @@ test("the share link icon and Copied badge fit the compact bar", async ({
   ]);
   expect((await box(page.locator(".topbar"))).height).toBeLessThanOrEqual(36);
 });
+
+test("the installed app's bar is just as compact without the logo", async ({
+  page,
+}) => {
+  // Reports the page as an iOS home screen app, which hides the brand mark.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "standalone", {
+      configurable: true,
+      get: () => true,
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".topbar .brand-mark")).toBeHidden();
+  expect((await box(page.locator(".topbar"))).height).toBeLessThanOrEqual(36);
+
+  const right = page.locator(".topbar__group--right");
+  await expectFitsTopBar(page, [
+    right.getByRole("button", { name: "Export" }),
+    right.getByRole("button", { name: "Share", exact: true }),
+  ]);
+});

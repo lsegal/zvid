@@ -98,7 +98,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const layout = useAppLayout({
     sourceTrackCount: sourceTracks.length,
-    timelineScrollRef,
   });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
   const mediaDrawer = useMediaDrawer({
@@ -790,7 +789,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}
         onClose={() => selection.setClipMenu(null)}
-        asSheet={layout.isPhone}
       />
     </div>
   );

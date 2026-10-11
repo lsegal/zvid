@@ -13,29 +13,52 @@ import {
   LONG_PRESS_MS,
   pickMenuItems,
   pinchZoom,
+  playheadScrollLeft,
   quickLoopRegion,
+  swipePlayheadQ,
   TOUCH_SLOP_PX,
 } from "./timeline-touch.ts";
 
-const geometry = { labelWidth: 195, quarterPx: 40, clientWidth: 390 };
+// A phone: 112px labels in a 390px view, so the center is 83px past time 0.
+const geometry = { labelWidth: 112, quarterPx: 40, clientWidth: 390 };
 
 describe("center playhead", () => {
-  it("puts time 0 at the center with half a view of lead-in", () => {
+  it("keeps the timeline at its start until the playhead reaches the center", () => {
     assert.equal(centeredScrollLeft(0, geometry), 0);
-    assert.equal(centerPlayheadQ(0, geometry), 0);
+    assert.equal(centeredScrollLeft(2, geometry), 0);
+    assert.equal(playheadScrollLeft(0, geometry), -83);
+    assert.equal(centeredScrollLeft(3, geometry), 37);
   });
 
   it("round-trips between scroll and time", () => {
-    for (const q of [0.5, 3, 17.25]) {
-      const left = centeredScrollLeft(q, geometry);
-      assert.equal(left, q * geometry.quarterPx);
+    for (const q of [0, 0.5, 3, 17.25]) {
+      const left = playheadScrollLeft(q, geometry);
+      assert.equal(left, q * geometry.quarterPx - 83);
       assert.equal(centerPlayheadQ(left, geometry), q);
     }
   });
 
   it("never reads a time before 0", () => {
-    assert.equal(centerPlayheadQ(0, { ...geometry, labelWidth: 300 }), 0);
+    assert.equal(centerPlayheadQ(-200, geometry), 0);
     assert.equal(centerPlayheadQ(10, { ...geometry, quarterPx: 0 }), 0);
+  });
+});
+
+describe("swipePlayheadQ", () => {
+  it("moves the playhead from time 0 toward the center, then scrolls", () => {
+    // A swipe left moves forward in time, a pixel per pixel.
+    assert.equal(swipePlayheadQ(0, -40, 1000, geometry), 1);
+    assert.equal(swipePlayheadQ(0, -83, 1000, geometry), 83 / 40);
+    assert.equal(swipePlayheadQ(0, -163, 1000, geometry), 163 / 40);
+  });
+
+  it("swipes back to time 0 and no further", () => {
+    assert.equal(swipePlayheadQ(1, 40, 1000, geometry), 0);
+    assert.equal(swipePlayheadQ(1, 400, 1000, geometry), 0);
+  });
+
+  it("stops where the timeline can't scroll any further", () => {
+    assert.equal(swipePlayheadQ(0, -2000, 117, geometry), 200 / 40);
   });
 });
 

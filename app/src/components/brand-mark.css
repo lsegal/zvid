@@ -17,6 +17,21 @@ button.brand-mark {
   letter-spacing: 0.02em;
 }
 
+/* An installed app's title bar already shows the zvid icon and name
+   (#1200), so the top bar drops its own. The media query applies from the
+   first paint; iOS home screen apps also get .installed-app from main.tsx. */
+@media (display-mode: standalone),
+  (display-mode: minimal-ui),
+  (display-mode: window-controls-overlay) {
+  .topbar button.brand-mark {
+    display: none;
+  }
+}
+
+.installed-app .topbar button.brand-mark {
+  display: none;
+}
+
 button.brand-mark:focus-visible {
   outline: 2px solid rgba(124, 161, 255, 0.7);
   outline-offset: 2px;

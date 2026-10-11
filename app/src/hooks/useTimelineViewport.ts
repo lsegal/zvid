@@ -48,9 +48,6 @@ export type TimelineViewportInputs = {
   // The end of the clips being recorded, which aren't source spans yet.
   recordingEndQ?: number;
   labelWidth: number;
-  // How much of the label column the track labels cover (less than
-  // labelWidth on a phone); the lanes show past it.
-  trackLabelWidth?: number;
   playheadQRef: { current: number };
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   arrangementLanesRef: RefObject<HTMLDivElement | null>;
@@ -72,7 +69,6 @@ export function useTimelineViewport({
   pendingSelection,
   recordingEndQ = 0,
   labelWidth,
-  trackLabelWidth = labelWidth,
   playheadQRef,
   timelineScrollRef,
   arrangementLanesRef,
@@ -181,7 +177,6 @@ export function useTimelineViewport({
     scrollLeft: timelineViewport.scrollLeft,
     clientWidth: timelineViewport.clientWidth,
     labelWidth,
-    coveredLabelWidth: trackLabelWidth,
   });
   const filmstripRange = getFilmstripRange(
     visibleTimelineStartPx,

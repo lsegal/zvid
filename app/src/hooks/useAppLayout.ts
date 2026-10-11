@@ -1,7 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -48,22 +47,16 @@ import { useShellKind } from "./useShellKind.ts";
 
 export type AppLayoutInputs = {
   sourceTrackCount: number;
-  timelineScrollRef: RefObject<HTMLDivElement | null>;
 };
 
 // The editor's layout preferences: the FX panel's collapsed state, the
 // source tracks section, the Audio row, each row's height, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference. On a phone it picks the mobile shell, where the FX
-// panel is a sheet and the timeline's labels give way to half a view of
-// lead-in, so the playhead can stay at the center from time 0.
-export function useAppLayout({
-  sourceTrackCount,
-  timelineScrollRef,
-}: AppLayoutInputs) {
+// panel is a sheet and the track labels have their own, narrower width.
+export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const shell = useShellKind();
   const isPhone = isPhoneShell(shell);
-  const [timelineViewWidth, setTimelineViewWidth] = useState(0);
   const [isInspectorCollapsedPref, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
@@ -84,15 +77,7 @@ export function useAppLayout({
   const [audioRowHeight, setAudioRowHeight] = useState(AUDIO_ROW_HEIGHT);
   const deskLabelResize = useLabelResize();
   const phoneLabelResize = useLabelResize(PHONE_LABEL_WIDTH);
-  // On a phone the label column stays half the view, and the rail resizes
-  // the labels inside it (trackLabelWidth) instead.
-  const labelResize = isPhone
-    ? {
-        ...phoneLabelResize,
-        labelWidth: Math.round(timelineViewWidth / 2),
-        trackLabelWidth: phoneLabelResize.labelWidth,
-      }
-    : { ...deskLabelResize, trackLabelWidth: deskLabelResize.labelWidth };
+  const labelResize = isPhone ? phoneLabelResize : deskLabelResize;
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
@@ -178,19 +163,6 @@ export function useAppLayout({
     }
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    const timelineScroll = timelineScrollRef.current;
-    if (!isPhone || !timelineScroll) {
-      return;
-    }
-
-    const measure = () => setTimelineViewWidth(timelineScroll.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(timelineScroll);
-    return () => observer.disconnect();
-  }, [isPhone, timelineScrollRef]);
 
   function toggleInspectorCollapsed() {
     const nextCollapsed = !isInspectorCollapsedPref;

@@ -83,7 +83,6 @@ export function useTimeline({
     pendingSelection,
     recordingEndQ,
     labelWidth,
-    trackLabelWidth: layout.labelResize.trackLabelWidth,
     playheadQRef,
     timelineScrollRef,
     arrangementLanesRef,

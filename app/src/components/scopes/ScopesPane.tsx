@@ -12,7 +12,11 @@ import {
 } from "../../fx-shaders/frame-analysis.ts";
 import { drawScope } from "./scope-draw.ts";
 import { SCOPE_KINDS, type ScopeKind } from "./scope-pixels.ts";
-import { clampScopesHeight, MIN_SCOPES_HEIGHT_PX } from "./scopes-height.ts";
+import {
+  clampScopesHeight,
+  MIN_PHONE_TIMELINE_HEIGHT_PX,
+  MIN_SCOPES_HEIGHT_PX,
+} from "./scopes-height.ts";
 import "./scopes-pane.css";
 
 // How far an arrow key moves the splitter, in CSS pixels.
@@ -50,7 +54,11 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
   const sampleRef = useRef<FrameSample | null>(null);
   const kindRef = useRef(kind);
   kindRef.current = kind;
-  const dragRef = useRef<{ startY: number; startPx: number } | null>(null);
+  const dragRef = useRef<{
+    startY: number;
+    startPx: number;
+    below: boolean;
+  } | null>(null);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -109,11 +117,31 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
     return () => observer.disconnect();
   }, [redraw]);
 
-  // The room the panel shares with the monitor, which sits just above it.
-  const room = () => {
+  // Whether the splitter sits below the panel, as the phone shell puts it
+  // (#1202). It then grows the panel downward, into the timeline's room.
+  const splitterBelow = (splitter: HTMLElement) => {
     const root = rootRef.current;
+    if (!root) {
+      return false;
+    }
+    const pane = root.getBoundingClientRect();
+    return splitter.getBoundingClientRect().top > pane.top + pane.height / 2;
+  };
+
+  // A height kept within the room the panel shares with the monitor just
+  // above it or, with the splitter below, with the timeline.
+  const clampHeight = (heightPx: number, below: boolean) => {
+    const root = rootRef.current;
+    if (below) {
+      const timeline = root
+        ?.closest(".app-shell")
+        ?.querySelector<HTMLElement>(".timeline-panel");
+      const room = (root?.offsetHeight ?? 0) + (timeline?.offsetHeight ?? 0);
+      return clampScopesHeight(heightPx, room, MIN_PHONE_TIMELINE_HEIGHT_PX);
+    }
     const monitor = root?.previousElementSibling;
-    return (root?.offsetHeight ?? 0) + (monitor?.clientHeight ?? 0);
+    const room = (root?.offsetHeight ?? 0) + (monitor?.clientHeight ?? 0);
+    return clampScopesHeight(heightPx, room);
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLHRElement>) => {
@@ -125,6 +153,7 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
     dragRef.current = {
       startY: event.clientY,
       startPx: rootRef.current?.offsetHeight ?? 0,
+      below: splitterBelow(event.currentTarget),
     };
   };
   const handlePointerMove = (event: ReactPointerEvent<HTMLHRElement>) => {
@@ -132,8 +161,9 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
     if (!drag) {
       return;
     }
+    const moved = event.clientY - drag.startY;
     setHeight(
-      clampScopesHeight(drag.startPx + drag.startY - event.clientY, room()),
+      clampHeight(drag.startPx + (drag.below ? moved : -moved), drag.below),
     );
   };
   const handlePointerEnd = (event: ReactPointerEvent<HTMLHRElement>) => {
@@ -146,18 +176,18 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
     }
   };
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLHRElement>) => {
+    // The arrows move the splitter, so which one grows the panel depends
+    // on its side.
+    const below = splitterBelow(event.currentTarget);
+    const up = below ? -KEYBOARD_STEP_PX : KEYBOARD_STEP_PX;
     const step =
-      event.key === "ArrowUp"
-        ? KEYBOARD_STEP_PX
-        : event.key === "ArrowDown"
-          ? -KEYBOARD_STEP_PX
-          : 0;
+      event.key === "ArrowUp" ? up : event.key === "ArrowDown" ? -up : 0;
     if (!step) {
       return;
     }
     event.preventDefault();
     const current = rootRef.current?.offsetHeight ?? 0;
-    setHeight(clampScopesHeight(current + step, room()));
+    setHeight(clampHeight(current + step, below));
   };
 
   return (
@@ -196,7 +226,7 @@ export function ScopesPane({ pane, frameId, emptyMessage }: ScopesPaneProps) {
             title={scope.label}
             onClick={() => setKind(scope.kind)}
           >
-            {scope.label}
+            <span className="scopes-pane__kind-label">{scope.label}</span>
           </button>
         ))}
       </div>

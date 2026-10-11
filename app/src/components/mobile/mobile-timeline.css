@@ -3,16 +3,7 @@
    labels and rows, reorder layers and trim the selected clip, since touch
    has no hover. */
 
-/* Track labels: half the view is lead-in ahead of time 0 (useAppLayout),
-   and the labels only take a strip of it, which the rail at their right
-   edge resizes (--track-label-width). */
-.app-shell--phone .timeline-panel {
-  --phone-label-width: min(var(--track-label-width), var(--label-width));
-}
-
 .app-shell--phone .track-label {
-  justify-self: start;
-  width: var(--phone-label-width);
   gap: 6px;
   padding-inline: 8px;
 }
@@ -22,9 +13,9 @@
    edge itself. */
 .app-shell--phone .label-resize-handle {
   --rail-inset: 8px;
-  left: calc(var(--phone-label-width) - var(--rail-inset));
+  left: calc(var(--label-width) - var(--rail-inset));
   width: var(--mobile-tap);
-  margin-left: calc(var(--phone-label-width) - var(--rail-inset));
+  margin-left: calc(var(--label-width) - var(--rail-inset));
 }
 
 .app-shell--phone .label-resize-handle::before {
