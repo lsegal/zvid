@@ -16,6 +16,7 @@ export function MobileShellChrome({
   isExporting,
   openExportDialog,
   getOverflowEntries,
+  share,
   mediaDrawer,
   importMedia,
   playheadSignal,
@@ -42,6 +43,7 @@ export function MobileShellChrome({
         onOpenSessions={() => mediaDrawer.selectTab("sessions")}
         sessionName={sessionName}
         setIsMenuOpen={mobile.setIsMenuOpen}
+        share={share}
       />
       <MobileTransport
         {...readout}

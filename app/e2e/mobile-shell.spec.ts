@@ -306,6 +306,27 @@ test("dragging the FX sheet's header moves it between heights", async ({
   await expect(fx).toBeHidden();
 });
 
+test("the top bar's Export opens the export flow, or explains the desktop app", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addClip(page);
+  const exportButton = page
+    .locator(".mobile-topbar")
+    .getByRole("button", { name: /^Export/ });
+  await expect(exportButton).toHaveText("Export");
+  await expect(exportButton).toBeEnabled({ timeout: 15_000 });
+  const support = await exportButton.getAttribute("data-export-support");
+  await exportButton.click();
+  await expect(
+    page.getByRole("heading", {
+      name:
+        support === "supported" ? "Export" : "Download the zvid desktop app",
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
 test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
   await page.goto("/");
   const client = await page.context().newCDPSession(page);

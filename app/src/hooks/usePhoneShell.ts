@@ -2,11 +2,11 @@ import type { RefObject } from "react";
 import { getClipEndQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
+import type { MobileShareButtonProps } from "../components/mobile/MobileShareButton";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { quickLoopRegion } from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
-import type { CollaborationStateResult } from "./useCollaboration.ts";
 import type { useMediaDrawer } from "./useMediaDrawer.ts";
 import { useMobileShell } from "./useMobileShell.ts";
 import { usePhoneExportSupport } from "./usePhoneExportSupport.ts";
@@ -37,7 +37,8 @@ export type PhoneShellInputs = {
   isExporting: boolean;
   openExportDialog: () => void;
   editing: Pick<TimelineEditing, "getClipMenuEntries" | "getEditMenuEntries">;
-  collaboration: Pick<CollaborationStateResult, "setIsShareDialogOpen">;
+  collaboration: MobileShareButtonProps["collaboration"];
+  sharing: MobileShareButtonProps["sharing"];
   library: { saveToLibrary: () => unknown };
   sessionFiles: { handleImport: () => Promise<unknown> };
   setStatus: (status: string) => void;
@@ -145,12 +146,6 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         label: "Save to Library",
         onSelect: () => void inputs.library.saveToLibrary(),
       },
-      {
-        type: "item",
-        id: "share",
-        label: "Share Session",
-        onSelect: () => inputs.collaboration.setIsShareDialogOpen(true),
-      },
       { type: "separator" },
       {
         type: "item",
@@ -202,6 +197,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       isExporting: inputs.isExporting,
       openExportDialog: inputs.openExportDialog,
       getOverflowEntries,
+      share: { collaboration: inputs.collaboration, sharing: inputs.sharing },
       mediaDrawer,
       importMedia: () => void inputs.sessionFiles.handleImport(),
       playheadSignal: store.playheadSignal,
