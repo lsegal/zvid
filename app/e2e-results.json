@@ -1,0 +1,469 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node/24.3.0/bin/node",
+      "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/node_modules/@playwright/test/cli.js",
+      "test",
+      "--list",
+      "--project",
+      "webkit"
+    ],
+    "configFile": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/playwright.config.ts",
+    "rootDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": true,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/e2e",
+        "testIgnore": [
+          "sample.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium-source-modules",
+        "name": "chromium-source-modules",
+        "testDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "sample.spec.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/private/var/folders/_3/6nm7yxhj0v3716vn7dyl134h0000gn/T/zvid-gh-fix-1235/app/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "audio-analysis.spec.ts",
+          "audio-mix.spec.ts",
+          "audio-resync.spec.ts",
+          "webm-opus.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "github",
+        null
+      ],
+      [
+        "blob",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "audio-analysis.spec.ts",
+      "file": "audio-analysis.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "the Audio toggle shows the meter and spectrogram below the preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0c8adf088c69bbb00895-a41a04b97d7a241070f0",
+          "file": "audio-analysis.spec.ts",
+          "line": 99,
+          "column": 1
+        },
+        {
+          "title": "the meter and spectrogram follow the master output",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0c8adf088c69bbb00895-265c218164ea8d67ac82",
+          "file": "audio-analysis.spec.ts",
+          "line": 135,
+          "column": 1
+        },
+        {
+          "title": "on the Media tab the meter follows a 48 kHz WAV playing there",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0c8adf088c69bbb00895-3bf8e6db579bf4e5ae50",
+          "file": "audio-analysis.spec.ts",
+          "line": 206,
+          "column": 3
+        },
+        {
+          "title": "on the Media tab the meter follows an 8 kHz WAV playing there",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0c8adf088c69bbb00895-dd1e7d238d78795e6a88",
+          "file": "audio-analysis.spec.ts",
+          "line": 206,
+          "column": 3
+        },
+        {
+          "title": "on the Media tab the meter follows WebM playing there",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "0c8adf088c69bbb00895-78e6c6f75bce36ea91bd",
+          "file": "audio-analysis.spec.ts",
+          "line": 206,
+          "column": 3
+        }
+      ]
+    },
+    {
+      "title": "audio-mix.spec.ts",
+      "file": "audio-mix.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "two source clips play as one mix, and muting a clip's Gain drops it out",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "5965555ccdfa445bb90c-f80dd12694c87f2d21b8",
+          "file": "audio-mix.spec.ts",
+          "line": 181,
+          "column": 1
+        },
+        {
+          "title": "the preview volume turns the mix down after the analyser",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "5965555ccdfa445bb90c-3eac96b9f7e62aa670f5",
+          "file": "audio-mix.spec.ts",
+          "line": 232,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "audio-resync.spec.ts",
+      "file": "audio-resync.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "steady playback of an audio clip makes no re-syncs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "8f82209b0bda6ab60bfb-3861cee21d8f5441680b",
+          "file": "audio-resync.spec.ts",
+          "line": 165,
+          "column": 1
+        },
+        {
+          "title": "steady playback of a video clip makes no re-syncs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "8f82209b0bda6ab60bfb-b9f1624ae60b4ab573ce",
+          "file": "audio-resync.spec.ts",
+          "line": 189,
+          "column": 1
+        },
+        {
+          "title": "steady playback on a busy main thread makes no re-syncs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "8f82209b0bda6ab60bfb-b0d63329f9251e8496fe",
+          "file": "audio-resync.spec.ts",
+          "line": 203,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "webm-opus.spec.ts",
+      "file": "webm-opus.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "test-pattern-audio.webm imports with its codecs and plays with sound",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-c3b695a1b772da724fed",
+          "file": "webm-opus.spec.ts",
+          "line": 119,
+          "column": 3
+        },
+        {
+          "title": "test-pattern-audio-vp9.webm imports with its codecs and plays with sound",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-24651522986ab36ec6e2",
+          "file": "webm-opus.spec.ts",
+          "line": 119,
+          "column": 3
+        },
+        {
+          "title": "tone.opus imports with its codecs and plays with sound",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-86f4aea8cd087f09c201",
+          "file": "webm-opus.spec.ts",
+          "line": 119,
+          "column": 3
+        },
+        {
+          "title": "exports VP8 video with Opus audio to WebM",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-7f6b0470c51fd1710a41",
+          "file": "webm-opus.spec.ts",
+          "line": 191,
+          "column": 3
+        },
+        {
+          "title": "exports VP9 video with Opus audio to WebM",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-2fde08d72afcd594f71d",
+          "file": "webm-opus.spec.ts",
+          "line": 191,
+          "column": 3
+        },
+        {
+          "title": "a VP9 video-only export writes a WebM without audio",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "4741c7079f077352adc7-2cd033031c57cab5d45f",
+          "file": "webm-opus.spec.ts",
+          "line": 251,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-11T10:44:55.018Z",
+    "duration": 52.68399999999997,
+    "expected": 0,
+    "skipped": 16,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

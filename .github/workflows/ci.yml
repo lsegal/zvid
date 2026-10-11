@@ -1,8 +1,9 @@
 name: CI
 
 on:
-  # ready_for_review runs the browser tests; listing types replaces the
-  # defaults, so opened, synchronize and reopened are listed too.
+  # ready_for_review runs the plugin UI's browser tests (daw-ui-e2e); listing
+  # types replaces the defaults, so opened, synchronize and reopened are
+  # listed too.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
@@ -10,12 +11,13 @@ on:
   push:
     branches:
       - main
-  # A manual run; full-component-suite runs every component test rather
-  # than those the branch's changes affect.
+  # A manual run; full-suite runs every component test and every Playwright
+  # spec, WebKit included, rather than those the branch's changes affect.
+  # Nothing starts it automatically.
   workflow_dispatch:
     inputs:
-      full-component-suite:
-        description: Run the whole component test suite
+      full-suite:
+        description: Run every component test and Playwright spec
         type: boolean
         default: true
 
@@ -84,7 +86,7 @@ jobs:
   # included, and a change to the global CSS or the harness reruns them all.
   # A pull request compares against its merge base with main, a push to main
   # against the commit main pointed at before it, and a manual run with
-  # full-component-suite runs everything. Nothing selected passes. See
+  # full-suite runs everything. Nothing selected passes. See
   # app/ARCHITECTURE.md (Testing).
   component-tests:
     runs-on: ubuntu-latest
@@ -110,7 +112,7 @@ jobs:
         working-directory: app
         env:
           EVENT: ${{ github.event_name }}
-          FULL: ${{ inputs.full-component-suite }}
+          FULL: ${{ inputs.full-suite }}
           BASE_REF: ${{ github.base_ref }}
           BEFORE: ${{ github.event.before }}
         run: |
@@ -147,12 +149,92 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
-  # The browser tests are slow, so they run on pushes to main and when a
-  # pull request is marked ready for review; other pull request events skip
-  # them. The app suite runs as 20 shards on separate runners, each with a
-  # time budget; e2e-report merges their reports.
+  # Picks the Playwright specs (app/e2e) to run, as the component tests are
+  # picked: a pull request compares against its merge base with main, a push
+  # to main against the commit main pointed at before it, and a manual run
+  # with full-suite runs everything. `playwright test --only-changed` selects
+  # the specs that changed or import a changed file (a helper, or a module
+  # under src/ a spec loads in Node). Specs load the app by URL, so it can't
+  # see the app code they cover; that is the component tests' job. A change
+  # to the Playwright config, the app lockfile or the e2e fixtures runs every
+  # spec. See app/ARCHITECTURE.md (Testing).
+  e2e-select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      since: ${{ steps.select.outputs.since }}
+      chromium: ${{ steps.select.outputs.chromium }}
+      webkit: ${{ steps.select.outputs.webkit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install app dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      # Lists the selected tests of the Chromium projects and of the WebKit
+      # project (WEBKIT_SPECS in app/playwright.config.ts) without running
+      # them, and outputs how many each has.
+      - name: Select specs
+        id: select
+        working-directory: app
+        env:
+          EVENT: ${{ github.event_name }}
+          FULL: ${{ inputs.full-suite }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          since=""
+          case "$EVENT" in
+            pull_request)
+              since=$(git merge-base "origin/$BASE_REF" HEAD) ;;
+            push)
+              # A new branch has no before commit, and a force-push's may be
+              # gone; run everything then.
+              if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                since=$BEFORE
+              fi ;;
+            workflow_dispatch)
+              if [ "$FULL" != "true" ]; then
+                since=$(git merge-base origin/main HEAD)
+              fi ;;
+          esac
+          if [ -n "$since" ] && ! git diff --quiet "$since" HEAD -- playwright.config.ts pnpm-lock.yaml e2e/fixtures; then
+            echo "The Playwright config, the lockfile or the e2e fixtures changed"
+            since=""
+          fi
+          if [ -n "$since" ]; then
+            echo "Selecting the Playwright specs affected since $since"
+          else
+            echo "Selecting every Playwright spec"
+          fi
+          count() {
+            pnpm exec playwright test --list ${since:+--only-changed="$since"} "$@" | tee /dev/stderr |
+              sed -nE 's/^Total: ([0-9]+) tests? .*/\1/p'
+          }
+          chromium=$(count)
+          webkit=$(PLAYWRIGHT_WEBKIT=1 count --project webkit)
+          {
+            echo "since=$since"
+            echo "chromium=${chromium:?no test count}"
+            echo "webkit=${webkit:?no test count}"
+          } >> "$GITHUB_OUTPUT"
+
   export-bridge:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'ready_for_review')
+    needs: e2e-select
+    if: needs.e2e-select.outputs.chromium != '0' || needs.e2e-select.outputs.webkit != '0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -171,164 +253,110 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Browser tests of the web harness. Each shard's test step must finish
-  # within E2E_BUDGET_SECONDS, not counting retries (aiming for well under
-  # it, so a slow runner fits too); past it the shard fails. When a shard
-  # runs long, refresh the recorded durations, add shards, or speed up or
-  # split the slowest specs.
+  # Runs the selected specs in Chromium, unsharded. When none are selected,
+  # it passes without running any.
   e2e:
-    name: e2e (${{ matrix.shard }}/20)
-    needs: export-bridge
+    needs: [e2e-select, export-bridge]
+    if: ${{ !cancelled() && needs.e2e-select.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard:
-          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    # The whole suite in one job is slow.
+    timeout-minutes: ${{ needs.e2e-select.outputs.since == '' && 120 || 30 }}
     env:
-      E2E_BUDGET_SECONDS: 150
+      SINCE: ${{ needs.e2e-select.outputs.since }}
+      SELECTED: ${{ needs.e2e-select.outputs.chromium }}
     steps:
+      - name: No specs selected
+        if: env.SELECTED == '0'
+        run: echo "No Playwright spec is affected by this change."
+
       - uses: actions/checkout@v4
+        if: env.SELECTED != '0'
+        with:
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-playwright
+        if: env.SELECTED != '0'
         with:
           dir: app
 
       - uses: actions/download-artifact@v4
+        if: env.SELECTED != '0'
         with:
           name: export-bridge-pkg
           path: app/export-bridge/pkg
 
-      # Deals the tests across the shards by their recorded durations
-      # (scripts/e2e-shard-list.mjs, scripts/e2e-durations.json) rather than
-      # with --shard, whose contiguous slices put a file of slow tests in one
-      # shard.
-      - name: List shard tests
-        working-directory: app
-        run: |
-          pnpm exec playwright test --list --reporter=json > all-tests.json
-          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 20 scripts/e2e-durations.json > shard-tests.txt
-          cat shard-tests.txt
-
       - name: Browser tests
+        if: env.SELECTED != '0'
         working-directory: app
-        env:
-          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-${{ matrix.shard }}.zip
-        run: |
-          start=$(date +%s)
-          status=0
-          pnpm exec playwright test --test-list shard-tests.txt --pass-with-no-tests || status=$?
-          elapsed=$(( $(date +%s) - start ))
-          node scripts/e2e-summary.mjs e2e-results.json ${{ matrix.shard }}/20 "$elapsed" "$E2E_BUDGET_SECONDS" >> "$GITHUB_STEP_SUMMARY" || status=1
-          exit "$status"
+        run: pnpm exec playwright test ${SINCE:+--only-changed="$SINCE"}
 
       - name: Upload test output
-        if: failure()
+        if: failure() && env.SELECTED != '0'
         uses: actions/upload-artifact@v4
         with:
-          name: app-test-results-${{ matrix.shard }}
-          path: app/test-results
+          name: app-test-results
+          path: |
+            app/test-results
+            app/playwright-report
           if-no-files-found: ignore
 
-      - name: Upload blob report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: blob-report-${{ matrix.shard }}
-          path: app/blob-report
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The specs that also run in WebKit, the engine of Safari and every iOS
-  # browser (WEBKIT_SPECS in app/playwright.config.ts), such as the steady
-  # playback re-sync checks of #1111. Only this job installs WebKit. It runs
-  # on macOS, whose WebKit plays media through AVFoundation as Safari and
-  # iOS do; Linux WebKit's GStreamer backend seeks differently.
+  # The selected specs that also run in WebKit, the engine of Safari and
+  # every iOS browser (WEBKIT_SPECS in app/playwright.config.ts), such as the
+  # steady playback re-sync checks of #1111. Only this job installs WebKit.
+  # It runs on macOS, whose WebKit plays media through AVFoundation as Safari
+  # and iOS do; Linux WebKit's GStreamer backend seeks differently. When none
+  # are selected, it passes on Linux without running any.
   e2e-webkit:
-    needs: export-bridge
-    runs-on: macos-latest
+    needs: [e2e-select, export-bridge]
+    if: ${{ !cancelled() && needs.e2e-select.result == 'success' }}
+    runs-on: ${{ needs.e2e-select.outputs.webkit != '0' && 'macos-latest' || 'ubuntu-latest' }}
     timeout-minutes: 15
+    env:
+      SINCE: ${{ needs.e2e-select.outputs.since }}
+      SELECTED: ${{ needs.e2e-select.outputs.webkit }}
     steps:
+      - name: No specs selected
+        if: env.SELECTED == '0'
+        run: echo "No WebKit spec is affected by this change."
+
       - uses: actions/checkout@v4
+        if: env.SELECTED != '0'
+        with:
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-playwright
+        if: env.SELECTED != '0'
         with:
           dir: app
           browser: webkit
 
       - uses: actions/download-artifact@v4
+        if: env.SELECTED != '0'
         with:
           name: export-bridge-pkg
           path: app/export-bridge/pkg
 
       - name: WebKit browser tests
+        if: env.SELECTED != '0'
         working-directory: app
         env:
           PLAYWRIGHT_WEBKIT: "1"
-        run: pnpm exec playwright test --project webkit
+        run: pnpm exec playwright test --project webkit ${SINCE:+--only-changed="$SINCE"}
 
       - name: Upload test output
-        if: failure()
+        if: failure() && env.SELECTED != '0'
         uses: actions/upload-artifact@v4
         with:
           name: app-webkit-test-results
-          path: app/test-results
+          path: |
+            app/test-results
+            app/playwright-report
           if-no-files-found: ignore
-
-  # Merges the shards' blob reports into one HTML report, with the tests'
-  # durations (e2e-durations.json) to refresh scripts/e2e-durations.json
-  # from when the shards drift apart.
-  e2e-report:
-    needs: e2e
-    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
-
-      - name: Install app dependencies
-        working-directory: app
-        run: pnpm install --frozen-lockfile
-
-      # Each shard's artifact goes to its own folder rather than all being
-      # extracted into one with merge-multiple, which intermittently failed
-      # the download under v4 (#774); the report zips are then collected
-      # into one folder for merge-reports.
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: blob-report-*
-          path: app/blob-report-artifacts
-
-      - name: Merge reports
-        working-directory: app
-        run: |
-          mkdir all-blob-reports
-          mv blob-report-artifacts/*/*.zip all-blob-reports/
-          ls all-blob-reports
-          pnpm exec playwright merge-reports --reporter html ./all-blob-reports
-          PLAYWRIGHT_JSON_OUTPUT_FILE=e2e-results.json pnpm exec playwright merge-reports --reporter json ./all-blob-reports
-          node scripts/e2e-shard-list.mjs --durations e2e-results.json > playwright-report/e2e-durations.json
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: app-playwright-report
-          path: app/playwright-report
-          if-no-files-found: error
 
   # Drives the editor in headless Chromium against the web driver
   # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
-  # (Testing).
+  # (Testing). It is slow, so it runs on pushes to main and when a pull
+  # request is marked ready for review; other pull request events skip it.
   daw-ui-e2e:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
