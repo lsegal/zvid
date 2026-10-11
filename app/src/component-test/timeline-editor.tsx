@@ -43,9 +43,10 @@ import { resetMouse } from "./timeline-mouse.ts";
 // driven by the same project store, selection, layout, viewport, playback
 // and editing hooks (keyboard shortcuts, menus and clip drags included).
 // It leaves out what needs the wasm compositor, media or a saved session:
-// the preview, the Media drawer, the Audio row's mix, media import and
-// recording, and session persistence. Their grid cells keep their places so the timeline
-// lays out at the width it has in the app.
+// the top bar, the preview, the Media drawer, the Audio row's mix, media
+// import and recording, and session persistence. The top bar and the
+// preview's grid cells keep their places, so the timeline lays out about
+// where it does in the app.
 
 const noop = () => {};
 const NO_IDS = new Set<string>();
@@ -268,6 +269,8 @@ export function TimelineEditor({
 
   return (
     <div className="app-shell" ref={appShellRef}>
+      {/* The top bar's place: File / Edit / Help, about 40px tall. */}
+      <div style={{ flex: "none", height: 40 }} />
       <main className="workspace">
         <div className="workspace__main">
           <section className="editor-panel">

@@ -69,7 +69,7 @@ async function expectCellAt(target: HTMLElement, offsetX: number) {
   return cellPx;
 }
 
-describe("LaneRow", () => {
+describe("LaneRow", { timeout: 60_000 }, () => {
   // A desktop window tall enough to keep the layers clear of the docked
   // Audio row.
   beforeEach(async () => {

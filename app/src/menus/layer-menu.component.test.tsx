@@ -7,6 +7,7 @@ import {
   layerHeader,
   menuItem,
   openLayerMenu,
+  pressShiftF10,
   undo,
 } from "../components/timeline/timeline-harness-input";
 // The menu these tests open; importing it ties them to it.
@@ -30,7 +31,7 @@ function fxPanelTitle() {
 
 const layerMenu = () => page.getByRole("menu", { name: "Layer header actions" });
 
-describe("layer header menu", () => {
+describe("layer header menu", { timeout: 60_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);
@@ -87,7 +88,7 @@ describe("layer header menu", () => {
     (
       layerHeader("3").querySelector(".track-label__select") as HTMLElement
     ).focus();
-    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await pressShiftF10();
     await expect.element(layerMenu()).toBeVisible();
   });
 

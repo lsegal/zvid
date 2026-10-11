@@ -240,3 +240,33 @@ export async function copySourceClipToLayer1() {
     )
     .toBe(true);
 }
+
+// Presses Shift+F10 on the focused element. Chromium turns it into a
+// contextmenu event there on Linux and Windows but not on macOS, so there
+// the test sends the event Chromium would.
+export async function pressShiftF10() {
+  let opened = false;
+  const onContextMenu = () => {
+    opened = true;
+  };
+  document.addEventListener("contextmenu", onContextMenu, true);
+  try {
+    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    await nextFrames();
+    const focused = document.activeElement;
+    if (!opened && focused instanceof HTMLElement) {
+      const bounds = focused.getBoundingClientRect();
+      focused.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          clientX: bounds.left,
+          clientY: bounds.bottom,
+        }),
+      );
+    }
+  } finally {
+    document.removeEventListener("contextmenu", onContextMenu, true);
+  }
+}

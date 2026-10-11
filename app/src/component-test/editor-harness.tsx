@@ -88,6 +88,8 @@ export type EditorState = {
   // The live playhead, which playback advances between renders.
   playheadQ: () => number;
   isTakeOverPromptOpen: boolean;
+  // The status bar's message, such as what an edit did.
+  status: string;
 };
 
 type EditorHarnessProps = {
@@ -147,7 +149,7 @@ export function EditorHarness({
   const layout = useAppLayout({ sourceTrackCount: sourceTracks.length });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
   const [isPlaying, setIsPlaying] = useState(false);
-  const [, setStatus] = useState("");
+  const [status, setStatus] = useState("");
   const previewVolume = usePreviewVolume(compositionPlayerRef);
 
   const mediaItemsById = useMemo(
@@ -327,6 +329,7 @@ export function EditorHarness({
     isPlaying,
     playheadQ: () => playheadQRef.current,
     isTakeOverPromptOpen: store.isTakeOverPromptOpen,
+    status,
   });
 
   return (

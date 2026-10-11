@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
 import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import { center, click } from "../../component-test/timeline-mouse.ts";
 import { TransportBar } from "./TransportBar";
 
 // The transport bar's zoom control: the -/+ buttons step along a ladder from
@@ -19,7 +20,8 @@ async function stepUntilDisabled(name: "Zoom in" | "Zoom out") {
   const seen: string[] = [];
   while (!(button.element() as HTMLButtonElement).disabled) {
     const before = readout();
-    await button.click();
+    const { x, y } = center(button.element());
+    await click(x, y);
     await expect.poll(readout).not.toBe(before);
     seen.push(readout() ?? "");
   }

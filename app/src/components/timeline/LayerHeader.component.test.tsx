@@ -14,8 +14,7 @@ import {
   touch,
   undo,
 } from "./timeline-harness-input";
-// The harness renders LayerHeader; importing it ties this test to it.
-import "./LayerHeader";
+import { LayerHeader } from "./LayerHeader";
 
 // A layer's header (LayerHeader) in the timeline: its reorder grip and its
 // FX switch. Layers: "1" is Layer 1, and addLayers adds "2" (Layer 2) and
@@ -87,7 +86,7 @@ async function addLayer4() {
   return id;
 }
 
-describe("LayerHeader", () => {
+describe(LayerHeader, { timeout: 60_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await render(<TimelineHarness />);

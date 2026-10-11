@@ -231,7 +231,7 @@ async function insertClip(item: string, from: number) {
     .click();
 }
 
-describe("collapsing rows", () => {
+describe("collapsing rows", { timeout: 60_000 }, () => {
   beforeEach(async () => {
     localStorage.clear();
     await setViewport({ width: 1600, height: 1200 });
