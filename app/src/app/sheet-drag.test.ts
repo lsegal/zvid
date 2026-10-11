@@ -12,8 +12,14 @@ const VIEWPORT = 800;
 
 describe("fxSheetAfterDrag", () => {
   it("keeps the height for a drag shorter than the threshold", () => {
-    assert.equal(fxSheetAfterDrag("half", SHEET_DRAG_THRESHOLD - 1, VIEWPORT), "half");
-    assert.equal(fxSheetAfterDrag("half", 1 - SHEET_DRAG_THRESHOLD, VIEWPORT), "half");
+    assert.equal(
+      fxSheetAfterDrag("half", SHEET_DRAG_THRESHOLD - 1, VIEWPORT),
+      "half",
+    );
+    assert.equal(
+      fxSheetAfterDrag("half", 1 - SHEET_DRAG_THRESHOLD, VIEWPORT),
+      "half",
+    );
     assert.equal(fxSheetAfterDrag("full", 20, VIEWPORT), "full");
   });
 
@@ -32,7 +38,10 @@ describe("fxSheetAfterDrag", () => {
   });
 
   it("closes when dragged from full well past half height", () => {
-    assert.equal(fxSheetAfterDrag("full", 384 + SHEET_DRAG_THRESHOLD, VIEWPORT), null);
+    assert.equal(
+      fxSheetAfterDrag("full", 384 + SHEET_DRAG_THRESHOLD, VIEWPORT),
+      null,
+    );
   });
 });
 

@@ -262,6 +262,62 @@ test("FX opens as a half or full sheet and Media as a full screen", async ({
   await expect(page.getByRole("button", { name: "Camera roll" })).toBeHidden();
 });
 
+// #1172: the FX sheet's header is a drag handle, and no drag in the app
+// starts the browser's pull-to-refresh.
+test("dragging the FX sheet's header moves it between heights", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const element of ["html", "body"]) {
+    await expect(page.locator(element)).toHaveCSS(
+      "overscroll-behavior-y",
+      "none",
+    );
+  }
+  const client = await page.context().newCDPSession(page);
+  const tabs = page.getByRole("navigation", { name: "Editor" });
+  await tabs.getByRole("button", { name: "FX" }).click();
+  const fx = page.locator(".fx-panel");
+  await expect(fx).toBeVisible();
+  const half = (await fx.boundingBox())?.height ?? 0;
+  const height = async () => (await fx.boundingBox())?.height ?? 0;
+
+  const grabber = await centerOf(page, ".mobile-sheet-header__grabber");
+  await drag(page, client, grabber, { x: grabber.x, y: grabber.y - 150 });
+  await expect.poll(height).toBeGreaterThan(half * 1.5);
+  await expect(page.getByRole("button", { name: "Half height" })).toBeVisible();
+
+  const title = await centerOf(page, ".mobile-sheet-header__title");
+  await drag(page, client, title, { x: title.x, y: title.y + 150 });
+  await expect.poll(height).toBeCloseTo(half, 0);
+
+  // Tapping the grabber still toggles the height.
+  await page.locator(".mobile-sheet-header__grabber").click();
+  await expect.poll(height).toBeGreaterThan(half * 1.5);
+  await page.locator(".mobile-sheet-header__grabber").click();
+  await expect.poll(height).toBeCloseTo(half, 0);
+
+  const halfGrabber = await centerOf(page, ".mobile-sheet-header__grabber");
+  await drag(page, client, halfGrabber, {
+    x: halfGrabber.x,
+    y: halfGrabber.y + 150,
+  });
+  await expect(fx).toBeHidden();
+});
+
+test("dragging a menu sheet's grabber down closes it", async ({ page }) => {
+  await page.goto("/");
+  const client = await page.context().newCDPSession(page);
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  const sheet = page.locator(".mobile-menu-sheet");
+  await expect(sheet).toBeVisible();
+  const handle = await centerOf(page, ".mobile-sheet__handle");
+  await drag(page, client, handle, { x: handle.x, y: handle.y + 20 });
+  await expect(sheet).toBeVisible();
+  await drag(page, client, handle, { x: handle.x, y: handle.y + 120 });
+  await expect(sheet).toBeHidden();
+});
+
 test.describe("landscape phone", () => {
   test.use({ viewport: { width: 915, height: 412 } });
 

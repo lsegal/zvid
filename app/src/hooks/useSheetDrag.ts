@@ -1,4 +1,4 @@
-import { type PointerEvent, type MouseEvent, useRef } from "react";
+import { type MouseEvent, type PointerEvent, useRef } from "react";
 import { SHEET_DRAG_SLOP } from "../app/sheet-drag.ts";
 
 type SheetDragOptions = {
