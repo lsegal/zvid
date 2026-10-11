@@ -65,6 +65,25 @@ async function screenshotPixels(data: string, points: Array<[number, number]>) {
   );
 }
 
+// A PNG of `element` as the browser paints it, in base64. It asks Chromium
+// directly: test files run in parallel tabs, and Playwright's element
+// screenshot waits for frames a background tab doesn't paint.
+async function screenshot(element: Element) {
+  const frame = window.frameElement?.getBoundingClientRect() ?? { x: 0, y: 0 };
+  const box = element.getBoundingClientRect();
+  const { data } = (await cdp().send("Page.captureScreenshot", {
+    format: "png",
+    clip: {
+      x: frame.x + box.x,
+      y: frame.y + box.y,
+      width: box.width,
+      height: box.height,
+      scale: 1,
+    },
+  })) as { data: string };
+  return data;
+}
+
 describe("MediaThumbnail", () => {
   test("shows the sample logo standing out on its checkerboard", async () => {
     // A tile of the drawer's icon view at its default size.
@@ -99,10 +118,7 @@ describe("MediaThumbnail", () => {
       containedLogoPoint(box, 100, 152), // the bottom strip
     ];
     const outside = [containedLogoPoint(box, 30, 100)]; // between the strips
-    // Test files run in parallel tabs, and a background tab paints no
-    // frames to screenshot.
-    await cdp().send("Page.bringToFront");
-    const png = await page.screenshot({ element: image, save: false });
+    const png = await screenshot(image);
     const pixels = await screenshotPixels(png, [...inside, ...outside]);
     const luma = ([red, green, blue]: Rgba) =>
       0.299 * red + 0.587 * green + 0.114 * blue;
