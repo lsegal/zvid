@@ -458,7 +458,8 @@ export function TimelineEditor({
                 />
               </Timeline>
               {/* The preview's resize handle and panel. */}
-              <div style={{ gridColumn: "3 / 5" }} />
+              <div />
+              <div />
             </div>
             <TransportBar
               {...timeline}

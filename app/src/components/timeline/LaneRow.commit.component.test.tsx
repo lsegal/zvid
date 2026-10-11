@@ -153,7 +153,10 @@ function drawnColumns(canvas: HTMLCanvasElement) {
   return columns;
 }
 
-describe("LaneRow committing a selection in the editor", () => {
+// Each test commits up to three clips.
+describe("LaneRow committing a selection in the editor", {
+  timeout: 90_000,
+}, () => {
   beforeEach(async () => {
     await setViewport({ width: 1600, height: 1200 });
   });

@@ -123,7 +123,9 @@ describe("SelectionOverlay stacking in the editor", () => {
     // under it (#918).
     const inside = (selectionBox.x + clipBox.x + clipBox.width) / 2;
     const middle = clipBox.y + clipBox.height / 2;
-    expect(document.elementFromPoint(inside, middle)?.closest(".timeline-selection")).toBe(selection);
+    expect(
+      document.elementFromPoint(inside, middle)?.closest(".timeline-selection"),
+    ).toBe(selection);
     await click(inside, middle);
     expect(selectionCount("1")).toBe(1);
     expect(isSelected(clip)).toBe(false);

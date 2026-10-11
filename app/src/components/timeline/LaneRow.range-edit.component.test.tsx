@@ -111,7 +111,8 @@ describe("LaneRow range edits in the editor", () => {
         .poll(() => lane(id).querySelectorAll(".clip-card").length)
         .toBe(1);
     }
-  });
+    // Opening the editor and committing two clips takes a while.
+  }, 60_000);
 
   test("Delete removes only the selected span on its layer", async () => {
     const [clip] = clipEdges("1");

@@ -70,7 +70,9 @@ describe("SelectionOverlay in the editor", () => {
     await setViewport({ width: 1600, height: 1200 });
     // Layers "1" to "3", as Layer 1 with two layers inserted below it.
     await renderEditor({ project: sessionWithLayers(3) });
-    await expect.poll(() => document.querySelector('[data-timeline-lane-id="3"]')).not.toBeNull();
+    await expect
+      .poll(() => document.querySelector('[data-timeline-lane-id="3"]'))
+      .not.toBeNull();
     const scroller = document.querySelector(".timeline-scroll");
     if (scroller) {
       scroller.scrollLeft = 0;
@@ -116,9 +118,8 @@ describe("SelectionOverlay in the editor", () => {
     const before = boxOf(selection);
     const right = before.x + before.width;
     const handle = (edge: "start" | "end") =>
-      selectionIn("2")?.querySelector(
-        `.timeline-selection__handle--${edge}`,
-      ) ?? null;
+      selectionIn("2")?.querySelector(`.timeline-selection__handle--${edge}`) ??
+      null;
 
     // The end handle moves the end and keeps the start.
     await dragBy(handle("end"), 120);
