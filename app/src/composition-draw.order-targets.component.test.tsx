@@ -231,7 +231,8 @@ describe("drawComposition with an animated Order", () => {
     expect(differingPixels).toBeLessThan(frameCount * 250 * 170 * 0.002);
     // A handful of bucketed targets, rather than new ones every frame.
     expect(bucketed.targetsAllocated).toBeLessThan(30);
-  });
+    // Fifty frames through every shader in SwiftShader.
+  }, 120_000);
 
   // Push takes a clip in from the side of the arrangement its slot is on:
   // one entering the first column slides in from the left edge, and one
