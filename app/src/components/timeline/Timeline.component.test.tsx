@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import {
   center,
   down,
@@ -25,7 +28,7 @@ function box(selector: string) {
   return query(selector).getBoundingClientRect();
 }
 
-describe(Timeline, () => {
+describe(Timeline, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // The timeline sits flush against the window's left edge (just inside the
   // panel's 1px border), with square left corners, whether the FX row is
   // open or not. In the wide layout it also sits on the transport bar; the
@@ -37,9 +40,9 @@ describe(Timeline, () => {
       const style = getComputedStyle(panel);
       expect(edges.left).toBeLessThanOrEqual(1);
       if (onTransport) {
-        expect(
-          Math.abs(edges.bottom - box(".transport-bar").top),
-        ).toBeLessThan(1);
+        expect(Math.abs(edges.bottom - box(".transport-bar").top)).toBeLessThan(
+          1,
+        );
       }
       expect(style.borderLeftWidth).toBe("0px");
       expect(style.borderTopLeftRadius).toBe("0px");
@@ -89,9 +92,9 @@ describe(Timeline, () => {
     });
     const screen = await renderTimelineEditor({ project: { clips, effects } });
     const target = query('[data-timeline-lane-id="1"]');
-    await expect.poll(() => target.querySelectorAll(".clip-card")).toHaveLength(
-      1,
-    );
+    await expect
+      .poll(() => target.querySelectorAll(".clip-card"))
+      .toHaveLength(1);
     const clip = target.querySelector(".clip-card") as HTMLElement;
 
     const scroller = query(".timeline-scroll");

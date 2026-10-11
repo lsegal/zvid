@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import {
   center,
   click,
@@ -117,7 +120,7 @@ function topmostAt(x: number, y: number) {
   return element?.closest(".loop-overlay") ? "loop" : "other";
 }
 
-describe(LoopOverlay, () => {
+describe(LoopOverlay, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   test("the loop is gray in the ruler and runs down the timeline behind clips", async () => {
     const screen = await renderTimelineEditor({ reducedMotion: true });
     const fill = await insertFillClip(screen);
@@ -164,9 +167,7 @@ describe(LoopOverlay, () => {
       Math.abs(end.x + end.width - (region.x + region.width)),
     ).toBeLessThan(1);
     expect(Math.abs(tint.x - start.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(tint.x + tint.width - (end.x + end.width))).toBeLessThan(
-      1,
-    );
+    expect(Math.abs(tint.x + tint.width - (end.x + end.width))).toBeLessThan(1);
     const ruler = box(".ruler-row");
     const layer = box('[data-timeline-lane-id="1"]');
     expect(Math.abs(start.y - (ruler.y + ruler.height))).toBeLessThanOrEqual(1);

@@ -32,8 +32,7 @@ function lane(id: string) {
 }
 
 const playButton = () => page.getByRole("button", { name: "Play timeline" });
-const pauseButton = () =>
-  page.getByRole("button", { name: "Pause playback" });
+const pauseButton = () => page.getByRole("button", { name: "Pause playback" });
 const textField = () =>
   page
     .getByRole("region", { name: "Text" })
@@ -46,8 +45,7 @@ function playheadX() {
     ".timeline-playhead-marker",
   ) as HTMLElement;
   return (
-    marker.getBoundingClientRect().left -
-    lane("1").getBoundingClientRect().left
+    marker.getBoundingClientRect().left - lane("1").getBoundingClientRect().left
   );
 }
 
@@ -177,9 +175,9 @@ describe(useKeyboardShortcuts, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     expect(clip.className).toMatch(/clip-card--selected/);
     await expectTransportShortcuts();
     await expect.element(text).toHaveValue("Title");
-    await expect.poll(() => clip.querySelector("strong")?.textContent).toBe(
-      "Title",
-    );
+    await expect
+      .poll(() => clip.querySelector("strong")?.textContent)
+      .toBe("Title");
 
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => clip.className).not.toMatch(/clip-card--selected/);

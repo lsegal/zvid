@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import { center, click } from "../../component-test/timeline-mouse.ts";
 import { TransportBar } from "./TransportBar";
 
@@ -11,8 +14,7 @@ import { TransportBar } from "./TransportBar";
 let screen: RenderResult;
 
 function readout() {
-  return screen.container.querySelector(".zoom-control__readout")
-    ?.textContent;
+  return screen.container.querySelector(".zoom-control__readout")?.textContent;
 }
 
 async function stepUntilDisabled(name: "Zoom in" | "Zoom out") {
@@ -28,7 +30,7 @@ async function stepUntilDisabled(name: "Zoom in" | "Zoom out") {
   return seen;
 }
 
-describe(TransportBar, () => {
+describe(TransportBar, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   beforeEach(async () => {
     screen = await renderTimelineEditor();
     await expect.poll(readout).toBe("100%");

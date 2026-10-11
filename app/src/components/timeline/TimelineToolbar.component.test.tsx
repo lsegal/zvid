@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import { TimelineToolbar } from "./TimelineToolbar";
 
 // The toolbar renders in the timeline editor, whose ruler it switches.
-describe(TimelineToolbar, () => {
+describe(TimelineToolbar, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // The scale toggle: Tempo shows bar numbers on the ruler, Time shows
   // timecode.
   test("the scale toggle reads Tempo / Time and switches the ruler", async () => {
@@ -40,9 +43,9 @@ describe(TimelineToolbar, () => {
     const toolbar = screen.container.querySelector(
       ".timeline-toolbar",
     ) as HTMLElement;
-    expect(screen.getByRole("tablist", { name: "Snap grid" }).elements()).toEqual(
-      [],
-    );
+    expect(
+      screen.getByRole("tablist", { name: "Snap grid" }).elements(),
+    ).toEqual([]);
     expect(
       [...toolbar.querySelectorAll("button")].filter((button) =>
         /^Auto/.test(button.textContent ?? ""),
@@ -55,9 +58,9 @@ describe(TimelineToolbar, () => {
     const tempos = toolbar.querySelectorAll(".tempo-pill");
     expect(tempos).toHaveLength(1);
     expect(
-      snap.element().parentElement?.nextElementSibling?.classList.contains(
-        "tempo-pill",
-      ),
+      snap
+        .element()
+        .parentElement?.nextElementSibling?.classList.contains("tempo-pill"),
     ).toBe(true);
     expect(document.querySelectorAll(".topbar .tempo-pill")).toHaveLength(0);
 

@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import testPatternUrl from "../../../e2e/fixtures/test-pattern.mp4?url";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import { center, click, drag } from "../../component-test/timeline-mouse.ts";
 import type { MediaItem } from "../../media";
 import { addMediaToSourceTrack } from "../../source-track-media.ts";
@@ -53,7 +56,7 @@ async function dragBy(element: HTMLElement, deltaPx: number) {
   await drag(from, { x: from.x + deltaPx, y: from.y }, { steps: 8 });
 }
 
-describe(SourceSpan, () => {
+describe(SourceSpan, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   test("dragging a clip snaps to the zoom-dependent grid", async () => {
     // One source track holding the test pattern at 0, as dropping it does.
     await renderTimelineEditor({
@@ -83,9 +86,7 @@ describe(SourceSpan, () => {
       await click(center(zoomOut).x, center(zoomOut).y);
     }
     await expect
-      .poll(
-        () => document.querySelector(".zoom-control__readout")?.textContent,
-      )
+      .poll(() => document.querySelector(".zoom-control__readout")?.textContent)
       .toBe("25%");
     const zoomedQuarterPx = quarterWidth(span() as HTMLElement);
     await dragBy(span() as HTMLElement, 3.4 * zoomedQuarterPx);

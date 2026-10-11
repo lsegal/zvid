@@ -22,8 +22,7 @@ import { skipShortcut } from "./transport.ts";
 const MOD = getShortcutLabels().mac ? "Meta" : "Control";
 
 const playButton = () => page.getByRole("button", { name: "Play timeline" });
-const pauseButton = () =>
-  page.getByRole("button", { name: "Pause playback" });
+const pauseButton = () => page.getByRole("button", { name: "Pause playback" });
 
 async function press(
   button: ReturnType<typeof playButton>,
@@ -100,7 +99,9 @@ describe("transport shortcuts", { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     // The buttons take the same route.
     await parkPlayhead(insideX);
     await moveBy(() =>
-      press(page.getByRole("button", { name: "Jump to loop end", exact: true })),
+      press(
+        page.getByRole("button", { name: "Jump to loop end", exact: true }),
+      ),
     );
     expect(
       await moveBy(() =>
@@ -163,7 +164,10 @@ describe("transport shortcuts", { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
     expect(readPlayheadQ()).toBeGreaterThan(loop.endQ);
     await expect
       .element(playButton())
-      .toHaveAttribute("title", expect.stringMatching(/click: play from loop start/));
+      .toHaveAttribute(
+        "title",
+        expect.stringMatching(/click: play from loop start/),
+      );
 
     await press(playButton(), [MOD]);
     await expect.element(pauseButton()).toBeVisible();

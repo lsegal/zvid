@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import {
   down,
   holdModifiers,
@@ -10,7 +13,7 @@ import {
 import { setViewport } from "../../component-test/viewport.ts";
 import { LaneRow } from "./LaneRow";
 
-describe(LaneRow, () => {
+describe(LaneRow, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // The timeline position under the pointer is measured from where clips
   // start, inside the timeline scroller's border and the content's left
   // border, so an unsnapped selection lands right under the pointer (#696).

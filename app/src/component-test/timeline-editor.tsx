@@ -2,8 +2,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { expect, onTestFinished } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { selectSourceSpan } from "../app/source-selection.ts";
 import type { ProjectState, SourceSpan } from "../app/types.ts";
 import { FxPanel } from "../components/FxPanel";
@@ -57,26 +57,13 @@ const NO_IDS = new Set<string>();
 const NO_PROGRESS = new Map();
 const NO_TAKES = new Map<string, LiveTake>();
 
-export type TimelineEditorState = {
-  project: ProjectState;
-  canUndo: boolean;
-  isPlaying: boolean;
-  playheadQ: () => number;
-  setPlayheadQ: (q: number) => void;
-};
-
 type TimelineEditorProps = {
   // Changes from the blank session the editor opens with, swapped in
   // without an undo step.
   project?: Partial<ProjectState>;
-  // Called on every render with what the editor holds.
-  onState?: (state: TimelineEditorState) => void;
 };
 
-export function TimelineEditor({
-  project: projectPatch,
-  onState,
-}: TimelineEditorProps) {
+export function TimelineEditor({ project: projectPatch }: TimelineEditorProps) {
   const collaboration = useCollaborationState();
   const store = useProjectStore({ access: "owner", restoredSession: null });
   const {
@@ -85,7 +72,6 @@ export function TimelineEditor({
     playheadQRef,
     playheadSignal,
     setPlayheadQ,
-    refuseReadOnlyEdit,
     commitProjectChange,
   } = store;
   const [initialPatch] = useState(projectPatch);
@@ -125,7 +111,10 @@ export function TimelineEditor({
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
   const mediaItemsById = useMemo(
-    () => new Map<string, MediaItem>(project.mediaItems.map((item) => [item.id, item])),
+    () =>
+      new Map<string, MediaItem>(
+        project.mediaItems.map((item) => [item.id, item]),
+      ),
     [project.mediaItems],
   );
   const lanePriority = useMemo(
@@ -262,14 +251,6 @@ export function TimelineEditor({
     fxLaneId: fxPanel.fxLaneId,
     fxClipId: fxPanel.fxClipId,
     projectDurationFrames: project.projectDurationFrames,
-  });
-
-  onState?.({
-    project,
-    canUndo: store.canUndo,
-    isPlaying,
-    playheadQ: () => playheadQRef.current,
-    setPlayheadQ,
   });
 
   return (
@@ -530,7 +511,9 @@ function emulateReducedMotion(reduce: boolean) {
     send: (method: string, params: Record<string, unknown>) => Promise<void>;
   };
   return session.send("Emulation.setEmulatedMedia", {
-    features: reduce ? [{ name: "prefers-reduced-motion", value: "reduce" }] : [],
+    features: reduce
+      ? [{ name: "prefers-reduced-motion", value: "reduce" }]
+      : [],
   });
 }
 

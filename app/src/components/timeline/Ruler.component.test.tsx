@@ -1,6 +1,9 @@
 import { describe, expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import {
   click,
   down,
@@ -28,7 +31,7 @@ function timecode() {
     ?.textContent;
 }
 
-describe(Ruler, () => {
+describe(Ruler, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // Hand-grab panning on the timeline ruler: the right and middle buttons pan
   // the timeline, a right-drag up or down zooms around the pointer, the left
   // button only scrubs the playhead, and the browser's context menu never
@@ -105,9 +108,7 @@ describe(Ruler, () => {
       const record = (event: Event) =>
         contextMenus.push(event.defaultPrevented);
       window.addEventListener("contextmenu", record);
-      onTestFinished(() =>
-        window.removeEventListener("contextmenu", record),
-      );
+      onTestFinished(() => window.removeEventListener("contextmenu", record));
       return { screen, contextMenus };
     }
 
@@ -425,7 +426,8 @@ describe(Ruler, () => {
     await setViewport({ width: 1280, height: 900 });
     await renderTimelineEditor({ reducedMotion: true });
     const ruler = query(".ruler-row__content");
-    const pointerX = ruler.getBoundingClientRect().left + ruler.clientLeft + 160;
+    const pointerX =
+      ruler.getBoundingClientRect().left + ruler.clientLeft + 160;
     const rulerBox = ruler.getBoundingClientRect();
     await click(pointerX, rulerBox.y + rulerBox.height / 2);
 

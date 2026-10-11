@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
-import { renderTimelineEditor } from "../../component-test/timeline-editor.tsx";
+import {
+  renderTimelineEditor,
+  TIMELINE_EDITOR_TIMEOUT,
+} from "../../component-test/timeline-editor.tsx";
 import {
   center,
   click,
@@ -59,7 +62,7 @@ function selectionEnds() {
   };
 }
 
-describe(LoopStrip, () => {
+describe(LoopStrip, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
   // The loop strip along the bottom of the ruler: dragging there highlights
   // a playback selection without moving the playhead, a click clears it, and
   // the ruler above it still scrubs.

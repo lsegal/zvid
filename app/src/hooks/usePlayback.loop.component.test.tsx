@@ -13,8 +13,7 @@ import { usePlayback } from "./usePlayback.ts";
 // in marker and keeps playing; deleting the loop lets it run on (#1056).
 
 const playButton = () => page.getByRole("button", { name: "Play timeline" });
-const pauseButton = () =>
-  page.getByRole("button", { name: "Pause playback" });
+const pauseButton = () => page.getByRole("button", { name: "Pause playback" });
 
 function markerX() {
   return (
@@ -123,8 +122,6 @@ describe(usePlayback, { timeout: TIMELINE_EDITOR_TIMEOUT }, () => {
       .poll(() => document.querySelectorAll(".ruler-loop-region").length)
       .toBe(0);
 
-    await expect
-      .poll(markerX, { timeout: 8000 })
-      .toBeGreaterThan(outX + 20);
+    await expect.poll(markerX, { timeout: 8000 }).toBeGreaterThan(outX + 20);
   });
 });
