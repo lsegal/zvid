@@ -1048,6 +1048,7 @@ test.describe("tablet", () => {
         "Tempo",
         "Timeline",
         "Zoom in",
+        "Play timeline",
       ]),
     );
     expect(sizes).toEqual(desktopSizes);
@@ -1102,12 +1103,13 @@ test.describe("tablet", () => {
 });
 
 // The Sessions/Media/Record, Tempo/Time and Snap switches, the preview
-// tabs, the menubar and the zoom buttons.
+// tabs, the menubar, the zoom buttons and the transport buttons (#1222).
 const TOUCH_CONTROLS = [
   ".timeline-toolbar .segmented-control button",
   ".preview-panel__tabs button",
   ".menubar-item",
   ".zoom-control__button",
+  ".transport-bar .transport-button",
 ].join(", ");
 
 async function controlSizes(page: Page) {

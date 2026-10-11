@@ -34,8 +34,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  height: 32px;
-  border-radius: 10px;
+  height: 26px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: rgba(10, 12, 20, 0.36);
   color: var(--ink);
@@ -47,21 +47,21 @@
 }
 
 .zoom-control__button {
-  width: 32px;
+  width: 26px;
   padding: 0;
 }
 
 .zoom-control__button > svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
 .zoom-control__readout {
-  min-width: 58px;
-  padding: 0 8px;
+  min-width: 50px;
+  padding: 0 7px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -83,7 +83,7 @@
 .zoom-control__slider {
   --zoom-track: rgba(255, 255, 255, 0.1);
   width: 140px;
-  height: 20px;
+  height: 16px;
   margin: 0;
   background: transparent;
   cursor: pointer;
@@ -98,7 +98,7 @@
 }
 
 .zoom-control__slider::-webkit-slider-runnable-track {
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   background: linear-gradient(
     to right,
@@ -108,21 +108,21 @@
 }
 
 .zoom-control__slider::-moz-range-track {
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   background: var(--zoom-track);
 }
 
 .zoom-control__slider::-moz-range-progress {
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   background: var(--amber);
 }
 
 .zoom-control__slider::-webkit-slider-thumb {
-  width: 16px;
-  height: 16px;
-  margin-top: -5px;
+  width: 13px;
+  height: 13px;
+  margin-top: -4px;
   border-radius: 50%;
   border: 2px solid var(--amber);
   background: var(--ink);
@@ -134,8 +134,8 @@
 }
 
 .zoom-control__slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid var(--amber);
   background: var(--ink);
@@ -165,7 +165,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+/* About 20% smaller than the shared transport buttons, to match the
+   compact menu bar (#1222). */
+.transport-bar .transport-button {
+  min-width: 42px;
+  height: 35px;
+  padding: 9px;
+  border-radius: 11px;
+}
+
+.transport-bar .transport-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.transport-bar .transport-button--skip-start::before,
+.transport-bar .transport-button--skip-end::after {
+  height: 14px;
 }
 
 .volume-control {
@@ -225,6 +244,11 @@
     gap: 6px;
   }
 
+  .transport-bar .transport-button {
+    min-width: 0;
+    padding: 9px 0;
+  }
+
   .volume-control {
     min-width: 0;
   }
@@ -239,6 +263,11 @@
 .transport-button--record > svg {
   width: 18px;
   height: 18px;
+}
+
+.transport-bar .transport-button--record > svg {
+  width: 14px;
+  height: 14px;
 }
 
 .transport-button--record:disabled {
