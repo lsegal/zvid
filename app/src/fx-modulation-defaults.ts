@@ -2,8 +2,8 @@
 // effect's defaults for them. It is the audio side's Animation: Transient
 // moves the selected knobs on hits exactly as Animation's Reactive mode
 // does, and LFO moves them continuously on session time with Animation's LFO
-// settings. Effects that aren't listed here, Reverse among them, don't
-// support modulation.
+// settings. Effects that aren't listed here, Reverse and Re-Pitch among
+// them, don't support modulation.
 
 import {
   type AnimatableParameter,

@@ -144,7 +144,12 @@ describe("Re-Pitch", () => {
     assert.deepEqual(
       definition.parameters.map((parameter) =>
         parameter.kind === "number"
-          ? [parameter.key, parameter.min, parameter.max, parameter.defaultValue]
+          ? [
+              parameter.key,
+              parameter.min,
+              parameter.max,
+              parameter.defaultValue,
+            ]
           : [],
       ),
       [
@@ -184,7 +189,9 @@ describe("Re-Pitch", () => {
     const up = render(clip([rePitch(12)]), media);
     // Sped up, the clip's window runs out halfway through.
     assert.ok(Math.abs(frequency(up, 0.5, 1) - 400) <= 2, "up");
-    assert.ok(up.subarray(1.01 * SAMPLE_RATE, 1.5 * SAMPLE_RATE).every((v) => v === 0));
+    assert.ok(
+      up.subarray(1.01 * SAMPLE_RATE, 1.5 * SAMPLE_RATE).every((v) => v === 0),
+    );
     const down = render(clip([rePitch(-12)]), media);
     assert.ok(Math.abs(frequency(down, 0.5, 1.5) - 100) <= 1, "down");
   });

@@ -638,7 +638,13 @@ describe("zvid opening sample", () => {
       assert.equal(gain.enabled !== false, true, clip);
       assert.equal(numberParameter(gain, "Gain"), 0, clip);
       assert.equal(numberParameter(gain, "Mute"), 0, clip);
-      assert.ok(others.length <= 1, clip);
+      // Re-Pitch shares Reverse's selection; the rest have one each.
+      assert.ok(
+        others.length <= 1 ||
+          others.map((effect) => effect.effectName).join() ===
+            "Reverse,Re-Pitch",
+        clip,
+      );
       for (const effect of others) {
         assert.ok(audioEffectNames.has(effect.effectName), effect.effectName);
         shown.push(effect.effectName);

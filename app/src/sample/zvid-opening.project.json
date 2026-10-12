@@ -5167,6 +5167,19 @@
     },
     {
       "id": "sample-fx-165",
+      "trackId": "clip:selection-62",
+      "effectName": "Re-Pitch",
+      "parameters": {
+        "Semitones": {
+          "floatValue": -5
+        },
+        "Cents": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-166",
       "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
@@ -5179,7 +5192,7 @@
       }
     },
     {
-      "id": "sample-fx-166",
+      "id": "sample-fx-167",
       "trackId": "clip:selection-63",
       "effectName": "Limiter",
       "parameters": {
@@ -5198,7 +5211,7 @@
       }
     },
     {
-      "id": "sample-fx-167",
+      "id": "sample-fx-168",
       "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
@@ -5211,7 +5224,7 @@
       }
     },
     {
-      "id": "sample-fx-168",
+      "id": "sample-fx-169",
       "trackId": "clip:selection-64",
       "effectName": "Delay",
       "parameters": {
@@ -5239,7 +5252,7 @@
       }
     },
     {
-      "id": "sample-fx-169",
+      "id": "sample-fx-170",
       "trackId": "clip:selection-65",
       "effectName": "Gain",
       "parameters": {
@@ -5252,7 +5265,7 @@
       }
     },
     {
-      "id": "sample-fx-170",
+      "id": "sample-fx-171",
       "trackId": "clip:selection-65",
       "effectName": "Reverb",
       "parameters": {
@@ -5274,7 +5287,7 @@
       }
     },
     {
-      "id": "sample-fx-171",
+      "id": "sample-fx-172",
       "trackId": "clip:selection-45",
       "effectName": "Scopes",
       "parameters": {}

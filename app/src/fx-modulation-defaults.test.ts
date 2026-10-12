@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { AUDIO_PROCESSORS } from "./audio-mix/processors.ts";
 import {
   createDefaultModulation,
   getModulatableParameters,
@@ -28,7 +29,14 @@ describe("Modulation defaults", () => {
       const available = getModulatableParameters(effectName).map(
         (parameter) => parameter.key,
       );
-      assert.equal(supportsModulation(effectName), available.length > 0);
+      // A source stage (Re-Pitch) maps where its clip reads from its knobs
+      // as stored, so Modulation can't move them.
+      const source = AUDIO_PROCESSORS.get(effectName)?.source;
+      assert.equal(
+        supportsModulation(effectName),
+        !source && available.length > 0,
+        effectName,
+      );
       const modulation = createDefaultModulation(effectName);
       if (!modulation) {
         continue;
