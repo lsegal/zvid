@@ -801,9 +801,11 @@ addEffect(
 // consecutive two-beat selections covering the whole 30 s. Each selection's
 // clip sounds through a Gain at 0 dB and one audio effect, set to be heard
 // without clipping, so the music runs on through a tour of every audio
-// effect, the first two beats clean. Twenty selections fill the 30 s, so
-// Re-Pitch shares Reverse's: the reversed music slowed down like a tape. With the music on a layer, the mix
-// plays only the layer clips, so the source track itself stays silent.
+// effect but the Noise Gate, the first two beats clean. Twenty selections
+// fill the 30 s, so Re-Pitch has bar 8 shifted up with its formants kept, and
+// shares Reverse's too: the reversed music slowed down like a tape. With the
+// music on a layer, the mix plays only the layer clips, so the source track
+// itself stays silent.
 // The source track holds the whole music as one clip, which each selection
 // plays where it is in the file.
 const MUSIC_TRACK = `source-${MUSIC.key}`;
@@ -862,11 +864,8 @@ const MUSIC_SECTIONS = [
   ["Saturation", { Drive: 18, Type: "Tape", Tone: 8000, Output: -8, Mix: 1 }],
   ["Stereo", { Width: 200, Pan: 40 }],
   ["Mono", { Source: "Sum", Amount: 1 }],
-  // 21–24 s: the reactive Colorize again, gated on its hits.
-  [
-    "Noise Gate",
-    { Threshold: -20, Attack: 0.5, Hold: 10, Release: 40, Range: -80 },
-  ],
+  // 21–24 s: the reactive Colorize again, re-pitched up with its formants.
+  ["Re-Pitch", { Algorithm: "Formants", Semitones: 8, Cents: 0, Formants: 1 }],
   ["De-ess", { Frequency: 3000, Threshold: -45, Amount: 24, Listen: "Off" }],
   // 24–27 s: the wordmark returns.
   ["Reverse", {}, ["Re-Pitch", { Semitones: -5, Cents: 0 }]],
