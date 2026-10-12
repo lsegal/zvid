@@ -655,17 +655,19 @@ describe("zvid opening sample", () => {
         shown.push(effect.effectName);
       }
     }
-    // The first two beats are clean, and every other audio effect but
-    // Stereo and Mono is heard, Phaser and Delay twice.
+    // The first two beats are clean, and every other audio effect but the
+    // Noise Gate, Stereo and Mono is heard.
     const [first] = musicSelections();
     assert.equal(
       effectsOn(clipEffectTrackId(`selection-${first.id}`)).length,
       1,
     );
     assert.deepEqual(
-      [...shown].sort(),
-      [...audioEffectNames, "Phaser", "Delay"]
-        .filter((name) => !["Gain", "Stereo", "Mono"].includes(name))
+      [...new Set(shown)].sort(),
+      [...audioEffectNames]
+        .filter(
+          (name) => !["Gain", "Noise Gate", "Stereo", "Mono"].includes(name),
+        )
         .sort(),
     );
     // Audio effects are only on the music's selections.
@@ -706,6 +708,27 @@ describe("zvid opening sample", () => {
       ["Feedback", "High cut", "Mix"].map((key) => numberParameter(delay, key)),
       [0.35, 8000, 0.3],
     );
+  });
+
+  it("re-pitches bar 8's music up 8 semitones with its formants kept", () => {
+    const bar8 = musicSelections().filter(
+      (selection) =>
+        selection.frameStart >= 21 * FPS && selection.frameStart < 24 * FPS,
+    );
+    const names = bar8.flatMap((selection) =>
+      effectsOn(clipEffectTrackId(`selection-${selection.id}`))
+        .slice(1)
+        .map((effect) => effect.effectName),
+    );
+    assert.ok(!names.includes("Noise Gate"), names.join());
+    const [first] = bar8;
+    assert.equal(first.frameStart, 21 * FPS);
+    const [, rePitch] = effectsOn(clipEffectTrackId(`selection-${first.id}`));
+    assert.equal(rePitch.effectName, "Re-Pitch");
+    assert.equal(stringParameter(rePitch, "Algorithm"), "Formants");
+    assert.equal(numberParameter(rePitch, "Semitones"), 8);
+    assert.equal(numberParameter(rePitch, "Cents"), 0);
+    assert.equal(numberParameter(rePitch, "Formants"), 1);
   });
 
   // The mix plays the layer clips with sound: the Audio layer's music.

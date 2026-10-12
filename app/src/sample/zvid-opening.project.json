@@ -5099,22 +5099,19 @@
     {
       "id": "sample-fx-159",
       "trackId": "clip:selection-59",
-      "effectName": "Noise Gate",
+      "effectName": "Re-Pitch",
       "parameters": {
-        "Threshold": {
-          "floatValue": -20
+        "Algorithm": {
+          "stringValue": "Formants"
         },
-        "Attack": {
-          "floatValue": 0.5
+        "Semitones": {
+          "floatValue": 8
         },
-        "Hold": {
-          "floatValue": 10
+        "Cents": {
+          "floatValue": 0
         },
-        "Release": {
-          "floatValue": 40
-        },
-        "Range": {
-          "floatValue": -80
+        "Formants": {
+          "floatValue": 1
         }
       }
     },

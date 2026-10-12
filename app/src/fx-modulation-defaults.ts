@@ -61,7 +61,7 @@ function defaults(
       shape: "Sine",
       sync: true,
       rate: 1,
-      syncRate: "1 Bar",
+      syncRate: "1/8",
       depth: amount,
       phase: 0,
       parameters: [...parameters],
