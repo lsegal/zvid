@@ -127,6 +127,24 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(dialog.locator("[data-export-time-left]")).toHaveText(
     /^\d+:\d{2} left$/,
   );
+  // Under the output settings: the buttons, then the bar, then the details.
+  const actions = dialog.locator("[data-export-actions]");
+  const top = (locator: ReturnType<Page["locator"]>) =>
+    locator.evaluate((element) => element.getBoundingClientRect().top);
+  const cancelTop = await top(
+    actions.getByRole("button", { name: "Cancel export" }),
+  );
+  const backgroundTop = await top(
+    actions.getByRole("button", { name: "Run in background" }),
+  );
+  const barTop = await top(actions.getByRole("progressbar"));
+  const detailsTop = await top(actions.locator("[data-export-time-left]"));
+  expect(backgroundTop).toBe(cancelTop);
+  expect(barTop).toBeGreaterThan(cancelTop);
+  expect(detailsTop).toBeGreaterThan(barTop);
+  await expect(
+    actions.getByRole("button", { name: "Export", exact: true }),
+  ).toHaveCount(0);
   await expect(dialog.locator("[data-export-snapshot]")).toContainText(
     "Exporting the version from",
   );

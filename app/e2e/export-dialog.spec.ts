@@ -269,33 +269,44 @@ test("playback loops from In to Out", async ({ page }) => {
   await expect(body).toHaveAttribute("data-playing", "false");
 });
 
-test("the Export button sits top right, and the output settings fit beside the preview", async ({
+test("the actions and estimate sit under the output settings, beside the preview", async ({
   page,
 }) => {
   const dialog = await openExportDialog(page);
-  const box = (selector: string) =>
-    dialog
-      .locator(selector)
-      .evaluate((element) => element.getBoundingClientRect().toJSON());
-  const exportButton = await dialog
-    .getByRole("button", { name: "Export", exact: true })
-    .boundingBox();
-  const description = await box(".dialog-description");
-  const settings = await box(".export-settings");
-  const lastField = await box('[data-export-field="fileName"]');
-  const preview = await box(".export-dialog__preview-column");
-  const range = await box(".export-dialog__range");
-  if (!exportButton) throw new Error("no Export button");
+  const box = (locator: Locator) =>
+    locator.evaluate((element) => element.getBoundingClientRect().toJSON());
+  const side = await box(dialog.locator(".export-dialog__side"));
+  const lastField = await box(dialog.locator('[data-export-field="fileName"]'));
+  const preview = await box(dialog.locator(".export-dialog__preview-column"));
+  const range = await box(dialog.locator(".export-dialog__range"));
 
-  // In the header, at the right.
-  expect(exportButton.y + exportButton.height).toBeLessThanOrEqual(
-    description.top,
+  // The header has only the title and the close button.
+  await expect(dialog.locator(".dialog-header").getByRole("button")).toHaveCount(
+    1,
   );
-  expect(exportButton.x).toBeGreaterThan(settings.left);
-  // The settings column ends with the preview column, its fields within
-  // it, so the range sits right below both.
-  expect(Math.abs(settings.bottom - preview.bottom)).toBeLessThan(1);
-  expect(lastField.bottom).toBeLessThan(preview.bottom);
+  await expect(
+    dialog.locator(".dialog-header").getByRole("button", { name: "Dismiss dialog" }),
+  ).toBeVisible();
+  // No footer row is left.
+  await expect(dialog.locator(".dialog-footer")).toHaveCount(0);
+
+  // Export, Cancel and the estimate are under File name, in the column.
+  for (const target of [
+    dialog.getByRole("button", { name: "Export", exact: true }),
+    dialog.getByRole("button", { name: "Cancel", exact: true }),
+    dialog.locator("[data-export-estimate]"),
+  ]) {
+    await expect(target).toHaveCount(1);
+    const bounds = await box(target);
+    expect(bounds.top).toBeGreaterThanOrEqual(lastField.bottom);
+    expect(bounds.left).toBeGreaterThanOrEqual(side.left);
+    expect(bounds.right).toBeLessThanOrEqual(side.right);
+    expect(bounds.bottom).toBeLessThanOrEqual(side.bottom);
+  }
+
+  // The settings column ends with the preview column, so the range sits
+  // right below both.
+  expect(Math.abs(side.bottom - preview.bottom)).toBeLessThan(1);
   expect(range.top - preview.bottom).toBeLessThan(24);
 });
 
