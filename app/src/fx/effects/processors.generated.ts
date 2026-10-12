@@ -16,6 +16,7 @@ import { processor as lowCutProcessor } from "./low-cut/processor.ts";
 import { processor as monoProcessor } from "./mono/processor.ts";
 import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
+import { processor as rePitchProcessor } from "./re-pitch/processor.ts";
 import { processor as reverbProcessor } from "./reverb/processor.ts";
 import { processor as reverseProcessor } from "./reverse/processor.ts";
 import { processor as saturationProcessor } from "./saturation/processor.ts";
@@ -39,6 +40,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   monoProcessor,
   noiseGateProcessor,
   phaserProcessor,
+  rePitchProcessor,
   reverbProcessor,
   reverseProcessor,
   saturationProcessor,

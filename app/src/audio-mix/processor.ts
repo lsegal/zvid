@@ -80,7 +80,7 @@ export function copyFrames(
 }
 
 // Changes what a clip reads from its media rather than processing its sound
-// (Reverse). Offline renders read the mapped span; the preview switches the
+// (Reverse, Re-Pitch). Offline renders read the mapped span; the preview switches the
 // clip's voice to decoded-buffer playback, since a media element plays only
 // forwards.
 export type AudioSourceStage = {
