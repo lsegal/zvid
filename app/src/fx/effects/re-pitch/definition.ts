@@ -1,14 +1,24 @@
+import { formatPercent } from "../../params.ts";
 import type { FxEffectDefinition } from "../../types.ts";
 import {
+  ALGORITHM_DEFAULT,
+  ALGORITHM_FORMANTS,
+  ALGORITHM_KEY,
+  ALGORITHM_OPTIONS,
+  ALGORITHM_TRANSIENTS,
   CENTS_KEY,
   CENTS_MAX,
   CENTS_MIN,
+  FORMANTS_DEFAULT,
+  FORMANTS_KEY,
   formatCents,
   formatSemitones,
   RE_PITCH_EFFECT_NAME,
   SEMITONES_KEY,
   SEMITONES_MAX,
   SEMITONES_MIN,
+  TRANSIENTS_DEFAULT,
+  TRANSIENTS_KEY,
 } from "./re-pitch.ts";
 
 // After Reverse in the Utility group of the add menus.
@@ -18,7 +28,7 @@ export const definition: FxEffectDefinition = {
   effectName: RE_PITCH_EFFECT_NAME,
   displayName: "Re-Pitch",
   description:
-    "Shifts the pitch by speeding the clip's audio up or slowing it down, like a tape. Its video plays as it was.",
+    "Shifts the pitch of the clip's audio: like a tape, by speeding it up or slowing it down, or keeping its timing while preserving its transients or formants. Its video plays as it was.",
   accent: "#fbbf24",
   category: "utility",
   domain: "audio",
@@ -27,6 +37,13 @@ export const definition: FxEffectDefinition = {
   // or the master plays as it arrives, so it can't be read faster.
   scopes: ["clip"],
   parameters: [
+    {
+      kind: "enum",
+      key: ALGORITHM_KEY,
+      label: "Algorithm",
+      options: ALGORITHM_OPTIONS,
+      defaultValue: ALGORITHM_DEFAULT,
+    },
     {
       kind: "number",
       key: SEMITONES_KEY,
@@ -46,6 +63,28 @@ export const definition: FxEffectDefinition = {
       defaultValue: 0,
       step: 1,
       format: formatCents,
+    },
+    {
+      kind: "number",
+      key: TRANSIENTS_KEY,
+      label: "Transients",
+      min: 0,
+      max: 1,
+      defaultValue: TRANSIENTS_DEFAULT,
+      step: 0.01,
+      format: formatPercent,
+      visibleWhen: { key: ALGORITHM_KEY, values: [ALGORITHM_TRANSIENTS] },
+    },
+    {
+      kind: "number",
+      key: FORMANTS_KEY,
+      label: "Formants",
+      min: 0,
+      max: 1,
+      defaultValue: FORMANTS_DEFAULT,
+      step: 0.01,
+      format: formatPercent,
+      visibleWhen: { key: ALGORITHM_KEY, values: [ALGORITHM_FORMANTS] },
     },
   ],
 };
