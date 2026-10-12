@@ -14,6 +14,7 @@ import {
   TEST_PROCESSORS,
   testStage,
 } from "./chain-test-utils.ts";
+import { SCRUB_HIGH_PASS_HZ } from "./preview-graph.ts";
 import { PreviewAudioMixer } from "./preview-mixer.ts";
 import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
@@ -104,6 +105,8 @@ class FakeElement {
 
 type FakeNode = {
   gain?: { value: number };
+  type?: string;
+  frequency?: { value: number };
   connections: FakeNode[];
   connect(node: FakeNode): void;
   disconnect(): void;
@@ -185,6 +188,14 @@ class FakeAudioContext {
 
   createWaveShaper() {
     return node({ curve: null });
+  }
+
+  createBiquadFilter() {
+    return node({
+      type: "lowpass",
+      frequency: { value: 350 },
+      Q: { value: 1 },
+    });
   }
 
   createAnalyser() {
@@ -426,6 +437,42 @@ describe("PreviewAudioMixer", () => {
     assert.ok(limiter.connections.includes(context().analyser as FakeNode));
     mixer.dispose();
     assert.equal(mixer.meterTap, null);
+  });
+
+  it("crossfades the speakers to a high-pass while a scrub is audible, and back for playback", () => {
+    const mixer = new PreviewAudioMixer();
+    mixer.update(mix([clip({})]), media);
+    mixer.sync(playing(1));
+
+    const analyser = context().analyser as FakeNode;
+    const [output] = analyser.connections;
+    const [dry, highPass] = output.connections;
+    const [wet] = highPass.connections;
+    assert.equal(highPass.type, "highpass");
+    assert.equal(highPass.frequency?.value, SCRUB_HIGH_PASS_HZ);
+    assert.deepEqual(dry.connections, [context().destination]);
+    assert.deepEqual(wet.connections, [context().destination]);
+    assert.equal(dry.gain?.value, 1);
+    assert.equal(wet.gain?.value, 0);
+
+    const scrubbing = {
+      ...playing(1.5),
+      isPlaying: false,
+      isScrubbing: true,
+      isAudibleScrubbing: true,
+    };
+    mixer.sync(scrubbing);
+    assert.equal(dry.gain?.value, 0);
+    assert.equal(wet.gain?.value, 1);
+    // A silent scrub, and playback after, hear the mix unfiltered.
+    mixer.sync({ ...scrubbing, isAudibleScrubbing: false });
+    assert.equal(dry.gain?.value, 1);
+    assert.equal(wet.gain?.value, 0);
+    mixer.sync(scrubbing);
+    mixer.sync(playing(2));
+    assert.equal(dry.gain?.value, 1);
+    assert.equal(wet.gain?.value, 0);
+    mixer.dispose();
   });
 
   it("drops a clip's element when its media changes or it leaves the mix", () => {

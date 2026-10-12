@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   claimPlaybackAudioSession,
+  createScrubFilter,
   isIOSWebKit,
   isWebKit,
   mixContextOptions,
@@ -65,5 +66,65 @@ describe("claimPlaybackAudioSession", () => {
     assert.equal(withSession.audioSession.type, "playback");
     assert.doesNotThrow(() => claimPlaybackAudioSession({}));
     assert.doesNotThrow(() => claimPlaybackAudioSession(undefined));
+  });
+});
+
+describe("createScrubFilter", () => {
+  // An AudioParam that records what is scheduled on it.
+  const param = (value: number) => ({
+    value,
+    events: [] as string[],
+    cancelAndHoldAtTime(time: number) {
+      this.events.push(`hold@${time}`);
+    },
+    setTargetAtTime(target: number, time: number) {
+      this.events.push(`target ${target}@${time}`);
+    },
+    setValueAtTime(target: number, time: number) {
+      this.events.push(`value ${target}@${time.toFixed(2)}`);
+    },
+  });
+  const fakeNode = <T extends object>(extra: T = {} as T) => ({
+    ...extra,
+    connections: [] as unknown[],
+    connect(target: unknown) {
+      this.connections.push(target);
+    },
+  });
+  const gains: Array<{ gain: ReturnType<typeof param> }> = [];
+  const context = {
+    currentTime: 2,
+    destination: fakeNode(),
+    createGain() {
+      const gain = fakeNode({ gain: param(1) });
+      gains.push(gain);
+      return gain;
+    },
+    createBiquadFilter: () =>
+      fakeNode({ frequency: { value: 0 }, Q: { value: 0 } }),
+  };
+
+  it("ramps between the dry and high-passed paths only when the scrub changes", () => {
+    const setScrubbing = createScrubFilter(
+      context as unknown as AudioContext,
+      fakeNode() as unknown as AudioNode,
+    );
+    const [dry, wet] = gains;
+    assert.equal(dry.gain.value, 1);
+    assert.equal(wet.gain.value, 0);
+    setScrubbing(false);
+    assert.deepEqual(dry.gain.events, []);
+
+    setScrubbing(true);
+    setScrubbing(true);
+    assert.deepEqual(dry.gain.events, ["hold@2", "target 0@2", "value 0@2.25"]);
+    assert.deepEqual(wet.gain.events, ["hold@2", "target 1@2", "value 1@2.25"]);
+    context.currentTime = 3;
+    setScrubbing(false);
+    assert.deepEqual(dry.gain.events.slice(3), [
+      "hold@3",
+      "target 1@3",
+      "value 1@3.25",
+    ]);
   });
 });
