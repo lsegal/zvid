@@ -23,6 +23,7 @@ import {
   ALGORITHM_TAPE,
   ALGORITHM_TRANSIENTS,
   CENTS_KEY,
+  FORMANTS_DEFAULT,
   FORMANTS_KEY,
   formatCents,
   formatSemitones,
@@ -30,6 +31,7 @@ import {
   rePitchFrameSize,
   rePitchRate,
   SEMITONES_KEY,
+  TRANSIENTS_DEFAULT,
   TRANSIENTS_KEY,
 } from "./re-pitch.ts";
 
@@ -52,7 +54,14 @@ function rePitch(
     id: "re-pitch",
     effectName: RE_PITCH_EFFECT_NAME,
     enabled,
-    numbers: { [SEMITONES_KEY]: semitones, [CENTS_KEY]: cents, ...amounts },
+    // Every knob, as a session's stage has them.
+    numbers: {
+      [SEMITONES_KEY]: semitones,
+      [CENTS_KEY]: cents,
+      [TRANSIENTS_KEY]: TRANSIENTS_DEFAULT,
+      [FORMANTS_KEY]: FORMANTS_DEFAULT,
+      ...amounts,
+    },
     switches: algorithm ? { [ALGORITHM_KEY]: algorithm } : {},
   };
 }
@@ -455,9 +464,11 @@ describe("Re-Pitch", () => {
         media,
       );
       const pitch = 150 * ratio;
-      // Its harmonics are shifted either way.
+      // Its harmonics are shifted: none is left at the source's 1050 Hz,
+      // near the resonance.
       assert.ok(
-        power(kept, 2 * pitch, 0.7, 1.3) > 10 * power(kept, 300, 0.7, 1.3),
+        power(kept, loudestHarmonic(kept, pitch), 0.7, 1.3) >
+          10 * power(kept, 1050, 0.7, 1.3),
       );
       assert.ok(
         Math.abs(loudestHarmonic(kept, pitch) - 1200) < pitch,
