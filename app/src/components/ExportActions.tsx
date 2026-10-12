@@ -134,7 +134,10 @@ export function ExportActions({
             <span className="export-actions__detail">
               {model.progress?.detail ?? "Preparing export..."}
             </span>
-            <span className="export-actions__time-left" data-export-time-left="">
+            <span
+              className="export-actions__time-left"
+              data-export-time-left=""
+            >
               {describeExportTimeLeft(model.progress, model.secondsLeft)}
             </span>
           </div>

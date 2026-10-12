@@ -281,11 +281,13 @@ test("the actions and estimate sit under the output settings, beside the preview
   const range = await box(dialog.locator(".export-dialog__range"));
 
   // The header has only the title and the close button.
-  await expect(dialog.locator(".dialog-header").getByRole("button")).toHaveCount(
-    1,
-  );
   await expect(
-    dialog.locator(".dialog-header").getByRole("button", { name: "Dismiss dialog" }),
+    dialog.locator(".dialog-header").getByRole("button"),
+  ).toHaveCount(1);
+  await expect(
+    dialog
+      .locator(".dialog-header")
+      .getByRole("button", { name: "Dismiss dialog" }),
   ).toBeVisible();
   // No footer row is left.
   await expect(dialog.locator(".dialog-footer")).toHaveCount(0);
