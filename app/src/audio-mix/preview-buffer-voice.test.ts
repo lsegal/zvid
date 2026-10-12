@@ -2,10 +2,16 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import {
+  RE_PITCH_EFFECT_NAME,
+  SEMITONES_KEY,
+} from "../fx/effects/re-pitch/re-pitch.ts";
+import type { ClipSpan } from "./clip-span.ts";
+import {
   DecodedClipVoice,
   DecodedVoiceClock,
   decodedClipSeconds,
   prefersDecodedVoice,
+  reanchoredClipSeconds,
 } from "./preview-buffer-voice.ts";
 import type { AudioMixClip } from "./resolve.ts";
 
@@ -209,5 +215,118 @@ describe("DecodedClipVoice scheduling", () => {
     voice.stop();
     voice.sync(0.25, 0.18, true, 2);
     assert.deepEqual(clipStarts, [9.75, 9.75]);
+  });
+});
+
+describe("DecodedClipVoice retune", () => {
+  function rePitched(semitones: number, amplitude = 1): AudioMixClip {
+    return {
+      id: "clip",
+      mediaId: "media",
+      startSeconds: 2,
+      durationSeconds: 4,
+      sourceOffsetSeconds: 0,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: 4,
+      effects: [],
+      amplitude,
+      hasGain: true,
+      busId: "bus",
+      stages: [
+        {
+          id: "re-pitch",
+          effectName: RE_PITCH_EFFECT_NAME,
+          enabled: true,
+          numbers: { [SEMITONES_KEY]: semitones },
+          switches: {},
+        },
+      ],
+    };
+  }
+
+  // A voice on an audio clock at `currentTime`, recording where in its
+  // buffer each source starts and which clips' spans it renders, each
+  // resolved when the test says.
+  function retunableVoice(currentTime: number) {
+    const offsets: number[] = [];
+    const renders: { clip: AudioMixClip; resolve: () => void }[] = [];
+    const context = {
+      currentTime,
+      sampleRate: 8000,
+      createBuffer: () => ({ copyToChannel() {} }),
+      createBufferSource: () => ({
+        connect() {},
+        disconnect() {},
+        start: (when: number, offset: number) =>
+          offsets.push(
+            Math.round((offset - (when - context.currentTime)) * 1e9) / 1e9,
+          ),
+        stop() {},
+      }),
+    };
+    class TestVoice extends DecodedClipVoice {
+      protected override renderSpan(clip: AudioMixClip) {
+        return new Promise<ClipSpan>((resolve) => {
+          renders.push({ clip, resolve: () => resolve([new Float32Array(8)]) });
+        });
+      }
+    }
+    const voice = new TestVoice(
+      context as unknown as AudioContext,
+      rePitched(0),
+      "blob:clip",
+      120,
+      {} as AudioNode,
+    );
+    return { voice, context, offsets, renders };
+  }
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("maps a clip second to the one reading the same media under a new pitch", () => {
+    // 1 s in at its own pitch reads the media 0.5 s in an octave up.
+    assert.equal(reanchoredClipSeconds(rePitched(0), rePitched(12), 1), 0.5);
+    assert.equal(reanchoredClipSeconds(rePitched(12), rePitched(-12), 1), 4);
+  });
+
+  it("renders its span again when its pitch changes, and plays on from the same media", async () => {
+    const { voice, context, offsets, renders } = retunableVoice(10);
+    renders[0].resolve();
+    await settle();
+    voice.sync(1, 0.18, true, 2);
+    assert.deepEqual(offsets, [1]);
+    context.currentTime = 11;
+    voice.retune(rePitched(12), 120);
+    assert.equal(renders.length, 2);
+    // It plays the old span until the new one is ready.
+    assert.deepEqual(offsets, [1]);
+    renders[1].resolve();
+    await settle();
+    // 2 s into the clip it had read the media 2 s in, which an octave up
+    // reads 1 s in.
+    assert.deepEqual(offsets, [1, 1]);
+    // Steady playback leaves it there rather than pulling it back to the
+    // playhead.
+    context.currentTime = 11.5;
+    for (let sync = 0; sync < 4; sync++) {
+      voice.sync(2.5, 0.18, true, 2);
+    }
+    assert.deepEqual(offsets, [1, 1]);
+    // A scrub puts it back on the playhead.
+    voice.sync(2.5, 0.035, false, 2);
+    assert.deepEqual(offsets, [1, 1, 2.5]);
+  });
+
+  it("renders nothing again for a change that leaves its span alone", async () => {
+    const { voice, renders } = retunableVoice(10);
+    voice.retune(rePitched(0, 0.5), 120);
+    assert.equal(renders.length, 1);
+    // Each change of pitch renders again.
+    voice.retune(rePitched(7), 120);
+    voice.retune(rePitched(12), 120);
+    assert.deepEqual(
+      renders.map(({ clip }) => clip.stages[0].numbers[SEMITONES_KEY]),
+      [0, 7, 12],
+    );
   });
 });
