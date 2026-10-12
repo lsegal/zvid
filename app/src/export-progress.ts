@@ -49,6 +49,20 @@ export function describeExportActivity(
     : `Exporting ${percent}% · ${formatSecondsLeft(secondsLeft)} left`;
 }
 
+// The Export dialog's time left, like "1:12 left", saying it is still
+// estimating until the render has progress to extrapolate from.
+export function describeExportTimeLeft(
+  progress: ExportProgress | null,
+  secondsLeft: number | undefined,
+) {
+  if (progress?.phase === "muxing") {
+    return "Finishing up…";
+  }
+  return secondsLeft === undefined
+    ? "Estimating time left…"
+    : `${formatSecondsLeft(secondsLeft)} left`;
+}
+
 // Like "12:04", the wall-clock time an export's snapshot was taken.
 export function formatSnapshotTime(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(
