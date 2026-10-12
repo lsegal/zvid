@@ -119,6 +119,27 @@ describe("lfoSwing", () => {
     }
   });
 
+  it("cycles once per note value, down to 1/32", () => {
+    // At 120 BPM a quarter note lasts half a second.
+    const quarter = 0.5;
+    for (const [syncRate, quarters] of [
+      ["1/8", 0.5],
+      ["1/32", 0.125],
+      ["1/16T", 0.25 * (2 / 3)],
+    ] as const) {
+      const settings = lfo({ shape: "Saw Up", syncRate });
+      const cycle = quarters * quarter;
+      for (const cycles of [0, 1, 7]) {
+        close(lfoSwing(settings, "fx", "Level", cycles * cycle, TEMPO), -0.25);
+        close(
+          lfoSwing(settings, "fx", "Level", (cycles + 0.5) * cycle, TEMPO),
+          0,
+          `${syncRate} half way through cycle ${cycles}`,
+        );
+      }
+    }
+  });
+
   it("draws Random from the effect and knob, the same every time", () => {
     const settings = lfo({ shape: "Random", syncRate: "1/4" });
     const steps = [0.1, 0.6, 1.1, 1.6].map((time) =>

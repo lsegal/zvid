@@ -3,6 +3,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { selectSourceSpan } from "../../app/source-selection.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
+import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
 import {
   EMPTY_PROJECT,
   mediaItem,
@@ -109,7 +110,16 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
     await expect
       .element(sync.getByRole("button", { name: "On" }))
       .toHaveAttribute("aria-pressed", "true");
-    await expect.poll(() => comboText("Rate")).toBe("1 Bar");
+    await expect.poll(() => comboText("Rate")).toBe("1/8");
+    // The synced Rate offers every note value from 4 Bars down to 1/32.
+    await userEvent.click(section().getByRole("combobox", { name: "Rate" }));
+    const rates = page.getByRole("listbox").getByRole("option");
+    await expect.element(rates.first()).toBeVisible();
+    expect(rates.elements().map((option) => option.textContent?.trim())).toEqual(
+      [...LFO_SYNC_RATES],
+    );
+    await userEvent.click(page.getByRole("option", { name: "1/32", exact: true }));
+    await expect.poll(() => comboText("Rate")).toBe("1/32");
     await expect
       .element(section().getByRole("slider", { name: "Depth" }))
       .toHaveAttribute("aria-valuetext", "0.3");
