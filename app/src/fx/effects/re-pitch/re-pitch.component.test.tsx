@@ -147,7 +147,9 @@ describe("Re-Pitch", { timeout: 120_000 }, () => {
         startSeconds: 20,
         seconds: 0.5,
       });
-      return late.some((channel) => channel.some((value) => Math.abs(value) > 1e-4))
+      return late.some((channel) =>
+        channel.some((value) => Math.abs(value) > 1e-4),
+      )
         ? dominantFrequency(late, 48_000)
         : 0;
     };

@@ -307,7 +307,13 @@ describe("Re-Pitch", () => {
   it("adds no latency at Tape, as before the Algorithm existed", () => {
     for (const stage of [rePitch(7), rePitch(7, 0, true, ALGORITHM_TAPE)]) {
       assert.equal(processor.latencyFrames?.(stage, 48_000), 0);
-      assert.equal(processor.tailSeconds?.(stage, { bpm: BPM, signature: DEFAULT_TIME_SIGNATURE }), 0);
+      assert.equal(
+        processor.tailSeconds?.(stage, {
+          bpm: BPM,
+          signature: DEFAULT_TIME_SIGNATURE,
+        }),
+        0,
+      );
     }
     for (const algorithm of TIME_PRESERVING) {
       assert.equal(
@@ -323,7 +329,10 @@ describe("Re-Pitch", () => {
   for (const algorithm of TIME_PRESERVING) {
     describe(`at ${algorithm}`, () => {
       it("raises a tone an octave at +12 and keeps its timing", () => {
-        const up = render(clip([rePitch(12, 0, true, algorithm)]), sine(3, 200));
+        const up = render(
+          clip([rePitch(12, 0, true, algorithm)]),
+          sine(3, 200),
+        );
         // An octave up from start to end, rather than running out halfway.
         for (const [from, to] of [
           [0.55, 0.95],
@@ -388,9 +397,7 @@ describe("Re-Pitch", () => {
       const time = (index / SAMPLE_RATE - 0.1 + 0.25) % 0.25;
       if (index / SAMPLE_RATE >= 0.1) {
         data[index] =
-          0.5 *
-          Math.cos(2 * Math.PI * 600 * time) *
-          Math.exp(-time / 0.04);
+          0.5 * Math.cos(2 * Math.PI * 600 * time) * Math.exp(-time / 0.04);
       }
     }
     return { sampleRate: SAMPLE_RATE, channels: [data] };
@@ -455,7 +462,11 @@ describe("Re-Pitch", () => {
   function loudestHarmonic(output: Float32Array, pitch: number) {
     let best = 0;
     let bestPower = 0;
-    for (let harmonic = 1; harmonic * pitch < SAMPLE_RATE / 2 - 100; harmonic++) {
+    for (
+      let harmonic = 1;
+      harmonic * pitch < SAMPLE_RATE / 2 - 100;
+      harmonic++
+    ) {
       const level = power(output, harmonic * pitch, 0.7, 1.3);
       if (level > bestPower) {
         bestPower = level;
@@ -475,7 +486,9 @@ describe("Re-Pitch", () => {
       );
       const moved = render(
         clip([
-          rePitch(semitones, 0, true, ALGORITHM_FORMANTS, { [FORMANTS_KEY]: 0 }),
+          rePitch(semitones, 0, true, ALGORITHM_FORMANTS, {
+            [FORMANTS_KEY]: 0,
+          }),
         ]),
         media,
       );

@@ -158,8 +158,17 @@ export class FormantShifter {
   }
 
   private shiftFrame(state: ChannelState, ratio: number, formants: number) {
-    const { frameSize, hop, real, imaginary, window, magnitude, phase } = this;
-    const { shiftedReal, shiftedImaginary, envelope, peaks } = this;
+    const frameSize = this.frameSize;
+    const hop = this.hop;
+    const real = this.real;
+    const imaginary = this.imaginary;
+    const window = this.window;
+    const magnitude = this.magnitude;
+    const phase = this.phase;
+    const shiftedReal = this.shiftedReal;
+    const shiftedImaginary = this.shiftedImaginary;
+    const envelope = this.envelope;
+    const peaks = this.peaks;
     const half = frameSize / 2;
     for (let index = 0; index < frameSize; index++) {
       real[index] = state.input[index] * window[index];
@@ -270,7 +279,10 @@ export class FormantShifter {
   // Smooths the frame's log magnitudes into its spectral envelope, keeping
   // its cepstrum's first `lifter` coefficients.
   private findEnvelope() {
-    const { frameSize, lifter, envelopeReal, envelopeImaginary } = this;
+    const frameSize = this.frameSize;
+    const lifter = this.lifter;
+    const envelopeReal = this.envelopeReal;
+    const envelopeImaginary = this.envelopeImaginary;
     const half = frameSize / 2;
     let loudest = 0;
     for (let bin = 0; bin <= half; bin++) {

@@ -88,9 +88,7 @@ export function rePitchReadSeconds(
 
 // Whether `algorithm` keeps the sound's timing rather than resampling it.
 export function preservesTime(algorithm: string | undefined) {
-  return (
-    algorithm === ALGORITHM_TRANSIENTS || algorithm === ALGORITHM_FORMANTS
-  );
+  return algorithm === ALGORITHM_TRANSIENTS || algorithm === ALGORITHM_FORMANTS;
 }
 
 // The frames the time-keeping algorithms analyze at once: the smallest
