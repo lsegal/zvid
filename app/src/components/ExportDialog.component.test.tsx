@@ -94,7 +94,7 @@ describe("ExportDialog", () => {
   test("opens pre-filled with Session Settings, and overrides leave them unchanged", {
     timeout: 60_000,
   }, async () => {
-    // Tall enough for the whole dialog, footer included.
+    // Tall enough for the whole dialog.
     await setViewport({ width: 1600, height: 1200 });
     await render(<ExportHost />);
 
@@ -115,7 +115,7 @@ describe("ExportDialog", () => {
     expect(modifiedDot(dialog, "fps")).not.toBeNull();
 
     // Closing keeps the overrides for the next Export.
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await dialog.getByRole("button", { name: "Dismiss dialog" }).click();
     await expect.element(dialog).not.toBeInTheDocument();
     dialog = await openExportDialog();
     await expect.element(frameRate(dialog)).toHaveTextContent("60 fps");

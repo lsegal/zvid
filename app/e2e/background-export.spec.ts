@@ -127,27 +127,37 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(dialog.locator("[data-export-time-left]")).toHaveText(
     /^\d+:\d{2} left$/,
   );
-  // Under the output settings: the buttons, then the bar, then the details.
+  // At the top right: the bar, then the buttons where Export was; the
+  // details stay under the output settings.
   const actions = dialog.locator("[data-export-actions]");
-  const top = (locator: ReturnType<Page["locator"]>) =>
-    locator.evaluate((element) => element.getBoundingClientRect().top);
-  const cancelTop = await top(
+  const box = (locator: ReturnType<Page["locator"]>) =>
+    locator.evaluate((element) => element.getBoundingClientRect().toJSON());
+  const cancel = await box(
     actions.getByRole("button", { name: "Cancel export" }),
   );
-  const backgroundTop = await top(
+  const background = await box(
     actions.getByRole("button", { name: "Run in background" }),
   );
-  const barTop = await top(actions.getByRole("progressbar"));
-  const detailsTop = await top(actions.locator("[data-export-time-left]"));
-  expect(backgroundTop).toBe(cancelTop);
-  expect(barTop).toBeGreaterThan(cancelTop);
-  expect(detailsTop).toBeGreaterThan(barTop);
+  const bar = await box(actions.getByRole("progressbar"));
+  const lastField = await box(dialog.locator('[data-export-field="fileName"]'));
+  const details = await box(
+    dialog.locator("[data-export-status] [data-export-time-left]"),
+  );
+  // Run in background sits under the pointer that clicked Export, so it may
+  // be lifted by its hover style.
+  expect(Math.abs(background.top - cancel.top)).toBeLessThan(2);
+  expect(background.left).toBeGreaterThan(cancel.right);
+  expect(bar.right).toBeLessThanOrEqual(cancel.left);
+  expect(
+    Math.abs(bar.top + bar.height / 2 - (cancel.top + cancel.height / 2)),
+  ).toBeLessThan(2);
+  expect(bar.bottom).toBeLessThan(lastField.top);
+  expect(details.top).toBeGreaterThan(lastField.bottom);
   await expect(
     actions.getByRole("button", { name: "Export", exact: true }),
   ).toHaveCount(0);
-  await expect(dialog.locator("[data-export-snapshot]")).toContainText(
-    "Exporting the version from",
-  );
+  await expect(dialog.locator("[data-export-snapshot]")).toHaveCount(0);
+  await expect(dialog).not.toContainText("Exporting the version from");
 
   // Esc hides the dialog without canceling.
   await page.keyboard.press("Escape");
