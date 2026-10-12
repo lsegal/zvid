@@ -123,6 +123,10 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
 }) => {
   await slowDownExports(page, 150);
   const dialog = await startExport(page);
+  // The dialog estimates the time left once the render is under way.
+  await expect(dialog.locator("[data-export-time-left]")).toHaveText(
+    /^\d+:\d{2} left$/,
+  );
   await expect(dialog.locator("[data-export-snapshot]")).toContainText(
     "Exporting the version from",
   );

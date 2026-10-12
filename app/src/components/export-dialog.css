@@ -186,6 +186,7 @@
 
 .export-settings__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -206,6 +207,11 @@
 
 .export-settings .select-trigger {
   flex: 1 1 auto;
+}
+
+/* The size goes on its own line so long preset names fit. */
+[data-export-field="resolution"] .select-trigger {
+  flex-basis: 100%;
 }
 
 .export-settings__number {
@@ -489,13 +495,16 @@
   padding-right: 36px;
 }
 
-.export-dialog .dialog-header > :not(.export-dialog__start) {
-  grid-column: 1;
+.export-dialog .dialog-title {
+  grid-area: 1 / 1;
+}
+
+.export-dialog .dialog-description {
+  grid-area: 2 / 1 / 3 / 3;
 }
 
 .export-dialog__start {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-area: 1 / 2;
 }
 
 .export-dialog__dismiss {

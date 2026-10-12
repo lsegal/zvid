@@ -269,6 +269,36 @@ test("playback loops from In to Out", async ({ page }) => {
   await expect(body).toHaveAttribute("data-playing", "false");
 });
 
+test("the Export button sits top right, and the output settings fit beside the preview", async ({
+  page,
+}) => {
+  const dialog = await openExportDialog(page);
+  const box = (selector: string) =>
+    dialog
+      .locator(selector)
+      .evaluate((element) => element.getBoundingClientRect().toJSON());
+  const exportButton = await dialog
+    .getByRole("button", { name: "Export", exact: true })
+    .boundingBox();
+  const description = await box(".dialog-description");
+  const settings = await box(".export-settings");
+  const lastField = await box('[data-export-field="fileName"]');
+  const preview = await box(".export-dialog__preview-column");
+  const range = await box(".export-dialog__range");
+  if (!exportButton) throw new Error("no Export button");
+
+  // In the header, at the right.
+  expect(exportButton.y + exportButton.height).toBeLessThanOrEqual(
+    description.top,
+  );
+  expect(exportButton.x).toBeGreaterThan(settings.left);
+  // The settings column ends with the preview column, its fields within
+  // it, so the range sits right below both.
+  expect(Math.abs(settings.bottom - preview.bottom)).toBeLessThan(1);
+  expect(lastField.bottom).toBeLessThan(preview.bottom);
+  expect(range.top - preview.bottom).toBeLessThan(24);
+});
+
 test("Cancel stops an export in progress", async ({ page }) => {
   const dialog = await openExportDialog(page);
   // A large, high-frame-rate export takes long enough to cancel.

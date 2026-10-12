@@ -1,6 +1,10 @@
 import type { ExportProgress } from "./harness/contracts";
 import { EXPORT_CONTAINER_LABELS } from "./session-settings.ts";
 
+// How long a render runs before its time left is extrapolated; earlier
+// estimates swing wildly (or read 0:00) from too few frames.
+const MIN_ESTIMATE_ELAPSED_MS = 1000;
+
 // Seconds left in an export's render, from how long the frames rendered so
 // far took. Undefined until there is progress to extrapolate from.
 export function estimateExportSecondsLeft(
@@ -17,7 +21,11 @@ export function estimateExportSecondsLeft(
   ) {
     return undefined;
   }
-  const elapsedSeconds = Math.max(0, now - renderStartedAt) / 1000;
+  const elapsedMs = now - renderStartedAt;
+  if (elapsedMs < MIN_ESTIMATE_ELAPSED_MS) {
+    return undefined;
+  }
+  const elapsedSeconds = elapsedMs / 1000;
   return (elapsedSeconds * (100 - percent)) / percent;
 }
 
