@@ -50,6 +50,7 @@ type RulerProps = {
   labelWidth: number;
   quarterPx: number;
   totalQuarters: number;
+  barLength: number;
   resolvedZoom: number;
   gridStyle: TimelineViewportModel["gridStyle"];
   rulerBars: TimelineViewportModel["rulerBars"];
@@ -94,6 +95,7 @@ export function Ruler({
   labelWidth,
   quarterPx,
   totalQuarters,
+  barLength,
   resolvedZoom,
   gridStyle,
   rulerBars,
@@ -244,6 +246,7 @@ export function Ruler({
           labelWidth={labelWidth}
           quarterPx={quarterPx}
           totalQuarters={totalQuarters}
+          barLength={barLength}
           snapUnit={snapUnit}
           snapEnabled={snapEnabled}
           playbackSelection={playbackSelection}

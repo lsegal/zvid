@@ -248,19 +248,50 @@ describe(LoopStrip, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       expect(count(".ruler-playback-selection")).toBe(1);
 
       // A click on the selection still just clears it, and a double-click
-      // after that doesn't bring the cleared selection back as a loop.
+      // after that loops the bar there instead of the cleared selection.
       await click(inside.x, y);
       await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(0);
       await dblclick(inside.x, y);
-      expect(count(".ruler-loop-region")).toBe(0);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      expect(loopEnds()).not.toEqual(selected);
       expect(count(".ruler-loop-strip__selection")).toBe(0);
 
-      // Neither does a double-click on empty strip space.
+      // So does a double-click on empty strip space beside a selection.
       await dragX(view.x + view.width * 0.3, view.x + view.width * 0.5, y);
       await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
+      const selectedAgain = selectionEnds();
       await dblclick(view.x + view.width * 0.8, y);
       await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(0);
-      expect(count(".ruler-loop-region")).toBe(0);
+      expect(loopEnds().startQ).toBeGreaterThan(selectedAgain.endQ);
+    });
+
+    test("a double-click or double tap on the empty strip loops the bar there", async () => {
+      await renderEditor({ reducedMotion: true });
+      const { view, strip, y } = geometry();
+
+      // The blank session is in 4/4, so the loop is the 4-quarter bar under
+      // the pointer, snapped back to the bar's start.
+      const clickX = view.x + view.width * 0.6;
+      await dblclick(clickX, y);
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      const looped = loopEnds();
+      expect(looped.startQ % 4).toBe(0);
+      expect(looped.endQ - looped.startQ).toBe(4);
+      const region = box(".ruler-loop-region");
+      expect(region.x).toBeLessThanOrEqual(clickX);
+      expect(region.x + region.width).toBeGreaterThan(clickX);
+      expect(count(".ruler-loop-strip__selection")).toBe(0);
+
+      // A double tap in the middle of an earlier bar replaces it with that
+      // bar.
+      const quarterPx = region.width / 4;
+      const tapX = strip.x + (looped.startQ - 2.5) * quarterPx;
+      await tap(tapX, y);
+      await tap(tapX, y);
+      await expect
+        .poll(loopEnds)
+        .toEqual({ startQ: looped.startQ - 4, endQ: looped.startQ });
+      expect(count(".ruler-loop-strip__selection")).toBe(0);
     });
 
     test("a double tap on the selection locks it, and on the loop turns it back", async () => {
