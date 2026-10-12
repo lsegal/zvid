@@ -101,8 +101,7 @@ describe("normalizeEffectModulation", () => {
   it("keeps a saved synced rate, from 4 Bars down to 1/32", () => {
     for (const syncRate of LFO_SYNC_RATES) {
       assert.equal(
-        normalizeEffectModulation({ lfo: { syncRate } }, "Delay")?.lfo
-          .syncRate,
+        normalizeEffectModulation({ lfo: { syncRate } }, "Delay")?.lfo.syncRate,
         syncRate,
       );
     }

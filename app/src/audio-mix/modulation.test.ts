@@ -129,13 +129,25 @@ describe("lfoSwing", () => {
     ] as const) {
       const settings = lfo({ shape: "Saw Up", syncRate });
       const cycle = quarters * quarter;
+      // A quarter and three quarters of the way through each cycle, clear
+      // of the saw's wrap.
       for (const cycles of [0, 1, 7]) {
-        close(lfoSwing(settings, "fx", "Level", cycles * cycle, TEMPO), -0.25);
-        close(
-          lfoSwing(settings, "fx", "Level", (cycles + 0.5) * cycle, TEMPO),
-          0,
-          `${syncRate} half way through cycle ${cycles}`,
-        );
+        for (const [through, swing] of [
+          [0.25, -0.125],
+          [0.75, 0.125],
+        ]) {
+          close(
+            lfoSwing(
+              settings,
+              "fx",
+              "Level",
+              (cycles + through) * cycle,
+              TEMPO,
+            ),
+            swing,
+            `${syncRate} ${through} through cycle ${cycles}`,
+          );
+        }
       }
     }
   });

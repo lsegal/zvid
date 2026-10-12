@@ -3,13 +3,13 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { selectSourceSpan } from "../../app/source-selection.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
-import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
 import {
   EMPTY_PROJECT,
   mediaItem,
   withDroppedMedia,
 } from "../../component-test/fx-projects.ts";
 import { setViewport } from "../../component-test/viewport.ts";
+import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
 import { FxModulationPanel } from "./FxModulationPanel.tsx";
 
 // The Modulation modifier: the audio side's Animation. Audio devices get a
@@ -115,10 +115,12 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
     await userEvent.click(section().getByRole("combobox", { name: "Rate" }));
     const rates = page.getByRole("listbox").getByRole("option");
     await expect.element(rates.first()).toBeVisible();
-    expect(rates.elements().map((option) => option.textContent?.trim())).toEqual(
-      [...LFO_SYNC_RATES],
+    expect(
+      rates.elements().map((option) => option.textContent?.trim()),
+    ).toEqual([...LFO_SYNC_RATES]);
+    await userEvent.click(
+      page.getByRole("option", { name: "1/32", exact: true }),
     );
-    await userEvent.click(page.getByRole("option", { name: "1/32", exact: true }));
     await expect.poll(() => comboText("Rate")).toBe("1/32");
     await expect
       .element(section().getByRole("slider", { name: "Depth" }))
