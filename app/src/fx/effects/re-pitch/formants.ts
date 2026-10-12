@@ -27,8 +27,13 @@ const OVERLAP = 4;
 // The smallest magnitude the envelope works with, so silent bins neither
 // divide by zero nor take the log of it.
 const FLOOR = 1e-9;
-// How far keeping the envelope may scale a frame to restore its power.
-const MAX_RESTORE = 16;
+// The envelope follows nothing quieter than this share of the frame's
+// loudest bin (−60 dB), so the deep floor around a lone tone does not turn
+// into a steep envelope.
+const ENVELOPE_RANGE = 1e-3;
+// How far keeping the envelope may scale a bin (24 dB), and so how far the
+// frame may be scaled back to restore its power.
+const MAX_CORRECTION = 16;
 // The quefrency below which the cepstrum is kept as envelope: 1.5 ms, under
 // the pitch period of voices and most instruments.
 const ENVELOPE_SECONDS = 0.0015;
@@ -224,7 +229,12 @@ export class FormantShifter {
         let level = magnitude[bin];
         if (keepEnvelope) {
           power += level * level;
-          level *= (envelope[target] / envelope[bin]) ** formants;
+          const correction = envelope[target] / envelope[bin];
+          level *=
+            Math.min(
+              MAX_CORRECTION,
+              Math.max(1 / MAX_CORRECTION, correction),
+            ) ** formants;
           keptPower += level * level;
         }
         shiftedReal[target] += level * Math.cos(synthesis);
@@ -236,8 +246,8 @@ export class FormantShifter {
     const restore =
       keptPower > 0
         ? Math.min(
-            MAX_RESTORE,
-            Math.max(1 / MAX_RESTORE, Math.sqrt(power / keptPower)),
+            MAX_CORRECTION,
+            Math.max(1 / MAX_CORRECTION, Math.sqrt(power / keptPower)),
           )
         : 1;
     for (let bin = 0; bin <= half; bin++) {
@@ -262,8 +272,13 @@ export class FormantShifter {
   private findEnvelope() {
     const { frameSize, lifter, envelopeReal, envelopeImaginary } = this;
     const half = frameSize / 2;
+    let loudest = 0;
     for (let bin = 0; bin <= half; bin++) {
-      const log = Math.log(Math.max(FLOOR, this.magnitude[bin]));
+      loudest = Math.max(loudest, this.magnitude[bin]);
+    }
+    const floor = Math.max(FLOOR, loudest * ENVELOPE_RANGE);
+    for (let bin = 0; bin <= half; bin++) {
+      const log = Math.log(Math.max(floor, this.magnitude[bin]));
       envelopeReal[bin] = log;
       if (bin > 0 && bin < half) {
         envelopeReal[frameSize - bin] = log;

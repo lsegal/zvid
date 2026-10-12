@@ -411,6 +411,22 @@ describe("Re-Pitch", () => {
           `${onset} before`,
         );
       }
+      // At 0% the grains run on through the hits and smear some of them.
+      const smeared = render(
+        clip([
+          rePitch(semitones, 0, true, ALGORITHM_TRANSIENTS, {
+            [TRANSIENTS_KEY]: 0,
+          }),
+        ]),
+        hits(3),
+      );
+      assert.ok(
+        [0.85, 1.1, 1.35].some(
+          (onset) =>
+            peak(smeared, onset, onset + 0.003) < 0.3 ||
+            peak(smeared, onset - 0.03, onset - 0.003) > 0.05,
+        ),
+      );
     });
   }
 
