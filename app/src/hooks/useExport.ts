@@ -141,6 +141,8 @@ export type ExportDialogModel = {
   session: SessionSettings;
   defaultRange: ExportRange;
   progress: ExportProgress | null;
+  // Seconds left in the running export's render, once it can be estimated.
+  secondsLeft: number | undefined;
   // When the running (or finished) export's snapshot was taken.
   snapshotTakenAt: Date | null;
   // What the last export did, shown once it finishes or fails.
@@ -544,6 +546,7 @@ export function useExport({
     session: shown?.session ?? session,
     defaultRange: shown?.defaultRange ?? defaultRange,
     progress,
+    secondsLeft,
     snapshotTakenAt: shown?.takenAt ?? null,
     message,
     canReveal: canRevealSavedFile(window.harness, savedTarget),

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   describeExportActivity,
+  describeExportTimeLeft,
   estimateExportSecondsLeft,
   formatSecondsLeft,
   formatSnapshotTime,
@@ -28,6 +29,11 @@ describe("estimateExportSecondsLeft", () => {
     );
     assert.equal(
       estimateExportSecondsLeft(rendering(50), null, 1_000),
+      undefined,
+    );
+    // The first frames are too few to extrapolate from.
+    assert.equal(
+      estimateExportSecondsLeft(rendering(1), 1_000, 1_050),
       undefined,
     );
     assert.equal(
@@ -86,5 +92,39 @@ describe("formatSnapshotTime", () => {
   it("formats the wall-clock hour and minute", () => {
     assert.equal(formatSnapshotTime(new Date(2026, 0, 1, 9, 4)), "09:04");
     assert.equal(formatSnapshotTime(new Date(2026, 0, 1, 12, 34)), "12:34");
+  });
+});
+
+describe("describeExportTimeLeft", () => {
+  it("shows the time left once the render can be extrapolated", () => {
+    assert.equal(describeExportTimeLeft(rendering(25), 72), "1:12 left");
+  });
+
+  it("says it is estimating until there is render progress", () => {
+    assert.equal(
+      describeExportTimeLeft(null, undefined),
+      "Estimating time left…",
+    );
+    assert.equal(
+      describeExportTimeLeft(
+        { phase: "preparing", progress: null, detail: "" },
+        undefined,
+      ),
+      "Estimating time left…",
+    );
+    assert.equal(
+      describeExportTimeLeft(rendering(0), undefined),
+      "Estimating time left…",
+    );
+  });
+
+  it("says it is finishing up while writing the file", () => {
+    assert.equal(
+      describeExportTimeLeft(
+        { phase: "muxing", progress: null, detail: "" },
+        undefined,
+      ),
+      "Finishing up…",
+    );
   });
 });
