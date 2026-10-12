@@ -5,6 +5,7 @@ import {
   RE_PITCH_EFFECT_NAME,
   SEMITONES_KEY,
 } from "../fx/effects/re-pitch/re-pitch.ts";
+import type { ClipSpan } from "./clip-span.ts";
 import {
   DecodedClipVoice,
   DecodedVoiceClock,
@@ -265,7 +266,7 @@ describe("DecodedClipVoice retune", () => {
     };
     class TestVoice extends DecodedClipVoice {
       protected override renderSpan(clip: AudioMixClip) {
-        return new Promise<Float32Array[]>((resolve) => {
+        return new Promise<ClipSpan>((resolve) => {
           renders.push({ clip, resolve: () => resolve([new Float32Array(8)]) });
         });
       }
