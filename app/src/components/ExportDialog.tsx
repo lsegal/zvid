@@ -25,7 +25,6 @@ import {
   type ExportRange,
   estimateExportBytes,
   exportTiming,
-  formatFileSize,
   formatMusicalLength,
   frameQuarters,
   hasExportOptionsErrors,
@@ -37,10 +36,6 @@ import {
   snapToFrame,
   validateExportOptions,
 } from "../export-options.ts";
-import {
-  describeExportTimeLeft,
-  formatSnapshotTime,
-} from "../export-progress.ts";
 import { MEDIABUNNY_VIDEO_CODECS } from "../harness/export-encoding.ts";
 import type { ExportDialogModel } from "../hooks/useExport.ts";
 import { useRangePlayback } from "../hooks/useRangePlayback.ts";
@@ -52,13 +47,13 @@ import {
 } from "../session-settings.ts";
 import { isTextEntryTarget } from "../space-shortcut.ts";
 import { formatMusicalPosition, formatTimecode } from "../timeline-format.ts";
+import { ExportActions } from "./ExportActions";
 import { ExportRangeTimeline } from "./ExportRangeTimeline";
 import { ExportSettingsForm } from "./ExportSettingsForm";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
@@ -324,7 +319,6 @@ function ExportDialogBody({
     timing.durationSeconds,
     isAudibleMix(model.audioMix),
   );
-  const progress = model.progress?.progress ?? null;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: the dialog's keyboard shortcuts.
@@ -349,16 +343,6 @@ function ExportDialogBody({
         >
           <XMarkIcon aria-hidden="true" />
         </button>
-        {editing ? (
-          <button
-            className="ghost-button ghost-button--accent export-dialog__start"
-            disabled={hasExportOptionsErrors(allErrors)}
-            onClick={model.startExport}
-            type="button"
-          >
-            Export
-          </button>
-        ) : null}
         <DialogTitle>Export</DialogTitle>
         <DialogDescription id="export-dialog-description">
           Choose the range to export and adjust the output for this export.
@@ -487,17 +471,28 @@ function ExportDialogBody({
           </dl>
         </div>
 
-        <ExportSettingsForm
-          disabled={!editing}
-          errors={allErrors}
-          modified={modified}
-          onChange={setOptions}
-          onReset={() =>
-            setOptions((current) => resetExportSettings(current, session))
-          }
-          options={options}
-          support={support}
-        />
+        <div className="export-dialog__side">
+          <ExportSettingsForm
+            disabled={!editing}
+            errors={allErrors}
+            modified={modified}
+            onChange={setOptions}
+            onReset={() =>
+              setOptions((current) => resetExportSettings(current, session))
+            }
+            options={options}
+            support={support}
+          />
+          <ExportActions
+            canExport={!hasExportOptionsErrors(allErrors)}
+            confirmCancel={confirmCancel}
+            durationSeconds={timing.durationSeconds}
+            estimateBytes={estimate}
+            frameCount={timing.frameCount}
+            model={model}
+            setConfirmCancel={setConfirmCancel}
+          />
+        </div>
       </div>
 
       <div className="export-dialog__range">
@@ -564,128 +559,6 @@ function ExportDialogBody({
           </small>
         ) : null}
       </div>
-
-      {exporting ? (
-        <div className="export-dialog__progress">
-          <div
-            aria-label="Export progress"
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={progress ?? undefined}
-            className={`export-dialog__bar${
-              progress === null ? " export-dialog__bar--indeterminate" : ""
-            }`}
-            role="progressbar"
-          >
-            <span style={{ width: `${progress ?? 100}%` }} />
-          </div>
-          <div className="export-dialog__progress-text">
-            <span className="export-dialog__detail">
-              {model.progress?.detail ?? "Preparing export..."}
-            </span>
-            <span className="export-dialog__time-left" data-export-time-left="">
-              {describeExportTimeLeft(model.progress, model.secondsLeft)}
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      {model.snapshotTakenAt && phase !== "editing" ? (
-        <p className="export-dialog__snapshot" data-export-snapshot="">
-          {exporting
-            ? `Exporting the version from ${formatSnapshotTime(
-                model.snapshotTakenAt,
-              )}. Edits made since don't change this export, and you can hide this dialog and keep working.`
-            : `Exported the version from ${formatSnapshotTime(
-                model.snapshotTakenAt,
-              )}.`}
-        </p>
-      ) : null}
-
-      {model.message ? (
-        <p
-          className={`export-dialog__message${
-            phase === "done" ? "" : " export-dialog__message--error"
-          }`}
-          role="status"
-        >
-          {model.message}
-        </p>
-      ) : null}
-
-      {confirmCancel && exporting ? (
-        <div className="export-dialog__confirm" role="alertdialog">
-          <span>Cancel the export in progress?</span>
-          <button
-            className="ghost-button"
-            onClick={() => setConfirmCancel(false)}
-            type="button"
-          >
-            Keep exporting
-          </button>
-          <button
-            className="ghost-button ghost-button--accent"
-            onClick={() => {
-              setConfirmCancel(false);
-              model.cancelExport();
-            }}
-            type="button"
-          >
-            Stop export
-          </button>
-        </div>
-      ) : null}
-
-      <DialogFooter className="export-dialog__footer">
-        <span className="export-dialog__estimate" data-export-estimate="">
-          ≈ {formatFileSize(estimate)} ·{" "}
-          {formatTimecode(timing.durationSeconds, options.fps)} (
-          {timing.frameCount} frames)
-        </span>
-        {exporting ? (
-          <>
-            <button
-              className="ghost-button"
-              disabled={confirmCancel}
-              onClick={() => setConfirmCancel(true)}
-              type="button"
-            >
-              Cancel export
-            </button>
-            <button
-              className="ghost-button ghost-button--accent"
-              onClick={model.close}
-              title="Hide this dialog; the export keeps running"
-              type="button"
-            >
-              Run in background
-            </button>
-          </>
-        ) : phase === "done" ? (
-          <>
-            {model.canReveal ? (
-              <button
-                className="ghost-button"
-                onClick={model.revealFile}
-                type="button"
-              >
-                Reveal file
-              </button>
-            ) : null}
-            <button
-              className="ghost-button"
-              onClick={model.close}
-              type="button"
-            >
-              Close
-            </button>
-          </>
-        ) : (
-          <button className="ghost-button" onClick={model.close} type="button">
-            Cancel
-          </button>
-        )}
-      </DialogFooter>
     </div>
   );
 }
