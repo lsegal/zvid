@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { AUDIO_PROCESSORS } from "./audio-mix/processors.ts";
+import { LFO_SYNC_RATES } from "./fx-animation-defaults.ts";
 import {
   createDefaultModulation,
   getModulatableParameters,
@@ -52,6 +53,17 @@ describe("Modulation defaults", () => {
     }
   });
 
+  it("starts every LFO synced at 1/8", () => {
+    for (const definition of FX_EFFECT_DEFINITIONS) {
+      const modulation = createDefaultModulation(definition.effectName);
+      if (!modulation) {
+        continue;
+      }
+      assert.equal(modulation.lfo.sync, true, definition.effectName);
+      assert.equal(modulation.lfo.syncRate, "1/8", definition.effectName);
+    }
+  });
+
   it("doesn't offer modulation on video effects", () => {
     assert.equal(supportsModulation("Pixelate"), false);
     assert.equal(createDefaultModulation("Pixelate"), undefined);
@@ -84,6 +96,15 @@ describe("normalizeEffectModulation", () => {
         },
       },
     );
+  });
+
+  it("keeps a saved synced rate, from 4 Bars down to 1/32", () => {
+    for (const syncRate of LFO_SYNC_RATES) {
+      assert.equal(
+        normalizeEffectModulation({ lfo: { syncRate } }, "Delay")?.lfo.syncRate,
+        syncRate,
+      );
+    }
   });
 
   it("drops settings that aren't modulation, or on effects without it", () => {
