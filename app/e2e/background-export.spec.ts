@@ -127,11 +127,14 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(dialog.locator("[data-export-time-left]")).toHaveText(
     /^\d+:\d{2} left$/,
   );
-  // At the top right: the bar, then the buttons where Export was; the
-  // details stay under the output settings.
+  // Under the title: the bar with the details below it, then the buttons
+  // where Export was; the estimate stays under the output settings.
   const actions = dialog.locator("[data-export-actions]");
   const box = (locator: ReturnType<Page["locator"]>) =>
     locator.evaluate((element) => element.getBoundingClientRect().toJSON());
+  const title = await box(
+    dialog.locator(".dialog-header").getByRole("heading", { name: "Export" }),
+  );
   const cancel = await box(
     actions.getByRole("button", { name: "Cancel export" }),
   );
@@ -140,8 +143,11 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   );
   const bar = await box(actions.getByRole("progressbar"));
   const lastField = await box(dialog.locator('[data-export-field="fileName"]'));
-  const details = await box(
-    dialog.locator("[data-export-status] [data-export-time-left]"),
+  const timeLeft = await box(
+    actions.locator("[data-export-progress-status] [data-export-time-left]"),
+  );
+  const estimate = await box(
+    dialog.locator("[data-export-status] [data-export-estimate]"),
   );
   // Run in background sits under the pointer that clicked Export, so it may
   // be lifted by its hover style.
@@ -151,8 +157,13 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   expect(
     Math.abs(bar.top + bar.height / 2 - (cancel.top + cancel.height / 2)),
   ).toBeLessThan(2);
-  expect(bar.bottom).toBeLessThan(lastField.top);
-  expect(details.top).toBeGreaterThan(lastField.bottom);
+  expect(bar.top).toBeGreaterThanOrEqual(title.bottom);
+  expect(cancel.top).toBeGreaterThanOrEqual(title.bottom);
+  expect(timeLeft.top).toBeGreaterThanOrEqual(bar.bottom);
+  expect(timeLeft.right).toBeLessThanOrEqual(bar.right + 1);
+  expect(timeLeft.bottom).toBeLessThan(lastField.top);
+  expect(estimate.top).toBeGreaterThan(lastField.bottom);
+  await expect(actions.locator("[data-export-estimate]")).toHaveCount(0);
   await expect(
     actions.getByRole("button", { name: "Export", exact: true }),
   ).toHaveCount(0);
@@ -186,18 +197,36 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(dialog.getByRole("progressbar")).toBeVisible();
   await expect(statusProgress(page)).toHaveCount(0);
 
-  // Cancel asks first.
+  // Cancel asks first, in a modal that holds focus.
+  const confirm = page.getByRole("alertdialog");
   await dialog.getByRole("button", { name: "Cancel export" }).click();
-  await expect(dialog.getByRole("alertdialog")).toContainText(
-    "Cancel the export in progress?",
-  );
-  await dialog.getByRole("button", { name: "Keep exporting" }).click();
-  await expect(dialog.getByRole("alertdialog")).toHaveCount(0);
+  await expect(confirm).toContainText("Cancel the export in progress?");
+  await expect(
+    confirm.getByRole("button", { name: "Keep exporting" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(confirm.getByRole("button", { name: "Stop export" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    confirm.getByRole("button", { name: "Keep exporting" }),
+  ).toBeFocused();
+  await confirm.getByRole("button", { name: "Keep exporting" }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(dialog.getByRole("progressbar")).toBeVisible();
+
+  // Esc dismisses only the confirmation; the export dialog stays open.
+  await dialog.getByRole("button", { name: "Cancel export" }).click();
+  await expect(confirm).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(confirm).toHaveCount(0);
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("progressbar")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Cancel export" }).click();
-  await dialog.getByRole("button", { name: "Stop export" }).click();
-  await expect(dialog.getByRole("status")).toHaveText("Export canceled.");
+  await confirm.getByRole("button", { name: "Stop export" }).click();
+  await expect(
+    actions.locator("[data-export-progress-status]").getByRole("status"),
+  ).toHaveText("Export canceled.");
   await expect(dialog.getByRole("progressbar")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Export", exact: true }).first(),

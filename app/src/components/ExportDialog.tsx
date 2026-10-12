@@ -347,9 +347,6 @@ function ExportDialogBody({
         <ExportActions
           canExport={!hasExportOptionsErrors(allErrors)}
           confirmCancel={confirmCancel}
-          durationSeconds={timing.durationSeconds}
-          estimateBytes={estimate}
-          frameCount={timing.frameCount}
           model={model}
           setConfirmCancel={setConfirmCancel}
         />
@@ -488,7 +485,12 @@ function ExportDialogBody({
             options={options}
             support={support}
           />
-          <ExportStatus model={model} />
+          <ExportStatus
+            durationSeconds={timing.durationSeconds}
+            estimateBytes={estimate}
+            frameCount={timing.frameCount}
+            model={model}
+          />
         </div>
       </div>
 

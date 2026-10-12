@@ -402,23 +402,24 @@
   box-shadow: 0 0 0 2px rgba(255, 213, 106, 0.6);
 }
 
-/* The actions at the top right: the estimate, the progress bar while
-   exporting, then the buttons. */
+/* The actions under the title: the progress bar with the status below it,
+   then the buttons. */
 .export-actions {
-  display: grid;
-  flex: 1;
-  justify-items: end;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 12px;
   min-width: 0;
 }
 
-.export-actions__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  width: 100%;
+.export-actions__progress {
+  display: grid;
+  flex: 1 1 280px;
+  gap: 8px;
+  min-width: 0;
+  /* Centers the bar on the buttons. */
+  padding-top: 11px;
 }
 
 .export-actions__buttons {
@@ -428,18 +429,8 @@
   gap: 8px;
 }
 
-.export-actions__estimate {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
 .export-actions__bar {
   position: relative;
-  flex: 1 1 160px;
-  max-width: 280px;
   height: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
@@ -465,73 +456,78 @@
   }
 }
 
-.export-actions__confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 143, 178, 0.4);
-  background: rgba(255, 143, 178, 0.08);
-  color: var(--ink);
-  font-size: 0.8rem;
-}
-
-/* The export's status, under the output settings. */
-.export-status {
+/* The export's status, under the progress bar. */
+.export-actions__status {
   display: grid;
-  gap: 8px;
-  /* Takes up the space left under the settings. */
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  gap: 6px;
 }
 
-.export-status__progress-text {
+.export-actions__progress-text {
   display: flex;
   justify-content: space-between;
   gap: 12px;
 }
 
-.export-status__detail,
-.export-status__note {
+.export-actions__detail,
+.export-actions__note {
   margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 
-.export-status__detail {
+.export-actions__detail {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.export-status__time-left {
+.export-actions__time-left {
   flex: none;
   color: var(--ink);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 
-.export-status__message {
+.export-actions__message {
   margin: 0;
   color: #9affc0;
   font-size: 0.82rem;
   overflow-wrap: anywhere;
 }
 
-.export-status__message--error {
+.export-actions__message--error {
   color: #ff8fb2;
 }
 
-/* The title, with the actions beside it. */
+/* Asks before canceling a running export. */
+.dialog-content.export-cancel-confirm {
+  width: min(92vw, 400px);
+}
+
+.export-cancel-confirm .dialog-title {
+  font-size: 1.1rem;
+}
+
+/* The export's estimate, under the output settings. */
+.export-status {
+  /* Takes up the space left under the settings. */
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.export-status__estimate {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The title, on its own row above the actions. */
 .export-dialog .dialog-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 12px;
+}
+
+.export-dialog .dialog-header .dialog-title {
   /* Clears the dismiss button. */
   padding-right: 36px;
 }

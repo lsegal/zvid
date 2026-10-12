@@ -269,7 +269,7 @@ test("playback loops from In to Out", async ({ page }) => {
   await expect(body).toHaveAttribute("data-playing", "false");
 });
 
-test("Export and the estimate sit at the top right, and the notice under the range", async ({
+test("the title sits above Export, the estimate under the settings, and the notice under the range", async ({
   page,
 }) => {
   const dialog = await openExportDialog(page);
@@ -281,23 +281,17 @@ test("Export and the estimate sit at the top right, and the notice under the ran
   const preview = await box(dialog.locator(".export-dialog__preview-column"));
   const range = await box(dialog.locator(".export-dialog__range"));
 
-  // Export and the estimate are in the header, right of the title and above
-  // the settings; there is no Cancel while editing, and no footer row.
-  for (const target of [
-    header.getByRole("button", { name: "Export", exact: true }),
-    header.locator("[data-export-estimate]"),
-  ]) {
-    await expect(target).toHaveCount(1);
-    const bounds = await box(target);
-    expect(bounds.left).toBeGreaterThan(title.right);
-    expect(bounds.right).toBeLessThanOrEqual(side.right);
-    expect(bounds.bottom).toBeLessThanOrEqual(side.top);
-  }
-  const exportButton = await box(
-    header.getByRole("button", { name: "Export", exact: true }),
-  );
-  const estimate = await box(header.locator("[data-export-estimate]"));
-  expect(estimate.right).toBeLessThanOrEqual(exportButton.left);
+  // Export is in the header, on a row below the title and above the
+  // settings; there is no Cancel while editing, and no footer row.
+  const exportButton = header.getByRole("button", {
+    name: "Export",
+    exact: true,
+  });
+  await expect(exportButton).toHaveCount(1);
+  const exportBounds = await box(exportButton);
+  expect(exportBounds.top).toBeGreaterThanOrEqual(title.bottom);
+  expect(exportBounds.right).toBeLessThanOrEqual(side.right);
+  expect(exportBounds.bottom).toBeLessThanOrEqual(side.top);
   await expect(
     dialog.getByRole("button", { name: "Cancel", exact: true }),
   ).toHaveCount(0);
@@ -305,8 +299,18 @@ test("Export and the estimate sit at the top right, and the notice under the ran
     header.getByRole("button", { name: "Dismiss dialog" }),
   ).toBeVisible();
   await expect(dialog.locator(".dialog-footer")).toHaveCount(0);
-  // Nothing is under the settings until an export runs.
-  await expect(dialog.locator("[data-export-status]")).toHaveCount(0);
+  // No status shows until an export runs.
+  await expect(dialog.locator("[data-export-progress-status]")).toHaveCount(0);
+
+  // The estimate is under the settings, not in the header.
+  await expect(header.locator("[data-export-estimate]")).toHaveCount(0);
+  const estimate = await box(
+    dialog.locator("[data-export-status] [data-export-estimate]"),
+  );
+  const lastField = await box(dialog.locator('[data-export-field="fileName"]'));
+  expect(estimate.top).toBeGreaterThan(lastField.bottom);
+  expect(estimate.left).toBeGreaterThanOrEqual(side.left);
+  expect(estimate.bottom).toBeLessThanOrEqual(side.bottom);
 
   // The notice is at the bottom, under the In/Out range.
   const notice = await box(dialog.locator("#export-dialog-description"));
@@ -330,9 +334,15 @@ test("Cancel stops an export in progress", async ({ page }) => {
   await dialog.getByRole("button", { name: "Export", exact: true }).click();
   await expect(dialog.getByRole("progressbar")).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel export" }).click();
-  await dialog.getByRole("button", { name: "Stop export" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Stop export" })
+    .click();
 
-  await expect(dialog.getByRole("status")).toHaveText("Export canceled.");
+  // The message shows under where the progress bar was.
+  await expect(
+    dialog.locator("[data-export-progress-status]").getByRole("status"),
+  ).toHaveText("Export canceled.");
   await expect(dialog.getByRole("progressbar")).toHaveCount(0);
   await expect(
     dialog.getByRole("button", { name: "Export", exact: true }),
