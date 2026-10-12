@@ -201,6 +201,14 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   const confirm = page.getByRole("alertdialog");
   await dialog.getByRole("button", { name: "Cancel export" }).click();
   await expect(confirm).toContainText("Cancel the export in progress?");
+  // Its overlay covers the Export dialog.
+  expect(
+    await page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.classList.contains("dialog-overlay"),
+      { x: cancel.left + cancel.width / 2, y: cancel.top + cancel.height / 2 },
+    ),
+  ).toBe(true);
   await expect(
     confirm.getByRole("button", { name: "Keep exporting" }),
   ).toBeFocused();

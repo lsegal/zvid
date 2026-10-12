@@ -494,9 +494,14 @@
   color: #ff8fb2;
 }
 
-/* Asks before canceling a running export. */
+/* Asks before canceling a running export, over the Export dialog. */
+.dialog-overlay:has(+ .export-cancel-confirm) {
+  z-index: 52;
+}
+
 .dialog-content.export-cancel-confirm {
   width: min(92vw, 400px);
+  z-index: 53;
 }
 
 .export-cancel-confirm .dialog-title {
