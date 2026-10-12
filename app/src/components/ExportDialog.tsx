@@ -47,7 +47,7 @@ import {
 } from "../session-settings.ts";
 import { isTextEntryTarget } from "../space-shortcut.ts";
 import { formatMusicalPosition, formatTimecode } from "../timeline-format.ts";
-import { ExportActions } from "./ExportActions";
+import { ExportActions, ExportStatus } from "./ExportActions";
 import { ExportRangeTimeline } from "./ExportRangeTimeline";
 import { ExportSettingsForm } from "./ExportSettingsForm";
 import {
@@ -344,10 +344,15 @@ function ExportDialogBody({
           <XMarkIcon aria-hidden="true" />
         </button>
         <DialogTitle>Export</DialogTitle>
-        <DialogDescription id="export-dialog-description">
-          Choose the range to export and adjust the output for this export.
-          Session Settings stay unchanged.
-        </DialogDescription>
+        <ExportActions
+          canExport={!hasExportOptionsErrors(allErrors)}
+          confirmCancel={confirmCancel}
+          durationSeconds={timing.durationSeconds}
+          estimateBytes={estimate}
+          frameCount={timing.frameCount}
+          model={model}
+          setConfirmCancel={setConfirmCancel}
+        />
       </DialogHeader>
 
       <div className="export-dialog__main">
@@ -483,15 +488,7 @@ function ExportDialogBody({
             options={options}
             support={support}
           />
-          <ExportActions
-            canExport={!hasExportOptionsErrors(allErrors)}
-            confirmCancel={confirmCancel}
-            durationSeconds={timing.durationSeconds}
-            estimateBytes={estimate}
-            frameCount={timing.frameCount}
-            model={model}
-            setConfirmCancel={setConfirmCancel}
-          />
+          <ExportStatus model={model} />
         </div>
       </div>
 
@@ -559,6 +556,11 @@ function ExportDialogBody({
           </small>
         ) : null}
       </div>
+
+      <DialogDescription id="export-dialog-description">
+        Choose the range to export and adjust the output for this export.
+        Session Settings stay unchanged.
+      </DialogDescription>
     </div>
   );
 }
