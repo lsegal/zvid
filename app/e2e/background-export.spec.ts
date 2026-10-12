@@ -143,11 +143,14 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   const details = await box(
     dialog.locator("[data-export-status] [data-export-time-left]"),
   );
-  expect(background.top).toBe(cancel.top);
+  // Run in background sits under the pointer that clicked Export, so it may
+  // be lifted by its hover style.
+  expect(Math.abs(background.top - cancel.top)).toBeLessThan(2);
   expect(background.left).toBeGreaterThan(cancel.right);
   expect(bar.right).toBeLessThanOrEqual(cancel.left);
-  expect(Math.abs(bar.top + bar.height / 2 - (cancel.top + cancel.height / 2)))
-    .toBeLessThan(2);
+  expect(
+    Math.abs(bar.top + bar.height / 2 - (cancel.top + cancel.height / 2)),
+  ).toBeLessThan(2);
   expect(bar.bottom).toBeLessThan(lastField.top);
   expect(details.top).toBeGreaterThan(lastField.bottom);
   await expect(
