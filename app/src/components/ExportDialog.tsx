@@ -50,13 +50,7 @@ import { formatMusicalPosition, formatTimecode } from "../timeline-format.ts";
 import { ExportActions, ExportStatus } from "./ExportActions";
 import { ExportRangeTimeline } from "./ExportRangeTimeline";
 import { ExportSettingsForm } from "./ExportSettingsForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import "./export-dialog.css";
 
 const PROBED_CODECS: readonly EncodableVideoCodec[] = [
@@ -352,6 +346,7 @@ function ExportDialogBody({
         >
           <XMarkIcon aria-hidden="true" />
         </button>
+        {/* Names the dialog for assistive tech; the actions take its place. */}
         <DialogTitle>Export</DialogTitle>
         <ExportActions
           canExport={!hasExportOptionsErrors(allErrors)}
@@ -567,11 +562,6 @@ function ExportDialogBody({
           </small>
         ) : null}
       </div>
-
-      <DialogDescription id="export-dialog-description">
-        Choose the range to export and adjust the output for this export.
-        Session Settings stay unchanged.
-      </DialogDescription>
     </div>
   );
 }

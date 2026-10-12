@@ -269,38 +269,60 @@ test("playback loops from In to Out", async ({ page }) => {
   await expect(body).toHaveAttribute("data-playing", "false");
 });
 
-test("the title sits above Export, the estimate under the settings, and the notice under the range", async ({
+test("Export sits top left over a full-width notice row, with the estimate under the settings", async ({
   page,
 }) => {
   const dialog = await openExportDialog(page);
   const box = (locator: Locator) =>
     locator.evaluate((element) => element.getBoundingClientRect().toJSON());
   const header = dialog.locator(".dialog-header");
-  const title = await box(header.getByRole("heading", { name: "Export" }));
   const side = await box(dialog.locator(".export-dialog__side"));
   const preview = await box(dialog.locator(".export-dialog__preview-column"));
   const range = await box(dialog.locator(".export-dialog__range"));
 
-  // Export is in the header, on a row below the title and above the
-  // settings; there is no Cancel while editing, and no footer row.
+  // The title only names the dialog; nothing shows it.
+  await expect(page.getByRole("dialog", { name: "Export" })).toBeVisible();
+  const title = await box(header.getByRole("heading", { name: "Export" }));
+  expect(title.width).toBeLessThanOrEqual(1);
+
+  // Export is at the top left, where the title was, above the settings;
+  // there is no Cancel while editing, and no footer row.
   const exportButton = header.getByRole("button", {
     name: "Export",
     exact: true,
   });
   await expect(exportButton).toHaveCount(1);
   const exportBounds = await box(exportButton);
-  expect(exportBounds.top).toBeGreaterThanOrEqual(title.bottom);
-  expect(exportBounds.right).toBeLessThanOrEqual(side.right);
+  const dismiss = await box(
+    header.getByRole("button", { name: "Dismiss dialog" }),
+  );
+  expect(Math.abs(exportBounds.left - preview.left)).toBeLessThan(1);
+  expect(Math.abs(exportBounds.top - dismiss.top)).toBeLessThan(12);
   expect(exportBounds.bottom).toBeLessThanOrEqual(side.top);
   await expect(
     dialog.getByRole("button", { name: "Cancel", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    header.getByRole("button", { name: "Dismiss dialog" }),
-  ).toBeVisible();
   await expect(dialog.locator(".dialog-footer")).toHaveCount(0);
   // No status shows until an export runs.
   await expect(dialog.locator("[data-export-progress-status]")).toHaveCount(0);
+
+  // The notice fills the full-width row under Export, and still describes
+  // the dialog.
+  const row = await box(dialog.locator("[data-export-progress-row]"));
+  expect(Math.abs(row.left - preview.left)).toBeLessThan(1);
+  expect(Math.abs(row.right - side.right)).toBeLessThan(1);
+  expect(row.top).toBeGreaterThanOrEqual(exportBounds.bottom);
+  expect(row.bottom).toBeLessThanOrEqual(side.top);
+  const notice = dialog.locator("#export-dialog-description");
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText(/^Choose the range to export/);
+  await expect(dialog).toHaveAttribute(
+    "aria-describedby",
+    "export-dialog-description",
+  );
+  const noticeBounds = await box(notice);
+  expect(noticeBounds.top).toBeGreaterThanOrEqual(row.top);
+  expect(noticeBounds.bottom).toBeLessThanOrEqual(row.bottom);
 
   // The estimate is under the settings, not in the header.
   await expect(header.locator("[data-export-estimate]")).toHaveCount(0);
@@ -312,13 +334,6 @@ test("the title sits above Export, the estimate under the settings, and the noti
   expect(estimate.left).toBeGreaterThanOrEqual(side.left);
   expect(estimate.bottom).toBeLessThanOrEqual(side.bottom);
 
-  // The notice is at the bottom, under the In/Out range.
-  const notice = await box(dialog.locator("#export-dialog-description"));
-  await expect(dialog.locator("#export-dialog-description")).toHaveText(
-    /^Choose the range to export/,
-  );
-  expect(notice.top).toBeGreaterThanOrEqual(range.bottom);
-
   // The settings column ends with the preview column, so the range sits
   // right below both.
   expect(Math.abs(side.bottom - preview.bottom)).toBeLessThan(1);
@@ -327,12 +342,21 @@ test("the title sits above Export, the estimate under the settings, and the noti
 
 test("Cancel stops an export in progress", async ({ page }) => {
   const dialog = await openExportDialog(page);
+  // The settings stay put while the header changes state.
+  const settingsTop = () =>
+    dialog
+      .locator(".export-dialog__side")
+      .evaluate((element) => element.getBoundingClientRect().top);
+  const editingTop = await settingsTop();
   // A large, high-frame-rate export takes long enough to cancel.
   await pick(dialog, "Resolution preset", "1080p 16:9");
   await pick(dialog, "Frame rate", "60 fps");
 
   await dialog.getByRole("button", { name: "Export", exact: true }).click();
   await expect(dialog.getByRole("progressbar")).toBeVisible();
+  // The notice gives way to the bar.
+  await expect(dialog.locator("#export-dialog-description")).toBeHidden();
+  expect(await settingsTop()).toBeCloseTo(editingTop, 0);
   await dialog.getByRole("button", { name: "Cancel export" }).click();
   await page
     .getByRole("alertdialog")
@@ -344,7 +368,9 @@ test("Cancel stops an export in progress", async ({ page }) => {
     dialog.locator("[data-export-progress-status]").getByRole("status"),
   ).toHaveText("Export canceled.");
   await expect(dialog.getByRole("progressbar")).toHaveCount(0);
+  await expect(dialog.locator("#export-dialog-description")).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Export", exact: true }),
   ).toBeEnabled();
+  expect(await settingsTop()).toBeCloseTo(editingTop, 0);
 });

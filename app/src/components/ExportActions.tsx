@@ -8,6 +8,7 @@ import { formatTimecode } from "../timeline-format.ts";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,8 +21,9 @@ type ExportActionsProps = {
   setConfirmCancel(confirm: boolean): void;
 };
 
-// The Export dialog's actions, under its title: the progress bar while
-// exporting with the export's status below it, then the buttons.
+// The Export dialog's actions, at the top: the buttons, then a full-width row
+// that holds the notice while no export runs, or the progress bar with the
+// export's status below it.
 export function ExportActions({
   model,
   canExport,
@@ -34,21 +36,6 @@ export function ExportActions({
 
   return (
     <div className="export-actions" data-export-actions="">
-      {exporting ? (
-        <div
-          aria-label="Export progress"
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={progress ?? undefined}
-          className={`export-actions__bar${
-            progress === null ? " export-actions__bar--indeterminate" : ""
-          }`}
-          role="progressbar"
-        >
-          <span style={{ width: `${progress ?? 100}%` }} />
-        </div>
-      ) : null}
-
       <div className="export-actions__buttons">
         {exporting ? (
           <>
@@ -99,7 +86,35 @@ export function ExportActions({
         )}
       </div>
 
-      <ExportProgressStatus model={model} />
+      <div
+        className="export-actions__row"
+        data-export-progress-row=""
+        data-exporting={exporting ? "true" : "false"}
+      >
+        {/* Stays laid out under the bar so the row keeps its height. */}
+        <DialogDescription
+          className="export-actions__notice"
+          id="export-dialog-description"
+        >
+          Choose the range to export and adjust the output for this export.
+          Session Settings stay unchanged.
+        </DialogDescription>
+        {exporting ? (
+          <div
+            aria-label="Export progress"
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={progress ?? undefined}
+            className={`export-actions__bar${
+              progress === null ? " export-actions__bar--indeterminate" : ""
+            }`}
+            role="progressbar"
+          >
+            <span style={{ width: `${progress ?? 100}%` }} />
+          </div>
+        ) : null}
+        <ExportProgressStatus model={model} />
+      </div>
 
       <Dialog
         open={confirmCancel && exporting}

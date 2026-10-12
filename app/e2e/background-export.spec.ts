@@ -127,21 +127,21 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(dialog.locator("[data-export-time-left]")).toHaveText(
     /^\d+:\d{2} left$/,
   );
-  // Under the title: the bar with the details below it, then the buttons
-  // where Export was; the estimate stays under the output settings.
+  // The buttons at the top left, then a full-width row with the bar and
+  // the details below it; the estimate stays under the output settings.
   const actions = dialog.locator("[data-export-actions]");
   const box = (locator: ReturnType<Page["locator"]>) =>
     locator.evaluate((element) => element.getBoundingClientRect().toJSON());
-  const title = await box(
-    dialog.locator(".dialog-header").getByRole("heading", { name: "Export" }),
-  );
   const cancel = await box(
     actions.getByRole("button", { name: "Cancel export" }),
   );
   const background = await box(
     actions.getByRole("button", { name: "Run in background" }),
   );
+  const row = await box(actions.locator("[data-export-progress-row]"));
   const bar = await box(actions.getByRole("progressbar"));
+  const side = await box(dialog.locator(".export-dialog__side"));
+  const preview = await box(dialog.locator(".export-dialog__preview-column"));
   const lastField = await box(dialog.locator('[data-export-field="fileName"]'));
   const timeLeft = await box(
     actions.locator("[data-export-progress-status] [data-export-time-left]"),
@@ -153,16 +153,16 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   // be lifted by its hover style.
   expect(Math.abs(background.top - cancel.top)).toBeLessThan(2);
   expect(background.left).toBeGreaterThan(cancel.right);
-  expect(bar.right).toBeLessThanOrEqual(cancel.left);
-  expect(
-    Math.abs(bar.top + bar.height / 2 - (cancel.top + cancel.height / 2)),
-  ).toBeLessThan(2);
-  expect(bar.top).toBeGreaterThanOrEqual(title.bottom);
-  expect(cancel.top).toBeGreaterThanOrEqual(title.bottom);
+  expect(Math.abs(cancel.left - preview.left)).toBeLessThan(1);
+  expect(row.top).toBeGreaterThanOrEqual(cancel.bottom);
+  expect(row.bottom).toBeLessThanOrEqual(side.top);
+  expect(Math.abs(bar.left - preview.left)).toBeLessThan(1);
+  expect(Math.abs(bar.right - side.right)).toBeLessThan(1);
   expect(timeLeft.top).toBeGreaterThanOrEqual(bar.bottom);
-  expect(timeLeft.right).toBeLessThanOrEqual(bar.right + 1);
+  expect(Math.abs(timeLeft.right - row.right)).toBeLessThan(1);
   expect(timeLeft.bottom).toBeLessThan(lastField.top);
   expect(estimate.top).toBeGreaterThan(lastField.bottom);
+  await expect(dialog.locator("#export-dialog-description")).toBeHidden();
   await expect(actions.locator("[data-export-estimate]")).toHaveCount(0);
   await expect(
     actions.getByRole("button", { name: "Export", exact: true }),
@@ -241,6 +241,9 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
   await expect(
     page.getByRole("button", { name: "Export", exact: true }).first(),
   ).toBeEnabled();
+  // The settings stay where they were while exporting.
+  const canceledSide = await box(dialog.locator(".export-dialog__side"));
+  expect(canceledSide.top).toBeCloseTo(side.top, 0);
 });
 
 test("the editor plays, scrubs and edits during an export, which renders the session as it was", async ({
@@ -249,6 +252,11 @@ test("the editor plays, scrubs and edits during an export, which renders the ses
   await slowDownExports(page, 60);
   const download = page.waitForEvent("download", { timeout: 120_000 });
   const dialog = await startExport(page);
+  const settingsTop = () =>
+    dialog
+      .locator(".export-dialog__side")
+      .evaluate((element) => element.getBoundingClientRect().top);
+  const exportingTop = await settingsTop();
   await dialog.getByRole("button", { name: "Run in background" }).click();
   await expect(dialog).toBeHidden();
   await expect(statusProgress(page)).toBeVisible();
@@ -296,6 +304,8 @@ test("the editor plays, scrubs and edits during an export, which renders the ses
   await expect(dialog.locator("[data-export-snapshot]")).toContainText(
     "Exported the version from",
   );
+  // The done status takes the same space the export did.
+  expect(await settingsTop()).toBeCloseTo(exportingTop, 0);
   await expect(notice).toHaveCount(0);
 });
 
