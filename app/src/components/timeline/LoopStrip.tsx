@@ -22,7 +22,11 @@ import {
 import { clamp } from "../../app/util.ts";
 import type { ContextMenuEntry, MenuPoint } from "../../context-menu.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";
-import { isDoubleTap, type TouchTap } from "../../mobile/timeline-touch.ts";
+import {
+  isDoubleTap,
+  quickLoopRegion,
+  type TouchTap,
+} from "../../mobile/timeline-touch.ts";
 import { ContextMenu } from "../ContextMenu";
 import { LoopRegionBar } from "./LoopRegionBar";
 
@@ -44,6 +48,7 @@ type LoopStripProps = {
   labelWidth: number;
   quarterPx: number;
   totalQuarters: number;
+  barLength: number;
   snapUnit: number;
   snapEnabled: boolean;
   playbackSelection: PlaybackSelection | null;
@@ -61,15 +66,16 @@ type LoopStripProps = {
 // The loop strip along the ruler's bottom edge, the playback selection's
 // highlight and the loop region. Dragging in the strip selects a range
 // without moving the playhead; a click clears it, and a double-click or
-// double tap on the selection locks it into the loop region. Right-clicking
-// it opens the loop menu, and pan and zoom drags pass through to the ruler
-// row.
+// double tap on the selection locks it into the loop region; elsewhere it
+// loops the bar under the pointer. Right-clicking it opens the loop menu, and
+// pan and zoom drags pass through to the ruler row.
 export function LoopStrip({
   timelineScrollRef,
   mac,
   labelWidth,
   quarterPx,
   totalQuarters,
+  barLength,
   snapUnit,
   snapEnabled,
   playbackSelection,
@@ -91,13 +97,17 @@ export function LoopStrip({
     anchorQ: number;
     moved: boolean;
   } | null>(null);
-  // The selection the last click inside it cleared, which the press after it
-  // can lock as the second half of a double-click or double tap.
+  // The last click in the strip, and the selection it cleared if it was
+  // inside one, which the press after it can lock as the second half of a
+  // double-click or double tap.
   const clearedRef = useRef<{
-    selection: PlaybackSelection;
+    selection: PlaybackSelection | null;
     tap: TouchTap;
   } | null>(null);
-  const doubleClickRef = useRef<PlaybackSelection | null>(null);
+  // Set by a mouse or pen press, so a dblclick a double tap fires is ignored.
+  const doubleClickRef = useRef<{ selection: PlaybackSelection | null } | null>(
+    null,
+  );
 
   const pointerQ = (clientX: number) => {
     const timelineScroll = timelineScrollRef.current;
@@ -114,6 +124,7 @@ export function LoopStrip({
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    doubleClickRef.current = null;
     if (event.button !== 0 || isRulerPanPress(event, mac)) {
       return;
     }
@@ -132,13 +143,12 @@ export function LoopStrip({
     // Browsers don't all fire dblclick for a double tap, and those that do
     // fire it at whatever the tap reveals, so taps never wait for one.
     if (event.pointerType === "touch") {
-      doubleClickRef.current = null;
       if (cleared && isDoubleTap(cleared.tap, tap)) {
-        setLoopRegion({ ...cleared.selection });
+        lockOrLoopBar(cleared.selection, anchorQ);
         return;
       }
     } else {
-      doubleClickRef.current = cleared?.selection ?? null;
+      doubleClickRef.current = { selection: cleared?.selection ?? null };
     }
 
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -186,29 +196,27 @@ export function LoopStrip({
 
     dragRef.current = null;
     if (!drag.moved && event.type === "pointerup") {
-      if (
+      const inside =
         playbackSelection &&
         drag.anchorQ >= playbackSelection.startQ &&
-        drag.anchorQ <= playbackSelection.endQ
-      ) {
-        clearedRef.current = { selection: playbackSelection, tap: drag.tap };
-      }
+        drag.anchorQ <= playbackSelection.endQ;
+      clearedRef.current = {
+        selection: inside ? playbackSelection : null,
+        tap: drag.tap,
+      };
       setPlaybackSelection(null);
     }
   };
 
   // Locks the selection the first click of a double-click cleared, as
-  // Create loop area would have before that click.
-  const lockClearedSelection = () => {
-    const selection = doubleClickRef.current;
-    doubleClickRef.current = null;
-    if (!selection) {
-      return false;
-    }
-
-    setLoopRegion({ ...selection });
-    return true;
-  };
+  // Create loop area would have before that click, or with none loops the
+  // bar at the pointer, as the phone's loop button does at the playhead.
+  const lockOrLoopBar = (selection: PlaybackSelection | null, atQ: number) =>
+    setLoopRegion(
+      selection
+        ? { ...selection }
+        : quickLoopRegion(clamp(atQ, 0, totalQuarters), barLength),
+    );
 
   // Opens the loop menu when the right-click lands in the strip.
   openMenuRef.current = (event) => {
@@ -297,8 +305,12 @@ export function LoopStrip({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onDoubleClick={(event) => {
-          if (lockClearedSelection()) {
+          const doubleClick = doubleClickRef.current;
+          doubleClickRef.current = null;
+          const atQ = pointerQ(event.clientX);
+          if (doubleClick && atQ !== null) {
             event.stopPropagation();
+            lockOrLoopBar(doubleClick.selection, atQ);
           }
         }}
       >
