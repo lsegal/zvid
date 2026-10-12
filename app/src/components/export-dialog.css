@@ -405,24 +405,15 @@
 /* The actions under the title: the progress bar with the status below it,
    then the buttons. */
 .export-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 12px;
-  min-width: 0;
-}
-
-.export-actions__progress {
   display: grid;
-  flex: 1 1 280px;
-  gap: 8px;
-  min-width: 0;
-  /* Centers the bar on the buttons. */
-  padding-top: 11px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .export-actions__buttons {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -430,6 +421,8 @@
 }
 
 .export-actions__bar {
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
   height: 8px;
   border-radius: 999px;
@@ -458,6 +451,8 @@
 
 /* The export's status, under the progress bar. */
 .export-actions__status {
+  grid-column: 1;
+  grid-row: 2;
   display: grid;
   gap: 6px;
 }

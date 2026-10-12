@@ -205,7 +205,9 @@ test("hiding the dialog keeps the export running, and reopening it manages the e
     confirm.getByRole("button", { name: "Keep exporting" }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(confirm.getByRole("button", { name: "Stop export" })).toBeFocused();
+  await expect(
+    confirm.getByRole("button", { name: "Stop export" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
     confirm.getByRole("button", { name: "Keep exporting" }),

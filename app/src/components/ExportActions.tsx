@@ -34,23 +34,20 @@ export function ExportActions({
 
   return (
     <div className="export-actions" data-export-actions="">
-      <div className="export-actions__progress">
-        {exporting ? (
-          <div
-            aria-label="Export progress"
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={progress ?? undefined}
-            className={`export-actions__bar${
-              progress === null ? " export-actions__bar--indeterminate" : ""
-            }`}
-            role="progressbar"
-          >
-            <span style={{ width: `${progress ?? 100}%` }} />
-          </div>
-        ) : null}
-        <ExportProgressStatus model={model} />
-      </div>
+      {exporting ? (
+        <div
+          aria-label="Export progress"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={progress ?? undefined}
+          className={`export-actions__bar${
+            progress === null ? " export-actions__bar--indeterminate" : ""
+          }`}
+          role="progressbar"
+        >
+          <span style={{ width: `${progress ?? 100}%` }} />
+        </div>
+      ) : null}
 
       <div className="export-actions__buttons">
         {exporting ? (
@@ -101,6 +98,8 @@ export function ExportActions({
           </button>
         )}
       </div>
+
+      <ExportProgressStatus model={model} />
 
       <Dialog
         open={confirmCancel && exporting}
