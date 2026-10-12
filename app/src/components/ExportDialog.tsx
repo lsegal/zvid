@@ -50,12 +50,7 @@ import { formatMusicalPosition, formatTimecode } from "../timeline-format.ts";
 import { ExportActions, ExportStatus } from "./ExportActions";
 import { ExportRangeTimeline } from "./ExportRangeTimeline";
 import { ExportSettingsForm } from "./ExportSettingsForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import "./export-dialog.css";
 
 const PROBED_CODECS: readonly EncodableVideoCodec[] = [
