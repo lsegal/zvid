@@ -140,8 +140,7 @@ export class PreviewAudioMixer {
   private chains: ChainGraph | null = null;
   private voices = new Map<string, Voice>();
   private mix: AudioMix = SILENT_AUDIO_MIX;
-  // Whether the mix needs its chains run, beyond Gain, as of its last
-  // update.
+  // Whether the mix needs chains beyond Gain, as of its last update.
   private needsChains = false;
   private urlById = new Map<string, string>();
   private readonly videoClips = new MixVideoClips();
@@ -319,6 +318,7 @@ export class PreviewAudioMixer {
       const at = now + (shouldPlay || !video ? ahead : 0);
 
       if (voice.decoded) {
+        voice.decoded.retune(clip, this.mix.bpm);
         voice.decoded.sync(
           decodedClipSeconds(at, start, end, shouldPlay, steady),
           driftTolerance,

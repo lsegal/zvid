@@ -6,7 +6,8 @@
 // off the main thread (see clip-audio-cache.ts).
 import { audioDiagnostics } from "./audio-diagnostics.ts";
 import { sharedClipAudioCache } from "./clip-audio-cache.ts";
-import type { DecodedAudio } from "./mix.ts";
+import { clipReadSeconds, type DecodedAudio } from "./mix.ts";
+import { AUDIO_PROCESSORS } from "./processors.ts";
 import type { AudioMixClip } from "./resolve.ts";
 
 // The longest media, and clip, WebKit plays from a decoded buffer rather
@@ -128,10 +129,49 @@ export class DecodedVoiceClock {
   }
 }
 
+// What a clip's span is rendered from: everything but its gain, its bus and
+// the parameters of stages that process its sound rather than read it.
+function spanInputs(clip: AudioMixClip, bpm: number) {
+  const { amplitude, hasGain, busId, effects, id, stages, ...read } = clip;
+  const sources = stages.filter(
+    (stage) => stage.enabled && AUDIO_PROCESSORS.get(stage.effectName)?.source,
+  );
+  return JSON.stringify([read, sources, bpm]);
+}
+
+// Where in `to`'s span the media plays that `from`'s plays `clipSeconds`
+// into its own, both reading the same clip from the same start: source
+// stages map timeline time linearly, so this solves `to`'s mapping for
+// the timeline time `from` reads.
+export function reanchoredClipSeconds(
+  from: AudioMixClip,
+  to: AudioMixClip,
+  clipSeconds: number,
+) {
+  const start = to.startSeconds;
+  const toRead = clipReadSeconds(to) ?? ((seconds) => seconds);
+  const fromRead = clipReadSeconds(from) ?? ((seconds) => seconds);
+  const slope = toRead(start + 1) - toRead(start);
+  const read = fromRead(from.startSeconds + clipSeconds);
+  return slope ? (read - toRead(start)) / slope : clipSeconds;
+}
+
 export class DecodedClipVoice {
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
-  // While playing: the audio clock time its clip's start plays at.
+  // The clip its buffer was rendered from, and the latest it was handed,
+  // whose span renders under the latest of its render counts.
+  private clip: AudioMixClip;
+  private latest: AudioMixClip;
+  private latestInputs: string | undefined;
+  private renders = 0;
+  private readonly url: string;
+  private bpm: number;
+  // How far its buffer plays ahead of the playhead, since its read mapping
+  // changed while it played; a stop or a scrub puts it back on the
+  // playhead.
+  private shift = 0;
+  // While playing: the audio clock time its buffer's start plays at.
   private startsAt = 0;
   private disposed = false;
   // How many steady syncs in a row it has been off for.
@@ -154,17 +194,45 @@ export class DecodedClipVoice {
     this.output = output;
     this.lenient = lenient;
     this.clock = clock;
-    void this.load(clip, url, bpm);
+    this.clip = clip;
+    this.latest = clip;
+    this.url = url;
+    this.bpm = bpm;
+    void this.load(clip, bpm);
   }
 
-  private async load(clip: AudioMixClip, url: string, bpm: number) {
+  // Renders `clip` again when what it reads changed, as when Re-Pitch's
+  // pitch is turned while it plays, and plays on from the same place in
+  // its media once that is rendered.
+  retune(clip: AudioMixClip, bpm: number) {
+    if (clip === this.latest) {
+      return;
+    }
+    this.latestInputs ??= spanInputs(this.latest, this.bpm);
+    const inputs = spanInputs(clip, bpm);
+    this.latest = clip;
+    if (inputs !== this.latestInputs) {
+      this.latestInputs = inputs;
+      this.bpm = bpm;
+      void this.load(clip, bpm);
+    }
+  }
+
+  // The span of `clip`'s media its buffer plays.
+  protected renderSpan(clip: AudioMixClip, bpm: number) {
+    const { context } = this;
+    return sharedClipAudioCache().span(
+      { clip, url: this.url, bpm, sampleRate: context.sampleRate },
+      (mediaUrl) => decodeClipMedia(context, mediaUrl),
+    );
+  }
+
+  private async load(clip: AudioMixClip, bpm: number) {
+    const render = ++this.renders;
     try {
       const { context } = this;
-      const span = await sharedClipAudioCache().span(
-        { clip, url, bpm, sampleRate: context.sampleRate },
-        (mediaUrl) => decodeClipMedia(context, mediaUrl),
-      );
-      if (this.disposed) {
+      const span = await this.renderSpan(clip, bpm);
+      if (this.disposed || render !== this.renders) {
         return;
       }
       const buffer = context.createBuffer(
@@ -175,10 +243,31 @@ export class DecodedClipVoice {
       span.forEach((data, channel) => {
         buffer.copyToChannel(data, channel);
       });
-      this.buffer = buffer;
+      this.swap(clip, buffer);
     } catch (error) {
       console.warn("The preview cannot play clip audio.", error);
     }
+  }
+
+  // Plays `buffer`, rendered from `clip`, in place of the old one, from
+  // where the old one has reached in the media, if playing.
+  private swap(clip: AudioMixClip, buffer: AudioBuffer) {
+    const playing = this.source !== null && this.buffer !== null;
+    const now = this.context.currentTime;
+    const from = this.clip;
+    this.clip = clip;
+    this.buffer = buffer;
+    if (!playing || clip.startSeconds !== from.startSeconds) {
+      if (playing) {
+        this.stop();
+      }
+      return;
+    }
+    const at = now - this.startsAt;
+    const anchored = at < 0 ? at : reanchoredClipSeconds(from, clip, at);
+    this.shift += anchored - at;
+    this.stop();
+    this.play(now - anchored, now);
   }
 
   // Plays from `clipSeconds` into the clip, or when it is negative, from
@@ -195,8 +284,12 @@ export class DecodedClipVoice {
     startSeconds = 0,
   ) {
     if (clipSeconds === undefined || !this.buffer) {
+      this.shift = 0;
       this.stop();
       return;
+    }
+    if (!steady) {
+      this.shift = 0;
     }
     const now = this.context.currentTime;
     const limit =
@@ -204,7 +297,7 @@ export class DecodedClipVoice {
         ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
         : tolerance;
     if (this.source) {
-      const drift = now - this.startsAt - clipSeconds;
+      const drift = now - this.startsAt - clipSeconds - this.shift;
       if (steady) {
         audioDiagnostics.recordDrift(drift);
       }
@@ -218,10 +311,14 @@ export class DecodedClipVoice {
     // The audio clock time the clip's start plays at, and the soonest it
     // can start.
     const startsAt =
-      steady && this.clock
+      steady && this.clock && !this.shift
         ? this.clock.contextTimeOf(startSeconds, now - clipSeconds, limit)
-        : now - clipSeconds;
-    const soonest = now + (steady ? START_AHEAD_SECONDS : 0);
+        : now - clipSeconds - this.shift;
+    this.play(startsAt, now + (steady ? START_AHEAD_SECONDS : 0));
+  }
+
+  // Starts its buffer at `startsAt` on the audio clock, from `soonest`.
+  private play(startsAt: number, soonest: number) {
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.connect(this.output);
