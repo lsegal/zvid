@@ -84,7 +84,7 @@ describe("createScrubFilter", () => {
       this.events.push(`value ${target}@${time.toFixed(2)}`);
     },
   });
-  const fakeNode = (extra: object = {}) => ({
+  const fakeNode = <T extends object>(extra: T = {} as T) => ({
     ...extra,
     connections: [] as unknown[],
     connect(target: unknown) {
