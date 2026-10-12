@@ -178,6 +178,15 @@ export function ExportDialog({ model }: { model: ExportDialogModel }) {
       <DialogContent
         aria-describedby="export-dialog-description"
         className="export-dialog"
+        // With the cancel confirmation open, Esc only closes the
+        // confirmation: this layer can still be listening for Esc until it
+        // rerenders, and it hears the key first.
+        onEscapeKeyDown={(event) => {
+          if (confirmCancel) {
+            event.preventDefault();
+            setConfirmCancel(false);
+          }
+        }}
         // Esc and, mid-export, an outside click hide the dialog; a running
         // export keeps going in the background.
         onInteractOutside={(event) => {
