@@ -5,28 +5,27 @@
 // export exactly:
 //
 //   element → clip GainNode → master GainNode → limiter → analyser
-//     → preview volume → speakers
+//     → preview volume → scrub high-pass → speakers
 //
 // A mix with any other audio effect runs its chains in the chain worklet
 // (see chain-worklet.ts), the same DSP export renders with (see mix.ts):
 //
 //   element → clip chain → track bus chain → master chain → master GainNode
-//     → limiter → analyser → preview volume → speakers
+//     → limiter → analyser → preview volume → scrub high-pass → speakers
 //
 // There a clip whose own stack is steady Gain alone, with no latency to make
 // up, skips its chain: its GainNode applies those Gains and feeds the bus.
 //
 // The analyser feeds audio-reactive effects (see LiveAudioBands), and the
 // limiter also feeds the transport's VU meter, so both follow the mix after
-// every Gain but not the preview volume. Elements are made shortly before
-// their clip starts and released once it, and its chain's tail, has passed,
-// and follow the playhead as the compositor's video elements do. A clip that
-// starts while its own element is still loading or seeking takes over a
-// loaded element of the same media that another clip has finished with, so
-// back-to-back short clips keep playing on a slow main thread. A clip
-// whose source stages read its media other than forwards, or in WebKit,
-// whose WebM video it routes silently, plays from a decoded buffer instead
-// (see preview-buffer-voice.ts).
+// every Gain but not the preview volume. Elements are made shortly before their
+// clip starts and released once it, and its chain's tail, has passed, and
+// follow the playhead as the compositor's video elements do. A clip that starts
+// while its own element is still loading or seeking takes over a loaded element
+// of the same media that another clip has finished with, so back-to-back short
+// clips keep playing on a slow main thread. A clip whose source stages read its
+// media other than forwards, or in WebKit, whose WebM video it routes silently,
+// plays from a decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { releaseMediaElement } from "../media-element.ts";
 import { audioDiagnostics, voiceDiagnostics } from "./audio-diagnostics.ts";
@@ -273,6 +272,7 @@ export class PreviewAudioMixer {
     const now = playback.playheadSeconds;
     this.decodedClock.holdWhile(steady);
     this.applyMode();
+    this.graph?.setScrubbing(playback.isAudibleScrubbing);
     // With chains, the mix comes out this late, so its media plays this far
     // ahead of the playhead to stay with the video, and the chains are told
     // the timeline time of what they are fed, as export tells them.
