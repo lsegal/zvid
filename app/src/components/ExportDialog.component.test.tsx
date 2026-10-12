@@ -63,10 +63,13 @@ async function openExportDialog() {
   return dialog;
 }
 
-// Picks an option from one of the dialog's dropdowns.
+// Picks an option from one of the dialog's dropdowns, then waits for it to
+// close: while its listbox is open the dialog is hidden from the
+// accessibility tree, so reading the dialog right away can miss it.
 async function pick(dialog: Locator, name: string, option: string) {
   await dialog.getByRole("combobox", { name, exact: true }).click();
   await page.getByRole("option", { name: option, exact: true }).click();
+  await expect.element(page.getByRole("listbox")).not.toBeInTheDocument();
 }
 
 function frameRate(dialog: Locator) {
