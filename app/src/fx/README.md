@@ -54,7 +54,7 @@ An audio effect's `processor` is plain TypeScript, written once: the preview run
 - `time` gives the timeline second of the block's first frame and the session's BPM and time signature. Use `noteValueSeconds` and `timelinePhase` (`src/audio-mix/tempo.ts`) for synced delays and LFOs, so they line up the same in preview, scrubbing and export.
 - `tailSeconds(settings, tempo)` is how long it keeps sounding once its input falls silent (a reverb's decay, a delay's feedback); its chain keeps running that long past a clip's end, and export pre-rolls that far before its range.
 - `latencyFrames(settings, sampleRate)` is how late its output is (a limiter's lookahead); the mix delays the other paths to match and keeps the whole mix aligned with the video.
-- `source` changes what a clip reads from its media instead (Reverse): its `readSeconds` maps each timeline second to the one whose media plays. The preview then plays the clip from a decoded buffer.
+- `source` changes what a clip reads from its media instead (Reverse, Re-Pitch): its `readSeconds` maps each timeline second to the one whose media plays, the last source stage in a stack first. The preview then plays the clip from a decoded buffer.
 
 Where an effect sits sets what it processes: on a clip's stack, that clip alone; on a layer's or source track's stack, the sum of its clips (its bus); on Global, the whole mix, before the limiter. A clip with no enabled Gain on its track's stack or its own stays silent. A mix of Gains alone plays through native gain nodes in the preview, which reproduce export exactly; any other enabled audio effect switches the preview to the worklet.
 

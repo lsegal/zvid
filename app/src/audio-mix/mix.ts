@@ -126,7 +126,10 @@ export type AudioMixRenderOptions = {
 
 // The timeline second whose media `clip` plays at each timeline second,
 // through its enabled source stages (see AudioSourceStage), or undefined
-// when it has none and plays its own.
+// when it has none and plays its own. Each stage reads the sound of the
+// stages before it, so the last stage maps the timeline second first:
+// Reverse then Re-Pitch plays the reversed sound re-pitched from the clip's
+// start.
 export function clipReadSeconds(
   clip: Pick<AudioMixClip, "startSeconds" | "durationSeconds" | "stages">,
   registry: AudioProcessorRegistry = AUDIO_PROCESSORS,
@@ -143,7 +146,7 @@ export function clipReadSeconds(
     endSeconds: clip.startSeconds + clip.durationSeconds,
   };
   return (seconds) =>
-    stages.reduce(
+    stages.reduceRight(
       (read, { stage, source }) => source.readSeconds(read, span, stage),
       seconds,
     );

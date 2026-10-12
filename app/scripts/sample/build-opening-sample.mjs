@@ -801,7 +801,8 @@ addEffect(
 // consecutive two-beat selections covering the whole 30 s. Each selection's
 // clip sounds through a Gain at 0 dB and one audio effect, set to be heard
 // without clipping, so the music runs on through a tour of every audio
-// effect, the first two beats clean. With the music on a layer, the mix
+// effect, the first two beats clean. Twenty selections fill the 30 s, so
+// Re-Pitch shares Reverse's: the reversed music slowed down like a tape. With the music on a layer, the mix
 // plays only the layer clips, so the source track itself stays silent.
 // The source track holds the whole music as one clip, which each selection
 // plays where it is in the file.
@@ -868,7 +869,7 @@ const MUSIC_SECTIONS = [
   ],
   ["De-ess", { Frequency: 3000, Threshold: -45, Amount: 24, Listen: "Off" }],
   // 24–27 s: the wordmark returns.
-  ["Reverse", {}],
+  ["Reverse", {}, ["Re-Pitch", { Semitones: -5, Cents: 0 }]],
   ["Limiter", { Ceiling: -4, Release: 50, Lookahead: 5, Gain: 9 }],
   // 27–30 s: echoes and a wash of reverb into the title card.
   [
@@ -896,7 +897,7 @@ spans.push({
   frameOffset: 0,
   filePath: samplePath(MUSIC.file),
 });
-MUSIC_SECTIONS.forEach(([name, parameters], index) => {
+MUSIC_SECTIONS.forEach(([name, parameters, then], index) => {
   const start = index * MUSIC_SECTION_SECONDS;
   const id = selections.length + 1;
   selections.push({
@@ -910,6 +911,9 @@ MUSIC_SECTIONS.forEach(([name, parameters], index) => {
   addEffect(clip, "Gain", { Gain: 0, Mute: 0 });
   if (parameters) {
     addEffect(clip, name, parameters);
+  }
+  if (then) {
+    addEffect(clip, ...then);
   }
 });
 

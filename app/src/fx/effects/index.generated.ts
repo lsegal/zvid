@@ -48,6 +48,7 @@ import * as order from "./order/definition.ts";
 import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as rePitch from "./re-pitch/definition.ts";
 import * as refraction from "./refraction/definition.ts";
 import { pass as refractionPass } from "./refraction/pass.ts";
 import * as reverb from "./reverb/definition.ts";
@@ -100,6 +101,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   order,
   phaser,
   pixelate,
+  rePitch,
   refraction,
   reverb,
   reverse,
