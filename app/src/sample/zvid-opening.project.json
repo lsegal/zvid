@@ -636,52 +636,45 @@
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 540,
-      "frameEnd": 585
-    },
-    {
-      "id": 59,
-      "trackId": "source-music",
-      "mainTrackId": "audio",
-      "frameStart": 585,
       "frameEnd": 630
     },
     {
-      "id": 60,
+      "id": 59,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 630,
       "frameEnd": 675
     },
     {
-      "id": 61,
+      "id": 60,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 675,
       "frameEnd": 720
     },
     {
-      "id": 62,
+      "id": 61,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 720,
       "frameEnd": 765
     },
     {
-      "id": 63,
+      "id": 62,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 765,
       "frameEnd": 810
     },
     {
-      "id": 64,
+      "id": 63,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 810,
       "frameEnd": 855
     },
     {
-      "id": 65,
+      "id": 64,
       "trackId": "source-music",
       "mainTrackId": "audio",
       "frameStart": 855,
@@ -5043,45 +5036,56 @@
     {
       "id": "sample-fx-156",
       "trackId": "clip:selection-58",
-      "effectName": "Stereo",
+      "effectName": "Phaser",
       "parameters": {
-        "Width": {
-          "floatValue": 200
+        "Rate": {
+          "floatValue": 0.33
         },
-        "Pan": {
-          "floatValue": 40
+        "Depth": {
+          "floatValue": 100
+        },
+        "Stages": {
+          "stringValue": "12"
+        },
+        "Center": {
+          "floatValue": 1000
+        },
+        "Feedback": {
+          "floatValue": 79
+        },
+        "Mix": {
+          "floatValue": 77
         }
       }
     },
     {
       "id": "sample-fx-157",
-      "trackId": "clip:selection-59",
-      "effectName": "Gain",
+      "trackId": "clip:selection-58",
+      "effectName": "Delay",
       "parameters": {
-        "Gain": {
-          "floatValue": 0
+        "Sync": {
+          "stringValue": "On"
         },
-        "Mute": {
-          "floatValue": 0
+        "Note": {
+          "stringValue": "1/8D"
+        },
+        "Feedback": {
+          "floatValue": 0.35
+        },
+        "Ping-pong": {
+          "stringValue": "Off"
+        },
+        "High cut": {
+          "floatValue": 8000
+        },
+        "Mix": {
+          "floatValue": 0.3
         }
       }
     },
     {
       "id": "sample-fx-158",
       "trackId": "clip:selection-59",
-      "effectName": "Mono",
-      "parameters": {
-        "Source": {
-          "stringValue": "Sum"
-        },
-        "Amount": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-159",
-      "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5093,8 +5097,8 @@
       }
     },
     {
-      "id": "sample-fx-160",
-      "trackId": "clip:selection-60",
+      "id": "sample-fx-159",
+      "trackId": "clip:selection-59",
       "effectName": "Re-Pitch",
       "parameters": {
         "Algorithm": {
@@ -5112,8 +5116,8 @@
       }
     },
     {
-      "id": "sample-fx-161",
-      "trackId": "clip:selection-61",
+      "id": "sample-fx-160",
+      "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5125,8 +5129,8 @@
       }
     },
     {
-      "id": "sample-fx-162",
-      "trackId": "clip:selection-61",
+      "id": "sample-fx-161",
+      "trackId": "clip:selection-60",
       "effectName": "De-ess",
       "parameters": {
         "Frequency": {
@@ -5144,8 +5148,8 @@
       }
     },
     {
-      "id": "sample-fx-163",
-      "trackId": "clip:selection-62",
+      "id": "sample-fx-162",
+      "trackId": "clip:selection-61",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5157,14 +5161,14 @@
       }
     },
     {
-      "id": "sample-fx-164",
-      "trackId": "clip:selection-62",
+      "id": "sample-fx-163",
+      "trackId": "clip:selection-61",
       "effectName": "Reverse",
       "parameters": {}
     },
     {
-      "id": "sample-fx-165",
-      "trackId": "clip:selection-62",
+      "id": "sample-fx-164",
+      "trackId": "clip:selection-61",
       "effectName": "Re-Pitch",
       "parameters": {
         "Semitones": {
@@ -5176,8 +5180,8 @@
       }
     },
     {
-      "id": "sample-fx-166",
-      "trackId": "clip:selection-63",
+      "id": "sample-fx-165",
+      "trackId": "clip:selection-62",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5189,8 +5193,8 @@
       }
     },
     {
-      "id": "sample-fx-167",
-      "trackId": "clip:selection-63",
+      "id": "sample-fx-166",
+      "trackId": "clip:selection-62",
       "effectName": "Limiter",
       "parameters": {
         "Ceiling": {
@@ -5208,8 +5212,8 @@
       }
     },
     {
-      "id": "sample-fx-168",
-      "trackId": "clip:selection-64",
+      "id": "sample-fx-167",
+      "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5221,8 +5225,8 @@
       }
     },
     {
-      "id": "sample-fx-169",
-      "trackId": "clip:selection-64",
+      "id": "sample-fx-168",
+      "trackId": "clip:selection-63",
       "effectName": "Delay",
       "parameters": {
         "Sync": {
@@ -5249,8 +5253,8 @@
       }
     },
     {
-      "id": "sample-fx-170",
-      "trackId": "clip:selection-65",
+      "id": "sample-fx-169",
+      "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -5262,8 +5266,8 @@
       }
     },
     {
-      "id": "sample-fx-171",
-      "trackId": "clip:selection-65",
+      "id": "sample-fx-170",
+      "trackId": "clip:selection-64",
       "effectName": "Reverb",
       "parameters": {
         "Decay": {
@@ -5284,7 +5288,7 @@
       }
     },
     {
-      "id": "sample-fx-172",
+      "id": "sample-fx-171",
       "trackId": "clip:selection-45",
       "effectName": "Scopes",
       "parameters": {}

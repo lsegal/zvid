@@ -800,12 +800,13 @@ addEffect(
 // The music is a source track of its own, and the Audio layer plays it as
 // consecutive two-beat selections covering the whole 30 s. Each selection's
 // clip sounds through a Gain at 0 dB and one audio effect, set to be heard
-// without clipping, so the music runs on through a tour of every audio
-// effect but the Noise Gate, the first two beats clean. Twenty selections
-// fill the 30 s, so Re-Pitch has bar 8 shifted up with its formants kept, and
-// shares Reverse's too: the reversed music slowed down like a tape. With the
-// music on a layer, the mix plays only the layer clips, so the source track
-// itself stays silent.
+// without clipping, so the music runs on through a tour of the audio
+// effects but the Noise Gate, Stereo and Mono, the first two beats clean.
+// Twenty two-beat slots fill the 30 s, so Re-Pitch has bar 8 shifted up with
+// its formants kept, and shares Reverse's too: the reversed music slowed down
+// like a tape. Bar 7 is one selection over two slots, a Phaser swept through
+// a Delay. With the music on a layer, the mix plays only the layer clips, so
+// the source track itself stays silent.
 // The source track holds the whole music as one clip, which each selection
 // plays where it is in the file.
 const MUSIC_TRACK = `source-${MUSIC.key}`;
@@ -848,7 +849,7 @@ const MUSIC_SECTIONS = [
   // 12–15 s: "edit" and the Pixelate window.
   ["High Cut", { Frequency: 600, Resonance: 0.7, Slope: "24 dB/oct" }],
   ["Low Cut", { Frequency: 1000, Resonance: 0.7, Slope: "24 dB/oct" }],
-  // 15–21 s: Negative Split, Analog Glitch and the glass three-ups.
+  // 15–18 s: Negative Split and Analog Glitch.
   [
     "EQ",
     {
@@ -862,8 +863,30 @@ const MUSIC_SECTIONS = [
     },
   ],
   ["Saturation", { Drive: 18, Type: "Tape", Tone: 8000, Output: -8, Mix: 1 }],
-  ["Stereo", { Width: 200, Pan: 40 }],
-  ["Mono", { Source: "Sum", Amount: 1 }],
+  // 18–21 s: the glass three-ups, under one bar-long selection.
+  [
+    "Phaser",
+    {
+      Rate: 0.33,
+      Depth: 100,
+      Stages: "12",
+      Center: 1000,
+      Feedback: 79,
+      Mix: 77,
+    },
+    [
+      "Delay",
+      {
+        Sync: "On",
+        Note: "1/8D",
+        Feedback: 0.35,
+        "Ping-pong": "Off",
+        "High cut": 8000,
+        Mix: 0.3,
+      },
+    ],
+    2,
+  ],
   // 21–24 s: the reactive Colorize again, re-pitched up with its formants.
   ["Re-Pitch", { Algorithm: "Formants", Semitones: 8, Cents: 0, Formants: 1 }],
   ["De-ess", { Frequency: 3000, Threshold: -45, Amount: 24, Listen: "Off" }],
@@ -885,7 +908,10 @@ const MUSIC_SECTIONS = [
   ],
   ["Reverb", { Decay: 6, "Pre-delay": 30, Size: 0.9, Damping: 6000, Mix: 0.5 }],
 ];
-const MUSIC_SECTION_SECONDS = DURATION_SECONDS / MUSIC_SECTIONS.length;
+// A section spans one two-beat slot unless its fourth element says more.
+const MUSIC_SLOT_SECONDS =
+  DURATION_SECONDS /
+  MUSIC_SECTIONS.reduce((total, [, , , slots = 1]) => total + slots, 0);
 spans.push({
   id: sourceSpanId(MUSIC.key),
   trackId: MUSIC_TRACK,
@@ -896,15 +922,17 @@ spans.push({
   frameOffset: 0,
   filePath: samplePath(MUSIC.file),
 });
-MUSIC_SECTIONS.forEach(([name, parameters, then], index) => {
-  const start = index * MUSIC_SECTION_SECONDS;
+let musicSectionStart = 0;
+for (const [name, parameters, then, slots = 1] of MUSIC_SECTIONS) {
+  const start = musicSectionStart;
+  musicSectionStart += slots * MUSIC_SLOT_SECONDS;
   const id = selections.length + 1;
   selections.push({
     id,
     trackId: MUSIC_TRACK,
     mainTrackId: "audio",
     frameStart: frames(start),
-    frameEnd: frames(start + MUSIC_SECTION_SECONDS),
+    frameEnd: frames(musicSectionStart),
   });
   const clip = clipTrack(`selection-${id}`);
   addEffect(clip, "Gain", { Gain: 0, Mute: 0 });
@@ -914,7 +942,7 @@ MUSIC_SECTIONS.forEach(([name, parameters, then], index) => {
   if (then) {
     addEffect(clip, ...then);
   }
-});
+}
 
 // Scopes changes nothing it shows, so it sits on the full-frame ribbon,
 // where its panel shows the shot's waveform. Added last, it leaves the ids

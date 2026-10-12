@@ -587,7 +587,7 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("plays its music from the Audio layer as two-beat selections", () => {
+  it("plays its music from the Audio layer as two-beat selections and a bar", () => {
     assert.equal(session.audioFilename, undefined);
     assert.equal(session.audioGainDefaulted, true);
     assert.equal(session.mainTracks?.at(-1)?.id, AUDIO_LAYER);
@@ -609,15 +609,18 @@ describe("zvid opening sample", () => {
     assert.equal(span.clipStart, 0);
     assert.equal(span.frameCount, 30 * FPS);
 
-    // Back to back from 0 to 30 s, two beats each, each playing the music
-    // where it is in the file.
+    // Back to back from 0 to 30 s, two beats each but a whole bar at bar 7
+    // (18–21 s), each playing the music where it is in the file.
     const selections = musicSelections();
-    assert.equal(selections.length, 20);
+    assert.equal(selections.length, 19);
     let frame = 0;
     for (const selection of selections) {
       assert.equal(selection.trackId, MUSIC_TRACK);
       assert.equal(selection.frameStart, frame);
-      assert.equal(selection.frameEnd - selection.frameStart, 1.5 * FPS);
+      assert.equal(
+        selection.frameEnd - selection.frameStart,
+        (frame === 18 * FPS ? 3 : 1.5) * FPS,
+      );
       assert.equal(selection.sourceClipId, undefined);
       frame = selection.frameEnd;
     }
@@ -638,11 +641,13 @@ describe("zvid opening sample", () => {
       assert.equal(gain.enabled !== false, true, clip);
       assert.equal(numberParameter(gain, "Gain"), 0, clip);
       assert.equal(numberParameter(gain, "Mute"), 0, clip);
-      // Re-Pitch shares Reverse's selection; the rest have one each.
+      // Re-Pitch shares Reverse's selection, and Delay follows the bar-7
+      // Phaser; the rest have one each.
       assert.ok(
         others.length <= 1 ||
-          others.map((effect) => effect.effectName).join() ===
-            "Reverse,Re-Pitch",
+          ["Reverse,Re-Pitch", "Phaser,Delay"].includes(
+            others.map((effect) => effect.effectName).join(),
+          ),
         clip,
       );
       for (const effect of others) {
@@ -651,7 +656,7 @@ describe("zvid opening sample", () => {
       }
     }
     // The first two beats are clean, and every other audio effect but the
-    // Noise Gate has a selection of its own.
+    // Noise Gate, Stereo and Mono is heard.
     const [first] = musicSelections();
     assert.equal(
       effectsOn(clipEffectTrackId(`selection-${first.id}`)).length,
@@ -660,7 +665,9 @@ describe("zvid opening sample", () => {
     assert.deepEqual(
       [...new Set(shown)].sort(),
       [...audioEffectNames]
-        .filter((name) => name !== "Gain" && name !== "Noise Gate")
+        .filter(
+          (name) => !["Gain", "Noise Gate", "Stereo", "Mono"].includes(name),
+        )
         .sort(),
     );
     // Audio effects are only on the music's selections.
@@ -674,6 +681,33 @@ describe("zvid opening sample", () => {
         assert.ok(musicClips.has(effect.trackId), effect.id);
       }
     }
+  });
+
+  it("sweeps bar 7's music through a Phaser into a Delay", () => {
+    const bar = musicSelections().find(
+      (selection) => selection.frameStart === 18 * FPS,
+    );
+    assert.equal(bar?.frameEnd, 21 * FPS);
+    const [, phaser, delay] = effectsOn(
+      clipEffectTrackId(`selection-${bar?.id}`),
+    );
+    assert.equal(phaser.effectName, "Phaser");
+    assert.equal(stringParameter(phaser, "Stages"), "12");
+    assert.deepEqual(
+      ["Rate", "Depth", "Center", "Feedback", "Mix"].map((key) =>
+        numberParameter(phaser, key),
+      ),
+      [0.33, 100, 1000, 79, 77],
+    );
+    assert.equal(delay.effectName, "Delay");
+    assert.deepEqual(
+      ["Sync", "Note", "Ping-pong"].map((key) => stringParameter(delay, key)),
+      ["On", "1/8D", "Off"],
+    );
+    assert.deepEqual(
+      ["Feedback", "High cut", "Mix"].map((key) => numberParameter(delay, key)),
+      [0.35, 8000, 0.3],
+    );
   });
 
   it("re-pitches bar 8's music up 8 semitones with its formants kept", () => {
@@ -857,13 +891,14 @@ describe("zvid opening sample", () => {
     const mixed = [...mix.clips].sort(
       (left, right) => left.startSeconds - right.startSeconds,
     );
-    assert.equal(mixed.length, 20);
+    assert.equal(mixed.length, 19);
     let seconds = 0;
     for (const clip of mixed) {
       assert.equal(clip.mediaId, MUSIC_ID);
       assert.equal(clip.busId, AUDIO_LAYER);
       assert.ok(Math.abs(clip.startSeconds - seconds) < 1e-9, clip.id);
-      assert.ok(Math.abs(clip.durationSeconds - 1.5) < 1e-9, clip.id);
+      const bar = Math.abs(seconds - 18) < 1e-9 ? 3 : 1.5;
+      assert.ok(Math.abs(clip.durationSeconds - bar) < 1e-9, clip.id);
       // Each plays the music where it is in the file, so it runs on
       // unbroken.
       assert.ok(Math.abs(clip.sourceOffsetSeconds) < 1e-9, clip.id);

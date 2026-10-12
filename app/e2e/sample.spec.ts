@@ -10,8 +10,10 @@ import { readProjectArchive } from "../src/project-archive.ts";
 const SAMPLE_MEDIA = "**/samples/opening-v2/*";
 const MUSIC_TRACK = "source-music";
 const MUSIC_ID = "zvid-sample:opening-v2:music";
-// The Audio layer plays the music as 20 two-beat selections.
-const MUSIC_SELECTIONS = 20;
+// The Audio layer plays the music as 19 selections, two beats each but one
+// a whole bar long, so its effects change every two beats.
+const MUSIC_SELECTIONS = 19;
+const MUSIC_SECTIONS = 20;
 
 // Each load reads about 15 MB of media and analyzes it.
 test.describe.configure({ timeout: 120_000 });
@@ -342,7 +344,7 @@ test("the Audio layer plays the music in time through its effects", async ({
         sectionChanges,
       };
     },
-    { musicId: MUSIC_ID, sections: MUSIC_SELECTIONS },
+    { musicId: MUSIC_ID, sections: MUSIC_SECTIONS },
   );
 
   expect(musicHits.length).toBeGreaterThan(0);
