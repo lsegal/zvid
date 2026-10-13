@@ -44,8 +44,14 @@ describe("isMediaFile", () => {
     assert.equal(isMediaFile(file("Logo.SVG")), true);
   });
 
+  it("accepts raster images by type or extension", () => {
+    assert.equal(isMediaFile(file("still.png", "image/png")), true);
+    assert.equal(isMediaFile(file("loop.gif", "")), true);
+    assert.equal(isMediaFile(file("photo.jpg", "image/jpeg")), true);
+  });
+
   it("rejects other images and text", () => {
-    assert.equal(isMediaFile(file("still.png", "image/png")), false);
+    assert.equal(isMediaFile(file("scan.tiff", "image/tiff")), false);
     assert.equal(isMediaFile(file("notes.txt", "text/plain")), false);
   });
 });
@@ -62,14 +68,14 @@ describe("getSourceTrackDragState", () => {
     );
   });
 
-  it("accepts SVG file items during dragover", () => {
+  it("accepts image file items during dragover", () => {
     assert.deepEqual(
       getSourceTrackDragState({
         types: ["Files"],
         files: [],
-        items: [item("image/svg+xml"), item("image/png")],
+        items: [item("image/svg+xml"), item("image/png"), item("image/gif")],
       }),
-      { kind: "accept", fileCount: 1 },
+      { kind: "accept", fileCount: 3 },
     );
   });
 
@@ -88,7 +94,7 @@ describe("getSourceTrackDragState", () => {
     assert.deepEqual(
       getSourceTrackDragState({
         types: ["Files"],
-        items: [item("image/png"), item("audio/wav")],
+        items: [item("image/tiff"), item("audio/wav")],
       }),
       { kind: "accept", fileCount: 1 },
     );
@@ -98,14 +104,14 @@ describe("getSourceTrackDragState", () => {
     assert.deepEqual(
       getSourceTrackDragState({
         types: ["Files"],
-        items: [item("image/png"), item("text/plain")],
+        items: [item("image/tiff"), item("text/plain")],
       }),
       { kind: "reject" },
     );
     assert.deepEqual(
       getSourceTrackDragState({
         types: ["Files"],
-        files: [file("still.png", "image/png")],
+        files: [file("scan.tiff", "image/tiff")],
       }),
       { kind: "reject" },
     );
