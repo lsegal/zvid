@@ -26,7 +26,8 @@
   outline-offset: 1px;
 }
 
-/* Narrow handles leave the track name as much room as they can. */
+/* Narrow handles have no room for it beside the track name, Hide, FX and
+   arm buttons; selecting the track still shows its Synth device. */
 .timeline-canvas--narrow-labels .track-label__instrument {
-  padding-inline: 1px;
+  display: none;
 }
