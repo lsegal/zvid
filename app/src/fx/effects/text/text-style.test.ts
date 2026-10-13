@@ -111,6 +111,34 @@ describe("readTextStyle", () => {
       undefined,
     );
   });
+
+  it("dashes the stroke only with a dash and a gap", () => {
+    const stroke = (parameters: Array<{ key: string; value: string }>) =>
+      readTextStyle(
+        textEffect([{ key: "StrokeWidth", value: "4" }, ...parameters]),
+      ).stroke;
+    assert.equal(stroke([]).dash, undefined);
+    assert.deepEqual(stroke([{ key: "StrokeDash", value: "30" }])?.dash, {
+      length: 30,
+      gap: 20,
+      offset: 0,
+    });
+    assert.deepEqual(
+      stroke([
+        { key: "StrokeDash", value: "12" },
+        { key: "StrokeGap", value: "6" },
+        { key: "StrokeOffset", value: "-5000" },
+      ])?.dash,
+      { length: 12, gap: 6, offset: -1000 },
+    );
+    assert.equal(
+      stroke([
+        { key: "StrokeDash", value: "12" },
+        { key: "StrokeGap", value: "0" },
+      ])?.dash,
+      undefined,
+    );
+  });
 });
 
 describe("style flags", () => {

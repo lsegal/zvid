@@ -264,6 +264,8 @@ describe("getAnimatableParameters", () => {
     for (const key of ["Text", "FontFamily", "Align", "Color", "Gradient"]) {
       assert.ok(!text.includes(key), key);
     }
+    // Modulating a dashed stroke's Offset marches its dashes.
+    assert.ok(text.includes("StrokeOffset"));
     assert.deepEqual(getAnimatableParameters("Color"), [
       { key: "Opacity", label: "Opacity" },
     ]);
