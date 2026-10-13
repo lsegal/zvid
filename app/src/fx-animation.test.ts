@@ -196,7 +196,9 @@ describe("animation defaults", () => {
   });
 
   it("starts every LFO synced at 1/8", () => {
-    for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
+    for (const effectName of KNOWN_EFFECTS.filter((effectName) =>
+      supportsAnimationMode(effectName, "lfo"),
+    )) {
       const lfo = createDefaultAnimation(effectName)?.lfo;
       assert.equal(lfo?.sync, true, effectName);
       assert.equal(lfo?.syncRate, "1/8", effectName);
@@ -523,13 +525,13 @@ describe("normalizeEffectAnimation", () => {
     for (const syncRate of LFO_SYNC_RATES) {
       assert.equal(
         normalizeEffectAnimation({ lfo: { syncRate } }, "Colorize")?.lfo
-          .syncRate,
+          ?.syncRate,
         syncRate,
       );
     }
     assert.equal(
       normalizeEffectAnimation({ lfo: { syncRate: "1/64" } }, "Colorize")?.lfo
-        .syncRate,
+        ?.syncRate,
       "1/8",
     );
   });
