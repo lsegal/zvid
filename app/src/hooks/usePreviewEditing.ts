@@ -11,11 +11,20 @@ import {
 import { isClipAtPlayhead } from "../app/timeline-math.ts";
 import type { ArrangementClip, Lane } from "../app/types.ts";
 import type {
+  PreviewMoveEdit,
+  PreviewMovePathEditing,
+} from "../components/PreviewMovePath";
+import type {
   PreviewLayerMove,
   PreviewLayerTransformEdit,
   PreviewTextEdit,
 } from "../components/PreviewTransformOverlay";
-import { clipEffectTrackId, type SessionEffect } from "../fx-stack";
+import { isMoveEffectName, parseLayerMove } from "../composition-transform.ts";
+import {
+  clipEffectTrackId,
+  type SessionEffect,
+  setEffectParameter,
+} from "../fx-stack";
 import {
   getPreviewEditTrackId,
   moveHistoryLabel,
@@ -40,6 +49,8 @@ import {
 } from "../preview-text-edit.ts";
 import { isTextClip } from "../text-clip.ts";
 import { resolveTextStyle } from "../text-style.ts";
+
+const MOVE_PATH_HISTORY_LABEL = "Edit Move path";
 
 export type PreviewEditingInputs = {
   bpm: number;
@@ -163,6 +174,33 @@ export function usePreviewEditing({
       );
     },
     [describePreviewEditTarget, editEffects],
+  );
+  // A Move's path on the preview reads the Move's stored parameters, not
+  // the animated ones it is drawn with, and edits them as one undo step per
+  // gesture.
+  const movePathEditing = useMemo<PreviewMovePathEditing>(
+    () => ({
+      getMove: (effectId: string) => {
+        const effect = effectsRef.current.find(
+          (candidate) => candidate.id === effectId,
+        );
+        return effect && isMoveEffectName(effect.effectName)
+          ? parseLayerMove(effect.parameters)
+          : undefined;
+      },
+      onEdit: ({ effectId, values, mode }: PreviewMoveEdit) =>
+        editEffects(
+          MOVE_PATH_HISTORY_LABEL,
+          (current) =>
+            Object.entries(values).reduce(
+              (result, [key, value]) =>
+                setEffectParameter(result, effectId, key, value),
+              current,
+            ),
+          mode,
+        ),
+    }),
+    [editEffects],
   );
   // The text clip being typed on in the preview. Every keystroke is a
   // transient edit of the clip's Text effect, so the FX panel and
@@ -325,6 +363,7 @@ export function usePreviewEditing({
     movePreviewLayer,
     getPreviewLayerTransform,
     transformPreviewLayer,
+    movePathEditing,
     textEdit,
     finishTextEdit,
     startTextEdit,

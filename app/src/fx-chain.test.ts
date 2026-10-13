@@ -480,7 +480,7 @@ describe("knobColumnCount", () => {
     ]);
   });
 
-  it("lays Move out as a Motion row, then labeled Start and End rows", () => {
+  it("lays Move out as a Motion row, then labeled Start and End rows, with no Waypoints control", () => {
     const [move] = mapSessionEffectsToDevices(
       [effect("fx-move", "3", "Move")],
       "3",
@@ -498,10 +498,7 @@ describe("knobColumnCount", () => {
 
     assert.deepEqual(
       controls.map((control) => [control.label, control.stringValue]),
-      [
-        ["Motion", "Ease In Out"],
-        ["Waypoints", "0"],
-      ],
+      [["Motion", "Ease In Out"]],
     );
     assert.deepEqual(
       splitKnobRows(knobs, move.knobRows)?.map((row) => [
@@ -531,7 +528,7 @@ describe("knobColumnCount", () => {
 
     assert.deepEqual(
       controls.map((control) => control.label),
-      ["Motion", "Waypoints", "Path"],
+      ["Motion", "Path"],
     );
     assert.deepEqual(
       splitKnobRows(knobs, move.knobRows)?.map((row) => [

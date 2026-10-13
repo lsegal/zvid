@@ -1,0 +1,100 @@
+/* The selected clip's Move path over the preview. Only the path and its dots
+   take the pointer, so the transform overlay beneath keeps the rest. */
+.preview-move-path {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.preview-move-path__svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.preview-move-path__halo,
+.preview-move-path__line,
+.preview-move-path__hit {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A dark halo under the accent line keeps it visible on any footage. */
+.preview-move-path__halo {
+  stroke: rgba(7, 8, 15, 0.7);
+  stroke-width: 4px;
+}
+
+.preview-move-path__line {
+  stroke: #ff7f8f;
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+}
+
+/* A wider, invisible stroke along the path is where a click adds a
+   waypoint. */
+.preview-move-path__hit {
+  stroke: transparent;
+  stroke-width: 12px;
+  pointer-events: stroke;
+  cursor: copy;
+}
+
+.preview-move-path__dot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 2px solid #ff7f8f;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(7, 8, 15, 0.6);
+  color: #07080f;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.preview-move-path__dot--start,
+.preview-move-path__dot--end {
+  border-radius: 3px;
+}
+
+.preview-move-path__dot--end {
+  background: #ff7f8f;
+}
+
+.preview-move-path__dot[aria-pressed="true"] {
+  width: 20px;
+  height: 20px;
+  border-color: #fff;
+  box-shadow:
+    0 0 0 2px #ff7f8f,
+    0 0 0 3px rgba(7, 8, 15, 0.6);
+}
+
+.preview-move-path__dot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.preview-move-path__hint {
+  position: absolute;
+  z-index: 3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(7, 8, 15, 0.85);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  transform: translate(12px, 12px);
+}

@@ -6,6 +6,7 @@
 // so with an Order a transformed layer never leaves its slot. Everything here is in canvas pixels, origin
 // top-left, +y down, with positive rotation turning clockwise on screen.
 import type { FrameBounds } from "./composition-layout.ts";
+import type { LayerMove } from "./fx/effects/move/move.ts";
 
 export type LayerTransform = {
   // Offset of the box, in canvas widths (x) and heights (y, + down).
@@ -126,6 +127,18 @@ export type TransformMotion = {
   inner: readonly LayerTransform[];
 };
 
+// Where one of a clip's Moves sits among the Transforms that place it: on
+// its layer's or its own stack, in that stack's `outer` or `inner` Moves at
+// `index`, with the Move it resolves from. The preview draws its path from
+// this.
+export type MoveSource = {
+  effectId: string;
+  stack: "layer" | "clip";
+  slot: keyof TransformMotion;
+  index: number;
+  move: LayerMove;
+};
+
 // The geometry a clip is drawn with: its layer's Transform and Moves, then
 // its own nested inside them.
 export type TransformedVisual = {
@@ -133,6 +146,7 @@ export type TransformedVisual = {
   clipTransform?: LayerTransform;
   motion?: TransformMotion;
   clipMotion?: TransformMotion;
+  moves?: readonly MoveSource[];
 };
 
 // Outermost first: each Transform nests inside the ones before it.

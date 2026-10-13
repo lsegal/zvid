@@ -59,7 +59,9 @@ import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   isMoveEffectName,
   isTransformEffectName,
+  type LayerMove,
   type LayerTransform,
+  type MoveSource,
   parseLayerMove,
   parseLayerTransform,
   resolveMoveTransform,
@@ -191,6 +193,8 @@ export type VisualState = {
   // inside that stack's Transform.
   motion?: TransformMotion;
   clipMotion?: TransformMotion;
+  // Where each of those Moves sits, set only when there are any.
+  moves?: MoveSource[];
 };
 
 export type ActiveClip = {
@@ -336,6 +340,12 @@ export function resolveVisualState(
   };
   const layerMotion: TransformMotionDraft = { outer: [], inner: [] };
   const clipMotion: TransformMotionDraft = { outer: [], inner: [] };
+  const moves: Array<{
+    effectId: string;
+    isLayer: boolean;
+    move: LayerMove;
+    transform: LayerTransform;
+  }> = [];
 
   for (const effect of withClipStackLast(effects, clipTrackId)) {
     if (
@@ -397,9 +407,10 @@ export function resolveVisualState(
         ? state.transform !== undefined
         : state.clipTransform !== undefined;
       const motion = isLayer ? layerMotion : clipMotion;
-      (hasTransform ? motion.inner : motion.outer).push(
-        resolveMoveTransform(parseLayerMove(effect.parameters), clipProgress),
-      );
+      const move = parseLayerMove(effect.parameters);
+      const transform = resolveMoveTransform(move, clipProgress);
+      (hasTransform ? motion.inner : motion.outer).push(transform);
+      moves.push({ effectId: effect.id, isLayer, move, transform });
       continue;
     }
 
@@ -477,6 +488,24 @@ export function resolveVisualState(
   }
   if (clipMotion.outer.length || clipMotion.inner.length) {
     state.clipMotion = clipMotion;
+  }
+  // A later Transform moves the Moves before it outside it, so each Move's
+  // place is found once the stacks are read.
+  const sources = moves.map<MoveSource>(
+    ({ effectId, isLayer, move, transform }) => {
+      const motion = isLayer ? layerMotion : clipMotion;
+      const inner = motion.inner.indexOf(transform);
+      return {
+        effectId,
+        stack: isLayer ? "layer" : "clip",
+        slot: inner >= 0 ? "inner" : "outer",
+        index: inner >= 0 ? inner : motion.outer.indexOf(transform),
+        move,
+      };
+    },
+  );
+  if (sources.length) {
+    state.moves = sources;
   }
   return state;
 }
