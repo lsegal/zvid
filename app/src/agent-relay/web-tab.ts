@@ -49,11 +49,12 @@ export interface WebTabRelayOptions {
 /** Keeps the tab connected to the relay, reconnecting while the relay is
  * down, until the returned stop function runs. */
 export function connectWebTabAgentRelay(
-  host: AgentCommandHost,
+  getHost: () => AgentCommandHost | undefined,
   url: string,
   options: WebTabRelayOptions,
 ): () => void {
-  const createSocket = options.createSocket ?? ((target) => new WebSocket(target));
+  const createSocket =
+    options.createSocket ?? ((target) => new WebSocket(target));
   const reconnectDelayMs = options.reconnectDelayMs ?? RECONNECT_DELAY_MS;
   let stopped = false;
   let socket: WebSocket | null = null;
@@ -80,7 +81,7 @@ export function connectWebTabAgentRelay(
       } catch {
         return;
       }
-      void respondToAgentRelayMessage(host, raw).then((response) => {
+      void respondToAgentRelayMessage(getHost(), raw).then((response) => {
         if (response && current.readyState === current.OPEN) {
           current.send(JSON.stringify(response));
         }

@@ -69,7 +69,8 @@ const desktop =
           (await readDesktopDiscovery(discoveryPath)) !== null,
         request: async (request) => {
           const discovery = await readDesktopDiscovery(discoveryPath);
-          if (!discovery) throw new Error("The zvid desktop app is not running.");
+          if (!discovery)
+            throw new Error("The zvid desktop app is not running.");
           return requestDesktop(discovery, request);
         },
       };

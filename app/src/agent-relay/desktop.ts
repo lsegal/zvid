@@ -17,7 +17,7 @@ interface DesktopRelayRequest {
   arguments?: Record<string, unknown>;
 }
 
-interface TauriRelayApi {
+export interface TauriRelayApi {
   listen(
     event: string,
     handler: (event: { payload: DesktopRelayRequest }) => void,
@@ -27,13 +27,13 @@ interface TauriRelayApi {
 
 /** Answers the native relay's requests until the returned stop function runs. */
 export async function serveDesktopAgentRelay(
-  host: AgentCommandHost,
+  getHost: () => AgentCommandHost | undefined,
   api: TauriRelayApi,
 ): Promise<() => void> {
   const unlisten = await api.listen(
     AGENT_RELAY_REQUEST_EVENT,
     ({ payload }) => {
-      void runAgentRelayRequest(host, payload).then(
+      void runAgentRelayRequest(getHost(), payload).then(
         (response: AgentRelayResult) =>
           api.invoke("agent_relay_respond", { id: payload.id, response }),
       );

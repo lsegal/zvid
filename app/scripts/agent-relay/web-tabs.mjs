@@ -35,8 +35,7 @@ export function createWebTabHub(options = {}) {
   const server = new WebSocketServer({
     host: options.host ?? "127.0.0.1",
     port: options.port ?? DEFAULT_WEB_TAB_PORT,
-    verifyClient: ({ origin }) =>
-      isAllowedOrigin(origin, options.allowOrigins),
+    verifyClient: ({ origin }) => isAllowedOrigin(origin, options.allowOrigins),
   });
 
   server.on("connection", (socket) => {

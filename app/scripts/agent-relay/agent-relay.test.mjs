@@ -23,7 +23,7 @@ function fakeHost() {
   const calls = [];
   return {
     calls,
-    listCommands: () => [
+    tools: () => [
       {
         name: "set_playhead",
         description: "Moves the playhead.",
@@ -33,10 +33,18 @@ function fakeHost() {
         },
       },
     ],
-    runCommand: async (name, args) => {
-      if (name !== "set_playhead") throw new Error(`Unknown command ${name}`);
+    call: async (name, args) => {
+      if (name !== "set_playhead") {
+        return {
+          ok: false,
+          error: {
+            code: "unknown_command",
+            message: `Unknown command ${name}`,
+          },
+        };
+      }
       calls.push(args);
-      return { playhead: args.seconds };
+      return { ok: true, result: { playhead: args.seconds } };
     },
   };
 }
@@ -61,7 +69,7 @@ test("relays MCP tool calls to a connected web tab and back", async (t) => {
   t.after(() => hub.close());
   const host = fakeHost();
   const stop = connectWebTabAgentRelay(
-    host,
+    () => host,
     `ws://127.0.0.1:${hub.port()}`,
     { version: "1.2.3" },
   );
@@ -103,7 +111,10 @@ test("relays MCP tool calls to a connected web tab and back", async (t) => {
     arguments: {},
   });
   assert.equal(failed.result.isError, true);
-  assert.match(failed.result.content[0].text, /Unknown command explode/);
+  assert.deepEqual(JSON.parse(failed.result.content[0].text), {
+    code: "unknown_command",
+    message: "Unknown command explode",
+  });
 });
 
 test("reports no instance, and a tab that closes mid-request", async (t) => {

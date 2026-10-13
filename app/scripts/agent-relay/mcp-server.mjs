@@ -4,11 +4,7 @@
 // tab when there is one, else the desktop app; `target` pins one of them.
 
 export const PROTOCOL_VERSION = "2025-06-18";
-const SUPPORTED_PROTOCOL_VERSIONS = [
-  "2025-06-18",
-  "2025-03-26",
-  "2024-11-05",
-];
+const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 // Tools the relay itself provides, available before any zvid connects. A
 // client that never refreshes its tool list can still reach every command
@@ -100,7 +96,11 @@ function textResult(value, isError = false) {
 
 function relayResult(answer) {
   if (answer.ok) return textResult(answer.result ?? null);
-  return textResult(answer.error?.message ?? "The command failed.", true);
+  // The whole error, so the agent sees its code and any input problems.
+  return textResult(
+    answer.error ?? { code: "failed", message: "The command failed." },
+    true,
+  );
 }
 
 /** Handles MCP JSON-RPC messages; `handle` resolves with the response, or
