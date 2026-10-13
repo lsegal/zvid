@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import { resolveVisualState } from "../composition-active-clips.ts";
 import { parseCubeLut } from "../fx/effects/lut/cube.ts";
 import { clipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
@@ -509,22 +510,16 @@ describe("zvid opening sample", () => {
     ]);
   });
 
-  it("keeps no layer effects but the corridor's Layout", () => {
+  it("keeps no layer effects, with the corridor's Layout on its clips", () => {
     const layerIds = new Set(
       (session.mainTracks ?? []).map((layer) => layer.id),
     );
     assert.deepEqual(
-      (session.effects ?? [])
-        .filter((effect) => layerIds.has(effect.trackId))
-        .map((effect) => [
-          effect.trackId,
-          effect.effectName,
-          stringParameter(effect, "Position"),
-        ]),
-      [["corridor", "Layout", "Bottom"]],
+      (session.effects ?? []).filter((effect) => layerIds.has(effect.trackId)),
+      [],
     );
-    // Opened, every layer anchors as it always has: the corridor at the
-    // bottom, everything else centered.
+    // Opened, every layer has its Center Layout, and every clip anchors as
+    // it always has: the corridor's at the bottom, everything else centered.
     const { project } = openSample();
     for (const lane of project.lanes) {
       const layouts = project.effects.filter(
@@ -535,8 +530,20 @@ describe("zvid opening sample", () => {
       assert.equal(
         layouts[0].parameters.find((parameter) => parameter.key === "Position")
           ?.value,
-        lane.id === "corridor" ? "Bottom" : "Center",
+        "Center",
         `${lane.id} Layout`,
+      );
+    }
+    const laneIds = new Set(project.lanes.map((lane) => lane.id));
+    const clips = project.arrangementClips.filter(
+      (clip) => laneIds.has(clip.laneId) && clip.kind !== "fx",
+    );
+    assert.ok(clips.some((clip) => clip.laneId === "corridor"));
+    for (const clip of clips) {
+      assert.equal(
+        resolveVisualState(project.effects, clip.laneId, clip.id).layoutAnchor,
+        clip.laneId === "corridor" ? "bottom" : "center",
+        `${clip.id} on ${clip.laneId}`,
       );
     }
   });

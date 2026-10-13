@@ -78,17 +78,19 @@ export function getFxClipName(label: string, textPreview = "") {
 }
 
 // Effects the `group` add menu offers: the known ones designed for that
-// stack, except those every layer is already given (Layout). An FX clip's
-// stack is the "fxClip" scope. An audio clip's menus offer only audio
-// effects.
+// stack, except on a layer those every layer is already given (Layout), and
+// a Layout once the stack (`stack`) has one. An FX clip's stack is the
+// "fxClip" scope. An audio clip's menus offer only audio effects.
 export function addableEffectsFor(
   group: FxEffectScope,
   kind: string | undefined = undefined,
+  stack: readonly Pick<FxDevice, "effectName">[] = [],
 ) {
   return FX_EFFECT_DEFINITIONS.filter(
     (definition) =>
       definition.known &&
-      !definition.layerDefault &&
+      !(definition.layerDefault && group === "layer") &&
+      canPlaceDevice(definition.effectName, group, stack) &&
       definition.scopes.includes(group) &&
       (kind !== "audio" || getEffectDomain(definition) === "audio"),
   );
@@ -415,7 +417,7 @@ export function isFixedDevice(
 }
 
 // Whether an `effectName` device can be pasted onto a `scope` stack holding
-// `stack`: its definition must support the scope, and a layer keeps a
+// `stack`: its definition must support the scope, and a stack keeps a
 // single Layout.
 export function canPlaceDevice(
   effectName: string,

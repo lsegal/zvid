@@ -1,5 +1,9 @@
 import type { ContextMenuEntry } from "../../context-menu";
-import type { FxDevice, FxDeviceGroup } from "../../fx-stack";
+import {
+  type FxDevice,
+  type FxDeviceGroup,
+  isLayoutEffectName,
+} from "../../fx-stack.ts";
 
 // The device a context menu was opened on, and where.
 export type DeviceMenuState = {
@@ -104,8 +108,8 @@ export function getDeviceMenuEntries(
       type: "item",
       id: "duplicate",
       label: "Duplicate",
-      // Every layer has exactly one Layout.
-      disabled: device.layerDefault,
+      // A stack has at most one Layout.
+      disabled: isLayoutEffectName(device.effectName),
       onSelect: () => duplicateDevice(device),
     },
     {

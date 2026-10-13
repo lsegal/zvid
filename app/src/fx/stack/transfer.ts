@@ -33,7 +33,7 @@ export function copyEffect(
 }
 
 // Whether an `effectName` effect can join the `trackId` stack, whose scope
-// is `scope`: its definition must support the scope, and a layer keeps a
+// is `scope`: its definition must support the scope, and a stack keeps a
 // single Layout.
 export function canPlaceEffect(
   effects: readonly SessionEffect[],

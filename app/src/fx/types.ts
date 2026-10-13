@@ -185,8 +185,8 @@ export type FxEffectDefinition = {
   // Stacks the add menus offer the effect on. A device loaded onto any other
   // stack still shows, flagged as not supported there.
   scopes: readonly FxEffectScope[];
-  // True for an effect every visual layer is given exactly once, so no add
-  // menu offers it.
+  // True for an effect every visual layer is given exactly once, so no
+  // layer add menu offers it.
   layerDefault?: boolean;
   // Labels for the knob rows, when the knobs split evenly into labeled
   // rows (a Move's Start, waypoints and End) instead of filling two rows
