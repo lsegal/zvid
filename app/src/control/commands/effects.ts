@@ -82,9 +82,7 @@ function describeDefinition(definition: FxEffectDefinition) {
     domain: getEffectDomain(definition),
     category: definition.category,
     scopes: definition.scopes,
-    parameters: definition.parameters
-      .filter(isEditable)
-      .map(describeParameter),
+    parameters: definition.parameters.filter(isEditable).map(describeParameter),
   };
 }
 
@@ -125,7 +123,9 @@ function checkParameterValue(
   switch (parameter.kind) {
     case "number":
       if (typeof value !== "number") {
-        throw invalid(`must be a number from ${parameter.min} to ${parameter.max}.`);
+        throw invalid(
+          `must be a number from ${parameter.min} to ${parameter.max}.`,
+        );
       }
       if (value < parameter.min || value > parameter.max) {
         throw invalid(`${value} is outside ${parameter.min}–${parameter.max}.`);
@@ -169,7 +169,9 @@ function checkParameterValue(
         (id) => !project.lanes.some((lane) => lane.id === id),
       );
       if (missing.length) {
-        throw invalid(`no layer has id ${missing.map((id) => `"${id}"`).join(", ")}.`);
+        throw invalid(
+          `no layer has id ${missing.map((id) => `"${id}"`).join(", ")}.`,
+        );
       }
       return ids.join(",");
     }
@@ -205,7 +207,7 @@ export const effectCommands: ControlCommand[] = [
   {
     name: "add_effect",
     description:
-      'Adds an effect with its default parameters to a stack: a layer\'s, a clip\'s own, the Global stack that processes the whole picture, a source track\'s or a source clip\'s. Stacks run top to bottom. Returns the effect; configure it with set_effect_parameter. Effect names come from list_effects (such as "Reverb" or "GaussianBlur").',
+      "Adds an effect with its default parameters to a stack: a layer's, a clip's own, the Global stack that processes the whole picture, a source track's or a source clip's. Stacks run top to bottom. Returns the effect; configure it with set_effect_parameter. Effect names come from list_effects (such as \"Reverb\" or \"GaussianBlur\").",
     inputSchema: objectSchema(
       {
         effectName: {
@@ -224,7 +226,8 @@ export const effectCommands: ControlCommand[] = [
         },
         index: {
           type: "integer",
-          description: "Its position in the stack, 0 for first; last when omitted.",
+          description:
+            "Its position in the stack, 0 for first; last when omitted.",
           minimum: 0,
         },
       },

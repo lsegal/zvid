@@ -37,6 +37,7 @@ import { useAppLayout } from "./hooks/useAppLayout.ts";
 import { useAppMedia } from "./hooks/useAppMedia.ts";
 import { useAudioMix } from "./hooks/useAudioMix.ts";
 import { useCollaborationState } from "./hooks/useCollaboration.ts";
+import { useControlSurface } from "./hooks/useControlSurface.ts";
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxContexts } from "./hooks/useFxContexts.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
@@ -368,13 +369,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startNewSession: workspace.startNewSession,
   });
   const { handleRandomizeTimeline } = editing;
-  const {
-    openExportDialog,
-    reopenExportDialog,
-    dismissExportActivity,
-    exportDialog,
-    exportActivity,
-  } = useExport({
+  const exporter = useExport({
     ...exportState,
     project,
     mediaItems,
@@ -384,6 +379,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     isPlaying,
     setIsPlaying,
     setStatus,
+  });
+  useControlSurface({
+    hooks: { store, selection, timeline, playback, historyCommands },
+    transport: { isPlaying, setIsPlaying },
+    importMedia: mediaImport.importMediaIntoSourceTrack,
+    exportTo: exporter.exportTo,
+    newSession,
   });
   const { selectSource } = selection;
   const selectSourceSpanClip = useCallback(
@@ -412,7 +414,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     handleSaveToLibrary: library.saveToLibrary,
     isExporting,
     offlineMedia: mediaImport.offlineMedia,
-    openExportDialog,
+    openExportDialog: exporter.openExportDialog,
     showsMediaSync: mediaImport.showsMediaSync,
   };
   const phone = usePhoneShell({
@@ -743,7 +745,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         {...sharing}
         collaboration={collaboration}
         commitProjectChange={commitProjectChange}
-        exportDialog={exportDialog}
+        exportDialog={exporter.exportDialog}
         exportProject={sessionFiles.handleExportProject}
         setStatus={setStatus}
         handleMediaStorageCleared={media.handleMediaStorageCleared}
@@ -770,13 +772,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipCount={timelineClips.length}
         collaborationMode={collaborationMode}
         collaborationState={collaborationState}
-        dismissExportActivity={dismissExportActivity}
-        exportActivity={exportActivity}
+        dismissExportActivity={exporter.dismissExportActivity}
+        exportActivity={exporter.exportActivity}
         fps={fps}
         offlineCount={mediaImport.offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={preview.previewMedia}
-        reopenExportDialog={reopenExportDialog}
+        reopenExportDialog={exporter.reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={dialogs.setIsSessionSettingsOpen}
         shareUrl={collaboration.shareUrl}

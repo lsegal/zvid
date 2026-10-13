@@ -77,23 +77,27 @@ function checkProperty(
         ? undefined
         : `"${key}" must be a boolean, not ${typeOf(value)}.`;
     default: {
+      const range = schema as Extract<
+        ControlPropertySchema,
+        { type: "number" | "integer" }
+      >;
       if (typeof value !== "number" || !Number.isFinite(value)) {
         return `"${key}" must be a finite number, not ${typeOf(value)}.`;
       }
-      if (schema.type === "integer" && !Number.isInteger(value)) {
+      if (range.type === "integer" && !Number.isInteger(value)) {
         return `"${key}" must be a whole number.`;
       }
-      if (schema.minimum !== undefined && value < schema.minimum) {
-        return `"${key}" must be at least ${schema.minimum}.`;
+      if (range.minimum !== undefined && value < range.minimum) {
+        return `"${key}" must be at least ${range.minimum}.`;
       }
-      if (schema.maximum !== undefined && value > schema.maximum) {
-        return `"${key}" must be at most ${schema.maximum}.`;
+      if (range.maximum !== undefined && value > range.maximum) {
+        return `"${key}" must be at most ${range.maximum}.`;
       }
       if (
-        schema.exclusiveMinimum !== undefined &&
-        value <= schema.exclusiveMinimum
+        range.exclusiveMinimum !== undefined &&
+        value <= range.exclusiveMinimum
       ) {
-        return `"${key}" must be greater than ${schema.exclusiveMinimum}.`;
+        return `"${key}" must be greater than ${range.exclusiveMinimum}.`;
       }
       return undefined;
     }

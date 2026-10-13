@@ -43,7 +43,7 @@ export type SourceTrackDropInputs = {
   importMediaIntoSourceTrack: (
     files: File[],
     target: SourceTrackDropTarget,
-  ) => Promise<void>;
+  ) => Promise<unknown>;
   placeMediaInSourceTrack: (
     mediaIds: string[],
     target: SourceTrackDropTarget,

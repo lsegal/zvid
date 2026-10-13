@@ -1,5 +1,5 @@
-import { patchProjectState } from "../app/session-project.ts";
 import { BPM_MAX, BPM_MIN } from "../app/constants.ts";
+import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
 

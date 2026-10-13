@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
 } from "react";
+import { createWindowClip as createWindowClipFor } from "../app/clip-ops.ts";
 import {
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
@@ -11,7 +12,6 @@ import {
   RANDOM_SELECTION_BAR_INCREMENT,
   RANDOM_SELECTION_MAX_BARS,
 } from "../app/constants.ts";
-import { createWindowClip as createWindowClipFor } from "../app/clip-ops.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
   chooseSourceSpanForWindow,

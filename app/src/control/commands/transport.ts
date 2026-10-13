@@ -8,7 +8,11 @@ import {
   round,
 } from "../helpers.ts";
 import { objectSchema } from "../schema.ts";
-import { type ControlCommand, ControlFailure, type ControlHost } from "../types.ts";
+import {
+  type ControlCommand,
+  ControlFailure,
+  type ControlHost,
+} from "../types.ts";
 
 function transportState(host: ControlHost) {
   const loop = host.getLoop();
@@ -122,7 +126,9 @@ export const transportCommands: ControlCommand[] = [
     run(host, input) {
       const clipId = optionalString(input, "clipId");
       host.selectClip(
-        clipId === undefined ? undefined : findClip(host.getProject(), clipId).id,
+        clipId === undefined
+          ? undefined
+          : findClip(host.getProject(), clipId).id,
       );
       return { selectedClipId: host.getSelectedClipId() ?? null };
     },

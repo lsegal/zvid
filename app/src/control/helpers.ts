@@ -17,7 +17,7 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx-stack.ts";
-import { type ControlInput } from "./schema.ts";
+import type { ControlInput } from "./schema.ts";
 import { ControlFailure } from "./types.ts";
 
 // Timeline positions and lengths are in beats: quarter notes at the

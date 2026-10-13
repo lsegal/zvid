@@ -55,7 +55,9 @@ export const layerCommands: ControlCommand[] = [
       const project = host.getProject();
       const lane: Lane = {
         id: createLaneId(project.lanes),
-        name: optionalString(input, "name")?.trim() || getNextLaneName(project.lanes),
+        name:
+          optionalString(input, "name")?.trim() ||
+          getNextLaneName(project.lanes),
         colorIndex: -1,
       };
       const index = Math.min(

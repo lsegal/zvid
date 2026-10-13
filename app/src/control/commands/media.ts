@@ -1,6 +1,9 @@
 // Importing media into source tracks, and exporting the session.
 import { normalizeExportFileName } from "../../export-options.ts";
-import { exportContainer, sessionSettingsFromProject } from "../../session-settings.ts";
+import {
+  exportContainer,
+  sessionSettingsFromProject,
+} from "../../session-settings.ts";
 import {
   BEATS_NOTE,
   describeSourceClip,
@@ -72,7 +75,9 @@ export const mediaCommands: ControlCommand[] = [
       const sourceTrackId = optionalString(input, "sourceTrackId");
       if (
         sourceTrackId !== undefined &&
-        !host.getProject().sourceTracks.some((track) => track.id === sourceTrackId)
+        !host
+          .getProject()
+          .sourceTracks.some((track) => track.id === sourceTrackId)
       ) {
         throw new ControlFailure(
           "not_found",

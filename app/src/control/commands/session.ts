@@ -24,7 +24,11 @@ import {
   round,
 } from "../helpers.ts";
 import { objectSchema } from "../schema.ts";
-import { type ControlCommand, ControlFailure, type ControlHost } from "../types.ts";
+import {
+  type ControlCommand,
+  ControlFailure,
+  type ControlHost,
+} from "../types.ts";
 
 export function describeSession(host: ControlHost) {
   const project = host.getProject();
@@ -153,7 +157,8 @@ export const sessionCommands: ControlCommand[] = [
         | VideoCodecChoice
         | undefined;
       const settings = {
-        canvasWidth: optionalNumber(input, "canvasWidth") ?? current.canvasWidth,
+        canvasWidth:
+          optionalNumber(input, "canvasWidth") ?? current.canvasWidth,
         canvasHeight:
           optionalNumber(input, "canvasHeight") ?? current.canvasHeight,
         fps: optionalNumber(input, "fps") ?? current.fps,
