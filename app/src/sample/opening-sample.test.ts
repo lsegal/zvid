@@ -306,21 +306,21 @@ describe("zvid opening sample", () => {
   });
 
   it("opens the 1.5 s orbit shot out of the zvid logo on a hidden layer", () => {
-    const iconLayer = session.mainTracks?.find(
-      (layer) => layer.id === "icon-mask",
+    const masksLayer = session.mainTracks?.find(
+      (layer) => layer.id === "masks",
     );
-    assert.equal(iconLayer?.hidden, true);
-    // Only the icon and star mask layers are hidden.
+    assert.equal(masksLayer?.hidden, true);
+    // One hidden layer holds every mask shape.
     assert.deepEqual(
       (session.mainTracks ?? [])
         .filter((layer) => layer.hidden)
         .map((layer) => layer.id),
-      ["star-mask", "icon-mask"],
+      ["masks"],
     );
     // A one-beat reveal, then a one-beat hold, so the mask has a Target for
     // the whole shot. A beat is 22.5 frames, so the cut rounds to frame 68.
     const icons = (session.fills ?? []).filter(
-      (clip) => clip.mainTrackId === "icon-mask",
+      (clip) => clip.mainTrackId === "masks" && clip.id.startsWith("fill-logo"),
     );
     assert.deepEqual(
       icons.map((clip) => [clip.id, clip.frameStart, clip.frameEnd]),
@@ -446,22 +446,97 @@ describe("zvid opening sample", () => {
       (effect) => effect.effectName === "Mask",
     );
     assert.ok(mask);
-    assert.equal(stringParameter(mask, "Target"), "icon-mask");
+    assert.equal(stringParameter(mask, "Target"), "masks");
     assert.equal(stringParameter(mask, "Mode"), "Additive");
     const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
-    assert.ok(layerIds.indexOf("title-words") < layerIds.indexOf("icon-mask"));
+    assert.ok(layerIds.indexOf("title-words") < layerIds.indexOf("masks"));
 
-    // Nothing else is masked by the icon.
+    // The logo is the only mask shape on the hidden layer during the shot.
+    assert.deepEqual(
+      clipsAt(
+        [...(session.fills ?? [])].filter(
+          (clip) => clip.mainTrackId === "masks",
+        ),
+        2,
+      ).map((clip) => clip.id),
+      ["fill-logo-reveal"],
+    );
+  });
+
+  it("shares one hidden layer between the logo and star masks", () => {
+    const shapes = [
+      ...(session.fills ?? []),
+      ...(session.texts ?? []),
+      ...(session.fxClips ?? []),
+      ...(session.selections ?? []),
+    ].filter((clip) => clip.mainTrackId === "masks");
+    const masked = [
+      ...(session.selections ?? []).map((clip) => ({
+        ...clip,
+        trackId: `clip:selection-${clip.id}`,
+      })),
+      ...(session.fxClips ?? []).map((clip) => ({
+        ...clip,
+        trackId: `clip:${clip.id}`,
+      })),
+    ];
+    // Each Mask sees only its own shapes: the logo's two clips or the star.
+    const targets = (session.effects ?? [])
+      .filter(
+        (effect) =>
+          effect.effectName === "Mask" &&
+          stringParameter(effect, "Target") === "masks",
+      )
+      .map((effect) => {
+        const clip = masked.find((each) => each.trackId === effect.trackId);
+        assert.ok(clip, `${effect.trackId} is a clip`);
+        return shapes
+          .filter(
+            (shape) =>
+              shape.frameStart < clip.frameEnd &&
+              clip.frameStart < shape.frameEnd,
+          )
+          .map((shape) => String(shape.id));
+      });
+    assert.deepEqual(targets, [
+      ["fill-logo-reveal", "fill-logo-hold"],
+      ["fill-star-mask"],
+    ]);
+    assert.deepEqual(
+      shapes.map((shape) => String(shape.id)).sort(),
+      ["fill-logo-hold", "fill-logo-reveal", "fill-star-mask"],
+    );
+  });
+
+  it("keeps no layer effects but the corridor's Layout", () => {
+    const layerIds = new Set(
+      (session.mainTracks ?? []).map((layer) => layer.id),
+    );
     assert.deepEqual(
       (session.effects ?? [])
-        .filter(
-          (effect) =>
-            effect.effectName === "Mask" &&
-            stringParameter(effect, "Target") === "icon-mask",
-        )
-        .map((effect) => effect.trackId),
-      [`clip:selection-${shot.id}`],
+        .filter((effect) => layerIds.has(effect.trackId))
+        .map((effect) => [
+          effect.trackId,
+          effect.effectName,
+          stringParameter(effect, "Position"),
+        ]),
+      [["corridor", "Layout", "Bottom"]],
     );
+    // Opened, every layer anchors as it always has: the corridor at the
+    // bottom, everything else centered.
+    const { project } = openSample();
+    for (const lane of project.lanes) {
+      const layouts = project.effects.filter(
+        (effect) => effect.trackId === lane.id && effect.effectName === "Layout",
+      );
+      assert.equal(layouts.length, 1, `${lane.id} has one Layout`);
+      assert.equal(
+        layouts[0].parameters.find((parameter) => parameter.key === "Position")
+          ?.value,
+        lane.id === "corridor" ? "Bottom" : "Center",
+        `${lane.id} Layout`,
+      );
+    }
   });
 
   it("limits Pixelate, Negative Split and Analog Glitch to boxes that move differently", () => {
@@ -514,13 +589,13 @@ describe("zvid opening sample", () => {
     assert.equal(band.animation?.lfo?.syncRate, "1/4");
     assert.deepEqual(band.animation?.lfo?.parameters, ["ScaleY"]);
 
-    // Analog Glitch applies inside a spinning, growing star on a hidden
-    // layer, nothing but that star's clip drawn there.
+    // Analog Glitch applies inside a spinning, growing star on the hidden
+    // Masks layer.
     const mask = analogGlitch[1];
-    assert.equal(stringParameter(mask, "Target"), "star-mask");
+    assert.equal(stringParameter(mask, "Target"), "masks");
     assert.equal(stringParameter(mask, "Mode"), "Additive");
     const stars = (session.fills ?? []).filter(
-      (clip) => clip.mainTrackId === "star-mask",
+      (clip) => clip.mainTrackId === "masks" && clip.id === "fill-star-mask",
     );
     assert.deepEqual(
       stars.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
