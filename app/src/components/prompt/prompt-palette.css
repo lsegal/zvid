@@ -158,6 +158,19 @@
   cursor: pointer;
 }
 
+/* The web app's way to the desktop app, where prompts can run. */
+.prompt-palette__download {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 213, 106, 0.6);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd56a 0%, var(--amber) 100%);
+  color: var(--ink-on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .prompt-palette__notice {
   margin: 0;
   padding: 0 4px;

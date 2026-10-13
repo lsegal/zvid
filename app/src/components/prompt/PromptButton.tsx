@@ -5,6 +5,7 @@ import {
   loadChatGptClient,
 } from "../../prompt/chatgpt-client";
 import type { PromptSurface } from "../../prompt/prompt-agent";
+import { DesktopAppDialog } from "../DesktopAppDialog";
 import { PromptPalette } from "./PromptPalette";
 
 // The control surface the running app installs (see useControlSurface.ts).
@@ -22,6 +23,7 @@ export function PromptButton({
   getSurface = appSurface,
 }: PromptButtonProps) {
   const [open, setOpen] = useState(false);
+  const [isDesktopAppOpen, setIsDesktopAppOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [client, setClient] = useState<ChatGptClient | undefined>(givenClient);
 
@@ -54,8 +56,17 @@ export function PromptButton({
           onOpenChange={setOpen}
           open={open}
           returnFocus={() => buttonRef.current?.focus()}
+          onDownloadDesktopApp={() => {
+            setOpen(false);
+            setIsDesktopAppOpen(true);
+          }}
         />
       ) : null}
+      {/* Help › Download Desktop App's dialog, for the web app's prompt box. */}
+      <DesktopAppDialog
+        onOpenChange={setIsDesktopAppOpen}
+        open={isDesktopAppOpen}
+      />
     </>
   );
 }
