@@ -28,6 +28,11 @@ identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
 
+[[permission]]
+identifier = "allow-agent-relay"
+description = "Enables the agent_relay_ready and agent_relay_respond commands."
+commands.allow = ["agent_relay_ready", "agent_relay_respond"]
+
 [default]
 description = "Default application permissions."
 permissions = [
@@ -37,4 +42,5 @@ permissions = [
   "allow-read-file-prefix",
   "allow-files-exist",
   "allow-write-file-bytes",
+  "allow-agent-relay",
 ]

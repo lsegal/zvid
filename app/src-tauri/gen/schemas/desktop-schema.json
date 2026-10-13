@@ -345,10 +345,16 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`"
+        },
+        {
+          "description": "Enables the agent_relay_ready and agent_relay_respond commands.",
+          "type": "string",
+          "const": "allow-agent-relay",
+          "markdownDescription": "Enables the agent_relay_ready and agent_relay_respond commands."
         },
         {
           "description": "Enables the files_exist command.",

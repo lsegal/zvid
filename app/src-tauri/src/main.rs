@@ -1,9 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent_relay;
+
+use agent_relay::AgentRelay;
 use serde::Serialize;
 use sha1::{Digest, Sha1};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use tauri::{Emitter, Manager};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,10 +205,61 @@ async fn list_font_families() -> Result<Vec<String>, String> {
   Ok(sort_font_families(families))
 }
 
+// The external-agent relay's state; `path` is its discovery file, removed
+// on exit so a stale port is never advertised.
+struct AgentRelayState {
+  relay: Mutex<Option<Arc<AgentRelay>>>,
+  path: Mutex<Option<PathBuf>>,
+}
+
+#[tauri::command]
+fn agent_relay_ready(state: tauri::State<AgentRelayState>, ready: bool) {
+  if let Some(relay) = state.relay.lock().unwrap().as_ref() {
+    relay.set_ready(ready);
+  }
+}
+
+#[tauri::command]
+fn agent_relay_respond(state: tauri::State<AgentRelayState>, id: u64, response: serde_json::Value) {
+  if let Some(relay) = state.relay.lock().unwrap().as_ref() {
+    relay.respond(id, response);
+  }
+}
+
+fn start_agent_relay(app: &tauri::App) {
+  let handle = app.handle().clone();
+  let forward: Arc<agent_relay::Forward> = Arc::new(move |payload| {
+    handle
+      .emit_to("main", agent_relay::REQUEST_EVENT, payload)
+      .map_err(|error| error.to_string())
+  });
+  let started = app
+    .path()
+    .app_data_dir()
+    .map_err(|error| error.to_string())
+    .and_then(|dir| agent_relay::start(&dir, forward).map_err(|error| error.to_string()));
+  match started {
+    Ok((relay, path)) => {
+      let state = app.state::<AgentRelayState>();
+      *state.relay.lock().unwrap() = Some(relay);
+      *state.path.lock().unwrap() = Some(path);
+    }
+    Err(error) => eprintln!("zvid: the external-agent relay could not start: {error}"),
+  }
+}
+
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_opener::init())
+    .manage(AgentRelayState {
+      relay: Mutex::new(None),
+      path: Mutex::new(None),
+    })
+    .setup(|app| {
+      start_agent_relay(app);
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       open_session,
       list_media_files,
@@ -211,10 +267,19 @@ fn main() {
       read_file_bytes,
       read_file_prefix,
       files_exist,
-      write_file_bytes
+      write_file_bytes,
+      agent_relay_ready,
+      agent_relay_respond
     ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app, event| {
+      if let tauri::RunEvent::Exit = event {
+        if let Some(path) = app.state::<AgentRelayState>().path.lock().unwrap().take() {
+          let _ = fs::remove_file(path);
+        }
+      }
+    });
 }
 
 #[cfg(test)]
