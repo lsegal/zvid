@@ -455,7 +455,7 @@ test(
 
     // With the playhead at the new clip's start, Add MIDI Clip adds nothing
     // and says why.
-    await addMidiClipAt(16);
+    await addMidiClipAt(5);
     await expect.poll(status).toMatch(/Move the playhead off the clip/);
     expect(bassSpans()).toHaveLength(2);
 
