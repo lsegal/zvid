@@ -345,10 +345,16 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-chatgpt`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-chatgpt`"
+        },
+        {
+          "description": "Enables Sign in with ChatGPT and requests on the user's ChatGPT plan.",
+          "type": "string",
+          "const": "allow-chatgpt",
+          "markdownDescription": "Enables Sign in with ChatGPT and requests on the user's ChatGPT plan."
         },
         {
           "description": "Enables the files_exist command.",
