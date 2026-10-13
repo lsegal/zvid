@@ -10,6 +10,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
+import { isMoveEffectName } from "../../fx/effects/move/move.ts";
 import {
   type FxLayerOption,
   isPinnedDevice,
@@ -22,6 +23,7 @@ import type { FxDevice } from "../../fx-stack";
 import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
+import { MoveDeviceBody } from "./MoveDeviceBody";
 import "./fx-device-audio.css";
 import "./fx-device-pinned.css";
 
@@ -300,8 +302,16 @@ export function FxDevicePanel({
             </div>
           ) : null}
         </div>
+      ) : knobRows && isMoveEffectName(device.effectName) ? (
+        <MoveDeviceBody
+          device={device}
+          controls={controls}
+          knobRows={knobRows}
+          layers={layers}
+          onSetParameter={onSetParameter}
+        />
       ) : knobRows ? (
-        // Labeled knob rows (a Move's Start and End), each led by its label.
+        // Labeled knob rows, each led by its label.
         <div
           className="fx-device-panel__body"
           style={{

@@ -44,6 +44,7 @@ import { AudioAnalysisPane } from "./audio-analysis/AudioAnalysisPane";
 import { MediaPreview } from "./MediaPreview";
 import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewFocusShield, usePreviewFocus } from "./PreviewFocusShield";
+import { PreviewMovePath } from "./PreviewMovePath";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
 import { ScopesPane, useScopesPane } from "./scopes/ScopesPane";
 import "./preview-panel.css";
@@ -60,55 +61,56 @@ export type PreviewPanelProps = Pick<
   | "selectPreviewLayer"
   | "textEdit"
   | "transformPreviewLayer"
-> & {
-  bpm: number;
-  canvasHeight: number;
-  canvasWidth: number;
-  commitPreviewWidth: (nextWidth: number) => void;
-  compositionPlayerRef: RefObject<CompositionPlayerHandle | null>;
-  effectivePreviewWidth: number;
-  fps: number;
-  handlePreviewResizeKeyDown: (
-    event: ReactKeyboardEvent<HTMLHRElement>,
-  ) => void;
-  handlePreviewResizePointerDown: (
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) => void;
-  handlePreviewResizePointerEnd: (
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) => void;
-  handlePreviewResizePointerMove: (
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) => void;
-  hasOnlinePlayheadClip: boolean;
-  isPlaying: boolean;
-  isTimelineAudibleScrubbing: boolean;
-  audioMix: AudioMix;
-  mediaItems: MediaItem[];
-  mediaPreview: MediaPreviewModel;
-  mediaRange: MediaRangeActions;
-  mediaTimeFormat: TimeValueFormat;
-  playheadSignal: PlayheadSignal;
-  previewClip: ArrangementClip | undefined;
-  previewLaneId: string | undefined;
-  previewLayers: ReturnType<typeof usePreview>["previewLayers"];
-  resolvePreviewLayersAt: ReturnType<
-    typeof usePreview
-  >["resolvePreviewLayersAt"];
-  previewMaxWidth: number;
-  previewMediaState: ClipMediaState;
-  previewVolume: { volume: number; muted: boolean };
-  projectDurationFrames: number | undefined;
-  // What the compositor draws: the layer clips and layers, or the source
-  // tracks rendered as layers when there are no layer clips.
-  renderClips: ArrangementClip[];
-  renderLanes: Lane[];
-  // The effects the render clips draw with (see resolveRenderClips).
-  renderEffects: SessionEffect[];
-  renderFromSourceTracks: boolean;
-  selectedClip: ArrangementClip | undefined;
-  timelineDragState: TimelineDragState | null;
-};
+> &
+  Partial<Pick<PreviewEditing, "movePathEditing">> & {
+    bpm: number;
+    canvasHeight: number;
+    canvasWidth: number;
+    commitPreviewWidth: (nextWidth: number) => void;
+    compositionPlayerRef: RefObject<CompositionPlayerHandle | null>;
+    effectivePreviewWidth: number;
+    fps: number;
+    handlePreviewResizeKeyDown: (
+      event: ReactKeyboardEvent<HTMLHRElement>,
+    ) => void;
+    handlePreviewResizePointerDown: (
+      event: ReactPointerEvent<HTMLHRElement>,
+    ) => void;
+    handlePreviewResizePointerEnd: (
+      event: ReactPointerEvent<HTMLHRElement>,
+    ) => void;
+    handlePreviewResizePointerMove: (
+      event: ReactPointerEvent<HTMLHRElement>,
+    ) => void;
+    hasOnlinePlayheadClip: boolean;
+    isPlaying: boolean;
+    isTimelineAudibleScrubbing: boolean;
+    audioMix: AudioMix;
+    mediaItems: MediaItem[];
+    mediaPreview: MediaPreviewModel;
+    mediaRange: MediaRangeActions;
+    mediaTimeFormat: TimeValueFormat;
+    playheadSignal: PlayheadSignal;
+    previewClip: ArrangementClip | undefined;
+    previewLaneId: string | undefined;
+    previewLayers: ReturnType<typeof usePreview>["previewLayers"];
+    resolvePreviewLayersAt: ReturnType<
+      typeof usePreview
+    >["resolvePreviewLayersAt"];
+    previewMaxWidth: number;
+    previewMediaState: ClipMediaState;
+    previewVolume: { volume: number; muted: boolean };
+    projectDurationFrames: number | undefined;
+    // What the compositor draws: the layer clips and layers, or the source
+    // tracks rendered as layers when there are no layer clips.
+    renderClips: ArrangementClip[];
+    renderLanes: Lane[];
+    // The effects the render clips draw with (see resolveRenderClips).
+    renderEffects: SessionEffect[];
+    renderFromSourceTracks: boolean;
+    selectedClip: ArrangementClip | undefined;
+    timelineDragState: TimelineDragState | null;
+  };
 
 const PREVIEW_TABS = [
   { tab: "timeline", label: "Timeline" },
@@ -117,15 +119,18 @@ const PREVIEW_TABS = [
 
 // The transform overlay with the selected layer's box where the live
 // playhead puts it, so it keeps up with an animating layer during playback
-// and scrubbing. Only the overlay re-renders as the playhead moves.
+// and scrubbing, and the selected clip's Move path over it. Only the
+// overlays re-render as the playhead moves.
 function LivePreviewTransformOverlay({
   layers,
   resolveLayersAt,
   playheadSignal,
+  movePathEditing,
   ...props
 }: ComponentProps<typeof PreviewTransformOverlay> & {
   resolveLayersAt: (playheadQ: number) => readonly PreviewLayer[];
   playheadSignal: PlayheadSignal;
+  movePathEditing?: PreviewPanelProps["movePathEditing"];
 }) {
   const liveLayers = useLivePreviewLayers({
     layers,
@@ -133,7 +138,20 @@ function LivePreviewTransformOverlay({
     playheadSignal,
     selectedLaneId: props.selectedLaneId,
   });
-  return <PreviewTransformOverlay {...props} layers={liveLayers} />;
+  return (
+    <>
+      <PreviewTransformOverlay {...props} layers={liveLayers} />
+      {movePathEditing && !props.textEdit ? (
+        <PreviewMovePath
+          canvas={props.canvas}
+          layers={liveLayers}
+          selectedLaneId={props.selectedLaneId}
+          selectedClipId={props.selectedClipId}
+          editing={movePathEditing}
+        />
+      ) : null}
+    </>
+  );
 }
 
 // What the Scopes pane analyzes: the media the Media tab plays, or on the
@@ -182,6 +200,7 @@ export function PreviewPanel({
   mediaPreview,
   mediaRange,
   mediaTimeFormat,
+  movePathEditing,
   movePreviewLayer,
   playheadSignal,
   previewClip,
@@ -355,6 +374,7 @@ export function PreviewPanel({
             onMove={movePreviewLayer}
             onTransform={transformPreviewLayer}
             onActivate={activatePreviewLayer}
+            movePathEditing={movePathEditing}
           />
           {previewFocus.focused ? null : (
             <PreviewFocusShield onFocus={previewFocus.focus} />
