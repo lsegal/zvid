@@ -170,6 +170,15 @@ export const pass: EffectPass = {
   setUniforms(gl, loc, params, ctx) {
     gl.uniform1f(loc.uLength, lengthPixels(params, ctx));
   },
+  // Half the smear reaches each way along its direction.
+  spread(params, ctx) {
+    const half = lengthPixels(params, ctx) / 2;
+    const radians = (readAngle(params) * Math.PI) / 180;
+    return [
+      half * Math.abs(Math.cos(radians)),
+      half * Math.abs(Math.sin(radians)),
+    ];
+  },
   // Distance 0 leaves the picture sharp.
   isIdentity(params) {
     return readDistance(params) <= 0;

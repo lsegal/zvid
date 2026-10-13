@@ -93,6 +93,7 @@ import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
 import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
 import { recordRenderFrame } from "./render-stats.ts";
+import { bleedTextPlacement } from "./text-effect-bleed.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
 export type CompositeVisual = LayerVisual & {
@@ -420,8 +421,19 @@ function drawLayer(
       entry.visual.opacity * sourceOpacity * opacity,
     );
   } else if (layerSteps.length || transformed) {
-    // Text is framed at its box's size, so its effects see it unstretched.
-    const fitted = textBox && fitTextureSize(gl, sourceWidth, sourceHeight);
+    // Text is framed at its box's size, so its effects see it unstretched,
+    // with room around the box for the effects that spread it past it.
+    const outputScale = Math.min(width, height) / REFERENCE_OUTPUT_SIDE;
+    const bled = bleedTextPlacement(
+      placement,
+      textBox?.box,
+      layerSteps,
+      surface,
+      outputScale,
+    );
+    const fitted =
+      textBox &&
+      fitTextureSize(gl, sourceWidth * bled.grow.x, sourceHeight * bled.grow.y);
     // A Transform that shrinks the slot frames it at the size it is drawn
     // at, keeping its aspect.
     const shrink = matrix && !textBox ? transformShrink(matrix) : 1;
@@ -430,7 +442,7 @@ function drawLayer(
     const framed = renderLayerFrame(
       resources,
       texture,
-      placement,
+      bled.placement,
       entry.visual,
       frameSize,
       sourceOpacity,
@@ -448,8 +460,7 @@ function drawLayer(
             resolution: [frameSize.width, frameSize.height],
             // The frame is in output pixels, unless a text box is scaled
             // down to fit a texture or a Transform shrinks it.
-            pixelScale:
-              (frameScale * Math.min(width, height)) / REFERENCE_OUTPUT_SIDE,
+            pixelScale: frameScale * outputScale,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
             // The Transforms stretch the frame where it is shown.
@@ -462,13 +473,15 @@ function drawLayer(
         ) ?? framed);
     // The framed result already holds the layer's placement, so it fills
     // its slot exactly, or the box its Transforms move the slot to. A text
-    // box already holds the Transforms' scale, so it is drawn without it.
+    // box already holds the Transforms' scale, so it is drawn without it,
+    // padded as it was framed.
+    const drawn = bled.placement.frame;
     uniforms = layerUniforms(
       matrix
-        ? matrixQuadAxes(frame, matrix, surface)
+        ? matrixQuadAxes(drawn, matrix, surface)
         : quadAxes(
-            [frame.halfWidth, frame.halfHeight],
-            [frame.centerX, frame.centerY],
+            [drawn.halfWidth, drawn.halfHeight],
+            [drawn.centerX, drawn.centerY],
             0,
           ),
       entry.visual,
