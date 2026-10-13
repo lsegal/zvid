@@ -291,9 +291,7 @@ describe("the prompt button", () => {
       .not.toBeInTheDocument();
 
     await userEvent.keyboard("{Escape}");
-    await expect
-      .element(dialog, { timeout: 2000 })
-      .not.toBeInTheDocument();
+    await expect.element(dialog, { timeout: 2000 }).not.toBeInTheDocument();
   });
 
   test("keeps the sign-in placeholder where signing in works", async () => {
