@@ -544,7 +544,7 @@ describe("zvid opening sample", () => {
     );
   });
 
-  it("slams 'edit' in and glides 'repeat' across on an LFO wave", () => {
+  it("slams 'edit' in and winds 'repeat' across, both under Motion Blur", () => {
     const textClip = (id: string) => {
       const clip = (session.texts ?? []).find(
         (candidate) => candidate.id === id,
@@ -557,14 +557,15 @@ describe("zvid opening sample", () => {
     };
 
     // On bar 5's second beat, after the Glitch transition, "edit" flies in
-    // from just off the left edge, blurred until it lands, then holds there.
+    // from just off the left edge, smeared along its flight until it lands,
+    // then holds there.
     const slam = textClip("text-edit-slam");
     const hold = textClip("text-edit");
     assert.deepEqual(slam.span, [383, 396]);
     assert.deepEqual(hold.span, [396, 450]);
     assert.deepEqual(
       slam.effects.map((effect) => effect.effectName),
-      ["Text", "Move", "GaussianBlur"],
+      ["Text", "Move", "MotionBlur"],
     );
     const [slamText, flight, smear] = slam.effects;
     assert.equal(stringParameter(slamText, "Text"), "edit");
@@ -575,27 +576,186 @@ describe("zvid opening sample", () => {
       numberParameter(flight, "EndPositionY"),
       numberParameter(hold.effects[1], "PositionY"),
     );
+    assert.equal(numberParameter(smear, "_Angle"), 0);
+    assert.ok((numberParameter(smear, "_Distance") ?? 0) > 0);
     assert.equal(smear.animation?.mode, "clip");
     assert.equal(smear.animation?.clip?.motionIn, "None");
     assert.notEqual(smear.animation?.clip?.motionOut, "None");
 
-    // "repeat" crosses right to left at a steady speed while a synced LFO
-    // swings its Y.
+    // "repeat" crosses right to left at a steady speed, winding up and
+    // down through four waypoints on a curve, smeared along its flight.
     const glide = textClip("text-repeat");
     assert.deepEqual(glide.span, [630, 720]);
     assert.deepEqual(
       glide.effects.map((effect) => effect.effectName),
-      ["Text", "Move", "Transform"],
+      ["Text", "Move", "MotionBlur"],
     );
-    const [, cross, wave] = glide.effects;
+    const [, cross, trail] = glide.effects;
     assert.equal(stringParameter(cross, "Motion"), "Linear");
-    assert.ok(
-      (numberParameter(cross, "StartPositionX") ?? 0) >
-        (numberParameter(cross, "EndPositionX") ?? 0),
+    assert.equal(stringParameter(cross, "Waypoints"), "4");
+    assert.equal(stringParameter(cross, "Path"), "Curve");
+    const xs = ["Start", "Point1", "Point2", "Point3", "Point4", "End"].map(
+      (prefix) => numberParameter(cross, `${prefix}PositionX`) ?? 0,
     );
-    assert.equal(wave.animation?.mode, "lfo");
-    assert.equal(wave.animation?.lfo?.sync, true);
-    assert.deepEqual(wave.animation?.lfo?.parameters, ["PositionY"]);
+    const ys = ["Start", "Point1", "Point2", "Point3", "Point4", "End"].map(
+      (prefix) => numberParameter(cross, `${prefix}PositionY`) ?? 0,
+    );
+    for (let index = 1; index < xs.length; index++) {
+      assert.ok(xs[index] < xs[index - 1], `x ${index}`);
+    }
+    // The path turns back on itself vertically at every waypoint.
+    for (let index = 1; index < ys.length - 1; index++) {
+      assert.ok(
+        (ys[index] - ys[index - 1]) * (ys[index + 1] - ys[index]) < 0,
+        `y ${index}`,
+      );
+    }
+    assert.equal(numberParameter(trail, "_Angle"), 0);
+    assert.ok((numberParameter(trail, "_Distance") ?? 0) > 0);
+  });
+
+  it("uses no Gaussian Blur where a directional smear is meant", () => {
+    const blurred = (session.effects ?? [])
+      .filter((effect) => effect.effectName === "GaussianBlur")
+      .map((effect) => effect.trackId);
+    // Only the bar 2 focus pull.
+    assert.equal(blurred.length, 1);
+    const texts = new Set(
+      (session.texts ?? []).map((clip) => clipEffectTrackId(clip.id)),
+    );
+    assert.equal(
+      blurred.some((trackId) => texts.has(trackId)),
+      false,
+    );
+  });
+
+  it("circles bar 7's star with two counter-rotating rings of words", () => {
+    const rings = ["text-ring-outer", "text-ring-inner"].map((id) => {
+      const clip = (session.texts ?? []).find(
+        (candidate) => candidate.id === id,
+      );
+      assert.ok(clip, id);
+      assert.deepEqual([clip.frameStart, clip.frameEnd], [540, 630]);
+      const effects = effectsOn(`clip:${id}`);
+      assert.deepEqual(
+        effects.map((effect) => effect.effectName),
+        ["Text", "Move"],
+      );
+      const [words, spin] = effects;
+      assert.equal(stringParameter(words, "Path"), "Circle");
+      assert.equal(stringParameter(words, "Align"), "Justify");
+      assert.equal(stringParameter(spin, "Motion"), "Linear");
+      assert.equal(numberParameter(spin, "StartRotation"), 0);
+      return {
+        layer: clip.mainTrackId,
+        radius: numberParameter(words, "PathRadius") ?? 0,
+        turn: numberParameter(spin, "EndRotation") ?? 0,
+      };
+    });
+    const [outer, inner] = rings;
+    assert.notEqual(outer.layer, inner.layer);
+    assert.ok(outer.radius > inner.radius);
+    assert.ok(outer.turn * inner.turn < 0);
+  });
+
+  it("blooms a dot into six radial dots and a dashed ring round the wordmark", () => {
+    const fill = (id: string) => {
+      const clip = (session.fills ?? []).find(
+        (candidate) => candidate.id === id,
+      );
+      assert.ok(clip, id);
+      return clip;
+    };
+    const core = fill("fill-bloom-core");
+    assert.deepEqual([core.frameStart, core.frameEnd], [720, 732]);
+    const [coreMove] = effectsOn(`clip:${core.id}`).filter(
+      (effect) => effect.effectName === "Move",
+    );
+    assert.equal(numberParameter(coreMove, "StartScaleX"), 0);
+    assert.ok((numberParameter(coreMove, "EndScaleX") ?? 0) > 0);
+
+    const angles = new Set<number>();
+    for (let index = 1; index <= 6; index++) {
+      const dot = fill(`fill-bloom-dot-${index}`);
+      assert.equal(dot.frameStart, core.frameEnd);
+      const effects = effectsOn(`clip:${dot.id}`);
+      assert.deepEqual(
+        effects.map((effect) => effect.effectName),
+        ["Color", "Move"],
+      );
+      assert.equal(stringParameter(effects[0], "Mode"), "Gradient");
+      const flight = effects[1];
+      assert.equal(numberParameter(flight, "StartPositionX"), 0);
+      assert.equal(numberParameter(flight, "StartPositionY"), 0);
+      const x = (numberParameter(flight, "EndPositionX") ?? 0) * 1920;
+      const y = (numberParameter(flight, "EndPositionY") ?? 0) * 1080;
+      angles.add(Math.round((Math.atan2(y, x) * 180) / Math.PI));
+    }
+    // Each dot leaves on a path of its own.
+    assert.equal(angles.size, 6);
+
+    // The ring draws itself on with its dashes marching in, and holds to
+    // the hard cut at 27 s.
+    const ring = fill("fill-bloom-ring");
+    assert.deepEqual([ring.frameStart, ring.frameEnd], [732, 810]);
+    const [shape] = effectsOn(`clip:${ring.id}`).filter(
+      (effect) => effect.effectName === "Shape",
+    );
+    assert.equal(stringParameter(shape, "Shape"), "Oval");
+    assert.ok((numberParameter(shape, "Stroke") ?? 0) > 0);
+    assert.ok((numberParameter(shape, "Dash") ?? 0) > 0);
+    assert.ok((numberParameter(shape, "Offset") ?? 0) !== 0);
+    assert.equal(shape.animation?.mode, "clip");
+    assert.equal(shape.animation?.clip?.motionOut, "None");
+  });
+
+  it("drains hundreds of effect-free dot clips into a vortex on the title card", () => {
+    const layers = (session.mainTracks ?? [])
+      .map((layer) => layer.id)
+      .filter((id) => id.startsWith("vortex-"));
+    assert.equal(layers.length, 24);
+    const dots = (session.fills ?? []).filter((clip) =>
+      layers.includes(clip.mainTrackId),
+    );
+    assert.ok(dots.length >= 200, String(dots.length));
+    for (const dot of dots) {
+      assert.ok(dot.frameStart >= 810 && dot.frameEnd <= 900, dot.id);
+      // Within the per-clip budget: no effects of their own.
+      assert.deepEqual(effectsOn(`clip:${dot.id}`), [], dot.id);
+    }
+    const starts = new Set<number>();
+    for (const layer of layers) {
+      const clips = dots
+        .filter((dot) => dot.mainTrackId === layer)
+        .sort((left, right) => left.frameStart - right.frameStart);
+      starts.add(clips[0].frameStart);
+      // A layer shows one dot at a time.
+      for (let index = 1; index < clips.length; index++) {
+        assert.ok(clips[index].frameStart >= clips[index - 1].frameEnd);
+      }
+      // The layer paints its dots and spirals each one in through
+      // waypoints.
+      const effects = effectsOn(layer);
+      const color = effects.find((effect) => effect.effectName === "Color");
+      assert.equal(stringParameter(color ?? {}, "Mode"), "Gradient");
+      const spiral = effects.find((effect) => effect.effectName === "Move");
+      assert.ok(spiral, layer);
+      assert.equal(stringParameter(spiral, "Path"), "Curve");
+      assert.equal(stringParameter(spiral, "Waypoints"), "3");
+      const radius = (prefix: string) =>
+        Math.hypot(
+          (numberParameter(spiral, `${prefix}PositionX`) ?? 0) * 1920,
+          (numberParameter(spiral, `${prefix}PositionY`) ?? 0) * 1080,
+        );
+      assert.ok(radius("Start") > radius("End"), layer);
+      assert.ok(
+        (numberParameter(spiral, "StartScaleX") ?? 0) >
+          (numberParameter(spiral, "EndScaleX") ?? 0),
+        layer,
+      );
+    }
+    // The arms start their streams at different times.
+    assert.ok(starts.size > 1);
   });
 
   it("colors the reactive passages with audio-driven Colorize", () => {
@@ -612,7 +772,9 @@ describe("zvid opening sample", () => {
   });
 
   it("holds the ivory title card for the last three seconds", () => {
-    const [card] = clipsAt(session.fills, 28);
+    const [card] = clipsAt(session.fills, 28).filter(
+      (clip) => clip.mainTrackId === "background",
+    );
     assert.ok(card);
     assert.equal(card.frameEnd - card.frameStart, 90);
     assert.deepEqual(
