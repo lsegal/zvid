@@ -1,4 +1,5 @@
 import { parseCubeLut } from "./fx/effects/lut/cube.ts";
+import { isLottieName } from "./lottie.ts";
 import type { ServerMediaRef } from "./session";
 
 // Images make 1-bar clips and SVGs also feed Shape ▸ Custom; LUTs (.cube)
@@ -270,6 +271,14 @@ export function isImageMedia(item: Pick<MediaItem, "kind">) {
   return item.kind === "image";
 }
 
+// The picture an image shows as its thumbnail: the image itself, or a
+// Lottie's frame drawn when it was imported.
+export function imageThumbnailUrl(
+  item: Pick<MediaItem, "name" | "previewUrl" | "thumbnailUrl">,
+) {
+  return isLottieName(item.name) ? item.thumbnailUrl : item.previewUrl;
+}
+
 // Whether `item` shows a picture on the timeline: a video's frames, or an
 // image.
 export function showsPicture(item: Pick<MediaItem, "hasVideo" | "kind">) {
@@ -325,7 +334,7 @@ export function createMediaId(file: File) {
 }
 
 export function inferMediaKind(name: string): MediaKind {
-  if (imageMimeType(name)) {
+  if (imageMimeType(name) || isLottieName(name)) {
     return "image";
   }
   switch (fileExtension(name)) {
