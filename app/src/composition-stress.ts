@@ -3,7 +3,8 @@
 // http://localhost:1420/composition-stress.html?dots=300&autorun. Each dot is
 // a fill clip on its own layer, cut to a Shape and moved by a Transform whose
 // LFO has a per-dot phase. The status line reports the median and 95th
-// percentile of each frame's CPU time and of its time to finish on the GPU.
+// percentile of each frame's CPU time and of its time to finish on the GPU,
+// after the first frame, whose time is reported on its own.
 import { CompositionRenderer } from "./CompositionPlayer";
 import type {
   ArrangementClip,
@@ -18,6 +19,11 @@ const FRAMES = Number(params.get("frames") ?? 120);
 const WIDTH = Number(params.get("width") ?? 1920);
 const HEIGHT = Number(params.get("height") ?? 1080);
 const PIXEL_RATIO = Number(params.get("ratio") ?? 1);
+// How each dot is made round: "shape" cuts a solid fill to an Oval Shape,
+// "gradient" paints a hard-edged radial gradient with no effect, and
+// "square" leaves it a square.
+const DOT = params.get("dot") ?? "shape";
+const DOT_COLOR = "rgba(236,242,240,1)";
 const BPM = 80;
 const DURATION_SECONDS = 8;
 
@@ -66,8 +72,15 @@ export function stressState(dots: number): CompositionRendererState {
         effectName: "Color",
         enabled: true,
         parameters: [
-          parameter("Mode", "Solid"),
-          parameter("Color", "rgba(236,242,240,1)"),
+          ...(DOT === "gradient"
+            ? [
+                parameter("Mode", "Gradient"),
+                parameter(
+                  "Gradient",
+                  `radial-gradient(circle, ${DOT_COLOR} 0%, ${DOT_COLOR} 46%, rgba(0,0,0,0) 48%)`,
+                ),
+              ]
+            : [parameter("Mode", "Solid"), parameter("Color", DOT_COLOR)]),
           parameter("Opacity", 1),
         ],
       },
@@ -75,7 +88,7 @@ export function stressState(dots: number): CompositionRendererState {
         id: `${id}-shape`,
         trackId,
         effectName: "Shape",
-        enabled: true,
+        enabled: DOT === "shape",
         parameters: [parameter("Shape", "Oval")],
       },
       {
@@ -86,8 +99,12 @@ export function stressState(dots: number): CompositionRendererState {
         parameters: [
           parameter("PositionX", (column + 0.5) / columns - 0.5),
           parameter("PositionY", (row + 0.5) / rows - 0.5),
-          parameter("ScaleX", (0.4 * HEIGHT) / (WIDTH * rows)),
-          parameter("ScaleY", 0.4 / rows),
+          // A gradient's circle is round in a box of the frame's aspect.
+          parameter(
+            "ScaleX",
+            DOT === "gradient" ? 0.8 / rows : (0.4 * HEIGHT) / (WIDTH * rows),
+          ),
+          parameter("ScaleY", DOT === "gradient" ? 0.8 / rows : 0.4 / rows),
           parameter("OriginX", 0),
           parameter("OriginY", 0),
           parameter("Rotation", 0),
@@ -137,6 +154,7 @@ async function run() {
   const pixel = new Uint8Array(4);
   const cpu: number[] = [];
   const total: number[] = [];
+  let firstFrame = 0;
   const frameQ = BPM / 60 / 30;
   for (let frame = 0; frame < FRAMES + 10; frame++) {
     await new Promise(requestAnimationFrame);
@@ -146,7 +164,10 @@ async function run() {
     // Reading a pixel waits for the GPU to finish the frame.
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
     const finished = performance.now();
-    if (frame >= 10) {
+    if (frame === 0) {
+      // The first frame rasterizes every fill.
+      firstFrame = finished - startedAt;
+    } else if (frame >= 10) {
       cpu.push(drawn - startedAt);
       total.push(finished - startedAt);
     }
@@ -154,6 +175,7 @@ async function run() {
   const summary = {
     dots: DOTS,
     surface: `${renderer.canvas.width}x${renderer.canvas.height}`,
+    firstFrame,
     cpuMedian: percentile(cpu, 0.5),
     cpuP95: percentile(cpu, 0.95),
     gpuMedian: percentile(total, 0.5),
