@@ -1,13 +1,16 @@
 // The OAuth pieces of Sign in with ChatGPT that need no network: PKCE,
-// the authorization URL, the loopback callback, and ID-token checks. See
+// the authorization URL, the loopback callback, and ID-token checks against
+// an already-fetched key set. See
 // https://developers.openai.com/siwc/token-sharing-open-source/sign-in.
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use ring::signature::{RsaPublicKeyComponents, RSA_PKCS1_2048_8192_SHA256};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 pub const ISSUER: &str = "https://auth.openai.com";
+pub const DISCOVERY_URL: &str = "https://auth.openai.com/.well-known/openid-configuration";
 pub const AUTHORIZE_URL: &str = "https://auth.openai.com/api/accounts/authorize";
 pub const TOKEN_URL: &str = "https://auth.openai.com/api/accounts/oauth/token";
 pub const REVOKE_URL: &str = "https://auth.openai.com/api/accounts/oauth/revoke";
@@ -174,24 +177,104 @@ impl Audience {
   }
 }
 
-// Checks an ID token's issuer, audience, expiry and nonce. The token comes
-// straight from the token endpoint over TLS, which authenticates its issuer
-// in place of a signature check (OpenID Connect Core 3.1.3.7).
+// The issuer's published signing keys (its JWKS).
+#[derive(Clone, Default, Deserialize)]
+pub struct KeySet {
+  pub keys: Vec<Jwk>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct Jwk {
+  pub kty: String,
+  pub kid: Option<String>,
+  pub alg: Option<String>,
+  #[serde(rename = "use")]
+  pub usage: Option<String>,
+  pub n: Option<String>,
+  pub e: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Header {
+  alg: String,
+  kid: Option<String>,
+}
+
+impl Jwk {
+  fn signs_rs256(&self) -> bool {
+    self.kty == "RSA"
+      && self.alg.as_deref().is_none_or(|alg| alg == "RS256")
+      && self.usage.as_deref().is_none_or(|usage| usage == "sig")
+  }
+}
+
+impl KeySet {
+  // The keys that may have signed a token with this header.
+  fn candidates<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = &'a Jwk> {
+    self
+      .keys
+      .iter()
+      .filter(|key| key.signs_rs256())
+      .filter(|key| header.kid.is_none() || key.kid == header.kid)
+  }
+
+  // Whether this set holds the key the token names, so a miss can refetch it.
+  pub fn has_key_for(&self, id_token: &str) -> bool {
+    header(id_token).is_ok_and(|header| self.candidates(&header).next().is_some())
+  }
+}
+
+fn malformed() -> String {
+  "Sign-in failed: the ID token is malformed.".into()
+}
+
+fn decode_part(part: &str) -> Result<Vec<u8>, String> {
+  URL_SAFE_NO_PAD.decode(part.trim_end_matches('=')).map_err(|_| malformed())
+}
+
+fn header(id_token: &str) -> Result<Header, String> {
+  let part = id_token.split('.').next().ok_or_else(malformed)?;
+  serde_json::from_slice(&decode_part(part)?).map_err(|_| malformed())
+}
+
+// Checks an ID token's RS256 signature against the issuer's keys, then its
+// issuer, audience, expiry and nonce.
 pub fn verify_id_token(
   id_token: &str,
+  keys: &KeySet,
   client_id: &str,
   nonce: Option<&str>,
   now: u64,
 ) -> Result<IdClaims, String> {
-  let payload = id_token
-    .split('.')
-    .nth(1)
-    .ok_or("Sign-in failed: the ID token is malformed.")?;
-  let bytes = URL_SAFE_NO_PAD
-    .decode(payload.trim_end_matches('='))
-    .map_err(|_| "Sign-in failed: the ID token is malformed.")?;
-  let claims: IdClaims =
-    serde_json::from_slice(&bytes).map_err(|_| "Sign-in failed: the ID token is malformed.")?;
+  let parts: Vec<&str> = id_token.split('.').collect();
+  let [encoded_header, payload, signature] = parts[..] else {
+    return Err(malformed());
+  };
+  let header = header(id_token)?;
+  if header.alg != "RS256" {
+    return Err("Sign-in failed: the ID token isn't signed the way ChatGPT signs it.".into());
+  }
+  let signature = decode_part(signature)?;
+  let signed = format!("{encoded_header}.{payload}");
+  let mut candidates = keys.candidates(&header).peekable();
+  if candidates.peek().is_none() {
+    return Err("Sign-in failed: the ID token is signed with an unknown key.".into());
+  }
+  let verified = candidates.any(|key| {
+    let (Some(n), Some(e)) = (&key.n, &key.e) else {
+      return false;
+    };
+    let (Ok(n), Ok(e)) = (decode_part(n), decode_part(e)) else {
+      return false;
+    };
+    RsaPublicKeyComponents { n, e }
+      .verify(&RSA_PKCS1_2048_8192_SHA256, signed.as_bytes(), &signature)
+      .is_ok()
+  });
+  if !verified {
+    return Err("Sign-in failed: the ID token's signature doesn't verify.".into());
+  }
+  let claims: IdClaims = serde_json::from_slice(&decode_part(payload)?).map_err(|_| malformed())?;
   if claims.iss != ISSUER {
     return Err("Sign-in failed: the ID token has the wrong issuer.".into());
   }
@@ -230,8 +313,34 @@ mod tests {
     pairs.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect()
   }
 
+  fn test_keys() -> KeySet {
+    serde_json::from_str(include_str!("testdata/id_token_keys.json")).unwrap()
+  }
+
+  fn sign(header: serde_json::Value, claims: &serde_json::Value) -> String {
+    use ring::signature::{RsaKeyPair, RSA_PKCS1_SHA256};
+    let key = RsaKeyPair::from_der(include_bytes!("testdata/id_token_key.der")).unwrap();
+    let signed = format!(
+      "{}.{}",
+      URL_SAFE_NO_PAD.encode(header.to_string()),
+      URL_SAFE_NO_PAD.encode(claims.to_string())
+    );
+    let mut signature = vec![0; key.public().modulus_len()];
+    key
+      .sign(&RSA_PKCS1_SHA256, &ring::rand::SystemRandom::new(), signed.as_bytes(), &mut signature)
+      .unwrap();
+    format!("{signed}.{}", URL_SAFE_NO_PAD.encode(signature))
+  }
+
   fn id_token(claims: serde_json::Value) -> String {
-    format!("e30.{}.sig", URL_SAFE_NO_PAD.encode(claims.to_string()))
+    sign(serde_json::json!({ "alg": "RS256", "kid": "test-key" }), &claims)
+  }
+
+  fn claims() -> serde_json::Value {
+    serde_json::json!({
+      "iss": ISSUER, "sub": "user-1", "aud": ["oaiapp_1"], "exp": 2000,
+      "nonce": "n", "email": "user@example.com"
+    })
   }
 
   #[test]
@@ -304,24 +413,51 @@ mod tests {
 
   #[test]
   fn verifies_id_token_claims() {
-    let claims = serde_json::json!({
-      "iss": ISSUER, "sub": "user-1", "aud": ["oaiapp_1"], "exp": 2000,
-      "nonce": "n", "email": "user@example.com"
-    });
+    let keys = test_keys();
+    let claims = claims();
     let token = id_token(claims.clone());
-    let verified = verify_id_token(&token, "oaiapp_1", Some("n"), 1000).unwrap();
+    let verified = verify_id_token(&token, &keys, "oaiapp_1", Some("n"), 1000).unwrap();
     assert_eq!(verified.sub, "user-1");
     assert_eq!(verified.email.as_deref(), Some("user@example.com"));
     // Refreshed tokens carry no nonce to check.
-    assert!(verify_id_token(&token, "oaiapp_1", None, 1000).is_ok());
+    assert!(verify_id_token(&token, &keys, "oaiapp_1", None, 1000).is_ok());
 
-    assert!(verify_id_token(&token, "oaiapp_2", Some("n"), 1000).is_err());
-    assert!(verify_id_token(&token, "oaiapp_1", Some("other"), 1000).is_err());
-    assert!(verify_id_token(&token, "oaiapp_1", Some("n"), 3000).is_err());
+    assert!(verify_id_token(&token, &keys, "oaiapp_2", Some("n"), 1000).is_err());
+    assert!(verify_id_token(&token, &keys, "oaiapp_1", Some("other"), 1000).is_err());
+    assert!(verify_id_token(&token, &keys, "oaiapp_1", Some("n"), 3000).is_err());
     let mut wrong_issuer = claims;
     wrong_issuer["iss"] = "https://example.com".into();
-    assert!(verify_id_token(&id_token(wrong_issuer), "oaiapp_1", Some("n"), 1000).is_err());
-    assert!(verify_id_token("not-a-jwt", "oaiapp_1", None, 1000).is_err());
+    assert!(verify_id_token(&id_token(wrong_issuer), &keys, "oaiapp_1", Some("n"), 1000).is_err());
+    assert!(verify_id_token("not-a-jwt", &keys, "oaiapp_1", None, 1000).is_err());
+  }
+
+  #[test]
+  fn rejects_tampered_id_tokens() {
+    let keys = test_keys();
+    let token = id_token(claims());
+    let mut forged = claims();
+    forged["sub"] = "user-2".into();
+    let mut parts: Vec<String> = token.split('.').map(str::to_string).collect();
+    parts[1] = URL_SAFE_NO_PAD.encode(forged.to_string());
+    let tampered = parts.join(".");
+    let error = verify_id_token(&tampered, &keys, "oaiapp_1", Some("n"), 1000).err().unwrap();
+    assert!(error.contains("signature doesn't verify"), "{error}");
+
+    // An unsigned token can't pass as RS256.
+    parts[0] = URL_SAFE_NO_PAD.encode(r#"{"alg":"none","kid":"test-key"}"#);
+    parts[2] = String::new();
+    assert!(verify_id_token(&parts.join("."), &keys, "oaiapp_1", Some("n"), 1000).is_err());
+  }
+
+  #[test]
+  fn rejects_id_tokens_from_unknown_keys() {
+    let keys = test_keys();
+    let token = sign(serde_json::json!({ "alg": "RS256", "kid": "rotated" }), &claims());
+    assert!(!keys.has_key_for(&token));
+    let error = verify_id_token(&token, &keys, "oaiapp_1", Some("n"), 1000).err().unwrap();
+    assert!(error.contains("unknown key"), "{error}");
+    assert!(keys.has_key_for(&id_token(claims())));
+    assert!(!KeySet::default().has_key_for(&id_token(claims())));
   }
 
   #[test]
