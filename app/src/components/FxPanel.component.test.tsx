@@ -76,9 +76,10 @@ describe("FX panel", { timeout: 60_000 }, () => {
     ]);
   });
 
-  // Move puts its Motion curve on its own row, then a Start row and an End
-  // row of Transform's knobs, each led by its label.
-  test("Move lays out Motion, then labeled Start and End rows", async () => {
+  // Move puts its Motion curve on its own row, then chips for its points,
+  // then one row of Transform's knobs for the selected point, led by its
+  // label.
+  test("Move lays out Motion, its point chips, then the selected point's row", async () => {
     const move = page.elementLocator(await addToLayer3("Transform", "Move"));
     const motion = move.getByRole("group", { name: "Motion" });
     expect(texts(motion.getByRole("button"))).toEqual([
@@ -90,11 +91,26 @@ describe("FX panel", { timeout: 60_000 }, () => {
     await expect
       .element(motion.getByRole("button", { name: "Ease In Out" }))
       .toHaveAttribute("aria-pressed", "true");
+    const points = move.getByRole("group", { name: "Move points" });
+    expect(texts(points.getByRole("button"))).toEqual([
+      "Start",
+      "1",
+      "2",
+      "3",
+      "4",
+      "End",
+    ]);
+    expect(points.element().getBoundingClientRect().y).toBeGreaterThan(
+      motion.element().getBoundingClientRect().y,
+    );
 
-    // Each row's label sits left of its knobs, which share one line below
-    // the previous row's.
-    let previousTop = motion.element().getBoundingClientRect().y;
+    // The row's label sits left of its knobs, which share one line below
+    // the chips.
     for (const name of ["Start", "End"]) {
+      await points.getByRole("button", { name, exact: true }).click();
+      expect(
+        move.element().querySelectorAll(".fx-device-panel__knob-row").length,
+      ).toBe(1);
       const row = move.getByRole("group", { name }).element();
       const labels = [...row.querySelectorAll(".knob__label")];
       expect(labels.map(normalized)).toEqual([
@@ -111,8 +127,7 @@ describe("FX panel", { timeout: 60_000 }, () => {
       );
       expect(tops.size).toBe(1);
       const [top] = tops;
-      expect(top).toBeGreaterThan(previousTop);
-      previousTop = top;
+      expect(top).toBeGreaterThan(points.element().getBoundingClientRect().y);
 
       const legend = row.querySelector("legend")?.getBoundingClientRect();
       const first = labels[0].getBoundingClientRect();
