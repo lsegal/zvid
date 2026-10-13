@@ -51,12 +51,15 @@ export const definition: FxEffectDefinition = {
       options: MOTION_CURVES,
       defaultValue: DEFAULT_MOTION_CURVE,
     },
+    // How many waypoints are set. The path on the preview and the device's
+    // point chips add and remove them, so it has no control of its own.
     {
       kind: "enum",
       key: "Waypoints",
       label: "Waypoints",
       options: MOVE_WAYPOINT_COUNTS,
       defaultValue: "0",
+      hidden: true,
     },
     {
       kind: "enum",

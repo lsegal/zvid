@@ -69,7 +69,10 @@ function withMoveAt(
   source: MoveSource,
   transform: LayerTransform,
 ): TransformMotion {
-  const next = { outer: [...(motion?.outer ?? [])], inner: [...(motion?.inner ?? [])] };
+  const next = {
+    outer: [...(motion?.outer ?? [])],
+    inner: [...(motion?.inner ?? [])],
+  };
   next[source.slot][source.index] = transform;
   return next;
 }
@@ -134,10 +137,7 @@ export function resolveMovePath(
 
 // How far along `samples` (0..1) the point on it nearest `point` is, and how
 // far away it is in the samples' units.
-export function nearestAlongPath(
-  samples: MovePath["samples"],
-  point: Point,
-) {
+export function nearestAlongPath(samples: MovePath["samples"], point: Point) {
   let best = { along: 0, distance: Number.POSITIVE_INFINITY };
   for (let index = 1; index < samples.length; index += 1) {
     const from = samples[index - 1];

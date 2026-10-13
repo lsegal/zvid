@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import type { LayerMove, Point } from "../composition-transform.ts";
+import { MOVE_WAYPOINT_LIMIT } from "../fx/effects/move/move.ts";
 import {
   clampMovePoint,
   describeMovePoint,
@@ -17,7 +18,6 @@ import {
   movePointTransform,
   removeMoveWaypoint,
 } from "../fx/effects/move/move-edit.ts";
-import { MOVE_WAYPOINT_LIMIT } from "../fx/effects/move/move.ts";
 import { useMovePointSelection } from "../fx/effects/move/move-point-selection.ts";
 import {
   findPathMove,
@@ -301,10 +301,13 @@ export function PreviewMovePath({
     >
       {showPath && path && source ? (
         <>
+          {/* Clicking the path is a pointer shortcut; the Move device's
+              point chips add waypoints from the keyboard. */}
           <svg
             className="preview-move-path__svg"
             width={monitor.width}
             height={monitor.height}
+            aria-hidden="true"
           >
             <polyline className="preview-move-path__halo" points={line} />
             <polyline className="preview-move-path__line" points={line} />
