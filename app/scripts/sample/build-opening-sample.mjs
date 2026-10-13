@@ -17,11 +17,11 @@
 // its own, and the music plays from the Audio layer as two-beat selections,
 // each through a different audio effect.
 //
-// Hundreds of animated clips, such as a dot grid, must stay within the
-// preview's per-clip budget in app/ARCHITECTURE.md ("Many small animated
-// clips"): effect-free fills animated by a Transform cost almost nothing,
-// but every clip running shader effects of its own costs render passes a
-// frame.
+// Hundreds of animated clips, such as the closing vortex's dots, must stay
+// within the preview's per-clip budget in app/ARCHITECTURE.md ("Many small
+// animated clips"): effect-free fills animated by a Transform cost almost
+// nothing, but every clip running shader effects of its own costs render
+// passes a frame.
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -77,8 +77,13 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 // titles sit above the other FX and Order layers, so no other effect or
 // arrangement touches them. The hidden layers are never drawn themselves:
 // the icon layer is the Mask Target that cuts the 1.5 s shot to the zvid
-// logo, and the star layer limits bar 7's Analog Glitch to a star. The
-// Audio layer holds only the music.
+// logo, and the star layer limits bar 7's Analog Glitch to a star. The bloom
+// and vortex layers each show one dot at a time, above the Order so no
+// three-up arranges them. The Audio layer holds only the music.
+const BLOOM_DOTS = 6;
+const VORTEX_DOTS = 24;
+const bloomDotLayer = (index) => `bloom-dot-${index + 1}`;
+const vortexLayer = (index) => `vortex-${String(index + 1).padStart(2, "0")}`;
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
@@ -86,6 +91,15 @@ const LAYERS = [
   { id: "fx-regions", name: "FX regions" },
   { id: "star-mask", name: "Mask · star", hidden: true },
   { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
+  { id: "bloom-ring", name: "Bloom ring" },
+  ...Array.from({ length: BLOOM_DOTS }, (_, index) => ({
+    id: bloomDotLayer(index),
+    name: `Bloom dot ${index + 1}`,
+  })),
+  ...Array.from({ length: VORTEX_DOTS }, (_, index) => ({
+    id: vortexLayer(index),
+    name: `Vortex dot ${index + 1}`,
+  })),
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -183,9 +197,23 @@ function transformValues(prefix, values) {
   };
 }
 
-function move(trackId, motion, from, to) {
+// `through`, when given, are waypoints the Move passes through on a smooth
+// Curve between `from` and `to`.
+function move(trackId, motion, from, to, through = []) {
   addEffect(trackId, "Move", {
     Motion: motion,
+    ...(through.length
+      ? {
+          Waypoints: String(through.length),
+          Path: "Curve",
+          ...Object.assign(
+            {},
+            ...through.map((point, index) =>
+              transformValues(`Point${index + 1}`, point),
+            ),
+          ),
+        }
+      : {}),
     ...transformValues("Start", from),
     ...transformValues("End", to),
   });
@@ -751,8 +779,9 @@ move(
 
 // 12.75–15 s: "edit" in the lower left, clean beside the Pixelate window.
 // On bar 5's second beat, once the Glitch transition has cleared, it slams
-// in from off the left edge on a short clip of its own, a Gaussian Blur
-// smearing it until it lands, then holds there on a second clip.
+// in from off the left edge on a short clip of its own, a horizontal Motion
+// Blur smearing it along its flight until it lands, then holds there on a
+// second clip.
 const EDIT_STYLE = {
   Text: "edit",
   FontWeight: "Bold",
@@ -764,8 +793,8 @@ const editSlam = text("text-edit-slam", "title-words", 12.75, 0.45, EDIT_STYLE);
 move(editSlam, "Ease Out", { x: -0.3, y: 0.35 }, { y: 0.35 });
 addEffect(
   editSlam,
-  "GaussianBlur",
-  { _Radius: 28 },
+  "MotionBlur",
+  { _Angle: 0, _Distance: 180 },
   {
     animation: animation("clip", {
       motionIn: "None",
@@ -780,8 +809,44 @@ addEffect(
   transformValues("", { y: 0.35 }),
 );
 
-// 21–24 s: "repeat" glides right to left across the reactive three-ups at a
-// steady speed, riding a half-note LFO wave on its Transform's Y.
+// 18–21 s: two rings of words circle bar 7's star, laid on concentric
+// circles and turning against each other at a steady speed.
+function ring(id, layerId, words, fontSize, radius, turn) {
+  move(
+    text(id, layerId, 18, 3, {
+      Text: words,
+      FontWeight: "Bold",
+      FontSize: fontSize,
+      Align: "Justify",
+      Path: "Circle",
+      PathRadius: radius,
+      LetterSpacing: 0.08,
+    }),
+    "Linear",
+    {},
+    { rotation: turn },
+  );
+}
+ring(
+  "text-ring-outer",
+  "title-words",
+  "capture · edit · repeat · capture · edit · repeat · ",
+  40,
+  470,
+  -90,
+);
+ring(
+  "text-ring-inner",
+  "title-wordmark",
+  "zvid · zvid · zvid · zvid · ",
+  56,
+  300,
+  120,
+);
+
+// 21–24 s: "repeat" winds right to left across the reactive three-ups at a
+// steady speed, a ribbon through four waypoints, banking into each turn,
+// with a Motion Blur trailing it along its flight.
 const repeatWord = text("text-repeat", "title-words", 21, 3, {
   Text: "repeat",
   FontWeight: "Bold",
@@ -792,15 +857,19 @@ const repeatWord = text("text-repeat", "title-words", 21, 3, {
   ShadowOffsetX: 0,
   ShadowOffsetY: 6,
 });
-move(repeatWord, "Linear", { x: 0.6 }, { x: -0.6 });
-addEffect(repeatWord, "Transform", transformValues("", {}), {
-  animation: animation(
-    "lfo",
-    {},
-    {},
-    { syncRate: "1/2", depth: 0.08, parameters: ["PositionY"] },
-  ),
-});
+move(
+  repeatWord,
+  "Linear",
+  { x: 0.62, y: 0.04, rotation: -6 },
+  { x: -0.62, y: -0.04, rotation: 6 },
+  [
+    { x: 0.34, y: -0.16, rotation: 8 },
+    { x: 0.08, y: 0.12, rotation: -8 },
+    { x: -0.16, y: -0.14, rotation: 8 },
+    { x: -0.4, y: 0.1, rotation: -6 },
+  ],
+);
+addEffect(repeatWord, "MotionBlur", { _Angle: 0, _Distance: 36 });
 
 // 24–27 s: the wordmark returns above the alternating three-ups.
 const montageWordmark = text(
@@ -832,6 +901,82 @@ addEffect(
       motionOut: "Ease In",
     }),
   },
+);
+
+// Dots are fills painted a hard-edged radial gradient, round in a box of the
+// frame's aspect, with no shader effect of their own. `dotAt` places one
+// `radius` frame heights from the center at `degrees` clockwise from the
+// right, with `stretch` widening the circle into an ellipse.
+const dotPaint = (color) => ({
+  Mode: "Gradient",
+  Gradient: `radial-gradient(circle, ${color} 0%, ${color} 46%, ${color.replace(/,1\)$/, ",0)")} 48%)`,
+  Opacity: 1,
+});
+const dotAt = (radius, degrees, size, stretch = 1) => ({
+  x: (radius * stretch * Math.cos((degrees * Math.PI) / 180) * HEIGHT) / WIDTH,
+  y: radius * Math.sin((degrees * Math.PI) / 180),
+  scaleX: size,
+  scaleY: size,
+});
+
+// 24–27 s: a dot blooms behind the returning wordmark and splits along six
+// radial paths, while a dashed ring draws itself round the wordmark, its
+// dashes marching into place, until the hard cut to the card.
+const BLOOM_RADIUS = 0.36;
+const bloomCore = clipTrack(
+  layerClip("fills", "fill-bloom-core", bloomDotLayer(0), 24, 0.4),
+);
+addEffect(bloomCore, "Color", dotPaint(LIGHT));
+move(bloomCore, "Ease Out", dotAt(0, 0, 0), dotAt(0, 0, 0.09));
+for (let index = 0; index < BLOOM_DOTS; index++) {
+  const dot = clipTrack(
+    layerClip(
+      "fills",
+      `fill-bloom-dot-${index + 1}`,
+      bloomDotLayer(index),
+      24.4,
+      0.8,
+    ),
+  );
+  const degrees = index * (360 / BLOOM_DOTS) - 90;
+  addEffect(dot, "Color", dotPaint(LIGHT));
+  move(
+    dot,
+    "Ease Out",
+    dotAt(0, degrees, 0.06),
+    dotAt(BLOOM_RADIUS, degrees, 0.03),
+  );
+}
+const bloomRing = clipTrack(
+  layerClip("fills", "fill-bloom-ring", "bloom-ring", 24.4, 2.6),
+);
+addEffect(bloomRing, "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
+addEffect(
+  bloomRing,
+  "Shape",
+  {
+    Shape: "Oval",
+    StrokeWidth: 6,
+    DashLength: 22,
+    DashGap: 16,
+    DashOffset: 160,
+    StrokeDrawn: 1,
+  },
+  {
+    animation: animation("clip", {
+      motionIn: "Ease Out",
+      motionOut: "None",
+      timing: "Slow",
+    }),
+  },
+);
+addEffect(
+  bloomRing,
+  "Transform",
+  transformValues("", {
+    scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,
+    scaleY: 2 * BLOOM_RADIUS,
+  }),
 );
 
 // 27–30 s: the ivory title card.
@@ -886,6 +1031,41 @@ addEffect(
   "Transform",
   transformValues("", { y: 0.18 }),
 );
+
+// 27–30 s: a vortex of ink dots drains toward the card's wordmark: hundreds
+// of short clips, streaming down 24 spiral arms. Each arm is a layer whose
+// Color paints its dots and whose Move spirals each dot in turn two thirds
+// of the way round, shrinking and speeding up, from beyond the frame's edge
+// to an ellipse clear of the titles. The arms start their streams a little
+// apart, so dots arrive continuously. Neighboring arms start five steps
+// apart, not one: in step, each arm's lag would cancel its turn and bunch
+// the dots on one side.
+const VORTEX_LIFE = 9;
+for (let index = 0; index < VORTEX_DOTS; index++) {
+  const layerId = vortexLayer(index);
+  const from = (index * 360) / VORTEX_DOTS;
+  const spiral = Array.from({ length: 5 }, (_, step) =>
+    dotAt(0.7 - step * 0.09, from + step * 60, 0.03 - step * 0.0045, 1.4),
+  );
+  addEffect(layerId, "Color", dotPaint(INK));
+  move(layerId, "Ease In", spiral[0], spiral[4], spiral.slice(1, 4));
+  const stagger = Math.round(
+    (((index * 5) % VORTEX_DOTS) * VORTEX_LIFE) / VORTEX_DOTS,
+  );
+  for (
+    let frame = frames(27) + stagger, dot = 1;
+    frame + VORTEX_LIFE <= frames(DURATION_SECONDS);
+    frame += VORTEX_LIFE, dot++
+  ) {
+    layerClip(
+      "fills",
+      `fill-${layerId}-${String(dot).padStart(2, "0")}`,
+      layerId,
+      frame / FPS,
+      VORTEX_LIFE / FPS,
+    );
+  }
+}
 
 // ---- music ---------------------------------------------------------------
 
