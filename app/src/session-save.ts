@@ -14,6 +14,7 @@ import {
 } from "./fx-stack.ts";
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
+import type { MidiNote, SynthParams } from "./midi-clip.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {
@@ -61,6 +62,7 @@ export type SaveableSourceTrack = {
   recordingPaths: string[];
   fxEnabled?: boolean;
   hidden?: boolean;
+  synth?: SynthParams;
 };
 
 export type SaveableSourceSpan = {
@@ -72,6 +74,7 @@ export type SaveableSourceSpan = {
   durationSeconds: number;
   trimStartSeconds: number;
   warp?: ClipWarp;
+  notes?: MidiNote[];
 };
 
 export type SaveableClip = {
@@ -235,6 +238,7 @@ export function projectToSession(
       frameCount: Math.max(1, toFrames(span.durationSeconds, fps)),
       ...spanSourceFrames(span, fps),
       filePath: span.mediaPath,
+      ...(span.notes ? { notes: span.notes } : {}),
       ...(span.warp
         ? {
             warpMarkers: span.warp.markers.map((marker, index) => ({
@@ -324,6 +328,7 @@ export function projectToSession(
       colorIndex: track.colorIndex,
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
       ...(track.hidden ? { hidden: true } : {}),
+      ...(track.synth ? { synth: track.synth } : {}),
       recordings: track.recordingPaths.map((filename) => ({ filename })),
     })),
     clips,
