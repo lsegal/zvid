@@ -7,6 +7,7 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
+import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
 
@@ -371,5 +372,96 @@ describe("resolveAudioClips", () => {
     const mix = resolveAudioClips(inputs({ signature: threeFour }));
     assert.deepEqual(mix.signature, threeFour);
     assert.equal(mix.bpm, BPM);
+  });
+});
+
+describe("resolveAudioClips with MIDI clips", () => {
+  const notes = [{ pitch: 60, start: 0, length: 1, velocity: 100 }];
+  // A MIDI clip on its own track, with no media.
+  function midiSpan(id: string, sourceTrackId: string, startQ = 0) {
+    return {
+      id,
+      sourceTrackId,
+      startQ,
+      durationSeconds: 2,
+      trimStartSeconds: 0.5,
+      notes,
+    };
+  }
+
+  it("plays a MIDI clip's notes through its track's synth", () => {
+    const synth = { ...DEFAULT_SYNTH_PARAMS, wave: "sine" as const };
+    const mix = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "track-1" }, { id: "keys", synth }],
+        sourceSpans: [span("a", "track-1", "tone"), midiSpan("m", "keys", 4)],
+        effects: [gain(sourceClipEffectTrackId("m"))],
+      }),
+    );
+    const clip = mix.clips.find((item) => item.id === sourceRenderClipId("m"));
+    assert.ok(clip?.synth);
+    assert.equal(clip.synth.params, synth);
+    assert.equal(clip.synth.notes, notes);
+    // It renders from its content start to the end of its window.
+    assert.equal(clip.synth.durationSeconds, 2.5);
+    assert.equal(clip.mediaDurationSeconds, 2.5);
+    assert.equal(clip.startSeconds, 2);
+    assert.equal(clip.sourceOffsetSeconds, -1.5);
+    assert.equal(clip.sourceWindowStartSeconds, 0.5);
+    assert.equal(clip.sourceWindowEndSeconds, 2.5);
+    assert.equal(clip.busId, "keys");
+    assert.equal(clip.amplitude, 1);
+    assert.match(clip.mediaId, /^synth:m:/);
+  });
+
+  it("renders again when its notes or its track's synth change", () => {
+    const mixOf = (
+      spanNotes: typeof notes,
+      synth?: typeof DEFAULT_SYNTH_PARAMS,
+    ) =>
+      resolveAudioClips(
+        inputs({
+          sourceTracks: [{ id: "keys", ...(synth ? { synth } : {}) }],
+          sourceSpans: [{ ...midiSpan("m", "keys"), notes: spanNotes }],
+        }),
+      ).clips[0].mediaId;
+    const id = mixOf(notes);
+    assert.notEqual(mixOf([{ ...notes[0], velocity: 30 }]), id);
+    assert.notEqual(mixOf(notes, { ...DEFAULT_SYNTH_PARAMS, release: 1 }), id);
+    assert.equal(mixOf(notes, DEFAULT_SYNTH_PARAMS), id);
+  });
+
+  it("leaves MIDI clips without notes silent, as imported ones are", () => {
+    const mix = resolveAudioClips(
+      inputs({
+        sourceSpans: [
+          { ...midiSpan("empty", "track-1"), notes: [] },
+          { ...midiSpan("placeholder", "track-2"), notes: undefined },
+        ],
+      }),
+    );
+    assert.deepEqual(mix.clips, []);
+  });
+
+  it("plays a layer clip's window over a MIDI clip through the synth", () => {
+    const clip = { ...layerClip("video", "lane-1", undefined), mediaPath: "" };
+    const mix = resolveAudioClips(
+      inputs({
+        clips: [clip],
+        sourceTracks: [{ id: clip.sourceTrackId }],
+        sourceSpans: [
+          {
+            ...midiSpan(clip.sourceSpanId, clip.sourceTrackId),
+            durationSeconds: 3,
+            trimStartSeconds: 1,
+          },
+        ],
+      }),
+    );
+    assert.equal(mix.fromSourceTracks, false);
+    assert.deepEqual(
+      mix.clips.map((item) => [item.id, item.synth?.durationSeconds]),
+      [["video", 4]],
+    );
   });
 });
