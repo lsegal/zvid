@@ -35,6 +35,7 @@ import {
   isTransformEffectName,
   type LayerTransform,
   type Matrix2D,
+  type MoveSource,
   matrixBoxCorners,
   multiplyMatrix,
   type Point,
@@ -140,6 +141,8 @@ export type PreviewLayer = {
   clipTransform: LayerTransform;
   motion?: TransformMotion;
   clipMotion?: TransformMotion;
+  // Where its Moves sit among those Transforms, for drawing their paths.
+  moves?: readonly MoveSource[];
   arrangement?: PreviewArrangement;
   corners: BoxCorners;
 };
@@ -337,13 +340,14 @@ export function resolvePreviewLayers(
     const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
-    const { motion, clipMotion } = entry.visual;
+    const { motion, clipMotion, moves } = entry.visual;
     const layer = {
       placement,
       transform,
       clipTransform,
       ...(motion && { motion }),
       ...(clipMotion && { clipMotion }),
+      ...(moves && { moves }),
       ...(arrangement && { arrangement }),
     };
     return {
