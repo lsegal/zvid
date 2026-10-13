@@ -674,6 +674,28 @@ describe("zvid opening sample", () => {
     assert.equal(numberParameter(coreMove, "StartScaleX"), 0);
     assert.ok((numberParameter(coreMove, "EndScaleX") ?? 0) > 0);
 
+    const ring = fill("fill-bloom-ring");
+    const outro = fill("fill-bloom-ring-outro");
+    type Parameterized = Parameters<typeof numberParameter>[0];
+    const angle = (effect: Parameterized, prefix: string) =>
+      (Math.atan2(
+        (numberParameter(effect, `${prefix}PositionY`) ?? 0) * 1080,
+        (numberParameter(effect, `${prefix}PositionX`) ?? 0) * 1920,
+      ) *
+        180) /
+      Math.PI;
+    const radius = (effect: Parameterized, prefix: string) =>
+      Math.hypot(
+        ((numberParameter(effect, `${prefix}PositionX`) ?? 0) * 1920) / 1080,
+        numberParameter(effect, `${prefix}PositionY`) ?? 0,
+      );
+    const ringRadius =
+      (numberParameter(
+        effectsOn(`clip:${ring.id}`).find(
+          (effect) => effect.effectName === "Move",
+        ) ?? {},
+        "StartScaleY",
+      ) ?? 0) / 2;
     const angles = new Set<number>();
     for (let index = 1; index <= 6; index++) {
       const dot = fill(`fill-bloom-dot-${index}`);
@@ -687,9 +709,59 @@ describe("zvid opening sample", () => {
       const flight = effects[1];
       assert.equal(numberParameter(flight, "StartPositionX"), 0);
       assert.equal(numberParameter(flight, "StartPositionY"), 0);
-      const x = (numberParameter(flight, "EndPositionX") ?? 0) * 1920;
-      const y = (numberParameter(flight, "EndPositionY") ?? 0) * 1080;
-      angles.add(Math.round((Math.atan2(y, x) * 180) / Math.PI));
+      // The flight lands on the ring, quickly and slowing as it arrives.
+      assert.equal(stringParameter(flight, "Motion"), "Ease Out");
+      assert.ok(dot.frameEnd - dot.frameStart <= FPS / 2, dot.id);
+      assert.ok(Math.abs(radius(flight, "End") - ringRadius) < 1e-6, dot.id);
+      angles.add(Math.round(angle(flight, "End")));
+
+      // It doesn't vanish on arrival: it rides the ring round at the
+      // ring's speed until the cut, fading into its stroke at the end.
+      const ride = fill(`fill-bloom-dot-${index}-ride`);
+      assert.equal(ride.mainTrackId, dot.mainTrackId);
+      assert.deepEqual(
+        [ride.frameStart, ride.frameEnd],
+        [dot.frameEnd, ring.frameEnd],
+      );
+      const rideEffects = effectsOn(`clip:${ride.id}`);
+      assert.deepEqual(
+        rideEffects.map((effect) => effect.effectName),
+        ["Color", "Move"],
+      );
+      const [paint, orbit] = rideEffects;
+      assert.equal(paint.animation?.mode, "clip");
+      assert.equal(paint.animation?.clip?.motionIn, "None");
+      assert.notEqual(paint.animation?.clip?.motionOut, "None");
+      assert.equal(stringParameter(orbit, "Motion"), "Linear");
+      assert.equal(stringParameter(orbit, "Path"), "Curve");
+      assert.equal(stringParameter(orbit, "Waypoints"), "4");
+      const points = ["Start", "Point1", "Point2", "Point3", "Point4", "End"];
+      for (const prefix of points) {
+        assert.ok(Math.abs(radius(orbit, prefix) - ringRadius) < 1e-6, prefix);
+      }
+      for (const field of ["PositionX", "PositionY", "ScaleX"]) {
+        assert.equal(
+          numberParameter(orbit, `Start${field}`),
+          numberParameter(flight, `End${field}`),
+          field,
+        );
+      }
+      const turned = angle(orbit, "End") - angle(orbit, "Start");
+      const spin = effectsOn(`clip:${ring.id}`).find(
+        (effect) => effect.effectName === "Move",
+      );
+      const ringSpeed =
+        (((numberParameter(spin ?? {}, "EndRotation") ?? 0) -
+          (numberParameter(spin ?? {}, "StartRotation") ?? 0)) *
+          FPS) /
+        (ring.frameEnd - ring.frameStart);
+      assert.ok(
+        Math.abs(
+          (((turned + 540) % 360) - 180) * FPS -
+            ringSpeed * (ride.frameEnd - ride.frameStart),
+        ) < 1e-3,
+        dot.id,
+      );
     }
     // Each dot leaves on a path of its own.
     assert.equal(angles.size, 6);
@@ -697,8 +769,6 @@ describe("zvid opening sample", () => {
     // The ring draws itself on with its dashes marching in, then at the
     // hard cut to the card turns ink and widens out as its dashes withdraw.
     // It turns at one steady speed across both clips, never sitting still.
-    const ring = fill("fill-bloom-ring");
-    const outro = fill("fill-bloom-ring-outro");
     assert.deepEqual([ring.frameStart, ring.frameEnd], [732, 810]);
     assert.equal(outro.mainTrackId, ring.mainTrackId);
     assert.equal(outro.frameStart, ring.frameEnd);

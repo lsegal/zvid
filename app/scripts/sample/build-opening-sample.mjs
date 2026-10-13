@@ -912,47 +912,85 @@ const dotPaint = (color) => ({
   Gradient: `radial-gradient(circle, ${color} 0%, ${color} 46%, ${color.replace(/,1\)$/, ",0)")} 48%)`,
   Opacity: 1,
 });
+// Positions are rounded: Math.cos and Math.sin can differ in the last bit
+// between platforms, and the generated session must not.
+const steady = (value) => Math.round(value * 1e9) / 1e9 || 0;
 const dotAt = (radius, degrees, size, stretch = 1) => ({
-  x: (radius * stretch * Math.cos((degrees * Math.PI) / 180) * HEIGHT) / WIDTH,
-  y: radius * Math.sin((degrees * Math.PI) / 180),
+  x: steady(
+    (radius * stretch * Math.cos((degrees * Math.PI) / 180) * HEIGHT) / WIDTH,
+  ),
+  y: steady(radius * Math.sin((degrees * Math.PI) / 180)),
   scaleX: size,
   scaleY: size,
 });
 
 // 24–27 s: a dot blooms behind the returning wordmark and splits along six
 // radial paths, while a dashed ring draws itself round the wordmark, its
-// dashes marching into place, and turns steadily on. At the hard cut to the
-// card it turns ink and keeps turning as it widens away from the card's
-// titles, its dashes withdrawing.
+// dashes marching into place, and turns steadily on. The dots land on the
+// ring and ride it round, then fade into its stroke before the hard cut to
+// the card, where the ring turns ink and keeps turning as it widens away
+// from the card's titles, its dashes withdrawing.
 const BLOOM_RADIUS = 0.36;
-const bloomCore = clipTrack(
-  layerClip("fills", "fill-bloom-core", bloomDotLayer(0), 24, 0.4),
-);
-addEffect(bloomCore, "Color", dotPaint(LIGHT));
-move(bloomCore, "Ease Out", dotAt(0, 0, 0), dotAt(0, 0, 0.09));
-for (let index = 0; index < BLOOM_DOTS; index++) {
-  const dot = clipTrack(
-    layerClip(
-      "fills",
-      `fill-bloom-dot-${index + 1}`,
-      bloomDotLayer(index),
-      24.4,
-      0.8,
-    ),
-  );
-  const degrees = index * (360 / BLOOM_DOTS) - 90;
-  addEffect(dot, "Color", dotPaint(LIGHT));
-  move(
-    dot,
-    "Ease Out",
-    dotAt(0, degrees, 0.06),
-    dotAt(BLOOM_RADIUS, degrees, 0.03),
-  );
-}
+const BLOOM_SPLIT = 24.4;
+const BLOOM_FLIGHT = 0.5;
+const BLOOM_LANDED = BLOOM_SPLIT + BLOOM_FLIGHT;
+const BLOOM_RIDE = 27 - BLOOM_LANDED;
+// The smallest scale a Move gives.
+const BLOOM_DOT_SIZE = 0.05;
 // The ring is a circle of BLOOM_RADIUS frame heights, turning clockwise at a
 // steady RING_SPEED degrees a second across both its clips. Its Move holds
 // its scale, so the circle turns rather than an oval squashed into one.
 const RING_SPEED = 30;
+const bloomCore = clipTrack(
+  layerClip("fills", "fill-bloom-core", bloomDotLayer(0), 24, BLOOM_SPLIT - 24),
+);
+addEffect(bloomCore, "Color", dotPaint(LIGHT));
+move(bloomCore, "Ease Out", dotAt(0, 0, 0), dotAt(0, 0, 0.09));
+for (let index = 0; index < BLOOM_DOTS; index++) {
+  const degrees = index * (360 / BLOOM_DOTS) - 90;
+  // All six leave the core together and slow onto the ring in one gesture.
+  const flight = clipTrack(
+    layerClip(
+      "fills",
+      `fill-bloom-dot-${index + 1}`,
+      bloomDotLayer(index),
+      BLOOM_SPLIT,
+      BLOOM_FLIGHT,
+    ),
+  );
+  addEffect(flight, "Color", dotPaint(LIGHT));
+  move(
+    flight,
+    "Ease Out",
+    dotAt(0, degrees, 0.06),
+    dotAt(BLOOM_RADIUS, degrees, BLOOM_DOT_SIZE),
+  );
+  // Landed, each rides the ring round at its speed, curving through four
+  // waypoints on the circle, and fades into its stroke before the cut.
+  const ride = clipTrack(
+    layerClip(
+      "fills",
+      `fill-bloom-dot-${index + 1}-ride`,
+      bloomDotLayer(index),
+      BLOOM_LANDED,
+      BLOOM_RIDE,
+    ),
+  );
+  addEffect(ride, "Color", dotPaint(LIGHT), {
+    animation: animation("clip", {
+      motionIn: "None",
+      motionOut: "Ease In",
+      timing: "Slow",
+    }),
+  });
+  const riding = (leg) =>
+    dotAt(
+      BLOOM_RADIUS,
+      degrees + (RING_SPEED * BLOOM_RIDE * leg) / 5,
+      BLOOM_DOT_SIZE,
+    );
+  move(ride, "Linear", riding(0), riding(5), [1, 2, 3, 4].map(riding));
+}
 const RING_SCALE = {
   scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,
   scaleY: 2 * BLOOM_RADIUS,
