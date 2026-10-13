@@ -385,10 +385,11 @@ describe("addableEffectsFor", () => {
     );
   });
 
-  it("never offers Layout, which every layer already has", () => {
+  it("offers Layout only on a clip, since every layer already has one", () => {
     assert.ok(!names("layer").includes("Layout"));
     assert.ok(!names("global").includes("Layout"));
-    assert.ok(!names("clip").includes("Layout"));
+    assert.ok(!names("fxClip").includes("Layout"));
+    assert.ok(names("clip").includes("Layout"));
   });
 
   it("offers only clip-scoped effects in the clip menu", () => {

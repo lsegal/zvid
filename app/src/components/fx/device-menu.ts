@@ -3,7 +3,7 @@ import {
   type FxDevice,
   type FxDeviceGroup,
   isLayoutEffectName,
-} from "../../fx-stack";
+} from "../../fx-stack.ts";
 
 // The device a context menu was opened on, and where.
 export type DeviceMenuState = {

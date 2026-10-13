@@ -325,6 +325,26 @@ describe("resolveVisualState", () => {
     assert.equal(resolveVisualState(effects, "6").layoutAnchor, "center");
   });
 
+  it("lets a clip's own Layout override its layer's anchor", () => {
+    const effects = [
+      layout("clip-layout", "clip:a", "Bottom"),
+      layout("layout-1", "1", "Top"),
+      layout("other-clip", "clip:b", "Center"),
+    ];
+    assert.equal(resolveVisualState(effects, "1", "a").layoutAnchor, "bottom");
+    assert.equal(resolveVisualState(effects, "1", "c").layoutAnchor, "top");
+    assert.equal(resolveVisualState(effects, "1").layoutAnchor, "top");
+    assert.equal(
+      resolveVisualState(
+        [{ ...effects[0], enabled: false }, effects[1]],
+        "1",
+        "a",
+      ).layoutAnchor,
+      "top",
+      "a bypassed clip Layout leaves the layer's",
+    );
+  });
+
   it("ignores a global Layout", () => {
     const effects = [layout("global", GROUP_TRACK_ID, "Bottom")];
     assert.equal(resolveVisualState(effects, "1").layoutAnchor, "center");
