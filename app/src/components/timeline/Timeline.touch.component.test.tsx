@@ -259,7 +259,7 @@ describe(`${Timeline.name} on a phone`, {
   });
 
   // #1255: the transport's Loop button loops the selection and drops it.
-  test("Loop loops a lane selection and clears it, else a bar from the playhead", { repeats: 9 }, async () => {
+  test("Loop loops a lane selection and clears it, else a bar from the playhead", async () => {
     await usePhone();
     await renderApp();
     const scroll = centerOf(".timeline-scroll");
@@ -281,32 +281,11 @@ describe(`${Timeline.name} on a phone`, {
     await expect.poll(() => document.querySelector(".loop-overlay")).toBeNull();
 
     // With nothing selected, it loops one bar from the playhead, snapped to
-    // the grid (#1295): not from the start of the playhead's bar.
-    const sc = query(".timeline-scroll");
-    const log: string[] = [];
-    const t0 = performance.now();
-    const rec = (e: Event) => {
-      const t = e.target as Element;
-      log.push(`${Math.round(performance.now() - t0)} ${e.type} ${t.tagName}.${typeof t.className === "string" ? t.className.split(" ")[0] : ""}[${t.getAttribute?.("aria-label") ?? ""}] prevented=${e.defaultPrevented} sl=${sc.scrollLeft.toFixed(1)} ta=${getComputedStyle(sc).touchAction}`);
-    };
-    const types = ["pointerdown", "pointerup", "pointercancel", "touchstart", "touchend", "touchcancel", "click", "scrollend", "contextmenu"];
-    for (const t of types) window.addEventListener(t, rec, true);
-    sc.addEventListener("scrollend", rec);
+    // the grid (#1295): not from the start of the playhead's bar. The swipe
+    // stops before it lifts, or the Loop tap would only stop its fling.
     await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y }, 0, 200);
     await settledPlayheadQ();
-    log.push(`settled ${Math.round(performance.now() - t0)} q=${playheadQ()} sl=${sc.scrollLeft}`);
-    const at = centerOf(loop);
-    log.push(`loop at ${at.x},${at.y} connected=${loop.isConnected} hit=${document.elementFromPoint(at.x, at.y)?.closest("button")?.getAttribute("aria-label")}`);
     await tap(loop);
-    await wait(800);
-    log.push(`after tap pressed=${loop.getAttribute("aria-pressed")} overlay=${Boolean(document.querySelector(".loop-overlay"))}`);
-    if (!document.querySelector(".loop-overlay")) {
-      await tap(loop);
-      await wait(800);
-      log.push(`after retap pressed=${loop.getAttribute("aria-pressed")} overlay=${Boolean(document.querySelector(".loop-overlay"))}`);
-    }
-    for (const t of types) window.removeEventListener(t, rec, true);
-    console.log(`DIAG\n${log.join("\n")}`);
     await expect.poll(() => isVisible(query(".loop-overlay"))).toBe(true);
     const bar = boxOf(".loop-overlay");
     const playhead = centerOf(".timeline-playhead-marker").x;
