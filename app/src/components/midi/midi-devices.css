@@ -50,9 +50,12 @@
   white-space: nowrap;
 }
 
+/* The keys and the grid under a corner and the ruler, which stay put while
+   the roll scrolls under them. */
 .piano-roll__scroll {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 34px auto;
+  align-items: start;
   height: 180px;
   margin: 6px 8px 10px;
   overflow: auto;
@@ -96,6 +99,104 @@
 
 .piano-roll__key--black:hover {
   background: color-mix(in srgb, var(--fx-accent) 45%, #23262f);
+}
+
+.piano-roll__corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  height: var(--piano-roll-ruler);
+  background: #1b1e27;
+}
+
+/* The ruler: bar numbers, the loop brace along its top, and the Start
+   marker and the clip's end as flags hanging from its bottom edge. */
+.piano-roll__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: var(--piano-roll-ruler);
+  overflow: hidden;
+  background: #1b1e27;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  touch-action: none;
+  user-select: none;
+}
+
+.piano-roll__bar-number {
+  position: absolute;
+  bottom: 1px;
+  padding-left: 3px;
+  border-left: 1px solid rgba(255, 255, 255, 0.24);
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 10px;
+  pointer-events: none;
+}
+
+/* Past the clip's Length, the ruler and the grid dim. */
+.piano-roll__beyond-end {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+}
+
+.piano-roll__grid .piano-roll__beyond-end {
+  z-index: 0;
+}
+
+.piano-roll__loop {
+  position: absolute;
+  top: 0;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--fx-accent);
+  cursor: grab;
+}
+
+.piano-roll__loop--off {
+  background: #6b7080;
+}
+
+.piano-roll__loop-edge {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.piano-roll__loop-edge--end {
+  right: -3px;
+  left: auto;
+}
+
+/* A flag pointing down at its quarter, its left edge on the line. */
+.piano-roll__marker {
+  position: absolute;
+  bottom: 0;
+  width: 9px;
+  height: 11px;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 0 100%);
+  background: #e8eaf0;
+  cursor: ew-resize;
+}
+
+.piano-roll__marker--end {
+  translate: -100% 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 55%);
+  background: #9aa0b0;
+}
+
+.piano-roll__loop-edge:focus-visible,
+.piano-roll__marker:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 1px;
 }
 
 /* Rows for each key, darker for black keys' rows, with beat and bar lines. */

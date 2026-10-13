@@ -9,7 +9,11 @@ import {
 import { useSynthDeviceReveal } from "../../synth-device-reveal.ts";
 import type { FxCollapseState } from "../fx/FxChain";
 import { ArpeggiatorDevice, type SetArpeggiator } from "./ArpeggiatorDevice";
-import { PianoRoll, type SetMidiClipNotes } from "./PianoRoll";
+import {
+  PianoRoll,
+  type SetMidiClipNotes,
+  type SetMidiClipTimeline,
+} from "./PianoRoll";
 import { type SetSynthParam, SynthDevice } from "./SynthDevice";
 
 type MidiDevicesProps = FxCollapseState & {
@@ -18,6 +22,7 @@ type MidiDevicesProps = FxCollapseState & {
   setSynthParam: SetSynthParam;
   setArpeggiator: SetArpeggiator;
   setNotes: SetMidiClipNotes;
+  setTimeline: SetMidiClipTimeline;
   // Unfolds the FX panel when a track handle's instrument button asks for
   // its Synth device.
   revealPanel: () => void;
@@ -33,6 +38,7 @@ export function MidiDevices({
   setSynthParam,
   setArpeggiator,
   setNotes,
+  setTimeline,
   revealPanel,
 }: MidiDevicesProps) {
   const reveal = useSynthDeviceReveal();
@@ -79,6 +85,7 @@ export function MidiDevices({
           key={midiClip.spanId}
           model={midiClip}
           onSetNotes={setNotes}
+          onSetTimeline={setTimeline}
           onToggleCollapsed={() => toggleCollapsed(PIANO_ROLL_COLLAPSE_KEY)}
         />
       ) : null}

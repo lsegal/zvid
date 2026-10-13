@@ -10,6 +10,7 @@ import { getClipEndQ, quartersToSeconds } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
+import { newMidiTimeline } from "./midi-clip-timeline.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
   resolveSourceSpanOverlaps,
@@ -251,6 +252,7 @@ export function createMidiClip(
         durationSeconds: quartersToSeconds(durationQ, current.bpm),
         trimStartSeconds: 0,
         notes: [],
+        midiTimeline: newMidiTimeline(durationQ),
         tint: swatch.color,
         accent: swatch.accent,
       },

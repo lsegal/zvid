@@ -4,6 +4,7 @@ import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
+import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
 import type { NoteGenerator } from "./note-generators.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 
@@ -83,6 +84,11 @@ export type ProjectSession = {
      * has none and stays a media-less placeholder.
      */
     notes?: MidiNote[];
+    /**
+     * zvid-only, set on a MIDI clip whose Length, loop brace or Start marker
+     * was set (see midi-clip-timeline.ts).
+     */
+    midiTimeline?: MidiClipTimeline;
   }>;
   selections?: Array<{
     id: number;

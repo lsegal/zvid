@@ -28,6 +28,10 @@ import {
 } from "../fx/stack/clip-stacks.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import {
+  type MidiClipTimeline,
+  performMidiNotes,
+} from "../midi-clip-timeline.ts";
 import { applyNoteGenerators, type NoteGenerator } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
@@ -52,8 +56,12 @@ type AudioLayerClip = TrackContentClip & {
   laneId: string;
 };
 
-// A MIDI clip carries `notes` (see midi-clip.ts).
-type AudioSourceSpan = TrackContentSpan & { notes?: readonly MidiNote[] };
+// A MIDI clip carries `notes` (see midi-clip.ts) and may carry the timeline
+// that loops them (see midi-clip-timeline.ts).
+type AudioSourceSpan = TrackContentSpan & {
+  notes?: readonly MidiNote[];
+  midiTimeline?: MidiClipTimeline;
+};
 
 // A layer or source track whose FX switch is off bypasses its own stack and
 // its clips' stacks, Gain included. A source track plays its MIDI clips
@@ -249,18 +257,21 @@ export function resolveAudioClips<Effect extends AudioEffect>({
       const track = sourceTracks.find(
         (candidate) => candidate.id === span.sourceTrackId,
       );
-      // Generators step on the track's beat grid, where the clip's quarter 0
-      // falls trimmed-start quarters before the clip.
+      const durationSeconds = span.trimStartSeconds + span.durationSeconds;
+      // The notes its timeline plays to its end, its loop repeated (see
+      // midi-clip-timeline.ts). Generators step on the track's beat grid,
+      // where the clip's quarter 0 falls trimmed-start quarters before the
+      // clip.
       const notes = applyNoteGenerators(
-        span.notes,
+        performMidiNotes(
+          span.notes,
+          span.midiTimeline,
+          secondsToQuarters(durationSeconds, bpm),
+        ),
         track?.noteGenerators,
         span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
       );
-      const synth = synthClipOf(
-        notes,
-        track?.synth,
-        span.trimStartSeconds + span.durationSeconds,
-      );
+      const synth = synthClipOf(notes, track?.synth, durationSeconds);
       const mediaId = synthMediaId(span.id, synth, bpm);
       return [[span.id, { synth, mediaId }] as const];
     }),

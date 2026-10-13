@@ -5,6 +5,10 @@ import type { SourceSelection } from "./app/source-selection.ts";
 import { getClipDurationQ, secondsToQuarters } from "./app/timeline-math.ts";
 import type { SourceSpan, SourceTrack } from "./app/types.ts";
 import { type MidiNote, type SynthParams, synthParamsOf } from "./midi-clip.ts";
+import {
+  defaultMidiTimeline,
+  type MidiClipTimeline,
+} from "./midi-clip-timeline.ts";
 import { type Arpeggiator, arpeggiatorOf } from "./note-generators.ts";
 
 export type SynthTrackModel = {
@@ -23,6 +27,9 @@ export type MidiClipModel = {
   // The clip's window: `lengthQ` quarters from `trimStartQ` into its notes.
   trimStartQ: number;
   lengthQ: number;
+  // Its Length, loop brace and Start marker, or the default for a clip
+  // that has never set them (see midi-clip-timeline.ts).
+  timeline: MidiClipTimeline;
   // Its track's synth, which auditions its notes.
   synth: SynthParams;
 };
@@ -65,9 +72,26 @@ export function getMidiPanelModel(
       notes: span.notes,
       trimStartQ: secondsToQuarters(span.trimStartSeconds, bpm),
       lengthQ: getClipDurationQ(span, bpm),
+      timeline: midiTimelineOf(span, bpm),
       synth,
     },
   };
+}
+
+/**
+ * `span`'s MIDI timeline: the one it set, or else the default one as long
+ * as its content.
+ */
+export function midiTimelineOf(
+  span: Pick<SourceSpan, "midiTimeline" | "trimStartSeconds" | "durationSeconds">,
+  bpm: number,
+): MidiClipTimeline {
+  return (
+    span.midiTimeline ??
+    defaultMidiTimeline(
+      secondsToQuarters(span.trimStartSeconds + span.durationSeconds, bpm),
+    )
+  );
 }
 
 // The FX chain's fold keys for the Synth device and the piano roll, kept

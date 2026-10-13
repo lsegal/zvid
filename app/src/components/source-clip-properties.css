@@ -26,6 +26,13 @@
   height: 22px;
 }
 
+/* A MIDI clip's timeline fields sit in a column beside the clip's own. */
+.source-clip-properties__device .source-clip-properties__columns {
+  display: flex;
+  align-items: flex-start;
+  padding: 0;
+}
+
 .source-clip-properties__fields {
   display: flex;
   flex-direction: column;
