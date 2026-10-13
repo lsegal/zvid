@@ -25,6 +25,8 @@ type PromptPaletteProps = {
   client: ChatGptClient;
   // The control surface the model's commands run on, when the app has one.
   getSurface: () => PromptSurface | undefined;
+  // Where focus goes once the box closes.
+  returnFocus?: () => void;
 };
 
 type RunState =
@@ -70,6 +72,7 @@ export function PromptPalette({
   onOpenChange,
   client,
   getSurface,
+  returnFocus,
 }: PromptPaletteProps) {
   const [prompt, setPrompt] = useState("");
   const [connection, setConnection] = useState<Connection>({ kind: "loading" });
@@ -221,6 +224,11 @@ export function PromptPalette({
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           inputRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!returnFocus) return;
+          event.preventDefault();
+          returnFocus();
         }}
         // Typing here must not reach the editor's shortcuts.
         onKeyDown={(event) => event.stopPropagation()}

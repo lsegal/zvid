@@ -1,5 +1,5 @@
 import { ChatBubbleBottomCenterTextIcon } from "@heroicons/react/24/solid";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type ChatGptClient,
   loadChatGptClient,
@@ -24,6 +24,7 @@ export function PromptButton({
   getSurface = appSurface,
 }: PromptButtonProps) {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [client, setClient] = useState<ChatGptClient | undefined>(givenClient);
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export function PromptButton({
         aria-haspopup="dialog"
         className="transport-button transport-button--prompt"
         onClick={() => setOpen(true)}
+        ref={buttonRef}
         title="Tell zvid what to do, on your ChatGPT plan"
         type="button"
       >
@@ -53,6 +55,7 @@ export function PromptButton({
           getSurface={getSurface}
           onOpenChange={setOpen}
           open={open}
+          returnFocus={() => buttonRef.current?.focus()}
         />
       ) : null}
     </>
