@@ -165,11 +165,6 @@ export function FxPanel({
               <MidiDevices
                 {...collapse}
                 midiClip={fxMidiClip}
-                revealPanel={() => {
-                  if (isInspectorCollapsed) {
-                    toggleInspectorCollapsed();
-                  }
-                }}
                 setArpeggiator={setSourceTrackArp}
                 setNotes={setMidiClipNotes}
                 setTimeline={setMidiClipTimeline}

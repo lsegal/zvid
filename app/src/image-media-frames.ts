@@ -44,7 +44,7 @@ type LoadedImage =
   | { status: "still"; frame: ImageFrame }
   | { status: "animated"; animation: Animation }
   | { status: "lottie"; player: LottiePlayer }
-  | { status: "failed" };
+  | { status: "failed"; reason?: string };
 
 const images = new Map<string, LoadedImage>();
 const listeners = new Set<() => void>();
@@ -157,8 +157,7 @@ async function loadStill(url: string): Promise<ImageFrame> {
 async function loadImage(url: string, name: string): Promise<LoadedImage> {
   try {
     if (isLottieName(name)) {
-      const player = await openLottie(url);
-      return player ? { status: "lottie", player } : { status: "failed" };
+      return { status: "lottie", player: await openLottie(url, name) };
     }
     const type = imageMimeType(name);
     if (type && type !== "image/svg+xml" && type !== "image/jpeg") {
@@ -169,8 +168,11 @@ async function loadImage(url: string, name: string): Promise<LoadedImage> {
       }
     }
     return { status: "still", frame: await loadStill(url) };
-  } catch {
-    return { status: "failed" };
+  } catch (error) {
+    return {
+      status: "failed",
+      reason: error instanceof Error ? error.message : undefined,
+    };
   }
 }
 
@@ -254,12 +256,14 @@ export async function imageAnimationSeconds(media: ImageMediaRef) {
 
 /**
  * The size, length and middle frame, as a PNG object URL, of the Lottie
- * animation at `media`, or undefined when it doesn't hold one.
+ * animation at `media`. It throws the reason when `media` holds none.
  */
 export async function lottieMediaDetails(media: ImageMediaRef) {
   const image = await loaded(media);
   if (image?.status !== "lottie") {
-    return undefined;
+    throw new Error(
+      (image?.status === "failed" && image.reason) || "Not a Lottie animation",
+    );
   }
   const { player } = image;
   const durationSeconds = lottieSeconds(player.data);

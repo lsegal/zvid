@@ -5,7 +5,6 @@ import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
 import type { ProjectState } from "../../app/types.ts";
 import {
   EDITOR_TEST_TIMEOUT,
-  Editor,
   renderEditor,
   withTestPatternTrack,
 } from "../../component-test/editor.tsx";
@@ -13,7 +12,6 @@ import {
   center,
   click,
   drag,
-  isVisible,
   menuItem,
   nextFrames,
   rightClick,
@@ -32,9 +30,9 @@ import {
 } from "./PianoRoll";
 
 // MIDI clips in source-track lanes (#1351): their piano-roll thumbnails,
-// the track handle's instrument slot and Synth device, and the piano roll
-// that edits the selected clip's notes, each edit one undo step. The source
-// lane menu creates empty ones (#1363).
+// their track's Synth device, and the piano roll that edits the selected
+// clip's notes, each edit one undo step. The source lane menu's Add MIDI
+// Clip creates empty ones at the playhead (#1363, #1369).
 
 const NOTES: MidiNote[] = [
   { pitch: 48, start: 0, length: 1, velocity: 100 },
@@ -72,10 +70,12 @@ function midiProject(): ProjectState {
 
 async function open(initial = midiProject()) {
   let state: ProjectState | undefined;
+  let status = "";
   await renderEditor({
     project: initial,
     onState: (next) => {
       state = next.project;
+      status = next.status;
     },
   });
   const project = () => {
@@ -86,6 +86,7 @@ async function open(initial = midiProject()) {
   };
   return {
     project,
+    status: () => status,
     notes: () =>
       project().sourceSpans.find((span) => span.id === "source-bassline")
         ?.notes,
@@ -109,8 +110,16 @@ function bassRow() {
   );
 }
 
+// Selects the Bass track by its name, so the FX panel shows its devices.
+async function selectBass() {
+  await expect.poll(bassRow).toBeTruthy();
+  await userEvent.click(
+    bassRow()?.querySelector("[data-source-track-label-id]") as HTMLElement,
+  );
+}
+
 test(
-  "MIDI clips draw piano-roll thumbnails and their track gets an instrument slot",
+  "MIDI clips draw piano-roll thumbnails, and track handles have no instrument button",
   async () => {
     await open();
     await expect.poll(midiSpan).toBeTruthy();
@@ -124,28 +133,25 @@ test(
     expect(high.y).toBeLessThan(low.y);
     expect(high.x).toBeGreaterThan(low.x);
 
-    // The test pattern's clip draws no notes, and its track has no
-    // instrument slot.
+    // The test pattern's clip draws no notes.
     const videoSpan = document.querySelector(
       ".source-span:not(.source-span--midi)",
     );
     expect(videoSpan).toBeTruthy();
     expect(videoSpan?.querySelector("[data-midi-thumbnail]")).toBeNull();
-    expect(document.querySelectorAll(".track-label__instrument")).toHaveLength(
-      1,
-    );
-    expect(bassRow()?.querySelector(".track-label__instrument")).toBeTruthy();
+    // The Synth device sits in the FX panel instead (#1369).
+    expect(
+      bassRow()?.querySelector('.track-label button[aria-label$=" synth"]'),
+    ).toBeNull();
   },
   EDITOR_TEST_TIMEOUT,
 );
 
 test(
-  "the instrument slot opens the track's Synth device, whose edits are undoable",
+  "selecting the track shows its Synth device, whose edits are undoable",
   async () => {
     const { synth } = await open();
-    await userEvent.click(
-      page.getByRole("button", { name: "Open Bass synth" }).element(),
-    );
+    await selectBass();
     const device = page.getByRole("region", { name: "Bass synth" });
     await expect.element(device).toBeVisible();
 
@@ -175,9 +181,7 @@ test(
   "the Arpeggiator device adds, sets, bypasses and removes the track's arpeggiator",
   async () => {
     const { arp } = await open();
-    await userEvent.click(
-      page.getByRole("button", { name: "Open Bass synth" }).element(),
-    );
+    await selectBass();
     const device = page.getByRole("region", { name: "Bass arpeggiator" });
     await expect.element(device).toBeVisible();
     expect(arp()).toBeUndefined();
@@ -370,62 +374,19 @@ test("clicking a note or a key auditions it through the track's synth", async ()
 });
 
 test(
-  "narrow handles leave the instrument slot out for the track name",
-  async () => {
-    // The stored label width applies on load.
-    localStorage.clear();
-    localStorage.setItem("zvid-label-width", "120");
-    await installHarness();
-    await render(<Editor project={midiProject()} />);
-    await expect
-      .poll(() => document.querySelector(".timeline-canvas--narrow-labels"))
-      .toBeTruthy();
-    await expect.poll(bassRow).toBeTruthy();
-    const label = bassRow()?.querySelector(
-      ".track-label--source",
-    ) as HTMLElement;
-    const instrument = label.querySelector(".track-label__instrument");
-    expect(instrument).toBeTruthy();
-    expect(isVisible(instrument)).toBe(false);
-    const [labelBox, nameBox, armBox] = [
-      label,
-      label.querySelector("[data-source-track-label-id]"),
-      label.querySelector(".track-label__arm"),
-    ].map((item) => {
-      if (!item) {
-        throw new Error("The track handle is missing a control");
-      }
-      return item.getBoundingClientRect();
-    });
-    expect(armBox.x + armBox.width).toBeLessThanOrEqual(
-      labelBox.x + labelBox.width,
-    );
-    expect(nameBox.width).toBeGreaterThan(16);
-
-    // Selecting the track still shows its Synth device.
-    await userEvent.click(
-      label.querySelector("[data-source-track-label-id]") as HTMLElement,
-    );
-    await expect
-      .element(page.getByRole("region", { name: "Bass synth" }))
-      .toBeVisible();
-  },
-  EDITOR_TEST_TIMEOUT,
-);
-
-test(
-  "the source lane menu creates an empty MIDI clip whose piano roll adds notes",
+  "Add MIDI Clip places an empty clip at the playhead, up to the next clip, whose piano roll adds notes",
   async () => {
     const midi = midiProject();
-    // The Bass track, empty.
-    const { project } = await open({
+    // The Bass track holds only its MIDI clip, moved to quarter 10.
+    const { project, status } = await open({
       ...midi,
-      sourceSpans: midi.sourceSpans.filter(
-        (span) => span.sourceTrackId !== "bass",
+      sourceSpans: midi.sourceSpans.map((span) =>
+        span.id === "source-bassline" ? { ...span, startQ: 10 } : span,
       ),
     });
     const bassSpans = () =>
       project().sourceSpans.filter((span) => span.sourceTrackId === "bass");
+    const ahead = bassSpans()[0];
     await expect.poll(bassRow).toBeTruthy();
     const lane = bassRow()?.querySelector(
       ".track-row__content--source",
@@ -445,26 +406,37 @@ test(
     ).getBoundingClientRect().width;
     const quarterPx =
       patternWidth / ((pattern.durationSeconds * project().bpm) / 60);
-
-    // Right-clicking just past quarter 8 places a bar at quarter 8.
     const box = lane.getBoundingClientRect();
-    await click(box.x + 8.05 * quarterPx, box.y + box.height / 2, {
-      button: "right",
-    });
-    await userEvent.click(menuItem("New MIDI Clip"));
-    await expect.poll(() => bassSpans()).toHaveLength(1);
-    const [clip] = bassSpans();
+    const addMidiClipAt = async (q: number) => {
+      await click(box.x + q * quarterPx, box.y + box.height / 2, {
+        button: "right",
+      });
+      await userEvent.click(menuItem("Add MIDI Clip"));
+    };
+
+    // The playhead parked just past quarter 8 on the ruler snaps to it. The
+    // menu opens elsewhere in the lane, but the clip goes at the playhead and
+    // stops where the clip at quarter 10 begins, short of a whole bar.
+    const ruler = (
+      document.querySelector(".ruler-row__content") as HTMLElement
+    ).getBoundingClientRect();
+    await click(box.x + 8.05 * quarterPx, ruler.y + 4);
+    await addMidiClipAt(4);
+    await expect.poll(() => bassSpans()).toHaveLength(2);
+    const clip = bassSpans().find((span) => span.id !== ahead.id);
+    if (!clip) {
+      throw new Error("No MIDI clip was added");
+    }
     expect(clip.notes).toEqual([]);
     expect(clip.startQ).toBe(8);
-    expect((clip.durationSeconds * project().bpm) / 60).toBe(4);
+    expect((clip.durationSeconds * project().bpm) / 60).toBeCloseTo(2);
     expect(clip.label).toBe(NEW_MIDI_CLIP_LABEL);
+    expect(bassSpans().find((span) => span.id === ahead.id)).toEqual(ahead);
 
-    // It shows as a MIDI clip, its track gets an instrument slot, and it is
-    // selected with its piano roll open.
+    // It shows as a MIDI clip, selected with its piano roll open.
     const span = () =>
       document.querySelector<HTMLElement>(`[data-source-span-id="${clip.id}"]`);
     await expect.poll(() => span()?.textContent).toContain("MIDI · 0 notes");
-    expect(bassRow()?.querySelector(".track-label__instrument")).toBeTruthy();
     await expect
       .element(
         page.getByRole("region", { name: `${NEW_MIDI_CLIP_LABEL} notes` }),
@@ -478,17 +450,25 @@ test(
     const point = cell(grid, 1, 60);
     await click(point.x, point.y);
     await expect
-      .poll(() => bassSpans()[0]?.notes)
+      .poll(() => bassSpans().find((item) => item.id === clip.id)?.notes)
       .toEqual([{ pitch: 60, start: 1, length: 1, velocity: 100 }]);
     await expect
       .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
       .toBe(1);
 
+    // With the playhead at the new clip's start, Add MIDI Clip adds nothing
+    // and says why.
+    await addMidiClipAt(5);
+    await expect.poll(status).toMatch(/Move the playhead off the clip/);
+    expect(bassSpans()).toHaveLength(2);
+
     // Adding the note and creating the clip are an undo step each.
     await undo();
-    await expect.poll(() => bassSpans()[0]?.notes).toEqual([]);
+    await expect
+      .poll(() => bassSpans().find((item) => item.id === clip.id)?.notes)
+      .toEqual([]);
     await undo();
-    await expect.poll(() => bassSpans()).toHaveLength(0);
+    await expect.poll(() => bassSpans()).toEqual([ahead]);
   },
   EDITOR_TEST_TIMEOUT,
 );

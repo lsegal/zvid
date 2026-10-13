@@ -1,10 +1,10 @@
 // Pasting, duplicating, splitting and deleting source clips (source spans)
 // from their right-click menu and the keyboard shortcuts, and creating empty
-// MIDI clips from the source lane menu. Each returns the
-// project patch for one undo step. Pieces placed onto other spans in the same
-// source track overwrite them as a moved span does. Arrangement clips keep
-// their windows on their source tracks and show whatever those now hold
-// (see source-track-content.ts).
+// MIDI clips from the source lane menu. Each returns the project patch for
+// one undo step. Pieces placed onto other spans in the same source track
+// overwrite them as a moved span does; a new MIDI clip fits around them.
+// Arrangement clips keep their windows on their source tracks and show
+// whatever those now hold (see source-track-content.ts).
 import { type ClipClipboard, clipClipboardKind } from "./app/clip-ops.ts";
 import { getClipEndQ, quartersToSeconds } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
@@ -220,21 +220,56 @@ export function deleteSourceSpan(
 
 export const NEW_MIDI_CLIP_LABEL = "MIDI clip";
 
+const EPSILON_Q = 1e-6;
+
 /**
- * An empty MIDI clip `id`, `durationQ` long, placed in source track
- * `trackId` at `startQ` and overwriting what it lands on there. Its track's
- * synth plays the notes the piano roll adds to it. Undefined without the
- * track.
+ * How long a new MIDI clip at `startQ` in source track `trackId` can be: up
+ * to `maxDurationQ`, ending where the next clip in the track begins. Zero
+ * when `startQ` lies inside a clip or at its start.
+ */
+export function fitMidiClipDurationQ(
+  current: Pick<SourceClipProject, "bpm" | "sourceSpans">,
+  trackId: string,
+  startQ: number,
+  maxDurationQ: number,
+) {
+  let endQ = startQ + maxDurationQ;
+  for (const item of current.sourceSpans) {
+    if (item.sourceTrackId !== trackId) {
+      continue;
+    }
+    if (item.startQ <= startQ + EPSILON_Q) {
+      if (getClipEndQ(item, current.bpm) > startQ + EPSILON_Q) {
+        return 0;
+      }
+    } else {
+      endQ = Math.min(endQ, item.startQ);
+    }
+  }
+  return Math.max(0, endQ - startQ);
+}
+
+/**
+ * An empty MIDI clip `id`, up to `maxDurationQ` long, placed in source track
+ * `trackId` at `startQ` and ending where the next clip there begins (see
+ * fitMidiClipDurationQ). Its track's synth plays the notes the piano roll
+ * adds to it. Undefined without the track or without room at `startQ`.
  */
 export function createMidiClip(
   current: SourceClipProject,
   trackId: string,
   startQ: number,
-  durationQ: number,
+  maxDurationQ: number,
   id: string,
 ): SourceClipPatch | undefined {
   const track = current.sourceTracks.find((item) => item.id === trackId);
   if (!track) {
+    return undefined;
+  }
+
+  const atQ = Math.max(0, startQ);
+  const durationQ = fitMidiClipDurationQ(current, trackId, atQ, maxDurationQ);
+  if (durationQ <= 0) {
     return undefined;
   }
 
@@ -248,7 +283,7 @@ export function createMidiClip(
         sourceTrackId: trackId,
         label: NEW_MIDI_CLIP_LABEL,
         mediaPath: "",
-        startQ: Math.max(0, startQ),
+        startQ: atQ,
         durationSeconds: quartersToSeconds(durationQ, current.bpm),
         trimStartSeconds: 0,
         notes: [],

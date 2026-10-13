@@ -325,7 +325,7 @@ describe("menu snapshots", () => {
       canSplit: true,
       mac: false,
       actions: clipActions,
-      newMidiClip: noop,
+      addMidiClip: noop,
     };
     assert.deepEqual(
       snapshot([
@@ -536,7 +536,7 @@ const SOURCE_LANE_MENUS = [
   "---",
   "delete: Delete [Del] (disabled)",
   "---",
-  "new-midi-clip: New MIDI Clip",
+  "add-midi-clip: Add MIDI Clip",
   "---",
   "jump-to-start: Jump to start",
   "---",
@@ -548,7 +548,7 @@ const SOURCE_LANE_MENUS = [
   "---",
   "delete: Delete [Del]",
   "---",
-  "new-midi-clip: New MIDI Clip",
+  "add-midi-clip: Add MIDI Clip",
   "---",
   "jump-to-start: Jump to start",
   "---",
@@ -560,7 +560,7 @@ const SOURCE_LANE_MENUS = [
   "---",
   `delete: Delete [Del] title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
   "---",
-  `new-midi-clip: New MIDI Clip title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
+  `add-midi-clip: Add MIDI Clip title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
 ];
 
 const SOURCE_SPAN_MENU = [

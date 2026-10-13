@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import {
   ARPEGGIATOR_COLLAPSE_KEY,
   type MidiClipModel,
@@ -6,7 +5,6 @@ import {
   SYNTH_COLLAPSE_KEY,
   type SynthTrackModel,
 } from "../../midi-panel-model.ts";
-import { useSynthDeviceReveal } from "../../synth-device-reveal.ts";
 import type { FxCollapseState } from "../fx/FxChain";
 import { ArpeggiatorDevice, type SetArpeggiator } from "./ArpeggiatorDevice";
 import {
@@ -23,9 +21,6 @@ type MidiDevicesProps = FxCollapseState & {
   setArpeggiator: SetArpeggiator;
   setNotes: SetMidiClipNotes;
   setTimeline: SetMidiClipTimeline;
-  // Unfolds the FX panel when a track handle's instrument button asks for
-  // its Synth device.
-  revealPanel: () => void;
 };
 
 // The FX panel's MIDI devices for the source selection: the track's Synth
@@ -39,26 +34,7 @@ export function MidiDevices({
   setArpeggiator,
   setNotes,
   setTimeline,
-  revealPanel,
 }: MidiDevicesProps) {
-  const reveal = useSynthDeviceReveal();
-  const handledSerial = useRef(reveal?.serial);
-  const synthCollapsed = collapsed.has(SYNTH_COLLAPSE_KEY);
-  useEffect(() => {
-    if (
-      !reveal ||
-      reveal.serial === handledSerial.current ||
-      reveal.trackId !== synthTrack?.trackId
-    ) {
-      return;
-    }
-    handledSerial.current = reveal.serial;
-    revealPanel();
-    if (synthCollapsed) {
-      toggleCollapsed(SYNTH_COLLAPSE_KEY);
-    }
-  }, [reveal, revealPanel, synthCollapsed, synthTrack, toggleCollapsed]);
-
   return (
     <>
       {synthTrack ? (
@@ -72,7 +48,7 @@ export function MidiDevices({
       ) : null}
       {synthTrack ? (
         <SynthDevice
-          collapsed={synthCollapsed}
+          collapsed={collapsed.has(SYNTH_COLLAPSE_KEY)}
           key={synthTrack.trackId}
           model={synthTrack}
           onSetParam={setSynthParam}

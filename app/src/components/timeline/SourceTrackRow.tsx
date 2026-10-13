@@ -35,7 +35,6 @@ import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
 import { TrackHideButton } from "./TrackHideButton";
-import { TrackInstrumentButton } from "./TrackInstrumentButton";
 import { TrackRecordArmButton } from "./TrackRecordArmButton";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
@@ -129,8 +128,6 @@ export const SourceTrackRow = memo(function SourceTrackRow({
     sourceTrackDragTarget.trackId === track.id;
   const selected = isSourceTrackSelected(sourceSelection, track.id);
   const collapsed = height <= COLLAPSED_ROW_METRICS.height;
-  // A track with MIDI clips gets an instrument slot for its synth.
-  const hasMidiClips = spans.some((clip) => clip.notes);
 
   return (
     <section
@@ -209,7 +206,6 @@ export const SourceTrackRow = memo(function SourceTrackRow({
             </small>
           </button>
         )}
-        {hasMidiClips ? <TrackInstrumentButton track={track} /> : null}
         <TrackHideButton
           track={track}
           setHidden={(hidden) => setHidden(track.id, hidden)}
