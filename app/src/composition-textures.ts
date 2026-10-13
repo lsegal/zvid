@@ -7,6 +7,11 @@ import {
   TEXT_RASTER,
 } from "./composition-raster-cache.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
+import {
+  type ImageFrame,
+  type ImageMediaRef,
+  imageFrameAt,
+} from "./image-media-frames.ts";
 import { renderStats } from "./render-stats.ts";
 import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
 import { createTextCanvas, drawText, type TextCanvas } from "./text-render.ts";
@@ -52,6 +57,8 @@ export type SourceTextures = {
   drawCount: number;
   textureLastDrawn: Map<string, number>;
   videoUploads: Map<string, VideoUpload>;
+  // The picture each image clip's texture holds.
+  imageUploads: Map<string, TexImageSource>;
   // The size each text raster's texture storage was allocated at, so a
   // redraw at the same size writes into it rather than reallocating.
   textStorage: Map<string, { width: number; height: number }>;
@@ -71,6 +78,7 @@ export function createSourceTextures(gl: WebGLRenderingContext) {
     drawCount: 0,
     textureLastDrawn: new Map<string, number>(),
     videoUploads: new Map<string, VideoUpload>(),
+    imageUploads: new Map<string, TexImageSource>(),
     textStorage: new Map<string, { width: number; height: number }>(),
     textCanvas: undefined as TextCanvas | undefined,
     fillPixels: new Map<string, ReturnType<typeof rasterizeFillPaint>>(),
@@ -110,6 +118,7 @@ export function releaseTexture(textures: SourceTextures, id: string) {
   textures.rasters.release(id);
   textures.textureLastDrawn.delete(id);
   textures.videoUploads.delete(id);
+  textures.imageUploads.delete(id);
   textures.textStorage.delete(id);
 }
 
@@ -122,6 +131,7 @@ export function releaseAllTextures(textures: SourceTextures) {
   textures.rasters.clear();
   textures.textureLastDrawn.clear();
   textures.videoUploads.clear();
+  textures.imageUploads.clear();
   textures.textStorage.clear();
   textures.textCanvas = undefined;
   textures.fillPixels.clear();
@@ -279,6 +289,88 @@ export function uploadVideoTexture(
   upload.count = watched.count;
   upload.time = time;
   return texture;
+}
+
+// Uploads an image clip's frame into the source's texture, unless it
+// already holds that frame.
+function uploadImageTexture(
+  textures: SourceTextures,
+  sourceKey: string,
+  frame: ImageFrame,
+) {
+  const { gl } = textures;
+  const texture = getOrCreateTexture(textures, sourceKey);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (textures.imageUploads.get(sourceKey) !== frame.image) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      frame.image,
+    );
+    textures.imageUploads.set(sourceKey, frame.image);
+  }
+  return texture;
+}
+
+export type MediaSource = {
+  sourceKey: string;
+  media: { width?: number; height?: number } & Partial<
+    ImageMediaRef & { kind: string }
+  >;
+  mediaTime?: number;
+};
+
+// The image frame `entry` shows, if it is an image clip whose image has
+// loaded.
+export function imageFrameOf({ media, mediaTime }: MediaSource) {
+  return media.kind === "image" && media.previewUrl
+    ? imageFrameAt(
+        { previewUrl: media.previewUrl, name: media.name ?? "" },
+        mediaTime ?? 0,
+      )
+    : undefined;
+}
+
+/**
+ * The texture a media clip draws, its image's frame or its video element's,
+ * and the size of its picture: the frame's, else the media's, else
+ * `fallback`. Undefined while it has nothing to show.
+ */
+export function uploadMediaTexture(
+  textures: SourceTextures,
+  entry: MediaSource,
+  mediaElement: HTMLMediaElement | undefined,
+  fallback: { width: number; height: number },
+) {
+  const frame = imageFrameOf(entry);
+  if (frame) {
+    return {
+      texture: uploadImageTexture(textures, entry.sourceKey, frame),
+      width: frame.width || entry.media.width || fallback.width,
+      height: frame.height || entry.media.height || fallback.height,
+    };
+  }
+  if (!(mediaElement instanceof HTMLVideoElement)) {
+    return undefined;
+  }
+  const texture = uploadVideoTexture(
+    textures,
+    entry.sourceKey,
+    entry.media,
+    mediaElement,
+  );
+  return (
+    texture && {
+      texture,
+      width: mediaElement.videoWidth || entry.media.width || fallback.width,
+      height: mediaElement.videoHeight || entry.media.height || fallback.height,
+    }
+  );
 }
 
 // The texture `content` is drawn into at `size`: a raster the source

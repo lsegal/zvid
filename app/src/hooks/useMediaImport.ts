@@ -89,6 +89,7 @@ export function useMediaImport({
   });
   const sourceTrackDrop = useSourceTrackDrop({
     mediaItems,
+    bpm: project.bpm,
     appShellRef,
     timelineScrollRef,
     labelWidth,

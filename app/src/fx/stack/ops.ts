@@ -384,7 +384,8 @@ export function addEffect(
     stack = getStack(current, trackId);
   }
 
-  // Layout is per layer: never on the Global stack, and one per layer.
+  // Layout is per layer or clip: never on the Global stack, and one per
+  // stack.
   if (
     isLayoutEffectName(effectName) &&
     (trackId === GLOBAL_EFFECT_TRACK_ID ||
@@ -421,7 +422,8 @@ export function removeEffect(effects: SessionEffect[], effectId: string) {
 }
 
 // Inserts a copy of an effect, with its parameters, bypass state, animation
-// and modulation, right after the original in the same stack. A copy of an effect
+// and modulation, right after the original in the same stack. A stack keeps a
+// single Layout, so a Layout is never copied. A copy of an effect
 // saved without animation gets the defaults, as a new effect would.
 export function duplicateEffect(
   effects: SessionEffect[],
@@ -429,7 +431,7 @@ export function duplicateEffect(
   id: string = crypto.randomUUID(),
 ) {
   const index = effects.findIndex((effect) => effect.id === effectId);
-  if (index < 0 || isLayerLayoutEffect(effects[index])) {
+  if (index < 0 || isLayoutEffectName(effects[index].effectName)) {
     return effects;
   }
 

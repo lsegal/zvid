@@ -292,6 +292,14 @@ describe("addEffect", () => {
     assert.equal(addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Layout"), effects);
   });
 
+  it("adds at most one Layout to a clip, which can be removed but not duplicated", () => {
+    const effects = addEffect(load(), "clip:a", "Layout", 0, "clip-layout");
+    assert.deepEqual(ids(effects, "clip:a"), ["clip-layout"]);
+    assert.equal(addEffect(effects, "clip:a", "Layout"), effects);
+    assert.equal(duplicateEffect(effects, "clip-layout", "copy"), effects);
+    assert.deepEqual(ids(removeEffect(effects, "clip-layout"), "clip:a"), []);
+  });
+
   it("adds Transform to layers with identity defaults, never to Global", () => {
     const effects = addEffect(load(), "6", "Transform", undefined, "move");
     const added = effects.find((effect) => effect.id === "move");

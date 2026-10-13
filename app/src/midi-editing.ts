@@ -4,6 +4,7 @@
 import { patchProjectState } from "./app/session-project.ts";
 import type { ProjectState } from "./app/types.ts";
 import { type MidiNote, type SynthParams, synthParamsOf } from "./midi-clip.ts";
+import type { Arpeggiator } from "./note-generators.ts";
 
 export type SynthParamKey = keyof SynthParams;
 
@@ -25,6 +26,13 @@ export const midiHistoryLabels = {
   addNote: "Add Note",
   moveNote: "Move Note",
   deleteNote: "Delete Note",
+  addArpeggiator: "Add Arpeggiator",
+  removeArpeggiator: "Remove Arpeggiator",
+  arpeggiatorEnabled: (enabled: boolean) =>
+    enabled ? "Enable Arpeggiator" : "Bypass Arpeggiator",
+  arpeggiatorRate: "Change Arpeggiator Rate",
+  arpeggiatorPattern: "Change Arpeggiator Pattern",
+  arpeggiatorOctaves: "Change Arpeggiator Octaves",
 };
 
 /** `current` with `trackId`'s synth `key` set to `value`. */
@@ -40,6 +48,30 @@ export function setSourceTrackSynthParam<Key extends SynthParamKey>(
         ? { ...track, synth: { ...synthParamsOf(track.synth), [key]: value } }
         : track,
     ),
+  });
+}
+
+/**
+ * `current` with `trackId`'s arpeggiator set to `arp`, or removed from its
+ * note generators when `arp` is undefined.
+ */
+export function setSourceTrackArpeggiator(
+  current: ProjectState,
+  trackId: string,
+  arp: Arpeggiator | undefined,
+): ProjectState {
+  return patchProjectState(current, {
+    sourceTracks: current.sourceTracks.map((track) => {
+      if (track.id !== trackId) {
+        return track;
+      }
+      const { noteGenerators, ...rest } = track;
+      const others = (noteGenerators ?? []).filter(
+        (generator) => generator.kind !== "arpeggiator",
+      );
+      const next = arp ? [arp, ...others] : others;
+      return next.length ? { ...rest, noteGenerators: next } : rest;
+    }),
   });
 }
 

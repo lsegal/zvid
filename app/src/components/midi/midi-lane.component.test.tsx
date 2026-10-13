@@ -22,6 +22,7 @@ import {
 import { installHarness } from "../../harness";
 import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
+import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
 import {
   PIANO_ROLL_QUARTER_PX,
@@ -89,6 +90,9 @@ async function open(initial = midiProject()) {
         ?.notes,
     synth: () =>
       project().sourceTracks.find((track) => track.id === "bass")?.synth,
+    arp: () =>
+      project().sourceTracks.find((track) => track.id === "bass")
+        ?.noteGenerators?.[0],
   };
 }
 
@@ -162,6 +166,69 @@ test(
     await expect.poll(() => synth()?.cutoff).toBe(DEFAULT_SYNTH_PARAMS.cutoff);
     await undo();
     await expect.poll(() => synth()?.wave ?? "sawtooth").toBe("sawtooth");
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "the Arpeggiator device adds, sets, bypasses and removes the track's arpeggiator",
+  async () => {
+    const { arp } = await open();
+    await userEvent.click(
+      page.getByRole("button", { name: "Open Bass synth" }).element(),
+    );
+    const device = page.getByRole("region", { name: "Bass arpeggiator" });
+    await expect.element(device).toBeVisible();
+    expect(arp()).toBeUndefined();
+
+    await userEvent.click(
+      device.getByRole("button", { name: "Add Arpeggiator" }),
+    );
+    await expect.poll(arp).toEqual(DEFAULT_ARPEGGIATOR);
+    // It sits ahead of the Synth, which plays what it generates.
+    const synthDevice = page.getByRole("region", { name: "Bass synth" });
+    expect(
+      device.element().compareDocumentPosition(synthDevice.element()) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await userEvent.click(device.getByRole("button", { name: "1/8" }));
+    await userEvent.click(device.getByRole("button", { name: "Up-Down" }));
+    await userEvent.click(device.getByRole("button", { name: "3" }));
+    await expect.poll(arp).toEqual({
+      ...DEFAULT_ARPEGGIATOR,
+      rate: 0.5,
+      pattern: "up-down",
+      octaves: 3,
+    });
+    await expect
+      .element(device.getByRole("button", { name: "Up-Down" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect
+      .element(device.getByRole("button", { name: "1/16" }))
+      .toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(
+      device.getByRole("button", { name: "Bypass Arpeggiator" }),
+    );
+    await expect.poll(() => arp()?.enabled).toBe(false);
+    await expect
+      .element(device.getByRole("button", { name: "Enable Arpeggiator" }))
+      .toHaveAttribute("aria-pressed", "false");
+    await undo();
+    await expect.poll(() => arp()?.enabled).toBe(true);
+    await undo();
+    await expect.poll(() => arp()?.octaves).toBe(1);
+
+    await userEvent.click(
+      device.getByRole("button", { name: "Remove Arpeggiator" }),
+    );
+    await expect.poll(arp).toBeUndefined();
+    await expect
+      .element(device.getByRole("button", { name: "Add Arpeggiator" }))
+      .toBeVisible();
+    await undo();
+    await expect.poll(() => arp()?.pattern).toBe("up-down");
   },
   EDITOR_TEST_TIMEOUT,
 );

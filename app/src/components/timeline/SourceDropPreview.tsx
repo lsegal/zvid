@@ -2,7 +2,7 @@ import { SpeakerWaveIcon } from "@heroicons/react/24/solid";
 import { formatDuration } from "../../app/format.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
-import type { MediaItem } from "../../media";
+import { isImageMedia, type MediaItem, showsPicture } from "../../media";
 import {
   getSourceDropPreviewLayout,
   getSourceDropPreviewThumbnailOwner,
@@ -150,17 +150,20 @@ function SourceDropPreviewClip({
   swatch,
   span,
 }: SourceDropPreviewClipProps) {
-  const audioOnly = media ? !media.hasVideo : item.kind === "audio";
+  const audioOnly = media ? !showsPicture(media) : item.kind === "audio";
   const peaks = useAudioClipPeaks(media, audioOnly ? "audio" : "none");
   const thumbnailKey = media?.hasVideo
     ? getThumbnailCacheKey(media.id, item.inSeconds)
     : undefined;
+  // An image is its own thumbnail.
   const thumbnailUrl = thumbnailKey
     ? (thumbnails.get(
         thumbnailKey,
         getSourceDropPreviewThumbnailOwner(index),
       ) ?? media?.thumbnailUrl)
-    : undefined;
+    : media && isImageMedia(media)
+      ? media.thumbnailUrl
+      : undefined;
 
   return (
     <div

@@ -1,5 +1,5 @@
 import { hasMediaExtension } from "../harness/media-extensions.ts";
-import { SVG_MIME_TYPE } from "../media.ts";
+import { isImageMimeType } from "../media.ts";
 import { PALETTE } from "./constants.ts";
 import type { Lane, SourceTrackDropTarget } from "./types.ts";
 
@@ -59,7 +59,7 @@ function isMediaFileType(type: string) {
   return (
     type.startsWith("video/") ||
     type.startsWith("audio/") ||
-    type === SVG_MIME_TYPE
+    isImageMimeType(type)
   );
 }
 

@@ -34,7 +34,7 @@ describe("clip stacks", () => {
     assert.equal(getTrackGroup(GLOBAL_EFFECT_TRACK_ID), "global");
   });
 
-  it("takes Transform and visual effects, but not Layout or Order", () => {
+  it("takes Transform, visual effects and one Layout, but not Order", () => {
     let effects: SessionEffect[] = [];
     for (const name of ["Transform", "Colorize", "Pixelate", "ZoomAndPan"]) {
       effects = addEffect(effects, clipTrack, name, undefined, name);
@@ -48,8 +48,10 @@ describe("clip stacks", () => {
         [clipTrack, "ZoomAndPan"],
       ],
     );
-    assert.equal(addEffect(effects, clipTrack, "Layout"), effects);
     assert.equal(addEffect(effects, clipTrack, "Order"), effects);
+    const withLayout = addEffect(effects, clipTrack, "Layout", 0, "layout");
+    assert.equal(withLayout[0].id, "layout");
+    assert.equal(addEffect(withLayout, clipTrack, "Layout"), withLayout);
     // Transform stays off the Global stack.
     assert.equal(
       addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Transform"),

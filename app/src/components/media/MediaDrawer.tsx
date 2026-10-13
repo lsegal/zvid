@@ -212,7 +212,7 @@ export function MediaDrawer({
   // Images and LUTs have nothing to play in the media preview.
   function openMedia(mediaId: string) {
     const media = mediaItems.find((item) => item.id === mediaId);
-    if (media && !isEffectMedia(media)) {
+    if (media && !isEffectMedia(media) && !isImageMedia(media)) {
       onOpenMedia(mediaId);
     }
   }
@@ -260,9 +260,11 @@ export function MediaDrawer({
     );
     const offline = media.availability === "offline" && !mediaSync;
     const hasRange = hasMediaRange(media);
-    const duration = isEffectMedia(media)
-      ? ""
-      : formatMediaDuration(media.durationSeconds);
+    // A still image has no length; an animated one shows its loop's.
+    const duration =
+      isEffectMedia(media) || (isImageMedia(media) && !media.durationSeconds)
+        ? ""
+        : formatMediaDuration(media.durationSeconds);
     const className = [
       view === "icons" ? "media-tile" : "media-row",
       selected ? "is-selected" : "",
@@ -294,7 +296,7 @@ export function MediaDrawer({
         className={className}
         data-media-id={media.id}
         data-availability={media.availability}
-        // Images and LUTs make no clips, so they don't drag onto source tracks.
+        // LUTs make no clips, so they don't drag onto source tracks.
         draggable={!isEffectMedia(media)}
         id={getOptionId(media.id)}
         key={media.id}

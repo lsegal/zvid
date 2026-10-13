@@ -7,6 +7,7 @@ import type {
 } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { NoteGenerator } from "../note-generators.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 
@@ -41,6 +42,8 @@ export type SourceTrack = {
   hidden?: boolean;
   // The synth its MIDI clips play through; the default synth when unset.
   synth?: SynthParams;
+  // The note generators ahead of its synth, such as an arpeggiator.
+  noteGenerators?: NoteGenerator[];
 };
 
 export type SourceSpan = {

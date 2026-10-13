@@ -74,6 +74,14 @@ function describeParameter(parameter: FxParameterDefinition) {
   }
 }
 
+// Every layer already has its own Layout, so list_effects and add_effect
+// offer it only for the other stacks it supports.
+function addableScopes(definition: FxEffectDefinition) {
+  return definition.layerDefault
+    ? definition.scopes.filter((scope) => scope !== "layer")
+    : definition.scopes;
+}
+
 function describeDefinition(definition: FxEffectDefinition) {
   return {
     effectName: definition.effectName,
@@ -81,7 +89,7 @@ function describeDefinition(definition: FxEffectDefinition) {
     description: definition.description,
     domain: getEffectDomain(definition),
     category: definition.category,
-    scopes: definition.scopes,
+    scopes: addableScopes(definition),
     parameters: definition.parameters.filter(isEditable).map(describeParameter),
   };
 }
@@ -199,7 +207,7 @@ export const effectCommands: ControlCommand[] = [
       const domain = optionalString(input, "domain");
       return FX_EFFECT_DEFINITIONS.filter(
         (definition) =>
-          !definition.layerDefault &&
+          addableScopes(definition).length > 0 &&
           (!domain || getEffectDomain(definition) === domain),
       ).map(describeDefinition);
     },
@@ -242,7 +250,7 @@ export const effectCommands: ControlCommand[] = [
           candidate.effectName.toLowerCase() === effectName.toLowerCase() ||
           candidate.displayName.toLowerCase() === effectName.toLowerCase(),
       );
-      if (!definition || definition.layerDefault) {
+      if (!definition) {
         throw new ControlFailure(
           "not_found",
           `There is no "${effectName}" effect. Call list_effects for their names.`,
@@ -255,10 +263,13 @@ export const effectCommands: ControlCommand[] = [
         optionalString(input, "targetId"),
       );
       const scope = stackScope(project, trackId);
-      if (!isEffectSupportedIn(definition.effectName, scope)) {
+      if (
+        !isEffectSupportedIn(definition.effectName, scope) ||
+        !addableScopes(definition).includes(scope)
+      ) {
         throw new ControlFailure(
           "unavailable",
-          `${definition.displayName} can't go on a ${scope === "fxClip" ? "FX clip's" : scope} stack; it works on ${definition.scopes.join(", ")} stacks.`,
+          `${definition.displayName} can't go on a ${scope === "fxClip" ? "FX clip's" : scope} stack; it works on ${addableScopes(definition).join(", ")} stacks.`,
         );
       }
       const id = crypto.randomUUID();
@@ -269,7 +280,7 @@ export const effectCommands: ControlCommand[] = [
       if (add(project.effects) === project.effects) {
         throw new ControlFailure(
           "unavailable",
-          `${definition.displayName} can't be added there; a layer takes one Layout and the Global stack none.`,
+          `${definition.displayName} can't be added there; a stack takes one Layout and the Global stack none.`,
         );
       }
       host.commit(`Add ${definition.displayName}`, (current) => {

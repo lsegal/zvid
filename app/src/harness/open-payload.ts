@@ -1,4 +1,4 @@
-import { inferMediaKind, withMediaType } from "../media.ts";
+import { withMediaType } from "../media.ts";
 import type { ProjectArchiveMedia } from "../project-archive.ts";
 import {
   collectSessionMediaPaths,
@@ -65,9 +65,7 @@ export function buildArchiveOpenPayload(
         path: rawPath,
         name: basename(rawPath),
         url: entry
-          ? URL.createObjectURL(
-              withMediaType(entry.file, inferMediaKind(rawPath)),
-            )
+          ? URL.createObjectURL(withMediaType(entry.file, rawPath))
           : "",
         exists: Boolean(entry),
       };

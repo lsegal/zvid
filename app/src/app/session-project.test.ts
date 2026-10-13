@@ -5,6 +5,7 @@ import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
 import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
+import { DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import type { ProjectSession } from "../session.ts";
 import { projectToSession } from "../session-save.ts";
 import { retimeSourceSpan } from "../source-span-edit.ts";
@@ -253,7 +254,7 @@ describe("buildStandaloneProject", () => {
     assert.equal(project.sourceTracks[1].name, "b");
   });
 
-  it("makes no clips of images, which only feed effects", () => {
+  it("makes no clips of images, which are dropped onto source tracks instead", () => {
     const project = buildStandaloneProject([
       media({
         id: "logo",
@@ -880,6 +881,7 @@ describe("a session with a MIDI clip", () => {
         id: "keys",
         name: "Keys",
         synth: { ...DEFAULT_SYNTH_PARAMS, wave: "square", cutoff: 800 },
+        noteGenerators: [{ ...DEFAULT_ARPEGGIATOR, pattern: "up-down" }],
       },
       { id: "bass", name: "Bass" },
     ],
@@ -911,6 +913,10 @@ describe("a session with a MIDI clip", () => {
     assert.equal(project.sourceTracks[0].synth?.wave, "square");
     assert.equal(project.sourceTracks[0].synth?.cutoff, 800);
     assert.equal("synth" in project.sourceTracks[1], false);
+    assert.deepEqual(project.sourceTracks[0].noteGenerators, [
+      { ...DEFAULT_ARPEGGIATOR, pattern: "up-down" },
+    ]);
+    assert.equal("noteGenerators" in project.sourceTracks[1], false);
   });
 
   it("saves them as it opened them", () => {
@@ -927,6 +933,10 @@ describe("a session with a MIDI clip", () => {
       saved.tracks?.map((track) => track.synth),
       [project.sourceTracks[0].synth, undefined],
     );
+    assert.deepEqual(
+      saved.tracks?.map((track) => track.noteGenerators),
+      [project.sourceTracks[0].noteGenerators, undefined],
+    );
     const reopened = sessionToProject(saved, []);
     assert.deepEqual(
       reopened.sourceSpans[0].notes,
@@ -935,6 +945,10 @@ describe("a session with a MIDI clip", () => {
     assert.deepEqual(
       reopened.sourceTracks[0].synth,
       project.sourceTracks[0].synth,
+    );
+    assert.deepEqual(
+      reopened.sourceTracks[0].noteGenerators,
+      project.sourceTracks[0].noteGenerators,
     );
   });
   it("keeps an empty MIDI clip a MIDI clip", () => {

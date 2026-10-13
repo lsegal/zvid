@@ -1,3 +1,4 @@
+import { quartersToSeconds } from "./app/timeline-math.ts";
 import type {
   ProjectState,
   SourceSpan,
@@ -6,7 +7,7 @@ import type {
 } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
 import { addDefaultGain } from "./default-gain.ts";
-import { isEffectMedia, type MediaItem } from "./media.ts";
+import { isEffectMedia, isImageMedia, type MediaItem } from "./media.ts";
 import { mediaRangeOf } from "./media-range.ts";
 import {
   getDroppedSourceSpanStartQ,
@@ -18,11 +19,21 @@ import { nextSourceTrackColorIndex } from "./source-track-color.ts";
 // reported a duration yet still shows up.
 const MIN_UNRANGED_CLIP_SECONDS = 1;
 
+// An image's clip is a bar of 4/4 long, whatever its file's length.
+export const IMAGE_CLIP_QUARTERS = 4;
+
 /**
- * The part of `item` a clip of it plays: its In/Out range, or the whole file
- * (at least a second) when it has none.
+ * The part of `item` a clip of it plays at `bpm`: its In/Out range, or the
+ * whole file (at least a second) when it has none. An image plays a bar,
+ * looping an animation to fill it.
  */
-export function getMediaClipTrim(item: MediaItem) {
+export function getMediaClipTrim(item: MediaItem, bpm: number) {
+  if (isImageMedia(item)) {
+    return {
+      trimStartSeconds: 0,
+      durationSeconds: quartersToSeconds(IMAGE_CLIP_QUARTERS, bpm),
+    };
+  }
   const range = mediaRangeOf(item);
   return range
     ? {
@@ -63,8 +74,7 @@ export function addMediaToSourceTrack(
   allItems: readonly MediaItem[],
   target: SourceTrackDropTarget,
 ): SourceTrackMediaPlacement {
-  // Images and LUTs make no clips; they stay in the Media drawer for
-  // effects to use.
+  // LUTs make no clips; they stay in the Media drawer for effects to use.
   const items = allItems.filter((item) => !isEffectMedia(item));
   if (!items.length) {
     return {
@@ -121,7 +131,7 @@ export function addMediaToSourceTrack(
     mediaPath: item.sourcePath ?? item.name,
     mediaId: item.id,
     startQ: 0,
-    ...getMediaClipTrim(item),
+    ...getMediaClipTrim(item, current.bpm),
     tint: swatch.color,
     accent: swatch.accent,
   }));

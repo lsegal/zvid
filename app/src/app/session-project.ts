@@ -8,9 +8,10 @@ import {
   pruneClipEffects,
   pruneSourceEffects,
 } from "../fx-stack.ts";
-import { isEffectMedia, type MediaItem } from "../media.ts";
+import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes, readSynthParams } from "../midi-clip.ts";
+import { readNoteGenerators } from "../note-generators.ts";
 import {
   fitSourceSpansToMedia,
   migrateClipContentEffects,
@@ -208,6 +209,7 @@ export function sessionToProject(
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => {
       const synth = readSynthParams(track.synth);
+      const noteGenerators = readNoteGenerators(track.noteGenerators);
       return {
         id: track.id,
         name: track.name,
@@ -218,6 +220,7 @@ export function sessionToProject(
         ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
         ...(track.hidden === true ? { hidden: true } : {}),
         ...(synth ? { synth } : {}),
+        ...(noteGenerators ? { noteGenerators } : {}),
       };
     },
   );
@@ -460,10 +463,15 @@ export function sessionToProject(
   };
 }
 
+// Whether importing `item` into a project without a session builds clips of
+// it. Images and LUTs stay in the Media drawer, for dropping onto source
+// tracks or for effects to use.
+export function makesStandaloneClip(item: MediaItem) {
+  return !isEffectMedia(item) && !isImageMedia(item);
+}
+
 export function buildStandaloneProject(allMediaItems: MediaItem[]) {
-  // Images and LUTs make no clips; they stay in the Media drawer for
-  // effects to use.
-  const mediaItems = allMediaItems.filter((item) => !isEffectMedia(item));
+  const mediaItems = allMediaItems.filter(makesStandaloneClip);
   const lanes = LEGACY_DEFAULT_LANES;
   const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
   const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;

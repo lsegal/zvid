@@ -8,6 +8,7 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
+import { DEFAULT_ARPEGGIATOR, type NoteGenerator } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
 
@@ -429,6 +430,59 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.notEqual(mixOf([{ ...notes[0], velocity: 30 }]), id);
     assert.notEqual(mixOf(notes, { ...DEFAULT_SYNTH_PARAMS, release: 1 }), id);
     assert.equal(mixOf(notes, DEFAULT_SYNTH_PARAMS), id);
+  });
+
+  it("plays a clip's notes through its track's arpeggiator, on the beat grid", () => {
+    const chord = [
+      { pitch: 60, start: 0, length: 4, velocity: 100 },
+      { pitch: 64, start: 0, length: 4, velocity: 100 },
+    ];
+    const mixOf = (noteGenerators?: NoteGenerator[]) =>
+      resolveAudioClips(
+        inputs({
+          sourceTracks: [
+            { id: "keys", ...(noteGenerators ? { noteGenerators } : {}) },
+          ],
+          // Its quarter 0 falls at track quarter 3 - 1 = 2, on the grid.
+          sourceSpans: [
+            {
+              ...midiSpan("m", "keys", 3),
+              notes: chord,
+              durationSeconds: 1.5,
+            },
+          ],
+        }),
+      ).clips[0];
+    const arp = { ...DEFAULT_ARPEGGIATOR, rate: 1 as const };
+    const arpeggiated = mixOf([arp]);
+    assert.deepEqual(
+      arpeggiated.synth?.notes.map((note) => [note.pitch, note.start]),
+      [
+        [60, 0],
+        [64, 1],
+        [60, 2],
+        [64, 3],
+      ],
+    );
+    // Bypassing or removing it plays the clip's own notes again.
+    const plain = mixOf();
+    assert.equal(plain.synth?.notes, chord);
+    assert.equal(mixOf([{ ...arp, enabled: false }]).mediaId, plain.mediaId);
+    assert.notEqual(arpeggiated.mediaId, plain.mediaId);
+
+    // A clip whose quarter 0 is off the grid steps on the grid lines.
+    const offGrid = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "keys", noteGenerators: [arp] }],
+        sourceSpans: [
+          { ...midiSpan("m", "keys", 3.5), notes: chord, durationSeconds: 1.5 },
+        ],
+      }),
+    ).clips[0];
+    assert.deepEqual(
+      offGrid.synth?.notes.map((note) => note.start),
+      [0.5, 1.5, 2.5, 3.5],
+    );
   });
 
   it("leaves MIDI clips without notes silent, as imported ones are", () => {
