@@ -13,6 +13,10 @@ import {
   wheelKey,
 } from "./fx/effects/levels/levels.ts";
 import {
+  MOVE_WAYPOINT_LIMIT,
+  moveWaypointPrefix,
+} from "./fx/effects/move/move.ts";
+import {
   TRANSITION_EFFECT_NAME,
   TRANSITION_FRAMES,
 } from "./fx/effects/transition/transition.ts";
@@ -641,6 +645,13 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     MOVE_EFFECT_NAME,
     {
       ...prefixed("Start", TRANSFORM_NEUTRALS),
+      ...Object.fromEntries(
+        Array.from({ length: MOVE_WAYPOINT_LIMIT }, (_, index) =>
+          Object.entries(
+            prefixed(moveWaypointPrefix(index + 1), TRANSFORM_NEUTRALS),
+          ),
+        ).flat(),
+      ),
       ...prefixed("End", TRANSFORM_NEUTRALS),
     },
   ],
