@@ -27,6 +27,8 @@ type PromptPaletteProps = {
   getSurface: () => PromptSurface | undefined;
   // Where focus goes once the box closes.
   returnFocus?: () => void;
+  // Opens the desktop app download, where Sign in with ChatGPT works.
+  onDownloadDesktopApp: () => void;
 };
 
 type RunState =
@@ -73,6 +75,7 @@ export function PromptPalette({
   client,
   getSurface,
   returnFocus,
+  onDownloadDesktopApp,
 }: PromptPaletteProps) {
   const [prompt, setPrompt] = useState("");
   const [connection, setConnection] = useState<Connection>({ kind: "loading" });
@@ -113,6 +116,8 @@ export function PromptPalette({
 
   const status = connection.kind === "loading" ? null : connection.status;
   const ready = !!status?.signedIn && status.planUsage;
+  // The web app can't sign in, so it points to the desktop app instead.
+  const unavailable = status?.available === false;
   const running = run.kind === "running";
 
   async function signIn() {
@@ -245,7 +250,9 @@ export function PromptPalette({
             placeholder={
               ready
                 ? "Tell zvid what to do, like “add a reverb to the selected clip”"
-                : "Sign in with ChatGPT to prompt zvid"
+                : unavailable
+                  ? "Get the desktop app to prompt zvid"
+                  : "Sign in with ChatGPT to prompt zvid"
             }
             readOnly={running}
             ref={inputRef}
@@ -289,10 +296,18 @@ export function PromptPalette({
               </button>
             </>
           ) : !connection.status.available ? (
-            <span>
-              Prompts run on your ChatGPT plan through Sign in with ChatGPT,
-              which works in the zvid desktop app.
-            </span>
+            <>
+              <span>
+                Prompts run on your ChatGPT plan in the zvid desktop app.
+              </span>
+              <button
+                className="prompt-palette__download"
+                onClick={onDownloadDesktopApp}
+                type="button"
+              >
+                Download the desktop app
+              </button>
+            </>
           ) : ready ? (
             <>
               <span>

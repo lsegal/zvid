@@ -267,16 +267,44 @@ describe("the prompt button", () => {
       .toBeVisible();
   });
 
-  test("points the web app to the desktop app", async () => {
+  test("offers the desktop app download on the web", async () => {
     const view = await renderButton(
       fakeClient({ available: false, signedIn: false, planUsage: false }),
     );
-    await openPalette(view);
+    const input = await openPalette(view);
     await expect
-      .element(view.getByText(/works in the zvid desktop app/))
-      .toBeVisible();
+      .element(input)
+      .toHaveAttribute("placeholder", "Get the desktop app to prompt zvid");
     expect(
       document.querySelector(".prompt-palette__chatgpt"),
     ).not.toBeInTheDocument();
+
+    await view
+      .getByRole("button", { name: "Download the desktop app" })
+      .click();
+    const dialog = view.getByRole("dialog", {
+      name: "Download the zvid desktop app",
+    });
+    await expect.element(dialog).toBeVisible();
+    await expect
+      .element(view.getByRole("dialog", { name: "Prompt zvid" }))
+      .not.toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await expect.element(dialog, { timeout: 2000 }).not.toBeInTheDocument();
+  });
+
+  test("keeps the sign-in placeholder where signing in works", async () => {
+    const view = await renderButton(fakeClient(SIGNED_OUT));
+    const input = await openPalette(view);
+    await expect
+      .element(view.getByRole("button", { name: "Continue with ChatGPT" }))
+      .toBeVisible();
+    await expect
+      .element(input)
+      .toHaveAttribute("placeholder", "Sign in with ChatGPT to prompt zvid");
+    expect(
+      view.getByRole("button", { name: "Download the desktop app" }).query(),
+    ).toBeNull();
   });
 });
