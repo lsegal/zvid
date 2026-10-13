@@ -9,9 +9,9 @@ import {
   SOURCE_CLIP_FIELD_LABELS,
   SOURCE_CLIP_FIELDS,
 } from "../source-clip-properties.ts";
-import { TimeValueControl } from "./ui/TimeValueControl";
-import type { SetMidiClipTimeline } from "./midi/PianoRoll";
 import { MidiClipTimelineFields } from "./MidiClipTimelineFields";
+import type { SetMidiClipTimeline } from "./midi/PianoRoll";
+import { TimeValueControl } from "./ui/TimeValueControl";
 import "./fx/fx-chain.css";
 import "./source-clip-properties.css";
 

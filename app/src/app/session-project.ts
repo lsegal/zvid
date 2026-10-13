@@ -236,7 +236,9 @@ export function sessionToProject(
     const media = pickMediaByPath(mediaItems, clip.filePath);
     const trimStartSeconds = clipSourceFrame(clip) / fps;
     const notes = readMidiNotes(clip.notes);
-    const midiTimeline = notes ? readMidiTimeline(clip.midiTimeline) : undefined;
+    const midiTimeline = notes
+      ? readMidiTimeline(clip.midiTimeline)
+      : undefined;
     return {
       ...(notes ? { notes } : {}),
       ...(midiTimeline ? { midiTimeline } : {}),

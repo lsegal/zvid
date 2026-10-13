@@ -83,7 +83,10 @@ export function getMidiPanelModel(
  * as its content.
  */
 export function midiTimelineOf(
-  span: Pick<SourceSpan, "midiTimeline" | "trimStartSeconds" | "durationSeconds">,
+  span: Pick<
+    SourceSpan,
+    "midiTimeline" | "trimStartSeconds" | "durationSeconds"
+  >,
   bpm: number,
 ): MidiClipTimeline {
   return (

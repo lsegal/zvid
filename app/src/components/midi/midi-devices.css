@@ -121,7 +121,6 @@
   background: #1b1e27;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   touch-action: none;
-  user-select: none;
 }
 
 .piano-roll__bar-number {

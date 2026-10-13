@@ -5,9 +5,9 @@ import {
 } from "react";
 import {
   dragMidiTimeline,
+  MIDI_TIMELINE_MIN_Q,
   type MidiClipTimeline,
   type MidiTimelineHandle,
-  MIDI_TIMELINE_MIN_Q,
   sameMidiTimeline,
 } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
@@ -22,7 +22,11 @@ type PianoRollRulerProps = {
   // How many quarters the roll shows, and a quarter's width.
   viewQ: number;
   quarterPx: number;
-  onChange: (timeline: MidiClipTimeline, label: string, mode: FxEditMode) => void;
+  onChange: (
+    timeline: MidiClipTimeline,
+    label: string,
+    mode: FxEditMode,
+  ) => void;
 };
 
 type RulerDrag = {
@@ -39,6 +43,11 @@ const HANDLE_NAMES: Record<Exclude<MidiTimelineHandle, "loop">, string> = {
   loopStart: "Loop start",
   loopEnd: "Loop end",
 };
+
+// The quarter each bar the roll shows starts on.
+function barStarts(viewQ: number) {
+  return Array.from({ length: Math.ceil(viewQ / 4) }, (_, bar) => bar * 4);
+}
 
 function historyLabel(handle: MidiTimelineHandle) {
   return handle === "loop"
@@ -155,7 +164,6 @@ export function PianoRollRuler({
   }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: dragging the markers is a pointer gesture; each marker's slider moves it from the keyboard
     <div
       className="piano-roll__ruler"
       data-piano-roll-ruler
@@ -166,13 +174,13 @@ export function PianoRollRuler({
       onPointerUp={(event) => endDrag(event, true)}
       style={{ width: at(viewQ) }}
     >
-      {Array.from({ length: Math.ceil(viewQ / 4) }, (_, bar) => (
+      {barStarts(viewQ).map((barQ) => (
         <span
           className="piano-roll__bar-number"
-          key={bar}
-          style={{ left: at(bar * 4) }}
+          key={barQ}
+          style={{ left: at(barQ) }}
         >
-          {bar + 1}
+          {barQ / 4 + 1}
         </span>
       ))}
       <span

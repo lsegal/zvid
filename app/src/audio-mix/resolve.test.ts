@@ -415,6 +415,43 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.match(clip.mediaId, /^synth:m:/);
   });
 
+  it("plays a looped clip's Start pass, then its loop, to the clip's end", () => {
+    // At 120 BPM: content runs 0.5 s trimmed + 2 s, so 5 quarters.
+    const mix = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "keys" }],
+        sourceSpans: [
+          {
+            ...midiSpan("m", "keys"),
+            notes: [
+              { pitch: 60, start: 0, length: 1, velocity: 100 },
+              { pitch: 62, start: 1, length: 1, velocity: 100 },
+            ],
+            midiTimeline: {
+              length: 2,
+              start: 1,
+              loopStart: 0,
+              loopEnd: 2,
+              loop: true,
+            },
+          },
+        ],
+      }),
+    );
+    const synth = mix.clips[0].synth;
+    assert.deepEqual(
+      synth?.notes.map((played) => [played.start, played.pitch]),
+      [
+        [0, 62],
+        [1, 60],
+        [2, 62],
+        [3, 60],
+        [4, 62],
+      ],
+    );
+    assert.equal(synth?.durationSeconds, 2.5);
+  });
+
   it("renders again when its notes or its track's synth change", () => {
     const mixOf = (
       spanNotes: typeof notes,

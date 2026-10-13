@@ -10,8 +10,8 @@ import { getClipEndQ, quartersToSeconds } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
-import { newMidiTimeline } from "./midi-clip-timeline.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
+import { newMidiTimeline } from "./midi-clip-timeline.ts";
 import {
   resolveSourceSpanOverlaps,
   retimeSourceSpan,

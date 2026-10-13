@@ -199,9 +199,9 @@ export function performMidiNotes(
   notes: readonly MidiNote[],
   timeline: MidiClipTimeline | undefined,
   untilQ: number,
-): MidiNote[] {
+): readonly MidiNote[] {
   if (!timeline) {
-    return [...notes];
+    return notes;
   }
   const end = midiTimelineEnd(timeline);
   const repeatStart = timeline.loop ? timeline.loopStart : timeline.start;
