@@ -63,16 +63,18 @@ describe("createExportTimeEstimator", () => {
     for (let second = 1; second <= 20; second++) {
       shown.push(estimate(rendering(second * 2), second * 1_000) ?? NaN);
     }
-    for (let second = 1; second <= 60; second++) {
+    for (let second = 1; second <= 100; second++) {
       const percent = 40 + Math.floor(second / 2);
       shown.push(estimate(rendering(percent), (20 + second) * 1_000) ?? NaN);
     }
     for (let i = 1; i < shown.length; i++) {
       assert.ok(shown[i] <= shown[i - 1], `${shown[i]} > ${shown[i - 1]}`);
     }
-    // Once the slower rate catches up, it is followed: 30% left at 0.5%/s.
-    assert.equal(shown.at(-1), 60);
-    assert.equal(estimate(rendering(100), 200_000), 0);
+    // It holds at 30 s left until the slower rate catches up, then follows
+    // it: 10% left at 0.5% a second.
+    assert.equal(shown[20 + 30], 30);
+    assert.equal(shown.at(-1), 20);
+    assert.equal(estimate(rendering(100), 140_000), 0);
   });
 });
 

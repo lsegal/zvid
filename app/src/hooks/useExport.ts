@@ -27,8 +27,8 @@ import {
   reopenExportOptions,
 } from "../export-options.ts";
 import {
-  describeExportActivity,
   createExportTimeEstimator,
+  describeExportActivity,
 } from "../export-progress.ts";
 import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
