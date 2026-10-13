@@ -9,6 +9,7 @@ import { sharedClipAudioCache } from "./clip-audio-cache.ts";
 import { clipReadSeconds, type DecodedAudio } from "./mix.ts";
 import { AUDIO_PROCESSORS } from "./processors.ts";
 import type { AudioMixClip } from "./resolve.ts";
+import { renderSynthClip } from "./synth.ts";
 
 // The longest media, and clip, WebKit plays from a decoded buffer rather
 // than a media element, bounding the memory decoding takes: a minute of
@@ -29,6 +30,18 @@ export function prefersDecodedVoice(
     clip.mediaDurationSeconds !== undefined &&
     clip.mediaDurationSeconds <= MAX_PREFERRED_DECODED_SECONDS &&
     clip.durationSeconds <= MAX_PREFERRED_DECODED_SECONDS
+  );
+}
+
+// Whether the preview must play `clip` from a decoded buffer: a MIDI clip,
+// whose notes render into one (see synth.ts), or a clip whose source stages
+// read its media other than forwards.
+export function needsDecodedVoice(
+  clip: AudioMixClip,
+  registry = AUDIO_PROCESSORS,
+) {
+  return (
+    clip.synth !== undefined || clipReadSeconds(clip, registry) !== undefined
   );
 }
 
@@ -223,7 +236,10 @@ export class DecodedClipVoice {
     const { context } = this;
     return sharedClipAudioCache().span(
       { clip, url: this.url, bpm, sampleRate: context.sampleRate },
-      (mediaUrl) => decodeClipMedia(context, mediaUrl),
+      (mediaUrl) =>
+        clip.synth
+          ? renderSynthClip(clip.synth, bpm, context.sampleRate)
+          : decodeClipMedia(context, mediaUrl),
     );
   }
 

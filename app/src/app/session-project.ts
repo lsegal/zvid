@@ -10,6 +10,7 @@ import {
 } from "../fx-stack.ts";
 import { isEffectMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
+import { readMidiNotes, readSynthParams } from "../midi-clip.ts";
 import {
   fitSourceSpansToMedia,
   migrateClipContentEffects,
@@ -205,16 +206,20 @@ export function sessionToProject(
     }),
   );
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
-    (track, index) => ({
-      id: track.id,
-      name: track.name,
-      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
-      recordingPaths: (track.recordings ?? []).map(
-        (recording) => recording.filename,
-      ),
-      ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
-      ...(track.hidden === true ? { hidden: true } : {}),
-    }),
+    (track, index) => {
+      const synth = readSynthParams(track.synth);
+      return {
+        id: track.id,
+        name: track.name,
+        colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
+        recordingPaths: (track.recordings ?? []).map(
+          (recording) => recording.filename,
+        ),
+        ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+        ...(track.hidden === true ? { hidden: true } : {}),
+        ...(synth ? { synth } : {}),
+      };
+    },
   );
   const nameByTrack = new Map(
     sourceTracks.map((track) => [track.id, track.name]),
@@ -226,7 +231,9 @@ export function sessionToProject(
     );
     const media = pickMediaByPath(mediaItems, clip.filePath);
     const trimStartSeconds = clipSourceFrame(clip) / fps;
+    const notes = readMidiNotes(clip.notes);
     return {
+      ...(notes ? { notes } : {}),
       id: `source-${clip.id}`,
       sourceTrackId: clip.trackId,
       label:

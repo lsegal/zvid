@@ -3,6 +3,7 @@ import { customLutMediaPaths } from "./fx/effects/lut/lut.ts";
 import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
+import type { MidiNote, SynthParams } from "./midi-clip.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
@@ -33,6 +34,11 @@ export type ProjectSession = {
     fxEnabled?: boolean;
     /** zvid-only: `true` when the source track's video is hidden. */
     hidden?: boolean;
+    /**
+     * zvid-only: the synth the track's MIDI clips play through. Without it
+     * they play through the default synth.
+     */
+    synth?: SynthParams;
     recordings?: Array<{
       filename: string;
       frameStart?: number;
@@ -65,6 +71,12 @@ export type ProjectSession = {
     warpAnchorSeconds?: number;
     /** Seconds; the Layers app writes `"NaN"` for MIDI clips. */
     audioFileDuration?: number | "NaN";
+    /**
+     * zvid-only, set on a MIDI clip: its notes, in quarter notes from its
+     * content start (see midi-clip.ts). A MIDI clip imported from a Live set
+     * has none and stays a media-less placeholder.
+     */
+    notes?: MidiNote[];
   }>;
   selections?: Array<{
     id: number;

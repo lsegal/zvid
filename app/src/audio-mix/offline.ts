@@ -1,6 +1,7 @@
 // Renders an audio mix offline, for export and for the audio bands export
 // measures: each contributing media is decoded once at the render's sample
-// rate, then mixed by renderAudioMix.
+// rate, and each MIDI clip's notes played through its synth (see synth.ts),
+// then mixed by renderAudioMix.
 import {
   type AudioMixRenderOptions,
   type DecodedAudio,
@@ -8,6 +9,7 @@ import {
   renderAudioMix,
 } from "./mix.ts";
 import type { AudioMix } from "./resolve.ts";
+import { renderSynthClip, type SynthClip } from "./synth.ts";
 
 type MixMedia = { id: string; previewUrl: string };
 
@@ -28,7 +30,8 @@ async function decodeMedia(url: string, sampleRate: number) {
 }
 
 // Renders `mix` over `options`, or returns null when nothing in it can make
-// a sound. Media missing from `mediaItems`, or offline, stays silent.
+// a sound. Media missing from `mediaItems`, or offline, stays silent; MIDI
+// clips need no media.
 export async function renderAudioMixOffline(
   mix: AudioMix,
   mediaItems: readonly MixMedia[],
@@ -40,20 +43,28 @@ export async function renderAudioMixOffline(
   const urlById = new Map(
     mediaItems.map((item) => [item.id, item.previewUrl] as const),
   );
-  const mediaIds = new Set(
+  const synthById = new Map<string, SynthClip | undefined>(
     mix.clips
-      .filter((clip) => clip.amplitude > 0 && urlById.get(clip.mediaId))
-      .map((clip) => clip.mediaId),
+      .filter(
+        (clip) =>
+          clip.amplitude > 0 && (clip.synth || urlById.get(clip.mediaId)),
+      )
+      .map((clip) => [clip.mediaId, clip.synth]),
   );
-  if (!mediaIds.size) {
+  if (!synthById.size) {
     return null;
   }
   const decoded = new Map<string, DecodedAudio>();
   await Promise.all(
-    [...mediaIds].map(async (mediaId) => {
+    [...synthById].map(async ([mediaId, synth]) => {
       decoded.set(
         mediaId,
-        await decodeMedia(urlById.get(mediaId) as string, options.sampleRate),
+        synth
+          ? await renderSynthClip(synth, mix.bpm, options.sampleRate)
+          : await decodeMedia(
+              urlById.get(mediaId) as string,
+              options.sampleRate,
+            ),
       );
     }),
   );
