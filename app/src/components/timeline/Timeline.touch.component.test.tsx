@@ -259,7 +259,7 @@ describe(`${Timeline.name} on a phone`, {
   });
 
   // #1255: the transport's Loop button loops the selection and drops it.
-  test("Loop loops a lane selection and clears it, else a bar from the playhead", { repeats: 4 }, async () => {
+  test("Loop loops a lane selection and clears it, else a bar from the playhead", { repeats: 9 }, async () => {
     await usePhone();
     await renderApp();
     const scroll = centerOf(".timeline-scroll");
@@ -292,7 +292,7 @@ describe(`${Timeline.name} on a phone`, {
     const types = ["pointerdown", "pointerup", "pointercancel", "touchstart", "touchend", "touchcancel", "click", "scrollend", "contextmenu"];
     for (const t of types) window.addEventListener(t, rec, true);
     sc.addEventListener("scrollend", rec);
-    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y });
+    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y }, 0, 200);
     await settledPlayheadQ();
     log.push(`settled ${Math.round(performance.now() - t0)} q=${playheadQ()} sl=${sc.scrollLeft}`);
     const at = centerOf(loop);
