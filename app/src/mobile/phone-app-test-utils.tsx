@@ -110,7 +110,10 @@ async function gesture(steps: Array<[TouchType, Point[]]>, gapMs: number[]) {
 }
 
 // A finger from `from` to `to` in steps, after holding still for `holdMs`.
-export async function drag(from: Point, to: Point, holdMs = 0) {
+// With `restMs`, it stops at `to` that long before lifting, so the swipe
+// doesn't fling: Chromium on Linux takes the next tap during a fling as a
+// touch that stops it, and fires no click.
+export async function drag(from: Point, to: Point, holdMs = 0, restMs = 0) {
   const steps: Array<[TouchType, Point[]]> = [["touchStart", [from]]];
   const gaps = [holdMs];
   const count = 12;
@@ -125,6 +128,9 @@ export async function drag(from: Point, to: Point, holdMs = 0) {
       ],
     ]);
     gaps.push(16);
+  }
+  if (restMs) {
+    gaps[gaps.length - 1] = restMs;
   }
   steps.push(["touchEnd", []]);
   await gesture(steps, gaps);

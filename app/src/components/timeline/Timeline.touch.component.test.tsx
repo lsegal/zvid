@@ -281,8 +281,9 @@ describe(`${Timeline.name} on a phone`, {
     await expect.poll(() => document.querySelector(".loop-overlay")).toBeNull();
 
     // With nothing selected, it loops one bar from the playhead, snapped to
-    // the grid (#1295): not from the start of the playhead's bar.
-    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y });
+    // the grid (#1295): not from the start of the playhead's bar. The swipe
+    // stops before it lifts, or the Loop tap would only stop its fling.
+    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y }, 0, 200);
     await settledPlayheadQ();
     await tap(loop);
     await expect.poll(() => isVisible(query(".loop-overlay"))).toBe(true);
