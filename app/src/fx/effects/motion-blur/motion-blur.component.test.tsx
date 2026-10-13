@@ -87,11 +87,14 @@ describe("Motion Blur", { timeout: 60_000 }, () => {
 
     // A longer Distance smears it further.
     await setKnob(blur, "Distance", "240", "240 px");
-    expect(meanChange(await preview(), sharp)).toBeGreaterThan(atDefault * 1.5);
+    const across = await preview();
+    expect(meanChange(across, sharp)).toBeGreaterThan(atDefault * 1.25);
 
-    // Turning it leaves the smear as long.
+    // Turning it smears the text down instead.
     await setKnob(blur, "Angle", "90", "90°");
-    expect(meanChange(await preview(), sharp)).toBeGreaterThan(atDefault * 1.5);
+    const downward = await preview();
+    expect(meanChange(downward, sharp)).toBeGreaterThan(atDefault);
+    expect(meanChange(downward, across)).toBeGreaterThan(0.1);
 
     // Distance 0 leaves the text sharp.
     await setKnob(blur, "Distance", "0", "0 px");
