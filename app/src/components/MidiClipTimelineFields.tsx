@@ -18,12 +18,10 @@ type MidiClipTimelineFieldsProps = {
   onSetTimeline: SetMidiClipTimeline;
 };
 
-const FIELDS: readonly MidiTimelineField[] = [
-  "length",
-  "start",
-  "loopStart",
-  "loopEnd",
-];
+// The clip's Length and Start marker in one column, then the loop's switch
+// and brace in the next, so the widget keeps to three rows.
+const MARKER_FIELDS: readonly MidiTimelineField[] = ["length", "start"];
+const LOOP_FIELDS: readonly MidiTimelineField[] = ["loopStart", "loopEnd"];
 
 export const MIDI_TIMELINE_FIELD_LABELS: Record<MidiTimelineField, string> = {
   length: "MIDI Length",
@@ -53,51 +51,58 @@ export function MidiClipTimelineFields({
     },
   };
 
+  const control = (field: MidiTimelineField) => (
+    <TimeValueControl
+      key={field}
+      {...musical}
+      accent={accent}
+      kind={field === "length" ? "duration" : "position"}
+      label={MIDI_TIMELINE_FIELD_LABELS[field]}
+      max={limits[field].max}
+      min={limits[field].min}
+      onChange={(value, { commit }) =>
+        onSetTimeline(
+          spanId,
+          setMidiTimelineField(timeline, field, value),
+          midiHistoryLabels.timeline[field],
+          commit ? "commit" : "transient",
+        )
+      }
+      value={timeline[field]}
+    />
+  );
+
   return (
-    <div className="source-clip-properties__fields" data-midi-timeline-fields>
-      <fieldset className="fx-segmented">
-        <legend>Loop</legend>
-        <div className="fx-segmented__options">
-          {[false, true].map((loop) => (
-            <button
-              aria-pressed={timeline.loop === loop}
-              key={String(loop)}
-              onClick={() => {
-                if (timeline.loop !== loop) {
-                  onSetTimeline(
-                    spanId,
-                    setMidiTimelineLoop(timeline, loop),
-                    midiHistoryLabels.loop(loop),
-                  );
-                }
-              }}
-              type="button"
-            >
-              {loop ? "On" : "Off"}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      {FIELDS.map((field) => (
-        <TimeValueControl
-          key={field}
-          {...musical}
-          accent={accent}
-          kind={field === "length" ? "duration" : "position"}
-          label={MIDI_TIMELINE_FIELD_LABELS[field]}
-          max={limits[field].max}
-          min={limits[field].min}
-          onChange={(value, { commit }) =>
-            onSetTimeline(
-              spanId,
-              setMidiTimelineField(timeline, field, value),
-              midiHistoryLabels.timeline[field],
-              commit ? "commit" : "transient",
-            )
-          }
-          value={timeline[field]}
-        />
-      ))}
-    </div>
+    <>
+      <div className="source-clip-properties__fields" data-midi-timeline-fields>
+        {MARKER_FIELDS.map(control)}
+      </div>
+      <div className="source-clip-properties__fields" data-midi-loop-fields>
+        <fieldset className="fx-segmented">
+          <legend>Loop</legend>
+          <div className="fx-segmented__options">
+            {[false, true].map((loop) => (
+              <button
+                aria-pressed={timeline.loop === loop}
+                key={String(loop)}
+                onClick={() => {
+                  if (timeline.loop !== loop) {
+                    onSetTimeline(
+                      spanId,
+                      setMidiTimelineLoop(timeline, loop),
+                      midiHistoryLabels.loop(loop),
+                    );
+                  }
+                }}
+                type="button"
+              >
+                {loop ? "On" : "Off"}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        {LOOP_FIELDS.map(control)}
+      </div>
+    </>
   );
 }

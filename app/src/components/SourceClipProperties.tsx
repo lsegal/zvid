@@ -26,7 +26,7 @@ type SourceClipPropertiesProps = {
 };
 
 // The selected source clip's Start, Length and Offset, and a MIDI clip's
-// Length, loop and Start marker in a second column, in one device-style
+// Length, Start marker and loop in columns beside them, in one device-style
 // widget like a canned effect: an info icon where effects have power and
 // animation, no add menu, and it folds to a strip like a device. It leads the
 // FX chain, ahead of the Global, Track and Clip sections.
