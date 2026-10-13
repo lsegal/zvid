@@ -753,7 +753,7 @@ const EDIT_STYLE = {
   Padding: 140,
 };
 const editSlam = text("text-edit-slam", "title-words", 12.75, 0.45, EDIT_STYLE);
-move(editSlam, "Ease Out", { x: -1, y: 0.35 }, { y: 0.35 });
+move(editSlam, "Ease Out", { x: -0.3, y: 0.35 }, { y: 0.35 });
 addEffect(
   editSlam,
   "GaussianBlur",

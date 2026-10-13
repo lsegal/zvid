@@ -4305,7 +4305,7 @@
           "stringValue": "Ease Out"
         },
         "StartPositionX": {
-          "floatValue": -1
+          "floatValue": -0.3
         },
         "StartPositionY": {
           "floatValue": 0.35

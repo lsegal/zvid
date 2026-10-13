@@ -557,7 +557,7 @@ describe("zvid opening sample", () => {
     };
 
     // On bar 5's second beat, after the Glitch transition, "edit" flies in
-    // from off the left edge, blurred until it lands, then holds there.
+    // from just off the left edge, blurred until it lands, then holds there.
     const slam = textClip("text-edit-slam");
     const hold = textClip("text-edit");
     assert.deepEqual(slam.span, [383, 396]);
@@ -569,7 +569,7 @@ describe("zvid opening sample", () => {
     const [slamText, flight, smear] = slam.effects;
     assert.equal(stringParameter(slamText, "Text"), "edit");
     assert.equal(stringParameter(flight, "Motion"), "Ease Out");
-    assert.equal(numberParameter(flight, "StartPositionX"), -1);
+    assert.equal(numberParameter(flight, "StartPositionX"), -0.3);
     assert.equal(numberParameter(flight, "EndPositionX"), 0);
     assert.equal(
       numberParameter(flight, "EndPositionY"),
