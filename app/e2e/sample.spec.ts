@@ -133,7 +133,7 @@ async function expectSampleOpen(page: Page) {
     "order",
     "fx-regions",
     "transitions",
-    "icon-mask",
+    "masks",
     "audio",
   ]) {
     await expect(lane(page, id)).toHaveCount(1);
@@ -146,7 +146,7 @@ async function expectSampleOpen(page: Page) {
   // The hidden mask layer holds the zvid logo's reveal and hold.
   for (const id of ["fill-logo-reveal", "fill-logo-hold"]) {
     await expect(
-      lane(page, "icon-mask").locator(`[data-clip-id="${id}"]`),
+      lane(page, "masks").locator(`[data-clip-id="${id}"]`),
     ).toHaveCount(1);
   }
   // Each source track holds one clip, which the layers' cuts play from.
@@ -371,7 +371,7 @@ test("the logo reveal glitches under a 1 Hz LFO", async ({ page }) => {
   await page.goto("/?sample=1");
   await expectSampleOpen(page);
 
-  await lane(page, "icon-mask")
+  await lane(page, "masks")
     .locator('[data-clip-id="fill-logo-reveal"]')
     .click();
   const device = page.locator('.fx-chain section[aria-label="Digital Glitch"]');
@@ -419,9 +419,7 @@ test("the logo reveal glitches under a 1 Hz LFO", async ({ page }) => {
   ).toBeVisible();
 
   // The second mask clip holds the logo still, unglitched.
-  await lane(page, "icon-mask")
-    .locator('[data-clip-id="fill-logo-hold"]')
-    .click();
+  await lane(page, "masks").locator('[data-clip-id="fill-logo-hold"]').click();
   await expect(
     page.locator('.fx-chain section[aria-label="Transform"]'),
   ).not.toHaveCount(0);
