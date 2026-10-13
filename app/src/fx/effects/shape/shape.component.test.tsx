@@ -312,7 +312,10 @@ describe("Shape outlines", { timeout: 60_000 }, () => {
     // 45 px from the center sit in the band.
     const at = (along: number): [number, number] => {
       const angle = along / 50;
-      return [0.75 + (45 * Math.sin(angle)) / WIDTH, 0.5 - (45 * Math.cos(angle)) / HEIGHT];
+      return [
+        0.75 + (45 * Math.sin(angle)) / WIDTH,
+        0.5 - (45 * Math.cos(angle)) / HEIGHT,
+      ];
     };
     const dashed = { StrokeWidth: px(10), DashLength: px(30), DashGap: px(30) };
     const points = [at(15), at(45), at(75), at(105)];
@@ -338,11 +341,7 @@ describe("Shape outlines", { timeout: 60_000 }, () => {
   test("draws only Drawn of the outline, clockwise from the top", async () => {
     const [top, right, left] = await renderPoints(
       "Oval",
-      [
-        [0.77, 0.04],
-        CIRCLE_RIGHT,
-        CIRCLE_LEFT,
-      ],
+      [[0.77, 0.04], CIRCLE_RIGHT, CIRCLE_LEFT],
       CIRCLE,
       { StrokeWidth: px(10), StrokeDrawn: 0.5 },
     );

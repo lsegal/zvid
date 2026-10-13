@@ -66,7 +66,10 @@ export function polygonOutline(
               Math.max(edgeLength * edgeLength, 1e-6),
           ),
         );
-        const gap = Math.hypot(x * width - ax - ex * h, y * height - ay - ey * h);
+        const gap = Math.hypot(
+          x * width - ax - ex * h,
+          y * height - ay - ey * h,
+        );
         if (gap < nearest) {
           nearest = gap;
           along = length + h * edgeLength;

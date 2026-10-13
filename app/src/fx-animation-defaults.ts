@@ -13,14 +13,14 @@ import {
   wheelKey,
 } from "./fx/effects/levels/levels.ts";
 import {
-  TRANSITION_EFFECT_NAME,
-  TRANSITION_FRAMES,
-} from "./fx/effects/transition/transition.ts";
-import {
   DRAWN_KEY,
   OFFSET_KEY,
   SHAPE_EFFECT_NAME,
 } from "./fx/effects/shape/shape.ts";
+import {
+  TRANSITION_EFFECT_NAME,
+  TRANSITION_FRAMES,
+} from "./fx/effects/transition/transition.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import { TEXT_EFFECT_NAME } from "./text-style.ts";
 
