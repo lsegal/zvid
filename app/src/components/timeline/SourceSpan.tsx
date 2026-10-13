@@ -10,12 +10,16 @@ import {
   isSourceSpanSelected,
   type SourceSelection,
 } from "../../app/source-selection.ts";
-import { getClipDurationQ } from "../../app/timeline-math.ts";
+import {
+  getClipDurationQ,
+  secondsToQuarters,
+} from "../../app/timeline-math.ts";
 import type {
   ClipMenuState,
   SourceSpan as SourceSpanClip,
   SourceSpanDragState,
 } from "../../app/types.ts";
+import { pluralize } from "../../app/util.ts";
 import {
   describeClipMediaState,
   formatClipMediaState,
@@ -43,6 +47,7 @@ import {
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
 import { MediaLoopMarkers } from "./MediaLoopMarkers";
+import { MidiClipThumbnail } from "./MidiClipThumbnail";
 import "./source-span.css";
 
 // What every source span shares.
@@ -105,7 +110,12 @@ export const SourceSpan = memo(function SourceSpan({
   locked,
 }: SourceSpanProps) {
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
-  const mediaState = describeClipMediaState(clip, media?.availability);
+  // A MIDI clip's notes are its content, so it reads as online, not as a
+  // placeholder without media.
+  const midiNotes = clip.notes;
+  const mediaState = midiNotes
+    ? "online"
+    : describeClipMediaState(clip, media?.availability);
   const thumbnailUrl = collapsed
     ? undefined
     : ((media &&
@@ -193,7 +203,7 @@ export const SourceSpan = memo(function SourceSpan({
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
     // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
-      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""} ${collapsed ? "source-span--collapsed" : ""}`}
+      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""} ${collapsed ? "source-span--collapsed" : ""} ${midiNotes ? "source-span--midi" : ""}`}
       data-source-span-id={clip.id}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
@@ -228,6 +238,14 @@ export const SourceSpan = memo(function SourceSpan({
     >
       {mediaSync ? (
         <MediaSyncSkeleton variant="span" view={mediaSync} />
+      ) : midiNotes ? (
+        collapsed ? null : (
+          <MidiClipThumbnail
+            lengthQ={getClipDurationQ(clip, bpm)}
+            notes={midiNotes}
+            trimStartQ={secondsToQuarters(clip.trimStartSeconds, bpm)}
+          />
+        )
       ) : audio ? (
         <ClipWaveform
           className="source-span__waveform"
@@ -291,7 +309,7 @@ export const SourceSpan = memo(function SourceSpan({
           visibleWidthPx={visibleTimelineWidthPx}
         />
       ) : null}
-      {!collapsed && !mediaSync && mediaState === "online" ? (
+      {!collapsed && !mediaSync && !midiNotes && mediaState === "online" ? (
         <MediaLoopMarkers
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={widthPx}
@@ -305,7 +323,9 @@ export const SourceSpan = memo(function SourceSpan({
         <small>
           {mediaSync
             ? formatMediaSyncLabel(mediaSync)
-            : formatClipMediaState(mediaState)}
+            : midiNotes
+              ? `MIDI · ${pluralize(midiNotes.length, "note")}`
+              : formatClipMediaState(mediaState)}
         </small>
         <div
           className="source-span__line"

@@ -34,6 +34,13 @@ import {
   setEffectParameter,
   setLaneFxEnabled,
 } from "../fx-stack";
+import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import {
+  midiHistoryLabels,
+  type SynthParamKey,
+  setSourceSpanNotes,
+  setSourceTrackSynthParam,
+} from "../midi-editing.ts";
 import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
 import {
@@ -163,6 +170,51 @@ export function useFxEditing({
       );
     },
     [commitProjectChange, sourceTracks],
+  );
+
+  // The Synth device's edits to a source track's synth. Like a device
+  // parameter, a knob drag sends `transient` updates and its `commit`
+  // records the drag as one history entry.
+  const setSourceTrackSynth = useCallback(
+    <Key extends SynthParamKey>(
+      trackId: string,
+      key: Key,
+      value: SynthParams[Key],
+      mode: FxEditMode = "commit",
+    ) => {
+      const updater = (current: ProjectState) =>
+        setSourceTrackSynthParam(current, trackId, key, value);
+      dispatchProject(
+        mode === "transient"
+          ? { type: "transient", updater }
+          : {
+              type: "commit",
+              label: midiHistoryLabels.synthParam(key),
+              updater,
+            },
+      );
+    },
+    [dispatchProject],
+  );
+
+  // The piano roll's edits to a MIDI clip's notes: a note drag sends
+  // `transient` updates and the `commit` labeled `label` ends it.
+  const setMidiClipNotes = useCallback(
+    (
+      spanId: string,
+      notes: readonly MidiNote[],
+      label: string,
+      mode: FxEditMode = "commit",
+    ) => {
+      const updater = (current: ProjectState) =>
+        setSourceSpanNotes(current, spanId, notes);
+      dispatchProject(
+        mode === "transient"
+          ? { type: "transient", updater }
+          : { type: "commit", label, updater },
+      );
+    },
+    [dispatchProject],
   );
 
   const setFxDeviceEnabled = useCallback(
@@ -372,6 +424,8 @@ export function useFxEditing({
     setSourceTrackFxEnabled,
     setLayerHidden,
     setSourceTrackHidden,
+    setSourceTrackSynth,
+    setMidiClipNotes,
     setFxDeviceEnabled,
     setFxDeviceParameter,
     setFxDeviceAnimationEnabled,

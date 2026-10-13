@@ -1,0 +1,138 @@
+/* The Synth device and the piano roll reuse the FX device frame
+   (fx-chain.css). */
+.synth-device .fx-device-panel__title,
+.synth-device .fx-device-panel__name,
+.piano-roll .fx-device-panel__title,
+.piano-roll .fx-device-panel__name {
+  cursor: default;
+}
+
+/* The Synth title's note glyph, in the slot an effect's power button
+   takes. */
+.synth-device__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--fx-accent);
+}
+
+.synth-device__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The wave choice spans the top; each knob row is led by its label. */
+.synth-device__body {
+  grid-template-columns: auto repeat(4, auto);
+}
+
+/* Each row starts under the last, however few knobs the one before has. */
+.synth-device__body .fx-device-panel__row-label {
+  grid-column: 1;
+}
+
+/* The piano roll: keys down the left, the clip's window across, scrolling
+   both ways inside the device. */
+.piano-roll {
+  max-width: min(640px, 70vw);
+}
+
+.piano-roll__hint {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.piano-roll__scroll {
+  display: flex;
+  align-items: flex-start;
+  height: 180px;
+  margin: 6px 8px 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+
+.piano-roll__keys {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 34px;
+  background: #d9dce4;
+}
+
+.piano-roll__key {
+  height: var(--piano-roll-row);
+  padding: 0 3px 0 0;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  background: #e8eaf0;
+  color: #3a3f4d;
+  font-size: 7px;
+  line-height: var(--piano-roll-row);
+  text-align: right;
+  cursor: pointer;
+}
+
+.piano-roll__key--black {
+  background: #23262f;
+}
+
+.piano-roll__key:hover {
+  background: color-mix(in srgb, var(--fx-accent) 45%, #e8eaf0);
+}
+
+.piano-roll__key--black:hover {
+  background: color-mix(in srgb, var(--fx-accent) 45%, #23262f);
+}
+
+/* Rows for each key, darker for black keys' rows, with beat and bar lines. */
+.piano-roll__grid {
+  position: relative;
+  flex: none;
+  background-color: #12141b;
+  background-image:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.16) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size:
+    calc(var(--piano-roll-quarter) * 4) 100%,
+    var(--piano-roll-quarter) 100%,
+    100% var(--piano-roll-row);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.piano-roll__note {
+  position: absolute;
+  height: var(--piano-roll-row);
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fx-accent) 65%, white);
+  cursor: grab;
+}
+
+.piano-roll__note:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.piano-roll__note--dragging {
+  cursor: grabbing;
+  opacity: 0.85;
+}

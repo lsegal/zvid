@@ -113,6 +113,8 @@ export function FixtureFxPanel({
       setFxDeviceParameter={noop}
       setLayerFxEnabled={noop}
       setSourceTrackFxEnabled={noop}
+      setSourceTrackSynth={noop}
+      setMidiClipNotes={noop}
       sheetHeader={sheetHeader?.(model.fxPanelTitle)}
       sourceClip={null}
       toggleInspectorCollapsed={noop}
