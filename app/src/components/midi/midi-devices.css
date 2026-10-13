@@ -28,6 +28,11 @@
   grid-template-columns: auto repeat(4, auto);
 }
 
+/* Each row starts under the last, however few knobs the one before has. */
+.synth-device__body .fx-device-panel__row-label {
+  grid-column: 1;
+}
+
 /* The piano roll: keys down the left, the clip's window across, scrolling
    both ways inside the device. */
 .piano-roll {

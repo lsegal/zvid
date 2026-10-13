@@ -65,11 +65,11 @@ type KnobSpec = {
 // 0, where a log taper must.
 const TIME = { min: 0.001, taper: "log", format: formatSeconds } as const;
 
-// The device's rows of knobs, as in an FX device: the oscillator's tuning,
-// the lowpass filter, and the ADSR envelope.
+// The device's rows of knobs, as in an FX device: the oscillator's tuning
+// and the lowpass filter, then the ADSR envelope.
 const KNOB_ROWS: Array<{ label: string; knobs: KnobSpec[] }> = [
   {
-    label: "Osc",
+    label: "Tone",
     knobs: [
       {
         key: "octave",
@@ -83,11 +83,6 @@ const KNOB_ROWS: Array<{ label: string; knobs: KnobSpec[] }> = [
         step: 1,
         format: (value) => `${Math.round(value)} ¢`,
       },
-    ],
-  },
-  {
-    label: "Filter",
-    knobs: [
       {
         key: "cutoff",
         ...SYNTH_PARAM_RANGES.cutoff,
