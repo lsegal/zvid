@@ -921,7 +921,9 @@ const dotAt = (radius, degrees, size, stretch = 1) => ({
 
 // 24–27 s: a dot blooms behind the returning wordmark and splits along six
 // radial paths, while a dashed ring draws itself round the wordmark, its
-// dashes marching into place, until the hard cut to the card.
+// dashes marching into place, and turns steadily on. At the hard cut to the
+// card it turns ink and keeps turning as it widens away from the card's
+// titles, its dashes withdrawing.
 const BLOOM_RADIUS = 0.36;
 const bloomCore = clipTrack(
   layerClip("fills", "fill-bloom-core", bloomDotLayer(0), 24, 0.4),
@@ -947,36 +949,64 @@ for (let index = 0; index < BLOOM_DOTS; index++) {
     dotAt(BLOOM_RADIUS, degrees, 0.03),
   );
 }
+// The ring is a circle of BLOOM_RADIUS frame heights, turning clockwise at a
+// steady RING_SPEED degrees a second across both its clips. Its Move holds
+// its scale, so the circle turns rather than an oval squashed into one.
+const RING_SPEED = 30;
+const RING_SCALE = {
+  scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,
+  scaleY: 2 * BLOOM_RADIUS,
+};
+const RING_OUTRO = 1.5;
+const ringStyle = {
+  Shape: "Oval",
+  StrokeWidth: 6,
+  DashLength: 22,
+  DashGap: 16,
+  DashOffset: 160,
+  StrokeDrawn: 1,
+};
+// 24.4–27 s: drawn on in light over the montage.
 const bloomRing = clipTrack(
   layerClip("fills", "fill-bloom-ring", "bloom-ring", 24.4, 2.6),
 );
 addEffect(bloomRing, "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
-addEffect(
-  bloomRing,
-  "Shape",
-  {
-    Shape: "Oval",
-    StrokeWidth: 6,
-    DashLength: 22,
-    DashGap: 16,
-    DashOffset: 160,
-    StrokeDrawn: 1,
-  },
-  {
-    animation: animation("clip", {
-      motionIn: "Ease Out",
-      motionOut: "None",
-      timing: "Slow",
-    }),
-  },
-);
-addEffect(
-  bloomRing,
-  "Transform",
-  transformValues("", {
-    scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,
-    scaleY: 2 * BLOOM_RADIUS,
+addEffect(bloomRing, "Shape", ringStyle, {
+  animation: animation("clip", {
+    motionIn: "Ease Out",
+    motionOut: "None",
+    timing: "Slow",
   }),
+});
+const ringLanded = RING_SPEED * 2.6;
+move(
+  bloomRing,
+  "Linear",
+  { ...RING_SCALE, rotation: 0 },
+  { ...RING_SCALE, rotation: ringLanded },
+);
+// 27–28.5 s: in ink over the card, still turning, it widens clear of the
+// titles as its dashes withdraw.
+const ringOutro = clipTrack(
+  layerClip("fills", "fill-bloom-ring-outro", "bloom-ring", 27, RING_OUTRO),
+);
+addEffect(ringOutro, "Color", { Mode: "Solid", Color: INK, Opacity: 1 });
+addEffect(ringOutro, "Shape", ringStyle, {
+  animation: animation("clip", {
+    motionIn: "None",
+    motionOut: "Ease In",
+    timing: "Full",
+  }),
+});
+move(
+  ringOutro,
+  "Linear",
+  { ...RING_SCALE, rotation: ringLanded },
+  {
+    scaleX: RING_SCALE.scaleX * 1.25,
+    scaleY: RING_SCALE.scaleY * 1.25,
+    rotation: ringLanded + RING_SPEED * RING_OUTRO,
+  },
 );
 
 // 27–30 s: the ivory title card.

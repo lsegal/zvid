@@ -694,19 +694,53 @@ describe("zvid opening sample", () => {
     // Each dot leaves on a path of its own.
     assert.equal(angles.size, 6);
 
-    // The ring draws itself on with its dashes marching in, and holds to
-    // the hard cut at 27 s.
+    // The ring draws itself on with its dashes marching in, then at the
+    // hard cut to the card turns ink and widens out as its dashes withdraw.
+    // It turns at one steady speed across both clips, never sitting still.
     const ring = fill("fill-bloom-ring");
+    const outro = fill("fill-bloom-ring-outro");
     assert.deepEqual([ring.frameStart, ring.frameEnd], [732, 810]);
-    const [shape] = effectsOn(`clip:${ring.id}`).filter(
-      (effect) => effect.effectName === "Shape",
+    assert.equal(outro.mainTrackId, ring.mainTrackId);
+    assert.equal(outro.frameStart, ring.frameEnd);
+    assert.ok(outro.frameEnd < 900);
+    const ringEffects = (id: string) => {
+      const effects = effectsOn(`clip:${id}`);
+      const shape = effects.find((effect) => effect.effectName === "Shape");
+      const spin = effects.find((effect) => effect.effectName === "Move");
+      assert.ok(shape && spin, id);
+      assert.equal(stringParameter(shape, "Shape"), "Oval");
+      assert.ok((numberParameter(shape, "StrokeWidth") ?? 0) > 0);
+      assert.ok((numberParameter(shape, "DashLength") ?? 0) > 0);
+      assert.ok((numberParameter(shape, "DashOffset") ?? 0) !== 0);
+      assert.equal(shape.animation?.mode, "clip");
+      assert.equal(stringParameter(spin, "Motion"), "Linear");
+      return { shape, spin };
+    };
+    const drawOn = ringEffects(ring.id);
+    const exit = ringEffects(outro.id);
+    assert.equal(drawOn.shape.animation?.clip?.motionOut, "None");
+    assert.equal(exit.shape.animation?.clip?.motionIn, "None");
+    assert.notEqual(exit.shape.animation?.clip?.motionOut, "None");
+    const speed = ({ spin }: { spin: typeof drawOn.spin }, clip: typeof ring) =>
+      (((numberParameter(spin, "EndRotation") ?? 0) -
+        (numberParameter(spin, "StartRotation") ?? 0)) *
+        FPS) /
+      (clip.frameEnd - clip.frameStart);
+    assert.ok(speed(drawOn, ring) > 0);
+    assert.ok(Math.abs(speed(exit, outro) - speed(drawOn, ring)) < 1e-6);
+    assert.equal(
+      numberParameter(exit.spin, "StartRotation"),
+      numberParameter(drawOn.spin, "EndRotation"),
     );
-    assert.equal(stringParameter(shape, "Shape"), "Oval");
-    assert.ok((numberParameter(shape, "StrokeWidth") ?? 0) > 0);
-    assert.ok((numberParameter(shape, "DashLength") ?? 0) > 0);
-    assert.ok((numberParameter(shape, "DashOffset") ?? 0) !== 0);
-    assert.equal(shape.animation?.mode, "clip");
-    assert.equal(shape.animation?.clip?.motionOut, "None");
+    // The Move holds the ring's circle, and the outro widens it.
+    assert.equal(
+      numberParameter(exit.spin, "StartScaleY"),
+      numberParameter(drawOn.spin, "EndScaleY"),
+    );
+    assert.ok(
+      (numberParameter(exit.spin, "EndScaleY") ?? 0) >
+        (numberParameter(exit.spin, "StartScaleY") ?? 0),
+    );
   });
 
   it("drains hundreds of effect-free dot clips into a vortex on the title card", () => {

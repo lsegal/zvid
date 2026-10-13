@@ -910,6 +910,12 @@
       "frameEnd": 810
     },
     {
+      "id": "fill-bloom-ring-outro",
+      "mainTrackId": "bloom-ring",
+      "frameStart": 810,
+      "frameEnd": 855
+    },
+    {
       "id": "fill-title-card",
       "mainTrackId": "background",
       "frameStart": 810,
@@ -7419,33 +7425,165 @@
     {
       "id": "sample-fx-186",
       "trackId": "clip:fill-bloom-ring",
-      "effectName": "Transform",
+      "effectName": "Move",
       "parameters": {
-        "PositionX": {
+        "Motion": {
+          "stringValue": "Linear"
+        },
+        "StartPositionX": {
           "floatValue": 0
         },
-        "PositionY": {
+        "StartPositionY": {
           "floatValue": 0
         },
-        "ScaleX": {
+        "StartScaleX": {
           "floatValue": 0.405
         },
-        "ScaleY": {
+        "StartScaleY": {
           "floatValue": 0.72
         },
-        "OriginX": {
+        "StartOriginX": {
           "floatValue": 0
         },
-        "OriginY": {
+        "StartOriginY": {
           "floatValue": 0
         },
-        "Rotation": {
+        "StartRotation": {
           "floatValue": 0
+        },
+        "EndPositionX": {
+          "floatValue": 0
+        },
+        "EndPositionY": {
+          "floatValue": 0
+        },
+        "EndScaleX": {
+          "floatValue": 0.405
+        },
+        "EndScaleY": {
+          "floatValue": 0.72
+        },
+        "EndOriginX": {
+          "floatValue": 0
+        },
+        "EndOriginY": {
+          "floatValue": 0
+        },
+        "EndRotation": {
+          "floatValue": 78
         }
       }
     },
     {
       "id": "sample-fx-187",
+      "trackId": "clip:fill-bloom-ring-outro",
+      "effectName": "Color",
+      "parameters": {
+        "Mode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(12,40,56,1)"
+        },
+        "Opacity": {
+          "floatValue": 1
+        }
+      }
+    },
+    {
+      "id": "sample-fx-188",
+      "trackId": "clip:fill-bloom-ring-outro",
+      "effectName": "Shape",
+      "parameters": {
+        "Shape": {
+          "stringValue": "Oval"
+        },
+        "StrokeWidth": {
+          "floatValue": 6
+        },
+        "DashLength": {
+          "floatValue": 22
+        },
+        "DashGap": {
+          "floatValue": 16
+        },
+        "DashOffset": {
+          "floatValue": 160
+        },
+        "StrokeDrawn": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Full"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-189",
+      "trackId": "clip:fill-bloom-ring-outro",
+      "effectName": "Move",
+      "parameters": {
+        "Motion": {
+          "stringValue": "Linear"
+        },
+        "StartPositionX": {
+          "floatValue": 0
+        },
+        "StartPositionY": {
+          "floatValue": 0
+        },
+        "StartScaleX": {
+          "floatValue": 0.405
+        },
+        "StartScaleY": {
+          "floatValue": 0.72
+        },
+        "StartOriginX": {
+          "floatValue": 0
+        },
+        "StartOriginY": {
+          "floatValue": 0
+        },
+        "StartRotation": {
+          "floatValue": 78
+        },
+        "EndPositionX": {
+          "floatValue": 0
+        },
+        "EndPositionY": {
+          "floatValue": 0
+        },
+        "EndScaleX": {
+          "floatValue": 0.5062500000000001
+        },
+        "EndScaleY": {
+          "floatValue": 0.8999999999999999
+        },
+        "EndOriginX": {
+          "floatValue": 0
+        },
+        "EndOriginY": {
+          "floatValue": 0
+        },
+        "EndRotation": {
+          "floatValue": 123
+        }
+      }
+    },
+    {
+      "id": "sample-fx-190",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -7461,7 +7599,7 @@
       }
     },
     {
-      "id": "sample-fx-188",
+      "id": "sample-fx-191",
       "trackId": "clip:fill-title-card",
       "effectName": "Caustics",
       "parameters": {
@@ -7486,7 +7624,7 @@
       }
     },
     {
-      "id": "sample-fx-189",
+      "id": "sample-fx-192",
       "trackId": "clip:fill-title-card",
       "effectName": "Mask",
       "parameters": {
@@ -7499,7 +7637,7 @@
       }
     },
     {
-      "id": "sample-fx-190",
+      "id": "sample-fx-193",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -7569,7 +7707,7 @@
       }
     },
     {
-      "id": "sample-fx-191",
+      "id": "sample-fx-194",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -7597,7 +7735,7 @@
       }
     },
     {
-      "id": "sample-fx-192",
+      "id": "sample-fx-195",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -7667,7 +7805,7 @@
       }
     },
     {
-      "id": "sample-fx-193",
+      "id": "sample-fx-196",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -7695,7 +7833,7 @@
       }
     },
     {
-      "id": "sample-fx-194",
+      "id": "sample-fx-197",
       "trackId": "vortex-01",
       "effectName": "Color",
       "parameters": {
@@ -7711,7 +7849,7 @@
       }
     },
     {
-      "id": "sample-fx-195",
+      "id": "sample-fx-198",
       "trackId": "vortex-01",
       "effectName": "Move",
       "parameters": {
@@ -7832,7 +7970,7 @@
       }
     },
     {
-      "id": "sample-fx-196",
+      "id": "sample-fx-199",
       "trackId": "vortex-02",
       "effectName": "Color",
       "parameters": {
@@ -7848,7 +7986,7 @@
       }
     },
     {
-      "id": "sample-fx-197",
+      "id": "sample-fx-200",
       "trackId": "vortex-02",
       "effectName": "Move",
       "parameters": {
@@ -7969,7 +8107,7 @@
       }
     },
     {
-      "id": "sample-fx-198",
+      "id": "sample-fx-201",
       "trackId": "vortex-03",
       "effectName": "Color",
       "parameters": {
@@ -7985,7 +8123,7 @@
       }
     },
     {
-      "id": "sample-fx-199",
+      "id": "sample-fx-202",
       "trackId": "vortex-03",
       "effectName": "Move",
       "parameters": {
@@ -8106,7 +8244,7 @@
       }
     },
     {
-      "id": "sample-fx-200",
+      "id": "sample-fx-203",
       "trackId": "vortex-04",
       "effectName": "Color",
       "parameters": {
@@ -8122,7 +8260,7 @@
       }
     },
     {
-      "id": "sample-fx-201",
+      "id": "sample-fx-204",
       "trackId": "vortex-04",
       "effectName": "Move",
       "parameters": {
@@ -8243,7 +8381,7 @@
       }
     },
     {
-      "id": "sample-fx-202",
+      "id": "sample-fx-205",
       "trackId": "vortex-05",
       "effectName": "Color",
       "parameters": {
@@ -8259,7 +8397,7 @@
       }
     },
     {
-      "id": "sample-fx-203",
+      "id": "sample-fx-206",
       "trackId": "vortex-05",
       "effectName": "Move",
       "parameters": {
@@ -8380,7 +8518,7 @@
       }
     },
     {
-      "id": "sample-fx-204",
+      "id": "sample-fx-207",
       "trackId": "vortex-06",
       "effectName": "Color",
       "parameters": {
@@ -8396,7 +8534,7 @@
       }
     },
     {
-      "id": "sample-fx-205",
+      "id": "sample-fx-208",
       "trackId": "vortex-06",
       "effectName": "Move",
       "parameters": {
@@ -8517,7 +8655,7 @@
       }
     },
     {
-      "id": "sample-fx-206",
+      "id": "sample-fx-209",
       "trackId": "vortex-07",
       "effectName": "Color",
       "parameters": {
@@ -8533,7 +8671,7 @@
       }
     },
     {
-      "id": "sample-fx-207",
+      "id": "sample-fx-210",
       "trackId": "vortex-07",
       "effectName": "Move",
       "parameters": {
@@ -8654,7 +8792,7 @@
       }
     },
     {
-      "id": "sample-fx-208",
+      "id": "sample-fx-211",
       "trackId": "vortex-08",
       "effectName": "Color",
       "parameters": {
@@ -8670,7 +8808,7 @@
       }
     },
     {
-      "id": "sample-fx-209",
+      "id": "sample-fx-212",
       "trackId": "vortex-08",
       "effectName": "Move",
       "parameters": {
@@ -8791,7 +8929,7 @@
       }
     },
     {
-      "id": "sample-fx-210",
+      "id": "sample-fx-213",
       "trackId": "vortex-09",
       "effectName": "Color",
       "parameters": {
@@ -8807,7 +8945,7 @@
       }
     },
     {
-      "id": "sample-fx-211",
+      "id": "sample-fx-214",
       "trackId": "vortex-09",
       "effectName": "Move",
       "parameters": {
@@ -8928,7 +9066,7 @@
       }
     },
     {
-      "id": "sample-fx-212",
+      "id": "sample-fx-215",
       "trackId": "vortex-10",
       "effectName": "Color",
       "parameters": {
@@ -8944,7 +9082,7 @@
       }
     },
     {
-      "id": "sample-fx-213",
+      "id": "sample-fx-216",
       "trackId": "vortex-10",
       "effectName": "Move",
       "parameters": {
@@ -9065,7 +9203,7 @@
       }
     },
     {
-      "id": "sample-fx-214",
+      "id": "sample-fx-217",
       "trackId": "vortex-11",
       "effectName": "Color",
       "parameters": {
@@ -9081,7 +9219,7 @@
       }
     },
     {
-      "id": "sample-fx-215",
+      "id": "sample-fx-218",
       "trackId": "vortex-11",
       "effectName": "Move",
       "parameters": {
@@ -9202,7 +9340,7 @@
       }
     },
     {
-      "id": "sample-fx-216",
+      "id": "sample-fx-219",
       "trackId": "vortex-12",
       "effectName": "Color",
       "parameters": {
@@ -9218,7 +9356,7 @@
       }
     },
     {
-      "id": "sample-fx-217",
+      "id": "sample-fx-220",
       "trackId": "vortex-12",
       "effectName": "Move",
       "parameters": {
@@ -9339,7 +9477,7 @@
       }
     },
     {
-      "id": "sample-fx-218",
+      "id": "sample-fx-221",
       "trackId": "vortex-13",
       "effectName": "Color",
       "parameters": {
@@ -9355,7 +9493,7 @@
       }
     },
     {
-      "id": "sample-fx-219",
+      "id": "sample-fx-222",
       "trackId": "vortex-13",
       "effectName": "Move",
       "parameters": {
@@ -9476,7 +9614,7 @@
       }
     },
     {
-      "id": "sample-fx-220",
+      "id": "sample-fx-223",
       "trackId": "vortex-14",
       "effectName": "Color",
       "parameters": {
@@ -9492,7 +9630,7 @@
       }
     },
     {
-      "id": "sample-fx-221",
+      "id": "sample-fx-224",
       "trackId": "vortex-14",
       "effectName": "Move",
       "parameters": {
@@ -9613,7 +9751,7 @@
       }
     },
     {
-      "id": "sample-fx-222",
+      "id": "sample-fx-225",
       "trackId": "vortex-15",
       "effectName": "Color",
       "parameters": {
@@ -9629,7 +9767,7 @@
       }
     },
     {
-      "id": "sample-fx-223",
+      "id": "sample-fx-226",
       "trackId": "vortex-15",
       "effectName": "Move",
       "parameters": {
@@ -9750,7 +9888,7 @@
       }
     },
     {
-      "id": "sample-fx-224",
+      "id": "sample-fx-227",
       "trackId": "vortex-16",
       "effectName": "Color",
       "parameters": {
@@ -9766,7 +9904,7 @@
       }
     },
     {
-      "id": "sample-fx-225",
+      "id": "sample-fx-228",
       "trackId": "vortex-16",
       "effectName": "Move",
       "parameters": {
@@ -9887,7 +10025,7 @@
       }
     },
     {
-      "id": "sample-fx-226",
+      "id": "sample-fx-229",
       "trackId": "vortex-17",
       "effectName": "Color",
       "parameters": {
@@ -9903,7 +10041,7 @@
       }
     },
     {
-      "id": "sample-fx-227",
+      "id": "sample-fx-230",
       "trackId": "vortex-17",
       "effectName": "Move",
       "parameters": {
@@ -10024,7 +10162,7 @@
       }
     },
     {
-      "id": "sample-fx-228",
+      "id": "sample-fx-231",
       "trackId": "vortex-18",
       "effectName": "Color",
       "parameters": {
@@ -10040,7 +10178,7 @@
       }
     },
     {
-      "id": "sample-fx-229",
+      "id": "sample-fx-232",
       "trackId": "vortex-18",
       "effectName": "Move",
       "parameters": {
@@ -10161,7 +10299,7 @@
       }
     },
     {
-      "id": "sample-fx-230",
+      "id": "sample-fx-233",
       "trackId": "vortex-19",
       "effectName": "Color",
       "parameters": {
@@ -10177,7 +10315,7 @@
       }
     },
     {
-      "id": "sample-fx-231",
+      "id": "sample-fx-234",
       "trackId": "vortex-19",
       "effectName": "Move",
       "parameters": {
@@ -10298,7 +10436,7 @@
       }
     },
     {
-      "id": "sample-fx-232",
+      "id": "sample-fx-235",
       "trackId": "vortex-20",
       "effectName": "Color",
       "parameters": {
@@ -10314,7 +10452,7 @@
       }
     },
     {
-      "id": "sample-fx-233",
+      "id": "sample-fx-236",
       "trackId": "vortex-20",
       "effectName": "Move",
       "parameters": {
@@ -10435,7 +10573,7 @@
       }
     },
     {
-      "id": "sample-fx-234",
+      "id": "sample-fx-237",
       "trackId": "vortex-21",
       "effectName": "Color",
       "parameters": {
@@ -10451,7 +10589,7 @@
       }
     },
     {
-      "id": "sample-fx-235",
+      "id": "sample-fx-238",
       "trackId": "vortex-21",
       "effectName": "Move",
       "parameters": {
@@ -10572,7 +10710,7 @@
       }
     },
     {
-      "id": "sample-fx-236",
+      "id": "sample-fx-239",
       "trackId": "vortex-22",
       "effectName": "Color",
       "parameters": {
@@ -10588,7 +10726,7 @@
       }
     },
     {
-      "id": "sample-fx-237",
+      "id": "sample-fx-240",
       "trackId": "vortex-22",
       "effectName": "Move",
       "parameters": {
@@ -10709,7 +10847,7 @@
       }
     },
     {
-      "id": "sample-fx-238",
+      "id": "sample-fx-241",
       "trackId": "vortex-23",
       "effectName": "Color",
       "parameters": {
@@ -10725,7 +10863,7 @@
       }
     },
     {
-      "id": "sample-fx-239",
+      "id": "sample-fx-242",
       "trackId": "vortex-23",
       "effectName": "Move",
       "parameters": {
@@ -10846,7 +10984,7 @@
       }
     },
     {
-      "id": "sample-fx-240",
+      "id": "sample-fx-243",
       "trackId": "vortex-24",
       "effectName": "Color",
       "parameters": {
@@ -10862,7 +11000,7 @@
       }
     },
     {
-      "id": "sample-fx-241",
+      "id": "sample-fx-244",
       "trackId": "vortex-24",
       "effectName": "Move",
       "parameters": {
@@ -10983,7 +11121,7 @@
       }
     },
     {
-      "id": "sample-fx-242",
+      "id": "sample-fx-245",
       "trackId": "clip:selection-46",
       "effectName": "Gain",
       "parameters": {
@@ -10996,7 +11134,7 @@
       }
     },
     {
-      "id": "sample-fx-243",
+      "id": "sample-fx-246",
       "trackId": "clip:selection-47",
       "effectName": "Gain",
       "parameters": {
@@ -11009,7 +11147,7 @@
       }
     },
     {
-      "id": "sample-fx-244",
+      "id": "sample-fx-247",
       "trackId": "clip:selection-47",
       "effectName": "Bitcrush",
       "parameters": {
@@ -11025,7 +11163,7 @@
       }
     },
     {
-      "id": "sample-fx-245",
+      "id": "sample-fx-248",
       "trackId": "clip:selection-48",
       "effectName": "Gain",
       "parameters": {
@@ -11038,7 +11176,7 @@
       }
     },
     {
-      "id": "sample-fx-246",
+      "id": "sample-fx-249",
       "trackId": "clip:selection-48",
       "effectName": "Phaser",
       "parameters": {
@@ -11063,7 +11201,7 @@
       }
     },
     {
-      "id": "sample-fx-247",
+      "id": "sample-fx-250",
       "trackId": "clip:selection-49",
       "effectName": "Gain",
       "parameters": {
@@ -11076,7 +11214,7 @@
       }
     },
     {
-      "id": "sample-fx-248",
+      "id": "sample-fx-251",
       "trackId": "clip:selection-49",
       "effectName": "Chorus",
       "parameters": {
@@ -11101,7 +11239,7 @@
       }
     },
     {
-      "id": "sample-fx-249",
+      "id": "sample-fx-252",
       "trackId": "clip:selection-50",
       "effectName": "Gain",
       "parameters": {
@@ -11114,7 +11252,7 @@
       }
     },
     {
-      "id": "sample-fx-250",
+      "id": "sample-fx-253",
       "trackId": "clip:selection-50",
       "effectName": "Auto Pan",
       "parameters": {
@@ -11133,7 +11271,7 @@
       }
     },
     {
-      "id": "sample-fx-251",
+      "id": "sample-fx-254",
       "trackId": "clip:selection-51",
       "effectName": "Gain",
       "parameters": {
@@ -11146,7 +11284,7 @@
       }
     },
     {
-      "id": "sample-fx-252",
+      "id": "sample-fx-255",
       "trackId": "clip:selection-51",
       "effectName": "Tremolo",
       "parameters": {
@@ -11165,7 +11303,7 @@
       }
     },
     {
-      "id": "sample-fx-253",
+      "id": "sample-fx-256",
       "trackId": "clip:selection-52",
       "effectName": "Gain",
       "parameters": {
@@ -11178,7 +11316,7 @@
       }
     },
     {
-      "id": "sample-fx-254",
+      "id": "sample-fx-257",
       "trackId": "clip:selection-52",
       "effectName": "Transient Shaper",
       "parameters": {
@@ -11194,7 +11332,7 @@
       }
     },
     {
-      "id": "sample-fx-255",
+      "id": "sample-fx-258",
       "trackId": "clip:selection-53",
       "effectName": "Gain",
       "parameters": {
@@ -11207,7 +11345,7 @@
       }
     },
     {
-      "id": "sample-fx-256",
+      "id": "sample-fx-259",
       "trackId": "clip:selection-53",
       "effectName": "Compressor",
       "parameters": {
@@ -11235,7 +11373,7 @@
       }
     },
     {
-      "id": "sample-fx-257",
+      "id": "sample-fx-260",
       "trackId": "clip:selection-54",
       "effectName": "Gain",
       "parameters": {
@@ -11248,7 +11386,7 @@
       }
     },
     {
-      "id": "sample-fx-258",
+      "id": "sample-fx-261",
       "trackId": "clip:selection-54",
       "effectName": "High Cut",
       "parameters": {
@@ -11264,7 +11402,7 @@
       }
     },
     {
-      "id": "sample-fx-259",
+      "id": "sample-fx-262",
       "trackId": "clip:selection-55",
       "effectName": "Gain",
       "parameters": {
@@ -11277,7 +11415,7 @@
       }
     },
     {
-      "id": "sample-fx-260",
+      "id": "sample-fx-263",
       "trackId": "clip:selection-55",
       "effectName": "Low Cut",
       "parameters": {
@@ -11293,7 +11431,7 @@
       }
     },
     {
-      "id": "sample-fx-261",
+      "id": "sample-fx-264",
       "trackId": "clip:selection-56",
       "effectName": "Gain",
       "parameters": {
@@ -11306,7 +11444,7 @@
       }
     },
     {
-      "id": "sample-fx-262",
+      "id": "sample-fx-265",
       "trackId": "clip:selection-56",
       "effectName": "EQ",
       "parameters": {
@@ -11334,7 +11472,7 @@
       }
     },
     {
-      "id": "sample-fx-263",
+      "id": "sample-fx-266",
       "trackId": "clip:selection-57",
       "effectName": "Gain",
       "parameters": {
@@ -11347,7 +11485,7 @@
       }
     },
     {
-      "id": "sample-fx-264",
+      "id": "sample-fx-267",
       "trackId": "clip:selection-57",
       "effectName": "Saturation",
       "parameters": {
@@ -11369,7 +11507,7 @@
       }
     },
     {
-      "id": "sample-fx-265",
+      "id": "sample-fx-268",
       "trackId": "clip:selection-58",
       "effectName": "Gain",
       "parameters": {
@@ -11382,7 +11520,7 @@
       }
     },
     {
-      "id": "sample-fx-266",
+      "id": "sample-fx-269",
       "trackId": "clip:selection-58",
       "effectName": "Phaser",
       "parameters": {
@@ -11407,7 +11545,7 @@
       }
     },
     {
-      "id": "sample-fx-267",
+      "id": "sample-fx-270",
       "trackId": "clip:selection-58",
       "effectName": "Delay",
       "parameters": {
@@ -11432,7 +11570,7 @@
       }
     },
     {
-      "id": "sample-fx-268",
+      "id": "sample-fx-271",
       "trackId": "clip:selection-59",
       "effectName": "Gain",
       "parameters": {
@@ -11445,7 +11583,7 @@
       }
     },
     {
-      "id": "sample-fx-269",
+      "id": "sample-fx-272",
       "trackId": "clip:selection-59",
       "effectName": "Re-Pitch",
       "parameters": {
@@ -11464,7 +11602,7 @@
       }
     },
     {
-      "id": "sample-fx-270",
+      "id": "sample-fx-273",
       "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
@@ -11477,7 +11615,7 @@
       }
     },
     {
-      "id": "sample-fx-271",
+      "id": "sample-fx-274",
       "trackId": "clip:selection-60",
       "effectName": "De-ess",
       "parameters": {
@@ -11496,40 +11634,8 @@
       }
     },
     {
-      "id": "sample-fx-272",
-      "trackId": "clip:selection-61",
-      "effectName": "Gain",
-      "parameters": {
-        "Gain": {
-          "floatValue": 0
-        },
-        "Mute": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-273",
-      "trackId": "clip:selection-61",
-      "effectName": "Reverse",
-      "parameters": {}
-    },
-    {
-      "id": "sample-fx-274",
-      "trackId": "clip:selection-61",
-      "effectName": "Re-Pitch",
-      "parameters": {
-        "Semitones": {
-          "floatValue": -5
-        },
-        "Cents": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
       "id": "sample-fx-275",
-      "trackId": "clip:selection-62",
+      "trackId": "clip:selection-61",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -11542,6 +11648,38 @@
     },
     {
       "id": "sample-fx-276",
+      "trackId": "clip:selection-61",
+      "effectName": "Reverse",
+      "parameters": {}
+    },
+    {
+      "id": "sample-fx-277",
+      "trackId": "clip:selection-61",
+      "effectName": "Re-Pitch",
+      "parameters": {
+        "Semitones": {
+          "floatValue": -5
+        },
+        "Cents": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-278",
+      "trackId": "clip:selection-62",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-279",
       "trackId": "clip:selection-62",
       "effectName": "Limiter",
       "parameters": {
@@ -11560,7 +11698,7 @@
       }
     },
     {
-      "id": "sample-fx-277",
+      "id": "sample-fx-280",
       "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
@@ -11573,7 +11711,7 @@
       }
     },
     {
-      "id": "sample-fx-278",
+      "id": "sample-fx-281",
       "trackId": "clip:selection-63",
       "effectName": "Delay",
       "parameters": {
@@ -11601,7 +11739,7 @@
       }
     },
     {
-      "id": "sample-fx-279",
+      "id": "sample-fx-282",
       "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
@@ -11614,7 +11752,7 @@
       }
     },
     {
-      "id": "sample-fx-280",
+      "id": "sample-fx-283",
       "trackId": "clip:selection-64",
       "effectName": "Reverb",
       "parameters": {
@@ -11636,7 +11774,7 @@
       }
     },
     {
-      "id": "sample-fx-281",
+      "id": "sample-fx-284",
       "trackId": "clip:selection-45",
       "effectName": "Scopes",
       "parameters": {}
