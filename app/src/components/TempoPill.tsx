@@ -1,10 +1,9 @@
+import { BPM_MAX, BPM_MIN } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
 
 const BPM_STEP = 5;
-const BPM_MIN = 60;
-const BPM_MAX = 220;
 
 // The timeline toolbar's tempo readout, with buttons that step it by 5 BPM.
 export function TempoPill({

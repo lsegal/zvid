@@ -214,6 +214,11 @@ async function prepareSave(
 }
 
 async function saveBlob(blob: Blob, target: SaveTarget) {
+  if (target.kind === "blob") {
+    target.receive(blob);
+    return "blob" as const;
+  }
+
   if (target.kind === "picker") {
     const writable = await target.handle.createWritable();
     await writable.write(blob);

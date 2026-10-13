@@ -1,7 +1,51 @@
 import { clipEffectTrackId, type SessionEffect } from "../fx-stack.ts";
 import type { ClipboardContent } from "../range-edit.ts";
+import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import { getClipEndQ, quartersToSeconds } from "./timeline-math.ts";
-import type { ArrangementClip, SourceSpan } from "./types.ts";
+import type {
+  ArrangementClip,
+  SourceSpan,
+  SourceTrack,
+  TimelineSelection,
+} from "./types.ts";
+
+// A window on `sourceTrack` over the selection's time, showing whatever the
+// track holds there. `sourceSpan`, a source clip of the track, is the first
+// it shows (see source-track-content.ts).
+export function createWindowClip(
+  selection: TimelineSelection,
+  sourceTrack: SourceTrack,
+  sourceSpan: SourceSpan,
+  sourceSpans: SourceSpan[],
+  bpm: number,
+  id = `window-${crypto.randomUUID()}`,
+): ArrangementClip {
+  const sourceOffsetSeconds =
+    sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
+  const clip: ArrangementClip = {
+    id,
+    sourceSpanId: sourceSpan.id,
+    sourceTrackId: sourceTrack.id,
+    laneId: selection.laneId,
+    label: sourceTrack.name,
+    mediaPath: sourceSpan.mediaPath,
+    mediaId: sourceSpan.mediaId,
+    startQ: selection.startQ,
+    durationSeconds: quartersToSeconds(selection.durationQ, bpm),
+    trimStartSeconds:
+      quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
+    sourceOffsetSeconds,
+    sourceSpanOffsetSeconds: sourceOffsetSeconds,
+    sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
+    sourceWindowEndSeconds:
+      sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+    warp: sourceSpan.warp,
+    tint: sourceSpan.tint,
+    accent: sourceSpan.accent,
+  };
+  // Its media fields describe the first source clip it shows.
+  return syncClipsToSourceSpans([clip], sourceSpans, sourceSpans, bpm)[0];
+}
 
 export function cloneClipAtStartQ(
   clip: ArrangementClip,
