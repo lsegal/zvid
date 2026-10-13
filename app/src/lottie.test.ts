@@ -10,8 +10,9 @@ import {
 const LOTTIE = { v: "5.7.0", fr: 30, ip: 0, op: 45, w: 64, h: 32, layers: [] };
 
 describe("Lottie animations", () => {
-  it("are read from JSON files", () => {
+  it("are read from JSON and dotLottie files", () => {
     assert.equal(isLottieName("Spinner.JSON"), true);
+    assert.equal(isLottieName("Spinner.lottie"), true);
     assert.equal(isLottieName("spinner.gif"), false);
   });
 

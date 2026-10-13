@@ -1,6 +1,7 @@
-// Lottie animations, imported as image media from their `.json` file. Other
-// JSON files, such as sessions, are told apart by their content: a Lottie
-// names its frame rate, its in and out frames, its size and its layers.
+// Lottie animations, imported as image media from their `.json` file or a
+// dotLottie (`.lottie`) archive. Other JSON files, such as sessions, are told
+// apart by their content: a Lottie names its frame rate, its in and out
+// frames, its size and its layers.
 
 export type LottieData = {
   fr: number;
@@ -16,7 +17,8 @@ const isPositive = (value: unknown): value is number =>
 
 /** Whether the file `name` may hold a Lottie animation. */
 export function isLottieName(name: string) {
-  return name.toLowerCase().endsWith(".json");
+  const lower = name.toLowerCase();
+  return lower.endsWith(".json") || lower.endsWith(".lottie");
 }
 
 /** `value` as a Lottie animation, or undefined when it isn't one. */

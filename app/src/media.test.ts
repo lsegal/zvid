@@ -19,6 +19,7 @@ describe("image media", () => {
       assert.equal(inferMediaKind(name), "image", name);
     }
     assert.equal(inferMediaKind("spinner.json"), "image");
+    assert.equal(inferMediaKind("spinner.lottie"), "image");
     assert.equal(inferMediaKind("take.mov"), "video");
     assert.equal(inferMediaKind("mix.wav"), "audio");
     assert.equal(inferMediaKind("voice.opus"), "audio");

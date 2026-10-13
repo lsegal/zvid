@@ -479,14 +479,21 @@ const IMAGE_CONTAINERS: Record<string, string> = {
 // load is kept, offline, so the import still shows it.
 // A Lottie is drawn by its player, which gives its size and length; its
 // middle frame is its thumbnail. JSON that isn't a Lottie, such as a session,
-// is kept offline with the reason.
+// and a dotLottie archive holding no animation are kept offline with the
+// reason.
 async function analyzeLottieMedia(
   options: MediaAnalysisOptions,
 ): Promise<MediaItem> {
+  let lastError = "Not a Lottie animation";
   const details = await lottieMediaDetails({
     previewUrl: options.previewUrl,
     name: options.name,
-  }).catch(() => undefined);
+  }).catch((error: unknown) => {
+    if (error instanceof Error) {
+      lastError = error.message;
+    }
+    return undefined;
+  });
   return {
     id: options.id,
     name: options.name,
@@ -505,7 +512,7 @@ async function analyzeLottieMedia(
     thumbnailUrl: details?.thumbnailUrl,
     sourcePath: options.sourcePath,
     availability: details ? "ready" : "offline",
-    ...(details ? {} : { lastError: "Not a Lottie animation" }),
+    ...(details ? {} : { lastError }),
   };
 }
 
