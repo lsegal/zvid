@@ -112,7 +112,11 @@ export function stressState(dots: number): CompositionRendererState {
         animation: {
           enabled: true,
           mode: "lfo",
-          clip: { motionIn: "Ease Out", motionOut: "Ease In", timing: "Normal" },
+          clip: {
+            motionIn: "Ease Out",
+            motionOut: "Ease In",
+            timing: "Normal",
+          },
           lfo: {
             shape: "Sine",
             sync: true,
@@ -140,7 +144,9 @@ export function stressState(dots: number): CompositionRendererState {
 
 function percentile(values: number[], fraction: number) {
   const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))];
+  return sorted[
+    Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))
+  ];
 }
 
 async function run() {

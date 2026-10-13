@@ -8,6 +8,13 @@ import {
   drawQuad,
 } from "./composition-draw-gl.ts";
 import {
+  fillsFrame,
+  renderLayerFrame,
+  shrunkSize,
+  transformShrink,
+  visualShrink,
+} from "./composition-framing.ts";
+import {
   applyFxClip,
   createFxMaskProgram,
   drawMaskedFxResult,
@@ -68,13 +75,6 @@ import {
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
-import {
-  fillsFrame,
-  renderLayerFrame,
-  shrunkSize,
-  transformShrink,
-  visualShrink,
-} from "./composition-framing.ts";
 import { drawTransition } from "./composition-transition-draw.ts";
 import type { FillPaint } from "./fill-paint.ts";
 import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
@@ -406,7 +406,11 @@ function drawLayer(
           entry.visual,
         )
       : undefined;
-  if (matrix && !layerSteps.length && fillsFrame(placement, entry.visual.rotationDeg)) {
+  if (
+    matrix &&
+    !layerSteps.length &&
+    fillsFrame(placement, entry.visual.rotationDeg)
+  ) {
     // A source that fills its frame unrotated, with no effects to run, is
     // its own frame: it is drawn transformed directly, sparing a pass.
     uniforms = layerUniforms(

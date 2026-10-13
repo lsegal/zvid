@@ -916,7 +916,11 @@ describe("drawComposition fill layers", () => {
       ],
       opacity: 1,
     };
-    const dotLayer = (fill: FillPaint, lane = 0, effects: ChainEffect[] = []) => {
+    const dotLayer = (
+      fill: FillPaint,
+      lane = 0,
+      effects: ChainEffect[] = [],
+    ) => {
       const layer = fillLayer(fill, lane);
       return {
         ...layer,
