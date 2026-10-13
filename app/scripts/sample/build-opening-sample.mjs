@@ -17,8 +17,7 @@
 // its own, and the music plays from the Audio layer as two-beat selections,
 // each through a different audio effect.
 //
-// Hundreds of animated clips, such as the closing vortex's dots, must stay
-// within the preview's per-clip budget in app/ARCHITECTURE.md ("Many small
+// Many small animated clips must stay within the preview's per-clip budget in app/ARCHITECTURE.md ("Many small
 // animated clips"): effect-free fills animated by a Transform cost almost
 // nothing, but every clip running shader effects of its own costs render
 // passes a frame.
@@ -78,12 +77,8 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 // arrangement touches them. The hidden layers are never drawn themselves:
 // the icon layer is the Mask Target that cuts the 1.5 s shot to the zvid
 // logo, and the star layer limits bar 7's Analog Glitch to a star. The bloom
-// and vortex layers each show one dot at a time, above the Order so no
-// three-up arranges them. The Audio layer holds only the music.
-const BLOOM_DOTS = 6;
-const VORTEX_DOTS = 24;
-const bloomDotLayer = (index) => `bloom-dot-${index + 1}`;
-const vortexLayer = (index) => `vortex-${String(index + 1).padStart(2, "0")}`;
+// is one layer, above the Order so no three-up arranges it. The Audio layer
+// holds only the music.
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
@@ -91,15 +86,7 @@ const LAYERS = [
   { id: "fx-regions", name: "FX regions" },
   { id: "star-mask", name: "Mask · star", hidden: true },
   { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
-  { id: "bloom-ring", name: "Bloom ring" },
-  ...Array.from({ length: BLOOM_DOTS }, (_, index) => ({
-    id: bloomDotLayer(index),
-    name: `Bloom dot ${index + 1}`,
-  })),
-  ...Array.from({ length: VORTEX_DOTS }, (_, index) => ({
-    id: vortexLayer(index),
-    name: `Vortex dot ${index + 1}`,
-  })),
+  { id: "bloom", name: "Bloom" },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -924,78 +911,31 @@ const dotAt = (radius, degrees, size, stretch = 1) => ({
   scaleY: size,
 });
 
-// 24–27 s: a dot blooms behind the returning wordmark and splits along six
-// radial paths, while a dashed ring draws itself round the wordmark, its
-// dashes marching into place, and turns steadily on. The dots land on the
-// ring and ride it round, then fade into its stroke before the hard cut to
-// the card, where the ring turns ink and keeps turning as it widens away
-// from the card's titles, its dashes withdrawing.
+// 24–30 s, all on the one Bloom layer: a dot blooms behind the returning
+// wordmark and opens into a dashed ring round it, its dashes marching into
+// place as it turns steadily on. At the hard cut to the card the ring turns
+// ink and keeps turning, widening away from the card's titles as its dashes
+// withdraw with the music's fade, to the last frame.
 const BLOOM_RADIUS = 0.36;
 const BLOOM_SPLIT = 24.4;
-const BLOOM_FLIGHT = 0.5;
-const BLOOM_LANDED = BLOOM_SPLIT + BLOOM_FLIGHT;
-const BLOOM_RIDE = 27 - BLOOM_LANDED;
-// The smallest scale a Move gives.
-const BLOOM_DOT_SIZE = 0.05;
+const bloomCore = clipTrack(
+  layerClip("fills", "fill-bloom-core", "bloom", 24, BLOOM_SPLIT - 24),
+);
+addEffect(bloomCore, "Color", dotPaint(LIGHT));
+move(bloomCore, "Ease Out", dotAt(0, 0, 0), dotAt(0, 0, 0.09));
 // The ring is a circle of BLOOM_RADIUS frame heights, turning clockwise at a
 // steady RING_SPEED degrees a second across both its clips. Its Move holds
 // its scale, so the circle turns rather than an oval squashed into one.
 const RING_SPEED = 30;
-const bloomCore = clipTrack(
-  layerClip("fills", "fill-bloom-core", bloomDotLayer(0), 24, BLOOM_SPLIT - 24),
-);
-addEffect(bloomCore, "Color", dotPaint(LIGHT));
-move(bloomCore, "Ease Out", dotAt(0, 0, 0), dotAt(0, 0, 0.09));
-for (let index = 0; index < BLOOM_DOTS; index++) {
-  const degrees = index * (360 / BLOOM_DOTS) - 90;
-  // All six leave the core together and slow onto the ring in one gesture.
-  const flight = clipTrack(
-    layerClip(
-      "fills",
-      `fill-bloom-dot-${index + 1}`,
-      bloomDotLayer(index),
-      BLOOM_SPLIT,
-      BLOOM_FLIGHT,
-    ),
-  );
-  addEffect(flight, "Color", dotPaint(LIGHT));
-  move(
-    flight,
-    "Ease Out",
-    dotAt(0, degrees, 0.06),
-    dotAt(BLOOM_RADIUS, degrees, BLOOM_DOT_SIZE),
-  );
-  // Landed, each rides the ring round at its speed, curving through four
-  // waypoints on the circle, and fades into its stroke before the cut.
-  const ride = clipTrack(
-    layerClip(
-      "fills",
-      `fill-bloom-dot-${index + 1}-ride`,
-      bloomDotLayer(index),
-      BLOOM_LANDED,
-      BLOOM_RIDE,
-    ),
-  );
-  addEffect(ride, "Color", dotPaint(LIGHT), {
-    animation: animation("clip", {
-      motionIn: "None",
-      motionOut: "Ease In",
-      timing: "Slow",
-    }),
-  });
-  const riding = (leg) =>
-    dotAt(
-      BLOOM_RADIUS,
-      degrees + (RING_SPEED * BLOOM_RIDE * leg) / 5,
-      BLOOM_DOT_SIZE,
-    );
-  move(ride, "Linear", riding(0), riding(5), [1, 2, 3, 4].map(riding));
-}
 const RING_SCALE = {
   scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,
   scaleY: 2 * BLOOM_RADIUS,
 };
-const RING_OUTRO = 1.5;
+// It opens from the core's size: an eighth of its own, just above the
+// smallest scale a Move gives.
+const RING_BUD = 1 / 8;
+const RING_DRAW = 27 - BLOOM_SPLIT;
+const RING_OUTRO = DURATION_SECONDS - 27;
 const ringStyle = {
   Shape: "Oval",
   StrokeWidth: 6,
@@ -1004,9 +944,11 @@ const ringStyle = {
   DashOffset: 160,
   StrokeDrawn: 1,
 };
-// 24.4–27 s: drawn on in light over the montage.
+// 24.4–27 s: drawn on in light over the montage. Its Move's five legs each
+// turn it a fifth of the way, so it turns at one speed while the first leg
+// opens it out of the core.
 const bloomRing = clipTrack(
-  layerClip("fills", "fill-bloom-ring", "bloom-ring", 24.4, 2.6),
+  layerClip("fills", "fill-bloom-ring", "bloom", BLOOM_SPLIT, RING_DRAW),
 );
 addEffect(bloomRing, "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
 addEffect(bloomRing, "Shape", ringStyle, {
@@ -1016,17 +958,26 @@ addEffect(bloomRing, "Shape", ringStyle, {
     timing: "Slow",
   }),
 });
-const ringLanded = RING_SPEED * 2.6;
+const ringLanded = steady(RING_SPEED * RING_DRAW);
+const turning = (leg) => ({
+  ...RING_SCALE,
+  rotation: steady((ringLanded * leg) / 5),
+});
 move(
   bloomRing,
   "Linear",
-  { ...RING_SCALE, rotation: 0 },
-  { ...RING_SCALE, rotation: ringLanded },
+  {
+    scaleX: RING_SCALE.scaleX * RING_BUD,
+    scaleY: RING_SCALE.scaleY * RING_BUD,
+    rotation: 0,
+  },
+  turning(5),
+  [1, 2, 3, 4].map(turning),
 );
-// 27–28.5 s: in ink over the card, still turning, it widens clear of the
+// 27–30 s: in ink over the card, still turning, it widens clear of the
 // titles as its dashes withdraw.
 const ringOutro = clipTrack(
-  layerClip("fills", "fill-bloom-ring-outro", "bloom-ring", 27, RING_OUTRO),
+  layerClip("fills", "fill-bloom-ring-outro", "bloom", 27, RING_OUTRO),
 );
 addEffect(ringOutro, "Color", { Mode: "Solid", Color: INK, Opacity: 1 });
 addEffect(ringOutro, "Shape", ringStyle, {
@@ -1041,8 +992,8 @@ move(
   "Linear",
   { ...RING_SCALE, rotation: ringLanded },
   {
-    scaleX: RING_SCALE.scaleX * 1.25,
-    scaleY: RING_SCALE.scaleY * 1.25,
+    scaleX: RING_SCALE.scaleX * 1.3,
+    scaleY: RING_SCALE.scaleY * 1.3,
     rotation: ringLanded + RING_SPEED * RING_OUTRO,
   },
 );
@@ -1099,41 +1050,6 @@ addEffect(
   "Transform",
   transformValues("", { y: 0.18 }),
 );
-
-// 27–30 s: a vortex of ink dots drains toward the card's wordmark: hundreds
-// of short clips, streaming down 24 spiral arms. Each arm is a layer whose
-// Color paints its dots and whose Move spirals each dot in turn two thirds
-// of the way round, shrinking and speeding up, from beyond the frame's edge
-// to an ellipse clear of the titles. The arms start their streams a little
-// apart, so dots arrive continuously. Neighboring arms start five steps
-// apart, not one: in step, each arm's lag would cancel its turn and bunch
-// the dots on one side.
-const VORTEX_LIFE = 9;
-for (let index = 0; index < VORTEX_DOTS; index++) {
-  const layerId = vortexLayer(index);
-  const from = (index * 360) / VORTEX_DOTS;
-  const spiral = Array.from({ length: 5 }, (_, step) =>
-    dotAt(0.7 - step * 0.09, from + step * 60, 0.03 - step * 0.0045, 1.4),
-  );
-  addEffect(layerId, "Color", dotPaint(INK));
-  move(layerId, "Ease In", spiral[0], spiral[4], spiral.slice(1, 4));
-  const stagger = Math.round(
-    (((index * 5) % VORTEX_DOTS) * VORTEX_LIFE) / VORTEX_DOTS,
-  );
-  for (
-    let frame = frames(27) + stagger, dot = 1;
-    frame + VORTEX_LIFE <= frames(DURATION_SECONDS);
-    frame += VORTEX_LIFE, dot++
-  ) {
-    layerClip(
-      "fills",
-      `fill-${layerId}-${String(dot).padStart(2, "0")}`,
-      layerId,
-      frame / FPS,
-      VORTEX_LIFE / FPS,
-    );
-  }
-}
 
 // ---- music ---------------------------------------------------------------
 

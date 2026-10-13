@@ -33,189 +33,39 @@
       "hidden": true
     },
     {
-      "id": "bloom-ring",
-      "name": "Bloom ring",
+      "id": "bloom",
+      "name": "Bloom",
       "colorIndex": 6
-    },
-    {
-      "id": "bloom-dot-1",
-      "name": "Bloom dot 1",
-      "colorIndex": 7
-    },
-    {
-      "id": "bloom-dot-2",
-      "name": "Bloom dot 2",
-      "colorIndex": 8
-    },
-    {
-      "id": "bloom-dot-3",
-      "name": "Bloom dot 3",
-      "colorIndex": 9
-    },
-    {
-      "id": "bloom-dot-4",
-      "name": "Bloom dot 4",
-      "colorIndex": 10
-    },
-    {
-      "id": "bloom-dot-5",
-      "name": "Bloom dot 5",
-      "colorIndex": 11
-    },
-    {
-      "id": "bloom-dot-6",
-      "name": "Bloom dot 6",
-      "colorIndex": 12
-    },
-    {
-      "id": "vortex-01",
-      "name": "Vortex dot 1",
-      "colorIndex": 13
-    },
-    {
-      "id": "vortex-02",
-      "name": "Vortex dot 2",
-      "colorIndex": 14
-    },
-    {
-      "id": "vortex-03",
-      "name": "Vortex dot 3",
-      "colorIndex": 15
-    },
-    {
-      "id": "vortex-04",
-      "name": "Vortex dot 4",
-      "colorIndex": 16
-    },
-    {
-      "id": "vortex-05",
-      "name": "Vortex dot 5",
-      "colorIndex": 17
-    },
-    {
-      "id": "vortex-06",
-      "name": "Vortex dot 6",
-      "colorIndex": 18
-    },
-    {
-      "id": "vortex-07",
-      "name": "Vortex dot 7",
-      "colorIndex": 19
-    },
-    {
-      "id": "vortex-08",
-      "name": "Vortex dot 8",
-      "colorIndex": 20
-    },
-    {
-      "id": "vortex-09",
-      "name": "Vortex dot 9",
-      "colorIndex": 21
-    },
-    {
-      "id": "vortex-10",
-      "name": "Vortex dot 10",
-      "colorIndex": 22
-    },
-    {
-      "id": "vortex-11",
-      "name": "Vortex dot 11",
-      "colorIndex": 23
-    },
-    {
-      "id": "vortex-12",
-      "name": "Vortex dot 12",
-      "colorIndex": 24
-    },
-    {
-      "id": "vortex-13",
-      "name": "Vortex dot 13",
-      "colorIndex": 25
-    },
-    {
-      "id": "vortex-14",
-      "name": "Vortex dot 14",
-      "colorIndex": 26
-    },
-    {
-      "id": "vortex-15",
-      "name": "Vortex dot 15",
-      "colorIndex": 27
-    },
-    {
-      "id": "vortex-16",
-      "name": "Vortex dot 16",
-      "colorIndex": 28
-    },
-    {
-      "id": "vortex-17",
-      "name": "Vortex dot 17",
-      "colorIndex": 29
-    },
-    {
-      "id": "vortex-18",
-      "name": "Vortex dot 18",
-      "colorIndex": 30
-    },
-    {
-      "id": "vortex-19",
-      "name": "Vortex dot 19",
-      "colorIndex": 31
-    },
-    {
-      "id": "vortex-20",
-      "name": "Vortex dot 20",
-      "colorIndex": 32
-    },
-    {
-      "id": "vortex-21",
-      "name": "Vortex dot 21",
-      "colorIndex": 33
-    },
-    {
-      "id": "vortex-22",
-      "name": "Vortex dot 22",
-      "colorIndex": 34
-    },
-    {
-      "id": "vortex-23",
-      "name": "Vortex dot 23",
-      "colorIndex": 35
-    },
-    {
-      "id": "vortex-24",
-      "name": "Vortex dot 24",
-      "colorIndex": 36
     },
     {
       "id": "order",
       "name": "Order three-ups",
-      "colorIndex": 37
+      "colorIndex": 7
     },
     {
       "id": "orbit",
       "name": "Orbit",
-      "colorIndex": 38
+      "colorIndex": 8
     },
     {
       "id": "ribbon",
       "name": "Ribbon",
-      "colorIndex": 39
+      "colorIndex": 9
     },
     {
       "id": "corridor",
       "name": "Corridor",
-      "colorIndex": 40
+      "colorIndex": 10
     },
     {
       "id": "background",
       "name": "Background",
-      "colorIndex": 41
+      "colorIndex": 11
     },
     {
       "id": "audio",
       "name": "Audio",
-      "colorIndex": 42
+      "colorIndex": 12
     }
   ],
   "tracks": [
@@ -863,1407 +713,27 @@
     },
     {
       "id": "fill-bloom-core",
-      "mainTrackId": "bloom-dot-1",
+      "mainTrackId": "bloom",
       "frameStart": 720,
       "frameEnd": 732
     },
     {
-      "id": "fill-bloom-dot-1",
-      "mainTrackId": "bloom-dot-1",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-1-ride",
-      "mainTrackId": "bloom-dot-1",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
-      "id": "fill-bloom-dot-2",
-      "mainTrackId": "bloom-dot-2",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-2-ride",
-      "mainTrackId": "bloom-dot-2",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
-      "id": "fill-bloom-dot-3",
-      "mainTrackId": "bloom-dot-3",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-3-ride",
-      "mainTrackId": "bloom-dot-3",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
-      "id": "fill-bloom-dot-4",
-      "mainTrackId": "bloom-dot-4",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-4-ride",
-      "mainTrackId": "bloom-dot-4",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
-      "id": "fill-bloom-dot-5",
-      "mainTrackId": "bloom-dot-5",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-5-ride",
-      "mainTrackId": "bloom-dot-5",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
-      "id": "fill-bloom-dot-6",
-      "mainTrackId": "bloom-dot-6",
-      "frameStart": 732,
-      "frameEnd": 747
-    },
-    {
-      "id": "fill-bloom-dot-6-ride",
-      "mainTrackId": "bloom-dot-6",
-      "frameStart": 747,
-      "frameEnd": 810
-    },
-    {
       "id": "fill-bloom-ring",
-      "mainTrackId": "bloom-ring",
+      "mainTrackId": "bloom",
       "frameStart": 732,
       "frameEnd": 810
     },
     {
       "id": "fill-bloom-ring-outro",
-      "mainTrackId": "bloom-ring",
+      "mainTrackId": "bloom",
       "frameStart": 810,
-      "frameEnd": 855
+      "frameEnd": 900
     },
     {
       "id": "fill-title-card",
       "mainTrackId": "background",
       "frameStart": 810,
       "frameEnd": 900
-    },
-    {
-      "id": "fill-vortex-01-01",
-      "mainTrackId": "vortex-01",
-      "frameStart": 810,
-      "frameEnd": 819
-    },
-    {
-      "id": "fill-vortex-01-02",
-      "mainTrackId": "vortex-01",
-      "frameStart": 819,
-      "frameEnd": 828
-    },
-    {
-      "id": "fill-vortex-01-03",
-      "mainTrackId": "vortex-01",
-      "frameStart": 828,
-      "frameEnd": 837
-    },
-    {
-      "id": "fill-vortex-01-04",
-      "mainTrackId": "vortex-01",
-      "frameStart": 837,
-      "frameEnd": 846
-    },
-    {
-      "id": "fill-vortex-01-05",
-      "mainTrackId": "vortex-01",
-      "frameStart": 846,
-      "frameEnd": 855
-    },
-    {
-      "id": "fill-vortex-01-06",
-      "mainTrackId": "vortex-01",
-      "frameStart": 855,
-      "frameEnd": 864
-    },
-    {
-      "id": "fill-vortex-01-07",
-      "mainTrackId": "vortex-01",
-      "frameStart": 864,
-      "frameEnd": 873
-    },
-    {
-      "id": "fill-vortex-01-08",
-      "mainTrackId": "vortex-01",
-      "frameStart": 873,
-      "frameEnd": 882
-    },
-    {
-      "id": "fill-vortex-01-09",
-      "mainTrackId": "vortex-01",
-      "frameStart": 882,
-      "frameEnd": 891
-    },
-    {
-      "id": "fill-vortex-01-10",
-      "mainTrackId": "vortex-01",
-      "frameStart": 891,
-      "frameEnd": 900
-    },
-    {
-      "id": "fill-vortex-02-01",
-      "mainTrackId": "vortex-02",
-      "frameStart": 812,
-      "frameEnd": 821
-    },
-    {
-      "id": "fill-vortex-02-02",
-      "mainTrackId": "vortex-02",
-      "frameStart": 821,
-      "frameEnd": 830
-    },
-    {
-      "id": "fill-vortex-02-03",
-      "mainTrackId": "vortex-02",
-      "frameStart": 830,
-      "frameEnd": 839
-    },
-    {
-      "id": "fill-vortex-02-04",
-      "mainTrackId": "vortex-02",
-      "frameStart": 839,
-      "frameEnd": 848
-    },
-    {
-      "id": "fill-vortex-02-05",
-      "mainTrackId": "vortex-02",
-      "frameStart": 848,
-      "frameEnd": 857
-    },
-    {
-      "id": "fill-vortex-02-06",
-      "mainTrackId": "vortex-02",
-      "frameStart": 857,
-      "frameEnd": 866
-    },
-    {
-      "id": "fill-vortex-02-07",
-      "mainTrackId": "vortex-02",
-      "frameStart": 866,
-      "frameEnd": 875
-    },
-    {
-      "id": "fill-vortex-02-08",
-      "mainTrackId": "vortex-02",
-      "frameStart": 875,
-      "frameEnd": 884
-    },
-    {
-      "id": "fill-vortex-02-09",
-      "mainTrackId": "vortex-02",
-      "frameStart": 884,
-      "frameEnd": 893
-    },
-    {
-      "id": "fill-vortex-03-01",
-      "mainTrackId": "vortex-03",
-      "frameStart": 814,
-      "frameEnd": 823
-    },
-    {
-      "id": "fill-vortex-03-02",
-      "mainTrackId": "vortex-03",
-      "frameStart": 823,
-      "frameEnd": 832
-    },
-    {
-      "id": "fill-vortex-03-03",
-      "mainTrackId": "vortex-03",
-      "frameStart": 832,
-      "frameEnd": 841
-    },
-    {
-      "id": "fill-vortex-03-04",
-      "mainTrackId": "vortex-03",
-      "frameStart": 841,
-      "frameEnd": 850
-    },
-    {
-      "id": "fill-vortex-03-05",
-      "mainTrackId": "vortex-03",
-      "frameStart": 850,
-      "frameEnd": 859
-    },
-    {
-      "id": "fill-vortex-03-06",
-      "mainTrackId": "vortex-03",
-      "frameStart": 859,
-      "frameEnd": 868
-    },
-    {
-      "id": "fill-vortex-03-07",
-      "mainTrackId": "vortex-03",
-      "frameStart": 868,
-      "frameEnd": 877
-    },
-    {
-      "id": "fill-vortex-03-08",
-      "mainTrackId": "vortex-03",
-      "frameStart": 877,
-      "frameEnd": 886
-    },
-    {
-      "id": "fill-vortex-03-09",
-      "mainTrackId": "vortex-03",
-      "frameStart": 886,
-      "frameEnd": 895
-    },
-    {
-      "id": "fill-vortex-04-01",
-      "mainTrackId": "vortex-04",
-      "frameStart": 816,
-      "frameEnd": 825
-    },
-    {
-      "id": "fill-vortex-04-02",
-      "mainTrackId": "vortex-04",
-      "frameStart": 825,
-      "frameEnd": 834
-    },
-    {
-      "id": "fill-vortex-04-03",
-      "mainTrackId": "vortex-04",
-      "frameStart": 834,
-      "frameEnd": 843
-    },
-    {
-      "id": "fill-vortex-04-04",
-      "mainTrackId": "vortex-04",
-      "frameStart": 843,
-      "frameEnd": 852
-    },
-    {
-      "id": "fill-vortex-04-05",
-      "mainTrackId": "vortex-04",
-      "frameStart": 852,
-      "frameEnd": 861
-    },
-    {
-      "id": "fill-vortex-04-06",
-      "mainTrackId": "vortex-04",
-      "frameStart": 861,
-      "frameEnd": 870
-    },
-    {
-      "id": "fill-vortex-04-07",
-      "mainTrackId": "vortex-04",
-      "frameStart": 870,
-      "frameEnd": 879
-    },
-    {
-      "id": "fill-vortex-04-08",
-      "mainTrackId": "vortex-04",
-      "frameStart": 879,
-      "frameEnd": 888
-    },
-    {
-      "id": "fill-vortex-04-09",
-      "mainTrackId": "vortex-04",
-      "frameStart": 888,
-      "frameEnd": 897
-    },
-    {
-      "id": "fill-vortex-05-01",
-      "mainTrackId": "vortex-05",
-      "frameStart": 818,
-      "frameEnd": 827
-    },
-    {
-      "id": "fill-vortex-05-02",
-      "mainTrackId": "vortex-05",
-      "frameStart": 827,
-      "frameEnd": 836
-    },
-    {
-      "id": "fill-vortex-05-03",
-      "mainTrackId": "vortex-05",
-      "frameStart": 836,
-      "frameEnd": 845
-    },
-    {
-      "id": "fill-vortex-05-04",
-      "mainTrackId": "vortex-05",
-      "frameStart": 845,
-      "frameEnd": 854
-    },
-    {
-      "id": "fill-vortex-05-05",
-      "mainTrackId": "vortex-05",
-      "frameStart": 854,
-      "frameEnd": 863
-    },
-    {
-      "id": "fill-vortex-05-06",
-      "mainTrackId": "vortex-05",
-      "frameStart": 863,
-      "frameEnd": 872
-    },
-    {
-      "id": "fill-vortex-05-07",
-      "mainTrackId": "vortex-05",
-      "frameStart": 872,
-      "frameEnd": 881
-    },
-    {
-      "id": "fill-vortex-05-08",
-      "mainTrackId": "vortex-05",
-      "frameStart": 881,
-      "frameEnd": 890
-    },
-    {
-      "id": "fill-vortex-05-09",
-      "mainTrackId": "vortex-05",
-      "frameStart": 890,
-      "frameEnd": 899
-    },
-    {
-      "id": "fill-vortex-06-01",
-      "mainTrackId": "vortex-06",
-      "frameStart": 810,
-      "frameEnd": 819
-    },
-    {
-      "id": "fill-vortex-06-02",
-      "mainTrackId": "vortex-06",
-      "frameStart": 819,
-      "frameEnd": 828
-    },
-    {
-      "id": "fill-vortex-06-03",
-      "mainTrackId": "vortex-06",
-      "frameStart": 828,
-      "frameEnd": 837
-    },
-    {
-      "id": "fill-vortex-06-04",
-      "mainTrackId": "vortex-06",
-      "frameStart": 837,
-      "frameEnd": 846
-    },
-    {
-      "id": "fill-vortex-06-05",
-      "mainTrackId": "vortex-06",
-      "frameStart": 846,
-      "frameEnd": 855
-    },
-    {
-      "id": "fill-vortex-06-06",
-      "mainTrackId": "vortex-06",
-      "frameStart": 855,
-      "frameEnd": 864
-    },
-    {
-      "id": "fill-vortex-06-07",
-      "mainTrackId": "vortex-06",
-      "frameStart": 864,
-      "frameEnd": 873
-    },
-    {
-      "id": "fill-vortex-06-08",
-      "mainTrackId": "vortex-06",
-      "frameStart": 873,
-      "frameEnd": 882
-    },
-    {
-      "id": "fill-vortex-06-09",
-      "mainTrackId": "vortex-06",
-      "frameStart": 882,
-      "frameEnd": 891
-    },
-    {
-      "id": "fill-vortex-06-10",
-      "mainTrackId": "vortex-06",
-      "frameStart": 891,
-      "frameEnd": 900
-    },
-    {
-      "id": "fill-vortex-07-01",
-      "mainTrackId": "vortex-07",
-      "frameStart": 812,
-      "frameEnd": 821
-    },
-    {
-      "id": "fill-vortex-07-02",
-      "mainTrackId": "vortex-07",
-      "frameStart": 821,
-      "frameEnd": 830
-    },
-    {
-      "id": "fill-vortex-07-03",
-      "mainTrackId": "vortex-07",
-      "frameStart": 830,
-      "frameEnd": 839
-    },
-    {
-      "id": "fill-vortex-07-04",
-      "mainTrackId": "vortex-07",
-      "frameStart": 839,
-      "frameEnd": 848
-    },
-    {
-      "id": "fill-vortex-07-05",
-      "mainTrackId": "vortex-07",
-      "frameStart": 848,
-      "frameEnd": 857
-    },
-    {
-      "id": "fill-vortex-07-06",
-      "mainTrackId": "vortex-07",
-      "frameStart": 857,
-      "frameEnd": 866
-    },
-    {
-      "id": "fill-vortex-07-07",
-      "mainTrackId": "vortex-07",
-      "frameStart": 866,
-      "frameEnd": 875
-    },
-    {
-      "id": "fill-vortex-07-08",
-      "mainTrackId": "vortex-07",
-      "frameStart": 875,
-      "frameEnd": 884
-    },
-    {
-      "id": "fill-vortex-07-09",
-      "mainTrackId": "vortex-07",
-      "frameStart": 884,
-      "frameEnd": 893
-    },
-    {
-      "id": "fill-vortex-08-01",
-      "mainTrackId": "vortex-08",
-      "frameStart": 814,
-      "frameEnd": 823
-    },
-    {
-      "id": "fill-vortex-08-02",
-      "mainTrackId": "vortex-08",
-      "frameStart": 823,
-      "frameEnd": 832
-    },
-    {
-      "id": "fill-vortex-08-03",
-      "mainTrackId": "vortex-08",
-      "frameStart": 832,
-      "frameEnd": 841
-    },
-    {
-      "id": "fill-vortex-08-04",
-      "mainTrackId": "vortex-08",
-      "frameStart": 841,
-      "frameEnd": 850
-    },
-    {
-      "id": "fill-vortex-08-05",
-      "mainTrackId": "vortex-08",
-      "frameStart": 850,
-      "frameEnd": 859
-    },
-    {
-      "id": "fill-vortex-08-06",
-      "mainTrackId": "vortex-08",
-      "frameStart": 859,
-      "frameEnd": 868
-    },
-    {
-      "id": "fill-vortex-08-07",
-      "mainTrackId": "vortex-08",
-      "frameStart": 868,
-      "frameEnd": 877
-    },
-    {
-      "id": "fill-vortex-08-08",
-      "mainTrackId": "vortex-08",
-      "frameStart": 877,
-      "frameEnd": 886
-    },
-    {
-      "id": "fill-vortex-08-09",
-      "mainTrackId": "vortex-08",
-      "frameStart": 886,
-      "frameEnd": 895
-    },
-    {
-      "id": "fill-vortex-09-01",
-      "mainTrackId": "vortex-09",
-      "frameStart": 816,
-      "frameEnd": 825
-    },
-    {
-      "id": "fill-vortex-09-02",
-      "mainTrackId": "vortex-09",
-      "frameStart": 825,
-      "frameEnd": 834
-    },
-    {
-      "id": "fill-vortex-09-03",
-      "mainTrackId": "vortex-09",
-      "frameStart": 834,
-      "frameEnd": 843
-    },
-    {
-      "id": "fill-vortex-09-04",
-      "mainTrackId": "vortex-09",
-      "frameStart": 843,
-      "frameEnd": 852
-    },
-    {
-      "id": "fill-vortex-09-05",
-      "mainTrackId": "vortex-09",
-      "frameStart": 852,
-      "frameEnd": 861
-    },
-    {
-      "id": "fill-vortex-09-06",
-      "mainTrackId": "vortex-09",
-      "frameStart": 861,
-      "frameEnd": 870
-    },
-    {
-      "id": "fill-vortex-09-07",
-      "mainTrackId": "vortex-09",
-      "frameStart": 870,
-      "frameEnd": 879
-    },
-    {
-      "id": "fill-vortex-09-08",
-      "mainTrackId": "vortex-09",
-      "frameStart": 879,
-      "frameEnd": 888
-    },
-    {
-      "id": "fill-vortex-09-09",
-      "mainTrackId": "vortex-09",
-      "frameStart": 888,
-      "frameEnd": 897
-    },
-    {
-      "id": "fill-vortex-10-01",
-      "mainTrackId": "vortex-10",
-      "frameStart": 818,
-      "frameEnd": 827
-    },
-    {
-      "id": "fill-vortex-10-02",
-      "mainTrackId": "vortex-10",
-      "frameStart": 827,
-      "frameEnd": 836
-    },
-    {
-      "id": "fill-vortex-10-03",
-      "mainTrackId": "vortex-10",
-      "frameStart": 836,
-      "frameEnd": 845
-    },
-    {
-      "id": "fill-vortex-10-04",
-      "mainTrackId": "vortex-10",
-      "frameStart": 845,
-      "frameEnd": 854
-    },
-    {
-      "id": "fill-vortex-10-05",
-      "mainTrackId": "vortex-10",
-      "frameStart": 854,
-      "frameEnd": 863
-    },
-    {
-      "id": "fill-vortex-10-06",
-      "mainTrackId": "vortex-10",
-      "frameStart": 863,
-      "frameEnd": 872
-    },
-    {
-      "id": "fill-vortex-10-07",
-      "mainTrackId": "vortex-10",
-      "frameStart": 872,
-      "frameEnd": 881
-    },
-    {
-      "id": "fill-vortex-10-08",
-      "mainTrackId": "vortex-10",
-      "frameStart": 881,
-      "frameEnd": 890
-    },
-    {
-      "id": "fill-vortex-10-09",
-      "mainTrackId": "vortex-10",
-      "frameStart": 890,
-      "frameEnd": 899
-    },
-    {
-      "id": "fill-vortex-11-01",
-      "mainTrackId": "vortex-11",
-      "frameStart": 811,
-      "frameEnd": 820
-    },
-    {
-      "id": "fill-vortex-11-02",
-      "mainTrackId": "vortex-11",
-      "frameStart": 820,
-      "frameEnd": 829
-    },
-    {
-      "id": "fill-vortex-11-03",
-      "mainTrackId": "vortex-11",
-      "frameStart": 829,
-      "frameEnd": 838
-    },
-    {
-      "id": "fill-vortex-11-04",
-      "mainTrackId": "vortex-11",
-      "frameStart": 838,
-      "frameEnd": 847
-    },
-    {
-      "id": "fill-vortex-11-05",
-      "mainTrackId": "vortex-11",
-      "frameStart": 847,
-      "frameEnd": 856
-    },
-    {
-      "id": "fill-vortex-11-06",
-      "mainTrackId": "vortex-11",
-      "frameStart": 856,
-      "frameEnd": 865
-    },
-    {
-      "id": "fill-vortex-11-07",
-      "mainTrackId": "vortex-11",
-      "frameStart": 865,
-      "frameEnd": 874
-    },
-    {
-      "id": "fill-vortex-11-08",
-      "mainTrackId": "vortex-11",
-      "frameStart": 874,
-      "frameEnd": 883
-    },
-    {
-      "id": "fill-vortex-11-09",
-      "mainTrackId": "vortex-11",
-      "frameStart": 883,
-      "frameEnd": 892
-    },
-    {
-      "id": "fill-vortex-12-01",
-      "mainTrackId": "vortex-12",
-      "frameStart": 813,
-      "frameEnd": 822
-    },
-    {
-      "id": "fill-vortex-12-02",
-      "mainTrackId": "vortex-12",
-      "frameStart": 822,
-      "frameEnd": 831
-    },
-    {
-      "id": "fill-vortex-12-03",
-      "mainTrackId": "vortex-12",
-      "frameStart": 831,
-      "frameEnd": 840
-    },
-    {
-      "id": "fill-vortex-12-04",
-      "mainTrackId": "vortex-12",
-      "frameStart": 840,
-      "frameEnd": 849
-    },
-    {
-      "id": "fill-vortex-12-05",
-      "mainTrackId": "vortex-12",
-      "frameStart": 849,
-      "frameEnd": 858
-    },
-    {
-      "id": "fill-vortex-12-06",
-      "mainTrackId": "vortex-12",
-      "frameStart": 858,
-      "frameEnd": 867
-    },
-    {
-      "id": "fill-vortex-12-07",
-      "mainTrackId": "vortex-12",
-      "frameStart": 867,
-      "frameEnd": 876
-    },
-    {
-      "id": "fill-vortex-12-08",
-      "mainTrackId": "vortex-12",
-      "frameStart": 876,
-      "frameEnd": 885
-    },
-    {
-      "id": "fill-vortex-12-09",
-      "mainTrackId": "vortex-12",
-      "frameStart": 885,
-      "frameEnd": 894
-    },
-    {
-      "id": "fill-vortex-13-01",
-      "mainTrackId": "vortex-13",
-      "frameStart": 815,
-      "frameEnd": 824
-    },
-    {
-      "id": "fill-vortex-13-02",
-      "mainTrackId": "vortex-13",
-      "frameStart": 824,
-      "frameEnd": 833
-    },
-    {
-      "id": "fill-vortex-13-03",
-      "mainTrackId": "vortex-13",
-      "frameStart": 833,
-      "frameEnd": 842
-    },
-    {
-      "id": "fill-vortex-13-04",
-      "mainTrackId": "vortex-13",
-      "frameStart": 842,
-      "frameEnd": 851
-    },
-    {
-      "id": "fill-vortex-13-05",
-      "mainTrackId": "vortex-13",
-      "frameStart": 851,
-      "frameEnd": 860
-    },
-    {
-      "id": "fill-vortex-13-06",
-      "mainTrackId": "vortex-13",
-      "frameStart": 860,
-      "frameEnd": 869
-    },
-    {
-      "id": "fill-vortex-13-07",
-      "mainTrackId": "vortex-13",
-      "frameStart": 869,
-      "frameEnd": 878
-    },
-    {
-      "id": "fill-vortex-13-08",
-      "mainTrackId": "vortex-13",
-      "frameStart": 878,
-      "frameEnd": 887
-    },
-    {
-      "id": "fill-vortex-13-09",
-      "mainTrackId": "vortex-13",
-      "frameStart": 887,
-      "frameEnd": 896
-    },
-    {
-      "id": "fill-vortex-14-01",
-      "mainTrackId": "vortex-14",
-      "frameStart": 816,
-      "frameEnd": 825
-    },
-    {
-      "id": "fill-vortex-14-02",
-      "mainTrackId": "vortex-14",
-      "frameStart": 825,
-      "frameEnd": 834
-    },
-    {
-      "id": "fill-vortex-14-03",
-      "mainTrackId": "vortex-14",
-      "frameStart": 834,
-      "frameEnd": 843
-    },
-    {
-      "id": "fill-vortex-14-04",
-      "mainTrackId": "vortex-14",
-      "frameStart": 843,
-      "frameEnd": 852
-    },
-    {
-      "id": "fill-vortex-14-05",
-      "mainTrackId": "vortex-14",
-      "frameStart": 852,
-      "frameEnd": 861
-    },
-    {
-      "id": "fill-vortex-14-06",
-      "mainTrackId": "vortex-14",
-      "frameStart": 861,
-      "frameEnd": 870
-    },
-    {
-      "id": "fill-vortex-14-07",
-      "mainTrackId": "vortex-14",
-      "frameStart": 870,
-      "frameEnd": 879
-    },
-    {
-      "id": "fill-vortex-14-08",
-      "mainTrackId": "vortex-14",
-      "frameStart": 879,
-      "frameEnd": 888
-    },
-    {
-      "id": "fill-vortex-14-09",
-      "mainTrackId": "vortex-14",
-      "frameStart": 888,
-      "frameEnd": 897
-    },
-    {
-      "id": "fill-vortex-15-01",
-      "mainTrackId": "vortex-15",
-      "frameStart": 818,
-      "frameEnd": 827
-    },
-    {
-      "id": "fill-vortex-15-02",
-      "mainTrackId": "vortex-15",
-      "frameStart": 827,
-      "frameEnd": 836
-    },
-    {
-      "id": "fill-vortex-15-03",
-      "mainTrackId": "vortex-15",
-      "frameStart": 836,
-      "frameEnd": 845
-    },
-    {
-      "id": "fill-vortex-15-04",
-      "mainTrackId": "vortex-15",
-      "frameStart": 845,
-      "frameEnd": 854
-    },
-    {
-      "id": "fill-vortex-15-05",
-      "mainTrackId": "vortex-15",
-      "frameStart": 854,
-      "frameEnd": 863
-    },
-    {
-      "id": "fill-vortex-15-06",
-      "mainTrackId": "vortex-15",
-      "frameStart": 863,
-      "frameEnd": 872
-    },
-    {
-      "id": "fill-vortex-15-07",
-      "mainTrackId": "vortex-15",
-      "frameStart": 872,
-      "frameEnd": 881
-    },
-    {
-      "id": "fill-vortex-15-08",
-      "mainTrackId": "vortex-15",
-      "frameStart": 881,
-      "frameEnd": 890
-    },
-    {
-      "id": "fill-vortex-15-09",
-      "mainTrackId": "vortex-15",
-      "frameStart": 890,
-      "frameEnd": 899
-    },
-    {
-      "id": "fill-vortex-16-01",
-      "mainTrackId": "vortex-16",
-      "frameStart": 811,
-      "frameEnd": 820
-    },
-    {
-      "id": "fill-vortex-16-02",
-      "mainTrackId": "vortex-16",
-      "frameStart": 820,
-      "frameEnd": 829
-    },
-    {
-      "id": "fill-vortex-16-03",
-      "mainTrackId": "vortex-16",
-      "frameStart": 829,
-      "frameEnd": 838
-    },
-    {
-      "id": "fill-vortex-16-04",
-      "mainTrackId": "vortex-16",
-      "frameStart": 838,
-      "frameEnd": 847
-    },
-    {
-      "id": "fill-vortex-16-05",
-      "mainTrackId": "vortex-16",
-      "frameStart": 847,
-      "frameEnd": 856
-    },
-    {
-      "id": "fill-vortex-16-06",
-      "mainTrackId": "vortex-16",
-      "frameStart": 856,
-      "frameEnd": 865
-    },
-    {
-      "id": "fill-vortex-16-07",
-      "mainTrackId": "vortex-16",
-      "frameStart": 865,
-      "frameEnd": 874
-    },
-    {
-      "id": "fill-vortex-16-08",
-      "mainTrackId": "vortex-16",
-      "frameStart": 874,
-      "frameEnd": 883
-    },
-    {
-      "id": "fill-vortex-16-09",
-      "mainTrackId": "vortex-16",
-      "frameStart": 883,
-      "frameEnd": 892
-    },
-    {
-      "id": "fill-vortex-17-01",
-      "mainTrackId": "vortex-17",
-      "frameStart": 813,
-      "frameEnd": 822
-    },
-    {
-      "id": "fill-vortex-17-02",
-      "mainTrackId": "vortex-17",
-      "frameStart": 822,
-      "frameEnd": 831
-    },
-    {
-      "id": "fill-vortex-17-03",
-      "mainTrackId": "vortex-17",
-      "frameStart": 831,
-      "frameEnd": 840
-    },
-    {
-      "id": "fill-vortex-17-04",
-      "mainTrackId": "vortex-17",
-      "frameStart": 840,
-      "frameEnd": 849
-    },
-    {
-      "id": "fill-vortex-17-05",
-      "mainTrackId": "vortex-17",
-      "frameStart": 849,
-      "frameEnd": 858
-    },
-    {
-      "id": "fill-vortex-17-06",
-      "mainTrackId": "vortex-17",
-      "frameStart": 858,
-      "frameEnd": 867
-    },
-    {
-      "id": "fill-vortex-17-07",
-      "mainTrackId": "vortex-17",
-      "frameStart": 867,
-      "frameEnd": 876
-    },
-    {
-      "id": "fill-vortex-17-08",
-      "mainTrackId": "vortex-17",
-      "frameStart": 876,
-      "frameEnd": 885
-    },
-    {
-      "id": "fill-vortex-17-09",
-      "mainTrackId": "vortex-17",
-      "frameStart": 885,
-      "frameEnd": 894
-    },
-    {
-      "id": "fill-vortex-18-01",
-      "mainTrackId": "vortex-18",
-      "frameStart": 815,
-      "frameEnd": 824
-    },
-    {
-      "id": "fill-vortex-18-02",
-      "mainTrackId": "vortex-18",
-      "frameStart": 824,
-      "frameEnd": 833
-    },
-    {
-      "id": "fill-vortex-18-03",
-      "mainTrackId": "vortex-18",
-      "frameStart": 833,
-      "frameEnd": 842
-    },
-    {
-      "id": "fill-vortex-18-04",
-      "mainTrackId": "vortex-18",
-      "frameStart": 842,
-      "frameEnd": 851
-    },
-    {
-      "id": "fill-vortex-18-05",
-      "mainTrackId": "vortex-18",
-      "frameStart": 851,
-      "frameEnd": 860
-    },
-    {
-      "id": "fill-vortex-18-06",
-      "mainTrackId": "vortex-18",
-      "frameStart": 860,
-      "frameEnd": 869
-    },
-    {
-      "id": "fill-vortex-18-07",
-      "mainTrackId": "vortex-18",
-      "frameStart": 869,
-      "frameEnd": 878
-    },
-    {
-      "id": "fill-vortex-18-08",
-      "mainTrackId": "vortex-18",
-      "frameStart": 878,
-      "frameEnd": 887
-    },
-    {
-      "id": "fill-vortex-18-09",
-      "mainTrackId": "vortex-18",
-      "frameStart": 887,
-      "frameEnd": 896
-    },
-    {
-      "id": "fill-vortex-19-01",
-      "mainTrackId": "vortex-19",
-      "frameStart": 817,
-      "frameEnd": 826
-    },
-    {
-      "id": "fill-vortex-19-02",
-      "mainTrackId": "vortex-19",
-      "frameStart": 826,
-      "frameEnd": 835
-    },
-    {
-      "id": "fill-vortex-19-03",
-      "mainTrackId": "vortex-19",
-      "frameStart": 835,
-      "frameEnd": 844
-    },
-    {
-      "id": "fill-vortex-19-04",
-      "mainTrackId": "vortex-19",
-      "frameStart": 844,
-      "frameEnd": 853
-    },
-    {
-      "id": "fill-vortex-19-05",
-      "mainTrackId": "vortex-19",
-      "frameStart": 853,
-      "frameEnd": 862
-    },
-    {
-      "id": "fill-vortex-19-06",
-      "mainTrackId": "vortex-19",
-      "frameStart": 862,
-      "frameEnd": 871
-    },
-    {
-      "id": "fill-vortex-19-07",
-      "mainTrackId": "vortex-19",
-      "frameStart": 871,
-      "frameEnd": 880
-    },
-    {
-      "id": "fill-vortex-19-08",
-      "mainTrackId": "vortex-19",
-      "frameStart": 880,
-      "frameEnd": 889
-    },
-    {
-      "id": "fill-vortex-19-09",
-      "mainTrackId": "vortex-19",
-      "frameStart": 889,
-      "frameEnd": 898
-    },
-    {
-      "id": "fill-vortex-20-01",
-      "mainTrackId": "vortex-20",
-      "frameStart": 819,
-      "frameEnd": 828
-    },
-    {
-      "id": "fill-vortex-20-02",
-      "mainTrackId": "vortex-20",
-      "frameStart": 828,
-      "frameEnd": 837
-    },
-    {
-      "id": "fill-vortex-20-03",
-      "mainTrackId": "vortex-20",
-      "frameStart": 837,
-      "frameEnd": 846
-    },
-    {
-      "id": "fill-vortex-20-04",
-      "mainTrackId": "vortex-20",
-      "frameStart": 846,
-      "frameEnd": 855
-    },
-    {
-      "id": "fill-vortex-20-05",
-      "mainTrackId": "vortex-20",
-      "frameStart": 855,
-      "frameEnd": 864
-    },
-    {
-      "id": "fill-vortex-20-06",
-      "mainTrackId": "vortex-20",
-      "frameStart": 864,
-      "frameEnd": 873
-    },
-    {
-      "id": "fill-vortex-20-07",
-      "mainTrackId": "vortex-20",
-      "frameStart": 873,
-      "frameEnd": 882
-    },
-    {
-      "id": "fill-vortex-20-08",
-      "mainTrackId": "vortex-20",
-      "frameStart": 882,
-      "frameEnd": 891
-    },
-    {
-      "id": "fill-vortex-20-09",
-      "mainTrackId": "vortex-20",
-      "frameStart": 891,
-      "frameEnd": 900
-    },
-    {
-      "id": "fill-vortex-21-01",
-      "mainTrackId": "vortex-21",
-      "frameStart": 812,
-      "frameEnd": 821
-    },
-    {
-      "id": "fill-vortex-21-02",
-      "mainTrackId": "vortex-21",
-      "frameStart": 821,
-      "frameEnd": 830
-    },
-    {
-      "id": "fill-vortex-21-03",
-      "mainTrackId": "vortex-21",
-      "frameStart": 830,
-      "frameEnd": 839
-    },
-    {
-      "id": "fill-vortex-21-04",
-      "mainTrackId": "vortex-21",
-      "frameStart": 839,
-      "frameEnd": 848
-    },
-    {
-      "id": "fill-vortex-21-05",
-      "mainTrackId": "vortex-21",
-      "frameStart": 848,
-      "frameEnd": 857
-    },
-    {
-      "id": "fill-vortex-21-06",
-      "mainTrackId": "vortex-21",
-      "frameStart": 857,
-      "frameEnd": 866
-    },
-    {
-      "id": "fill-vortex-21-07",
-      "mainTrackId": "vortex-21",
-      "frameStart": 866,
-      "frameEnd": 875
-    },
-    {
-      "id": "fill-vortex-21-08",
-      "mainTrackId": "vortex-21",
-      "frameStart": 875,
-      "frameEnd": 884
-    },
-    {
-      "id": "fill-vortex-21-09",
-      "mainTrackId": "vortex-21",
-      "frameStart": 884,
-      "frameEnd": 893
-    },
-    {
-      "id": "fill-vortex-22-01",
-      "mainTrackId": "vortex-22",
-      "frameStart": 813,
-      "frameEnd": 822
-    },
-    {
-      "id": "fill-vortex-22-02",
-      "mainTrackId": "vortex-22",
-      "frameStart": 822,
-      "frameEnd": 831
-    },
-    {
-      "id": "fill-vortex-22-03",
-      "mainTrackId": "vortex-22",
-      "frameStart": 831,
-      "frameEnd": 840
-    },
-    {
-      "id": "fill-vortex-22-04",
-      "mainTrackId": "vortex-22",
-      "frameStart": 840,
-      "frameEnd": 849
-    },
-    {
-      "id": "fill-vortex-22-05",
-      "mainTrackId": "vortex-22",
-      "frameStart": 849,
-      "frameEnd": 858
-    },
-    {
-      "id": "fill-vortex-22-06",
-      "mainTrackId": "vortex-22",
-      "frameStart": 858,
-      "frameEnd": 867
-    },
-    {
-      "id": "fill-vortex-22-07",
-      "mainTrackId": "vortex-22",
-      "frameStart": 867,
-      "frameEnd": 876
-    },
-    {
-      "id": "fill-vortex-22-08",
-      "mainTrackId": "vortex-22",
-      "frameStart": 876,
-      "frameEnd": 885
-    },
-    {
-      "id": "fill-vortex-22-09",
-      "mainTrackId": "vortex-22",
-      "frameStart": 885,
-      "frameEnd": 894
-    },
-    {
-      "id": "fill-vortex-23-01",
-      "mainTrackId": "vortex-23",
-      "frameStart": 815,
-      "frameEnd": 824
-    },
-    {
-      "id": "fill-vortex-23-02",
-      "mainTrackId": "vortex-23",
-      "frameStart": 824,
-      "frameEnd": 833
-    },
-    {
-      "id": "fill-vortex-23-03",
-      "mainTrackId": "vortex-23",
-      "frameStart": 833,
-      "frameEnd": 842
-    },
-    {
-      "id": "fill-vortex-23-04",
-      "mainTrackId": "vortex-23",
-      "frameStart": 842,
-      "frameEnd": 851
-    },
-    {
-      "id": "fill-vortex-23-05",
-      "mainTrackId": "vortex-23",
-      "frameStart": 851,
-      "frameEnd": 860
-    },
-    {
-      "id": "fill-vortex-23-06",
-      "mainTrackId": "vortex-23",
-      "frameStart": 860,
-      "frameEnd": 869
-    },
-    {
-      "id": "fill-vortex-23-07",
-      "mainTrackId": "vortex-23",
-      "frameStart": 869,
-      "frameEnd": 878
-    },
-    {
-      "id": "fill-vortex-23-08",
-      "mainTrackId": "vortex-23",
-      "frameStart": 878,
-      "frameEnd": 887
-    },
-    {
-      "id": "fill-vortex-23-09",
-      "mainTrackId": "vortex-23",
-      "frameStart": 887,
-      "frameEnd": 896
-    },
-    {
-      "id": "fill-vortex-24-01",
-      "mainTrackId": "vortex-24",
-      "frameStart": 817,
-      "frameEnd": 826
-    },
-    {
-      "id": "fill-vortex-24-02",
-      "mainTrackId": "vortex-24",
-      "frameStart": 826,
-      "frameEnd": 835
-    },
-    {
-      "id": "fill-vortex-24-03",
-      "mainTrackId": "vortex-24",
-      "frameStart": 835,
-      "frameEnd": 844
-    },
-    {
-      "id": "fill-vortex-24-04",
-      "mainTrackId": "vortex-24",
-      "frameStart": 844,
-      "frameEnd": 853
-    },
-    {
-      "id": "fill-vortex-24-05",
-      "mainTrackId": "vortex-24",
-      "frameStart": 853,
-      "frameEnd": 862
-    },
-    {
-      "id": "fill-vortex-24-06",
-      "mainTrackId": "vortex-24",
-      "frameStart": 862,
-      "frameEnd": 871
-    },
-    {
-      "id": "fill-vortex-24-07",
-      "mainTrackId": "vortex-24",
-      "frameStart": 871,
-      "frameEnd": 880
-    },
-    {
-      "id": "fill-vortex-24-08",
-      "mainTrackId": "vortex-24",
-      "frameStart": 880,
-      "frameEnd": 889
-    },
-    {
-      "id": "fill-vortex-24-09",
-      "mainTrackId": "vortex-24",
-      "frameStart": 889,
-      "frameEnd": 898
     }
   ],
   "texts": [
@@ -2489,7 +959,7 @@
     },
     {
       "id": "sample-fx-007",
-      "trackId": "bloom-ring",
+      "trackId": "bloom",
       "effectName": "Layout",
       "parameters": {
         "Position": {
@@ -2499,306 +969,6 @@
     },
     {
       "id": "sample-fx-008",
-      "trackId": "bloom-dot-1",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-009",
-      "trackId": "bloom-dot-2",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-010",
-      "trackId": "bloom-dot-3",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-011",
-      "trackId": "bloom-dot-4",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-012",
-      "trackId": "bloom-dot-5",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-013",
-      "trackId": "bloom-dot-6",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-014",
-      "trackId": "vortex-01",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-015",
-      "trackId": "vortex-02",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-016",
-      "trackId": "vortex-03",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-017",
-      "trackId": "vortex-04",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-018",
-      "trackId": "vortex-05",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-019",
-      "trackId": "vortex-06",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-020",
-      "trackId": "vortex-07",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-021",
-      "trackId": "vortex-08",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-022",
-      "trackId": "vortex-09",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-023",
-      "trackId": "vortex-10",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-024",
-      "trackId": "vortex-11",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-025",
-      "trackId": "vortex-12",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-026",
-      "trackId": "vortex-13",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-027",
-      "trackId": "vortex-14",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-028",
-      "trackId": "vortex-15",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-029",
-      "trackId": "vortex-16",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-030",
-      "trackId": "vortex-17",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-031",
-      "trackId": "vortex-18",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-032",
-      "trackId": "vortex-19",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-033",
-      "trackId": "vortex-20",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-034",
-      "trackId": "vortex-21",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-035",
-      "trackId": "vortex-22",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-036",
-      "trackId": "vortex-23",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-037",
-      "trackId": "vortex-24",
-      "effectName": "Layout",
-      "parameters": {
-        "Position": {
-          "stringValue": "Center"
-        }
-      }
-    },
-    {
-      "id": "sample-fx-038",
       "trackId": "order",
       "effectName": "Layout",
       "parameters": {
@@ -2808,7 +978,7 @@
       }
     },
     {
-      "id": "sample-fx-039",
+      "id": "sample-fx-009",
       "trackId": "orbit",
       "effectName": "Layout",
       "parameters": {
@@ -2818,7 +988,7 @@
       }
     },
     {
-      "id": "sample-fx-040",
+      "id": "sample-fx-010",
       "trackId": "ribbon",
       "effectName": "Layout",
       "parameters": {
@@ -2828,7 +998,7 @@
       }
     },
     {
-      "id": "sample-fx-041",
+      "id": "sample-fx-011",
       "trackId": "corridor",
       "effectName": "Layout",
       "parameters": {
@@ -2838,7 +1008,7 @@
       }
     },
     {
-      "id": "sample-fx-042",
+      "id": "sample-fx-012",
       "trackId": "background",
       "effectName": "Layout",
       "parameters": {
@@ -2848,7 +1018,7 @@
       }
     },
     {
-      "id": "sample-fx-043",
+      "id": "sample-fx-013",
       "trackId": "audio",
       "effectName": "Layout",
       "parameters": {
@@ -2858,7 +1028,7 @@
       }
     },
     {
-      "id": "sample-fx-044",
+      "id": "sample-fx-014",
       "trackId": "clip:selection-1",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2883,7 +1053,7 @@
       }
     },
     {
-      "id": "sample-fx-045",
+      "id": "sample-fx-015",
       "trackId": "clip:selection-1",
       "effectName": "Refraction",
       "parameters": {
@@ -2925,7 +1095,7 @@
       }
     },
     {
-      "id": "sample-fx-046",
+      "id": "sample-fx-016",
       "trackId": "clip:selection-2",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2950,7 +1120,7 @@
       }
     },
     {
-      "id": "sample-fx-047",
+      "id": "sample-fx-017",
       "trackId": "clip:selection-2",
       "effectName": "DigitalGlitch",
       "parameters": {
@@ -2992,7 +1162,7 @@
       }
     },
     {
-      "id": "sample-fx-048",
+      "id": "sample-fx-018",
       "trackId": "clip:selection-2",
       "effectName": "Mask",
       "parameters": {
@@ -3005,7 +1175,7 @@
       }
     },
     {
-      "id": "sample-fx-049",
+      "id": "sample-fx-019",
       "trackId": "clip:selection-3",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3030,7 +1200,7 @@
       }
     },
     {
-      "id": "sample-fx-050",
+      "id": "sample-fx-020",
       "trackId": "clip:selection-3",
       "effectName": "Distortion",
       "parameters": {
@@ -3076,7 +1246,7 @@
       }
     },
     {
-      "id": "sample-fx-051",
+      "id": "sample-fx-021",
       "trackId": "clip:selection-4",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3101,7 +1271,7 @@
       }
     },
     {
-      "id": "sample-fx-052",
+      "id": "sample-fx-022",
       "trackId": "clip:selection-5",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3126,7 +1296,7 @@
       }
     },
     {
-      "id": "sample-fx-053",
+      "id": "sample-fx-023",
       "trackId": "clip:selection-5",
       "effectName": "GaussianBlur",
       "parameters": {
@@ -3151,7 +1321,7 @@
       }
     },
     {
-      "id": "sample-fx-054",
+      "id": "sample-fx-024",
       "trackId": "clip:selection-6",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3176,7 +1346,7 @@
       }
     },
     {
-      "id": "sample-fx-055",
+      "id": "sample-fx-025",
       "trackId": "clip:selection-6",
       "effectName": "Contrast",
       "parameters": {
@@ -3201,7 +1371,7 @@
       }
     },
     {
-      "id": "sample-fx-056",
+      "id": "sample-fx-026",
       "trackId": "clip:selection-7",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3226,7 +1396,7 @@
       }
     },
     {
-      "id": "sample-fx-057",
+      "id": "sample-fx-027",
       "trackId": "clip:selection-7",
       "effectName": "Distortion",
       "parameters": {
@@ -3272,7 +1442,7 @@
       }
     },
     {
-      "id": "sample-fx-058",
+      "id": "sample-fx-028",
       "trackId": "clip:selection-8",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3297,7 +1467,7 @@
       }
     },
     {
-      "id": "sample-fx-059",
+      "id": "sample-fx-029",
       "trackId": "clip:selection-9",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3322,7 +1492,7 @@
       }
     },
     {
-      "id": "sample-fx-060",
+      "id": "sample-fx-030",
       "trackId": "clip:selection-10",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3347,7 +1517,7 @@
       }
     },
     {
-      "id": "sample-fx-061",
+      "id": "sample-fx-031",
       "trackId": "clip:selection-11",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3372,7 +1542,7 @@
       }
     },
     {
-      "id": "sample-fx-062",
+      "id": "sample-fx-032",
       "trackId": "clip:selection-11",
       "effectName": "Distortion",
       "parameters": {
@@ -3418,7 +1588,7 @@
       }
     },
     {
-      "id": "sample-fx-063",
+      "id": "sample-fx-033",
       "trackId": "clip:selection-12",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3443,7 +1613,7 @@
       }
     },
     {
-      "id": "sample-fx-064",
+      "id": "sample-fx-034",
       "trackId": "clip:selection-12",
       "effectName": "Distortion",
       "parameters": {
@@ -3489,7 +1659,7 @@
       }
     },
     {
-      "id": "sample-fx-065",
+      "id": "sample-fx-035",
       "trackId": "clip:selection-13",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3514,7 +1684,7 @@
       }
     },
     {
-      "id": "sample-fx-066",
+      "id": "sample-fx-036",
       "trackId": "clip:selection-13",
       "effectName": "MotionBlur",
       "parameters": {
@@ -3542,7 +1712,7 @@
       }
     },
     {
-      "id": "sample-fx-067",
+      "id": "sample-fx-037",
       "trackId": "clip:selection-14",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3567,7 +1737,7 @@
       }
     },
     {
-      "id": "sample-fx-068",
+      "id": "sample-fx-038",
       "trackId": "clip:selection-14",
       "effectName": "LUT",
       "parameters": {
@@ -3595,7 +1765,7 @@
       }
     },
     {
-      "id": "sample-fx-069",
+      "id": "sample-fx-039",
       "trackId": "clip:selection-15",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3620,7 +1790,7 @@
       }
     },
     {
-      "id": "sample-fx-070",
+      "id": "sample-fx-040",
       "trackId": "clip:selection-15",
       "effectName": "Colorize",
       "parameters": {
@@ -3647,7 +1817,7 @@
       }
     },
     {
-      "id": "sample-fx-071",
+      "id": "sample-fx-041",
       "trackId": "clip:selection-16",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3672,7 +1842,7 @@
       }
     },
     {
-      "id": "sample-fx-072",
+      "id": "sample-fx-042",
       "trackId": "clip:selection-16",
       "effectName": "Colorize",
       "parameters": {
@@ -3699,7 +1869,7 @@
       }
     },
     {
-      "id": "sample-fx-073",
+      "id": "sample-fx-043",
       "trackId": "clip:selection-17",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3724,7 +1894,7 @@
       }
     },
     {
-      "id": "sample-fx-074",
+      "id": "sample-fx-044",
       "trackId": "clip:selection-17",
       "effectName": "Colorize",
       "parameters": {
@@ -3751,7 +1921,7 @@
       }
     },
     {
-      "id": "sample-fx-075",
+      "id": "sample-fx-045",
       "trackId": "clip:selection-18",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3776,7 +1946,7 @@
       }
     },
     {
-      "id": "sample-fx-076",
+      "id": "sample-fx-046",
       "trackId": "clip:selection-18",
       "effectName": "Colorize",
       "parameters": {
@@ -3803,7 +1973,7 @@
       }
     },
     {
-      "id": "sample-fx-077",
+      "id": "sample-fx-047",
       "trackId": "clip:selection-19",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3828,7 +1998,7 @@
       }
     },
     {
-      "id": "sample-fx-078",
+      "id": "sample-fx-048",
       "trackId": "clip:selection-19",
       "effectName": "Colorize",
       "parameters": {
@@ -3855,7 +2025,7 @@
       }
     },
     {
-      "id": "sample-fx-079",
+      "id": "sample-fx-049",
       "trackId": "clip:selection-20",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3880,7 +2050,7 @@
       }
     },
     {
-      "id": "sample-fx-080",
+      "id": "sample-fx-050",
       "trackId": "clip:selection-20",
       "effectName": "Colorize",
       "parameters": {
@@ -3907,7 +2077,7 @@
       }
     },
     {
-      "id": "sample-fx-081",
+      "id": "sample-fx-051",
       "trackId": "clip:selection-21",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3932,7 +2102,7 @@
       }
     },
     {
-      "id": "sample-fx-082",
+      "id": "sample-fx-052",
       "trackId": "clip:selection-22",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3957,7 +2127,7 @@
       }
     },
     {
-      "id": "sample-fx-083",
+      "id": "sample-fx-053",
       "trackId": "clip:selection-22",
       "effectName": "Shape",
       "parameters": {
@@ -3967,7 +2137,7 @@
       }
     },
     {
-      "id": "sample-fx-084",
+      "id": "sample-fx-054",
       "trackId": "clip:selection-23",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -3992,7 +2162,7 @@
       }
     },
     {
-      "id": "sample-fx-085",
+      "id": "sample-fx-055",
       "trackId": "clip:selection-24",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4017,7 +2187,7 @@
       }
     },
     {
-      "id": "sample-fx-086",
+      "id": "sample-fx-056",
       "trackId": "clip:selection-25",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4042,7 +2212,7 @@
       }
     },
     {
-      "id": "sample-fx-087",
+      "id": "sample-fx-057",
       "trackId": "clip:selection-25",
       "effectName": "Distortion",
       "parameters": {
@@ -4088,7 +2258,7 @@
       }
     },
     {
-      "id": "sample-fx-088",
+      "id": "sample-fx-058",
       "trackId": "clip:selection-26",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4113,7 +2283,7 @@
       }
     },
     {
-      "id": "sample-fx-089",
+      "id": "sample-fx-059",
       "trackId": "clip:selection-26",
       "effectName": "Refraction",
       "parameters": {
@@ -4153,7 +2323,7 @@
       }
     },
     {
-      "id": "sample-fx-090",
+      "id": "sample-fx-060",
       "trackId": "clip:selection-27",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4178,7 +2348,7 @@
       }
     },
     {
-      "id": "sample-fx-091",
+      "id": "sample-fx-061",
       "trackId": "clip:selection-27",
       "effectName": "Exposure",
       "parameters": {
@@ -4203,7 +2373,7 @@
       }
     },
     {
-      "id": "sample-fx-092",
+      "id": "sample-fx-062",
       "trackId": "clip:selection-28",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4228,7 +2398,7 @@
       }
     },
     {
-      "id": "sample-fx-093",
+      "id": "sample-fx-063",
       "trackId": "clip:selection-29",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4253,7 +2423,7 @@
       }
     },
     {
-      "id": "sample-fx-094",
+      "id": "sample-fx-064",
       "trackId": "clip:selection-29",
       "effectName": "Levels",
       "parameters": {
@@ -4293,7 +2463,7 @@
       }
     },
     {
-      "id": "sample-fx-095",
+      "id": "sample-fx-065",
       "trackId": "clip:selection-30",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4318,7 +2488,7 @@
       }
     },
     {
-      "id": "sample-fx-096",
+      "id": "sample-fx-066",
       "trackId": "clip:selection-30",
       "effectName": "Refraction",
       "parameters": {
@@ -4358,7 +2528,7 @@
       }
     },
     {
-      "id": "sample-fx-097",
+      "id": "sample-fx-067",
       "trackId": "clip:selection-31",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4383,7 +2553,7 @@
       }
     },
     {
-      "id": "sample-fx-098",
+      "id": "sample-fx-068",
       "trackId": "clip:selection-32",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4408,7 +2578,7 @@
       }
     },
     {
-      "id": "sample-fx-099",
+      "id": "sample-fx-069",
       "trackId": "clip:selection-33",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4433,7 +2603,7 @@
       }
     },
     {
-      "id": "sample-fx-100",
+      "id": "sample-fx-070",
       "trackId": "clip:selection-33",
       "effectName": "Colorize",
       "parameters": {
@@ -4460,7 +2630,7 @@
       }
     },
     {
-      "id": "sample-fx-101",
+      "id": "sample-fx-071",
       "trackId": "clip:selection-34",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4485,7 +2655,7 @@
       }
     },
     {
-      "id": "sample-fx-102",
+      "id": "sample-fx-072",
       "trackId": "clip:selection-34",
       "effectName": "Colorize",
       "parameters": {
@@ -4512,7 +2682,7 @@
       }
     },
     {
-      "id": "sample-fx-103",
+      "id": "sample-fx-073",
       "trackId": "clip:selection-35",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4537,7 +2707,7 @@
       }
     },
     {
-      "id": "sample-fx-104",
+      "id": "sample-fx-074",
       "trackId": "clip:selection-35",
       "effectName": "Colorize",
       "parameters": {
@@ -4564,7 +2734,7 @@
       }
     },
     {
-      "id": "sample-fx-105",
+      "id": "sample-fx-075",
       "trackId": "clip:selection-36",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4589,7 +2759,7 @@
       }
     },
     {
-      "id": "sample-fx-106",
+      "id": "sample-fx-076",
       "trackId": "clip:selection-36",
       "effectName": "Colorize",
       "parameters": {
@@ -4616,7 +2786,7 @@
       }
     },
     {
-      "id": "sample-fx-107",
+      "id": "sample-fx-077",
       "trackId": "clip:selection-37",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4641,7 +2811,7 @@
       }
     },
     {
-      "id": "sample-fx-108",
+      "id": "sample-fx-078",
       "trackId": "clip:selection-37",
       "effectName": "Colorize",
       "parameters": {
@@ -4668,7 +2838,7 @@
       }
     },
     {
-      "id": "sample-fx-109",
+      "id": "sample-fx-079",
       "trackId": "clip:selection-38",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4693,7 +2863,7 @@
       }
     },
     {
-      "id": "sample-fx-110",
+      "id": "sample-fx-080",
       "trackId": "clip:selection-38",
       "effectName": "Colorize",
       "parameters": {
@@ -4720,7 +2890,7 @@
       }
     },
     {
-      "id": "sample-fx-111",
+      "id": "sample-fx-081",
       "trackId": "clip:selection-39",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4745,7 +2915,7 @@
       }
     },
     {
-      "id": "sample-fx-112",
+      "id": "sample-fx-082",
       "trackId": "clip:selection-40",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4770,7 +2940,7 @@
       }
     },
     {
-      "id": "sample-fx-113",
+      "id": "sample-fx-083",
       "trackId": "clip:selection-40",
       "effectName": "Refraction",
       "parameters": {
@@ -4810,7 +2980,7 @@
       }
     },
     {
-      "id": "sample-fx-114",
+      "id": "sample-fx-084",
       "trackId": "clip:selection-41",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4835,7 +3005,7 @@
       }
     },
     {
-      "id": "sample-fx-115",
+      "id": "sample-fx-085",
       "trackId": "clip:selection-42",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4860,7 +3030,7 @@
       }
     },
     {
-      "id": "sample-fx-116",
+      "id": "sample-fx-086",
       "trackId": "clip:selection-43",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4885,7 +3055,7 @@
       }
     },
     {
-      "id": "sample-fx-117",
+      "id": "sample-fx-087",
       "trackId": "clip:selection-44",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4910,7 +3080,7 @@
       }
     },
     {
-      "id": "sample-fx-118",
+      "id": "sample-fx-088",
       "trackId": "clip:selection-44",
       "effectName": "Distortion",
       "parameters": {
@@ -4956,7 +3126,7 @@
       }
     },
     {
-      "id": "sample-fx-119",
+      "id": "sample-fx-089",
       "trackId": "clip:selection-45",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -4981,7 +3151,7 @@
       }
     },
     {
-      "id": "sample-fx-120",
+      "id": "sample-fx-090",
       "trackId": "clip:order-3-0",
       "effectName": "Order",
       "parameters": {
@@ -5014,7 +3184,7 @@
       }
     },
     {
-      "id": "sample-fx-121",
+      "id": "sample-fx-091",
       "trackId": "clip:order-6-0",
       "effectName": "Order",
       "parameters": {
@@ -5047,7 +3217,7 @@
       }
     },
     {
-      "id": "sample-fx-122",
+      "id": "sample-fx-092",
       "trackId": "clip:order-9-0",
       "effectName": "Order",
       "parameters": {
@@ -5080,7 +3250,7 @@
       }
     },
     {
-      "id": "sample-fx-123",
+      "id": "sample-fx-093",
       "trackId": "clip:order-15-0",
       "effectName": "Order",
       "parameters": {
@@ -5113,7 +3283,7 @@
       }
     },
     {
-      "id": "sample-fx-124",
+      "id": "sample-fx-094",
       "trackId": "clip:order-18-0",
       "effectName": "Order",
       "parameters": {
@@ -5146,7 +3316,7 @@
       }
     },
     {
-      "id": "sample-fx-125",
+      "id": "sample-fx-095",
       "trackId": "clip:order-21-0",
       "effectName": "Order",
       "parameters": {
@@ -5179,7 +3349,7 @@
       }
     },
     {
-      "id": "sample-fx-126",
+      "id": "sample-fx-096",
       "trackId": "clip:order-22-5",
       "effectName": "Order",
       "parameters": {
@@ -5212,7 +3382,7 @@
       }
     },
     {
-      "id": "sample-fx-127",
+      "id": "sample-fx-097",
       "trackId": "clip:order-24-0",
       "effectName": "Order",
       "parameters": {
@@ -5245,7 +3415,7 @@
       }
     },
     {
-      "id": "sample-fx-128",
+      "id": "sample-fx-098",
       "trackId": "clip:order-25-5",
       "effectName": "Order",
       "parameters": {
@@ -5278,7 +3448,7 @@
       }
     },
     {
-      "id": "sample-fx-129",
+      "id": "sample-fx-099",
       "trackId": "clip:transition-12-0",
       "effectName": "Transition",
       "parameters": {
@@ -5300,7 +3470,7 @@
       }
     },
     {
-      "id": "sample-fx-130",
+      "id": "sample-fx-100",
       "trackId": "clip:transition-15-0",
       "effectName": "Transition",
       "parameters": {
@@ -5322,7 +3492,7 @@
       }
     },
     {
-      "id": "sample-fx-131",
+      "id": "sample-fx-101",
       "trackId": "clip:transition-18-0",
       "effectName": "Transition",
       "parameters": {
@@ -5344,7 +3514,7 @@
       }
     },
     {
-      "id": "sample-fx-132",
+      "id": "sample-fx-102",
       "trackId": "clip:fill-logo-reveal",
       "effectName": "Color",
       "parameters": {
@@ -5360,7 +3530,7 @@
       }
     },
     {
-      "id": "sample-fx-133",
+      "id": "sample-fx-103",
       "trackId": "clip:fill-logo-reveal",
       "effectName": "Shape",
       "parameters": {
@@ -5370,7 +3540,7 @@
       }
     },
     {
-      "id": "sample-fx-134",
+      "id": "sample-fx-104",
       "trackId": "clip:fill-logo-reveal",
       "effectName": "Move",
       "parameters": {
@@ -5422,7 +3592,7 @@
       }
     },
     {
-      "id": "sample-fx-135",
+      "id": "sample-fx-105",
       "trackId": "clip:fill-logo-reveal",
       "effectName": "DigitalGlitch",
       "parameters": {
@@ -5475,7 +3645,7 @@
       }
     },
     {
-      "id": "sample-fx-136",
+      "id": "sample-fx-106",
       "trackId": "clip:fill-logo-hold",
       "effectName": "Color",
       "parameters": {
@@ -5491,7 +3661,7 @@
       }
     },
     {
-      "id": "sample-fx-137",
+      "id": "sample-fx-107",
       "trackId": "clip:fill-logo-hold",
       "effectName": "Shape",
       "parameters": {
@@ -5501,7 +3671,7 @@
       }
     },
     {
-      "id": "sample-fx-138",
+      "id": "sample-fx-108",
       "trackId": "clip:fill-logo-hold",
       "effectName": "Transform",
       "parameters": {
@@ -5529,7 +3699,7 @@
       }
     },
     {
-      "id": "sample-fx-139",
+      "id": "sample-fx-109",
       "trackId": "clip:region-pixelate",
       "effectName": "Pixelate",
       "parameters": {
@@ -5539,7 +3709,7 @@
       }
     },
     {
-      "id": "sample-fx-140",
+      "id": "sample-fx-110",
       "trackId": "clip:region-pixelate",
       "effectName": "Move",
       "parameters": {
@@ -5591,7 +3761,7 @@
       }
     },
     {
-      "id": "sample-fx-141",
+      "id": "sample-fx-111",
       "trackId": "clip:region-pixelate",
       "effectName": "Transform",
       "parameters": {
@@ -5619,7 +3789,7 @@
       }
     },
     {
-      "id": "sample-fx-142",
+      "id": "sample-fx-112",
       "trackId": "clip:region-negativesplit",
       "effectName": "NegativeSplit",
       "parameters": {
@@ -5632,7 +3802,7 @@
       }
     },
     {
-      "id": "sample-fx-143",
+      "id": "sample-fx-113",
       "trackId": "clip:region-negativesplit",
       "effectName": "Move",
       "parameters": {
@@ -5684,7 +3854,7 @@
       }
     },
     {
-      "id": "sample-fx-144",
+      "id": "sample-fx-114",
       "trackId": "clip:region-negativesplit",
       "effectName": "Transform",
       "parameters": {
@@ -5738,7 +3908,7 @@
       }
     },
     {
-      "id": "sample-fx-145",
+      "id": "sample-fx-115",
       "trackId": "clip:fill-star-mask",
       "effectName": "Color",
       "parameters": {
@@ -5754,7 +3924,7 @@
       }
     },
     {
-      "id": "sample-fx-146",
+      "id": "sample-fx-116",
       "trackId": "clip:fill-star-mask",
       "effectName": "Shape",
       "parameters": {
@@ -5764,7 +3934,7 @@
       }
     },
     {
-      "id": "sample-fx-147",
+      "id": "sample-fx-117",
       "trackId": "clip:fill-star-mask",
       "effectName": "Move",
       "parameters": {
@@ -5816,7 +3986,7 @@
       }
     },
     {
-      "id": "sample-fx-148",
+      "id": "sample-fx-118",
       "trackId": "clip:region-analogglitch",
       "effectName": "AnalogGlitch",
       "parameters": {
@@ -5829,7 +3999,7 @@
       }
     },
     {
-      "id": "sample-fx-149",
+      "id": "sample-fx-119",
       "trackId": "clip:region-analogglitch",
       "effectName": "Mask",
       "parameters": {
@@ -5842,7 +4012,7 @@
       }
     },
     {
-      "id": "sample-fx-150",
+      "id": "sample-fx-120",
       "trackId": "clip:text-open-zvid",
       "effectName": "Text",
       "parameters": {
@@ -5897,7 +4067,7 @@
       }
     },
     {
-      "id": "sample-fx-151",
+      "id": "sample-fx-121",
       "trackId": "clip:text-open-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -5925,7 +4095,7 @@
       }
     },
     {
-      "id": "sample-fx-152",
+      "id": "sample-fx-122",
       "trackId": "clip:text-open-tagline",
       "effectName": "Text",
       "parameters": {
@@ -5995,7 +4165,7 @@
       }
     },
     {
-      "id": "sample-fx-153",
+      "id": "sample-fx-123",
       "trackId": "clip:text-open-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -6023,7 +4193,7 @@
       }
     },
     {
-      "id": "sample-fx-154",
+      "id": "sample-fx-124",
       "trackId": "clip:text-capture",
       "effectName": "Text",
       "parameters": {
@@ -6093,7 +4263,7 @@
       }
     },
     {
-      "id": "sample-fx-155",
+      "id": "sample-fx-125",
       "trackId": "clip:text-capture",
       "effectName": "Move",
       "parameters": {
@@ -6145,7 +4315,7 @@
       }
     },
     {
-      "id": "sample-fx-156",
+      "id": "sample-fx-126",
       "trackId": "clip:text-edit-slam",
       "effectName": "Text",
       "parameters": {
@@ -6200,7 +4370,7 @@
       }
     },
     {
-      "id": "sample-fx-157",
+      "id": "sample-fx-127",
       "trackId": "clip:text-edit-slam",
       "effectName": "Move",
       "parameters": {
@@ -6252,7 +4422,7 @@
       }
     },
     {
-      "id": "sample-fx-158",
+      "id": "sample-fx-128",
       "trackId": "clip:text-edit-slam",
       "effectName": "MotionBlur",
       "parameters": {
@@ -6280,7 +4450,7 @@
       }
     },
     {
-      "id": "sample-fx-159",
+      "id": "sample-fx-129",
       "trackId": "clip:text-edit",
       "effectName": "Text",
       "parameters": {
@@ -6335,7 +4505,7 @@
       }
     },
     {
-      "id": "sample-fx-160",
+      "id": "sample-fx-130",
       "trackId": "clip:text-edit",
       "effectName": "Transform",
       "parameters": {
@@ -6363,7 +4533,7 @@
       }
     },
     {
-      "id": "sample-fx-161",
+      "id": "sample-fx-131",
       "trackId": "clip:text-ring-outer",
       "effectName": "Text",
       "parameters": {
@@ -6424,7 +4594,7 @@
       }
     },
     {
-      "id": "sample-fx-162",
+      "id": "sample-fx-132",
       "trackId": "clip:text-ring-outer",
       "effectName": "Move",
       "parameters": {
@@ -6476,7 +4646,7 @@
       }
     },
     {
-      "id": "sample-fx-163",
+      "id": "sample-fx-133",
       "trackId": "clip:text-ring-inner",
       "effectName": "Text",
       "parameters": {
@@ -6537,7 +4707,7 @@
       }
     },
     {
-      "id": "sample-fx-164",
+      "id": "sample-fx-134",
       "trackId": "clip:text-ring-inner",
       "effectName": "Move",
       "parameters": {
@@ -6589,7 +4759,7 @@
       }
     },
     {
-      "id": "sample-fx-165",
+      "id": "sample-fx-135",
       "trackId": "clip:text-repeat",
       "effectName": "Text",
       "parameters": {
@@ -6656,7 +4826,7 @@
       }
     },
     {
-      "id": "sample-fx-166",
+      "id": "sample-fx-136",
       "trackId": "clip:text-repeat",
       "effectName": "Move",
       "parameters": {
@@ -6798,7 +4968,7 @@
       }
     },
     {
-      "id": "sample-fx-167",
+      "id": "sample-fx-137",
       "trackId": "clip:text-repeat",
       "effectName": "MotionBlur",
       "parameters": {
@@ -6811,7 +4981,7 @@
       }
     },
     {
-      "id": "sample-fx-168",
+      "id": "sample-fx-138",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Text",
       "parameters": {
@@ -6893,7 +5063,7 @@
       }
     },
     {
-      "id": "sample-fx-169",
+      "id": "sample-fx-139",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Bloom",
       "parameters": {
@@ -6927,7 +5097,7 @@
       }
     },
     {
-      "id": "sample-fx-170",
+      "id": "sample-fx-140",
       "trackId": "clip:fill-bloom-core",
       "effectName": "Color",
       "parameters": {
@@ -6943,7 +5113,7 @@
       }
     },
     {
-      "id": "sample-fx-171",
+      "id": "sample-fx-141",
       "trackId": "clip:fill-bloom-core",
       "effectName": "Move",
       "parameters": {
@@ -6995,1453 +5165,7 @@
       }
     },
     {
-      "id": "sample-fx-172",
-      "trackId": "clip:fill-bloom-dot-1",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-173",
-      "trackId": "clip:fill-bloom-dot-1",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": -0.36
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-174",
-      "trackId": "clip:fill-bloom-dot-1-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-175",
-      "trackId": "clip:fill-bloom-dot-1-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.044174006
-        },
-        "Point1PositionY": {
-          "floatValue": -0.351330034
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.086220307
-        },
-        "Point2PositionY": {
-          "floatValue": -0.325737739
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.124113678
-        },
-        "Point3PositionY": {
-          "floatValue": -0.284455804
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": 0.156028932
-        },
-        "Point4PositionY": {
-          "floatValue": -0.229472636
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": -0.36
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.180428821
-        },
-        "EndPositionY": {
-          "floatValue": -0.16343658
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-176",
-      "trackId": "clip:fill-bloom-dot-2",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-177",
-      "trackId": "clip:fill-bloom-dot-2",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.175370144
-        },
-        "EndPositionY": {
-          "floatValue": -0.18
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-178",
-      "trackId": "clip:fill-bloom-dot-2-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-179",
-      "trackId": "clip:fill-bloom-dot-2-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.193233667
-        },
-        "Point1PositionY": {
-          "floatValue": -0.107654685
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.201789804
-        },
-        "Point2PositionY": {
-          "floatValue": -0.030124024
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.200626438
-        },
-        "Point3PositionY": {
-          "floatValue": 0.048857606
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": 0.189799603
-        },
-        "Point4PositionY": {
-          "floatValue": 0.125485937
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.175370144
-        },
-        "StartPositionY": {
-          "floatValue": -0.18
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.16983079
-        },
-        "EndPositionY": {
-          "floatValue": 0.196070053
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-180",
-      "trackId": "clip:fill-bloom-dot-3",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-181",
-      "trackId": "clip:fill-bloom-dot-3",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.175370144
-        },
-        "EndPositionY": {
-          "floatValue": 0.18
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-182",
-      "trackId": "clip:fill-bloom-dot-3-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-183",
-      "trackId": "clip:fill-bloom-dot-3-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.14905966
-        },
-        "Point1PositionY": {
-          "floatValue": 0.243675349
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.115569497
-        },
-        "Point2PositionY": {
-          "floatValue": 0.295613715
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.076512759
-        },
-        "Point3PositionY": {
-          "floatValue": 0.333313411
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": 0.033770671
-        },
-        "Point4PositionY": {
-          "floatValue": 0.354958573
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.175370144
-        },
-        "StartPositionY": {
-          "floatValue": 0.18
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.010598031
-        },
-        "EndPositionY": {
-          "floatValue": 0.359506633
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-184",
-      "trackId": "clip:fill-bloom-dot-4",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-185",
-      "trackId": "clip:fill-bloom-dot-4",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.36
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-186",
-      "trackId": "clip:fill-bloom-dot-4-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-187",
-      "trackId": "clip:fill-bloom-dot-4-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.044174006
-        },
-        "Point1PositionY": {
-          "floatValue": 0.351330034
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.086220307
-        },
-        "Point2PositionY": {
-          "floatValue": 0.325737739
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.124113678
-        },
-        "Point3PositionY": {
-          "floatValue": 0.284455804
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": -0.156028932
-        },
-        "Point4PositionY": {
-          "floatValue": 0.229472636
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.36
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.180428821
-        },
-        "EndPositionY": {
-          "floatValue": 0.16343658
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-188",
-      "trackId": "clip:fill-bloom-dot-5",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-189",
-      "trackId": "clip:fill-bloom-dot-5",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.175370144
-        },
-        "EndPositionY": {
-          "floatValue": 0.18
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-190",
-      "trackId": "clip:fill-bloom-dot-5-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-191",
-      "trackId": "clip:fill-bloom-dot-5-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.193233667
-        },
-        "Point1PositionY": {
-          "floatValue": 0.107654685
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.201789804
-        },
-        "Point2PositionY": {
-          "floatValue": 0.030124024
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.200626438
-        },
-        "Point3PositionY": {
-          "floatValue": -0.048857606
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": -0.189799603
-        },
-        "Point4PositionY": {
-          "floatValue": -0.125485937
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.175370144
-        },
-        "StartPositionY": {
-          "floatValue": 0.18
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.16983079
-        },
-        "EndPositionY": {
-          "floatValue": -0.196070053
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-192",
-      "trackId": "clip:fill-bloom-dot-6",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-193",
-      "trackId": "clip:fill-bloom-dot-6",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.06
-        },
-        "StartScaleY": {
-          "floatValue": 0.06
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.175370144
-        },
-        "EndPositionY": {
-          "floatValue": -0.18
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-194",
-      "trackId": "clip:fill-bloom-dot-6-ride",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(236,242,240,1) 0%, rgba(236,242,240,1) 46%, rgba(236,242,240,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "None",
-          "motionOut": "Ease In",
-          "timing": "Slow"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
-        }
-      }
-    },
-    {
-      "id": "sample-fx-195",
-      "trackId": "clip:fill-bloom-dot-6-ride",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Linear"
-        },
-        "Waypoints": {
-          "stringValue": "4"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.14905966
-        },
-        "Point1PositionY": {
-          "floatValue": -0.243675349
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.115569497
-        },
-        "Point2PositionY": {
-          "floatValue": -0.295613715
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.076512759
-        },
-        "Point3PositionY": {
-          "floatValue": -0.333313411
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "Point4PositionX": {
-          "floatValue": -0.033770671
-        },
-        "Point4PositionY": {
-          "floatValue": -0.354958573
-        },
-        "Point4ScaleX": {
-          "floatValue": 0.05
-        },
-        "Point4ScaleY": {
-          "floatValue": 0.05
-        },
-        "Point4OriginX": {
-          "floatValue": 0
-        },
-        "Point4OriginY": {
-          "floatValue": 0
-        },
-        "Point4Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.175370144
-        },
-        "StartPositionY": {
-          "floatValue": -0.18
-        },
-        "StartScaleX": {
-          "floatValue": 0.05
-        },
-        "StartScaleY": {
-          "floatValue": 0.05
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.010598031
-        },
-        "EndPositionY": {
-          "floatValue": -0.359506633
-        },
-        "EndScaleX": {
-          "floatValue": 0.05
-        },
-        "EndScaleY": {
-          "floatValue": 0.05
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-196",
+      "id": "sample-fx-142",
       "trackId": "clip:fill-bloom-ring",
       "effectName": "Color",
       "parameters": {
@@ -8457,7 +5181,7 @@
       }
     },
     {
-      "id": "sample-fx-197",
+      "id": "sample-fx-143",
       "trackId": "clip:fill-bloom-ring",
       "effectName": "Shape",
       "parameters": {
@@ -8497,12 +5221,102 @@
       }
     },
     {
-      "id": "sample-fx-198",
+      "id": "sample-fx-144",
       "trackId": "clip:fill-bloom-ring",
       "effectName": "Move",
       "parameters": {
         "Motion": {
           "stringValue": "Linear"
+        },
+        "Waypoints": {
+          "stringValue": "4"
+        },
+        "Path": {
+          "stringValue": "Curve"
+        },
+        "Point1PositionX": {
+          "floatValue": 0
+        },
+        "Point1PositionY": {
+          "floatValue": 0
+        },
+        "Point1ScaleX": {
+          "floatValue": 0.405
+        },
+        "Point1ScaleY": {
+          "floatValue": 0.72
+        },
+        "Point1OriginX": {
+          "floatValue": 0
+        },
+        "Point1OriginY": {
+          "floatValue": 0
+        },
+        "Point1Rotation": {
+          "floatValue": 15.6
+        },
+        "Point2PositionX": {
+          "floatValue": 0
+        },
+        "Point2PositionY": {
+          "floatValue": 0
+        },
+        "Point2ScaleX": {
+          "floatValue": 0.405
+        },
+        "Point2ScaleY": {
+          "floatValue": 0.72
+        },
+        "Point2OriginX": {
+          "floatValue": 0
+        },
+        "Point2OriginY": {
+          "floatValue": 0
+        },
+        "Point2Rotation": {
+          "floatValue": 31.2
+        },
+        "Point3PositionX": {
+          "floatValue": 0
+        },
+        "Point3PositionY": {
+          "floatValue": 0
+        },
+        "Point3ScaleX": {
+          "floatValue": 0.405
+        },
+        "Point3ScaleY": {
+          "floatValue": 0.72
+        },
+        "Point3OriginX": {
+          "floatValue": 0
+        },
+        "Point3OriginY": {
+          "floatValue": 0
+        },
+        "Point3Rotation": {
+          "floatValue": 46.8
+        },
+        "Point4PositionX": {
+          "floatValue": 0
+        },
+        "Point4PositionY": {
+          "floatValue": 0
+        },
+        "Point4ScaleX": {
+          "floatValue": 0.405
+        },
+        "Point4ScaleY": {
+          "floatValue": 0.72
+        },
+        "Point4OriginX": {
+          "floatValue": 0
+        },
+        "Point4OriginY": {
+          "floatValue": 0
+        },
+        "Point4Rotation": {
+          "floatValue": 62.4
         },
         "StartPositionX": {
           "floatValue": 0
@@ -8511,10 +5325,10 @@
           "floatValue": 0
         },
         "StartScaleX": {
-          "floatValue": 0.405
+          "floatValue": 0.050625
         },
         "StartScaleY": {
-          "floatValue": 0.72
+          "floatValue": 0.09
         },
         "StartOriginX": {
           "floatValue": 0
@@ -8549,7 +5363,7 @@
       }
     },
     {
-      "id": "sample-fx-199",
+      "id": "sample-fx-145",
       "trackId": "clip:fill-bloom-ring-outro",
       "effectName": "Color",
       "parameters": {
@@ -8565,7 +5379,7 @@
       }
     },
     {
-      "id": "sample-fx-200",
+      "id": "sample-fx-146",
       "trackId": "clip:fill-bloom-ring-outro",
       "effectName": "Shape",
       "parameters": {
@@ -8605,7 +5419,7 @@
       }
     },
     {
-      "id": "sample-fx-201",
+      "id": "sample-fx-147",
       "trackId": "clip:fill-bloom-ring-outro",
       "effectName": "Move",
       "parameters": {
@@ -8640,10 +5454,10 @@
           "floatValue": 0
         },
         "EndScaleX": {
-          "floatValue": 0.5062500000000001
+          "floatValue": 0.5265000000000001
         },
         "EndScaleY": {
-          "floatValue": 0.8999999999999999
+          "floatValue": 0.9359999999999999
         },
         "EndOriginX": {
           "floatValue": 0
@@ -8652,12 +5466,12 @@
           "floatValue": 0
         },
         "EndRotation": {
-          "floatValue": 123
+          "floatValue": 168
         }
       }
     },
     {
-      "id": "sample-fx-202",
+      "id": "sample-fx-148",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -8673,7 +5487,7 @@
       }
     },
     {
-      "id": "sample-fx-203",
+      "id": "sample-fx-149",
       "trackId": "clip:fill-title-card",
       "effectName": "Caustics",
       "parameters": {
@@ -8698,7 +5512,7 @@
       }
     },
     {
-      "id": "sample-fx-204",
+      "id": "sample-fx-150",
       "trackId": "clip:fill-title-card",
       "effectName": "Mask",
       "parameters": {
@@ -8711,7 +5525,7 @@
       }
     },
     {
-      "id": "sample-fx-205",
+      "id": "sample-fx-151",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -8781,7 +5595,7 @@
       }
     },
     {
-      "id": "sample-fx-206",
+      "id": "sample-fx-152",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -8809,7 +5623,7 @@
       }
     },
     {
-      "id": "sample-fx-207",
+      "id": "sample-fx-153",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -8879,7 +5693,7 @@
       }
     },
     {
-      "id": "sample-fx-208",
+      "id": "sample-fx-154",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -8907,3295 +5721,7 @@
       }
     },
     {
-      "id": "sample-fx-209",
-      "trackId": "vortex-01",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-210",
-      "trackId": "vortex-01",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.2401875
-        },
-        "Point1PositionY": {
-          "floatValue": 0.528275496
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.20475
-        },
-        "Point2PositionY": {
-          "floatValue": 0.45033321
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.338625
-        },
-        "Point3PositionY": {
-          "floatValue": 0
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.55125
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.133875
-        },
-        "EndPositionY": {
-          "floatValue": -0.294448637
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-211",
-      "trackId": "vortex-02",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-212",
-      "trackId": "vortex-02",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.124330199
-        },
-        "Point1PositionY": {
-          "floatValue": 0.589214754
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.289560227
-        },
-        "Point2PositionY": {
-          "floatValue": 0.367695526
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.327086633
-        },
-        "Point3PositionY": {
-          "floatValue": -0.111292189
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.532466612
-        },
-        "StartPositionY": {
-          "floatValue": 0.181173332
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.069298799
-        },
-        "EndPositionY": {
-          "floatValue": -0.328414781
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-213",
-      "trackId": "vortex-03",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-214",
-      "trackId": "vortex-03",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0
-        },
-        "Point1PositionY": {
-          "floatValue": 0.61
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.354637403
-        },
-        "Point2PositionY": {
-          "floatValue": 0.26
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.293257852
-        },
-        "Point3PositionY": {
-          "floatValue": -0.215
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.477396504
-        },
-        "StartPositionY": {
-          "floatValue": 0.35
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": -0.34
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-215",
-      "trackId": "vortex-04",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-216",
-      "trackId": "vortex-04",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.124330199
-        },
-        "Point1PositionY": {
-          "floatValue": 0.589214754
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.395546626
-        },
-        "Point2PositionY": {
-          "floatValue": 0.134585903
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.239444034
-        },
-        "Point3PositionY": {
-          "floatValue": -0.304055916
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.389792613
-        },
-        "StartPositionY": {
-          "floatValue": 0.494974747
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.069298799
-        },
-        "EndPositionY": {
-          "floatValue": -0.328414781
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-217",
-      "trackId": "vortex-05",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-218",
-      "trackId": "vortex-05",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.2401875
-        },
-        "Point1PositionY": {
-          "floatValue": 0.528275496
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.4095
-        },
-        "Point2PositionY": {
-          "floatValue": 0
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.1693125
-        },
-        "Point3PositionY": {
-          "floatValue": -0.372390924
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.275625
-        },
-        "StartPositionY": {
-          "floatValue": 0.606217783
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.133875
-        },
-        "EndPositionY": {
-          "floatValue": -0.294448637
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-219",
-      "trackId": "vortex-06",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-220",
-      "trackId": "vortex-06",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.33967642
-        },
-        "Point1PositionY": {
-          "floatValue": 0.431335137
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.395546626
-        },
-        "Point2PositionY": {
-          "floatValue": -0.134585903
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.087642599
-        },
-        "Point3PositionY": {
-          "floatValue": -0.415348105
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.142673999
-        },
-        "StartPositionY": {
-          "floatValue": 0.676148078
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.189327841
-        },
-        "EndPositionY": {
-          "floatValue": -0.240416306
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-221",
-      "trackId": "vortex-07",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-222",
-      "trackId": "vortex-07",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.416016953
-        },
-        "Point1PositionY": {
-          "floatValue": 0.305
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.354637403
-        },
-        "Point2PositionY": {
-          "floatValue": -0.26
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0
-        },
-        "Point3PositionY": {
-          "floatValue": -0.43
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.7
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.231878302
-        },
-        "EndPositionY": {
-          "floatValue": -0.17
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-223",
-      "trackId": "vortex-08",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-224",
-      "trackId": "vortex-08",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.464006619
-        },
-        "Point1PositionY": {
-          "floatValue": 0.157879618
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.289560227
-        },
-        "Point2PositionY": {
-          "floatValue": -0.367695526
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.087642599
-        },
-        "Point3PositionY": {
-          "floatValue": -0.415348105
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.142673999
-        },
-        "StartPositionY": {
-          "floatValue": 0.676148078
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.25862664
-        },
-        "EndPositionY": {
-          "floatValue": -0.087998475
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-225",
-      "trackId": "vortex-09",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-226",
-      "trackId": "vortex-09",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.480375
-        },
-        "Point1PositionY": {
-          "floatValue": 0
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.20475
-        },
-        "Point2PositionY": {
-          "floatValue": -0.45033321
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.1693125
-        },
-        "Point3PositionY": {
-          "floatValue": -0.372390924
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.275625
-        },
-        "StartPositionY": {
-          "floatValue": 0.606217783
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.26775
-        },
-        "EndPositionY": {
-          "floatValue": 0
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-227",
-      "trackId": "vortex-10",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-228",
-      "trackId": "vortex-10",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.464006619
-        },
-        "Point1PositionY": {
-          "floatValue": -0.157879618
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.105986399
-        },
-        "Point2PositionY": {
-          "floatValue": -0.50228143
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.239444034
-        },
-        "Point3PositionY": {
-          "floatValue": -0.304055916
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.389792613
-        },
-        "StartPositionY": {
-          "floatValue": 0.494974747
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.25862664
-        },
-        "EndPositionY": {
-          "floatValue": 0.087998475
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-229",
-      "trackId": "vortex-11",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-230",
-      "trackId": "vortex-11",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.416016953
-        },
-        "Point1PositionY": {
-          "floatValue": -0.305
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0
-        },
-        "Point2PositionY": {
-          "floatValue": -0.52
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.293257852
-        },
-        "Point3PositionY": {
-          "floatValue": -0.215
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.477396504
-        },
-        "StartPositionY": {
-          "floatValue": 0.35
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.231878302
-        },
-        "EndPositionY": {
-          "floatValue": 0.17
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-231",
-      "trackId": "vortex-12",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-232",
-      "trackId": "vortex-12",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.33967642
-        },
-        "Point1PositionY": {
-          "floatValue": -0.431335137
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.105986399
-        },
-        "Point2PositionY": {
-          "floatValue": -0.50228143
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.327086633
-        },
-        "Point3PositionY": {
-          "floatValue": -0.111292189
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.532466612
-        },
-        "StartPositionY": {
-          "floatValue": 0.181173332
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.189327841
-        },
-        "EndPositionY": {
-          "floatValue": 0.240416306
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-233",
-      "trackId": "vortex-13",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-234",
-      "trackId": "vortex-13",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.2401875
-        },
-        "Point1PositionY": {
-          "floatValue": -0.528275496
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.20475
-        },
-        "Point2PositionY": {
-          "floatValue": -0.45033321
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.338625
-        },
-        "Point3PositionY": {
-          "floatValue": 0
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.55125
-        },
-        "StartPositionY": {
-          "floatValue": 0
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.133875
-        },
-        "EndPositionY": {
-          "floatValue": 0.294448637
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-235",
-      "trackId": "vortex-14",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-236",
-      "trackId": "vortex-14",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": -0.124330199
-        },
-        "Point1PositionY": {
-          "floatValue": -0.589214754
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.289560227
-        },
-        "Point2PositionY": {
-          "floatValue": -0.367695526
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.327086633
-        },
-        "Point3PositionY": {
-          "floatValue": 0.111292189
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.532466612
-        },
-        "StartPositionY": {
-          "floatValue": -0.181173332
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0.069298799
-        },
-        "EndPositionY": {
-          "floatValue": 0.328414781
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-237",
-      "trackId": "vortex-15",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-238",
-      "trackId": "vortex-15",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0
-        },
-        "Point1PositionY": {
-          "floatValue": -0.61
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.354637403
-        },
-        "Point2PositionY": {
-          "floatValue": -0.26
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.293257852
-        },
-        "Point3PositionY": {
-          "floatValue": 0.215
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.477396504
-        },
-        "StartPositionY": {
-          "floatValue": -0.35
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.34
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-239",
-      "trackId": "vortex-16",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-240",
-      "trackId": "vortex-16",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.124330199
-        },
-        "Point1PositionY": {
-          "floatValue": -0.589214754
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.395546626
-        },
-        "Point2PositionY": {
-          "floatValue": -0.134585903
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.239444034
-        },
-        "Point3PositionY": {
-          "floatValue": 0.304055916
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.389792613
-        },
-        "StartPositionY": {
-          "floatValue": -0.494974747
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.069298799
-        },
-        "EndPositionY": {
-          "floatValue": 0.328414781
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-241",
-      "trackId": "vortex-17",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-242",
-      "trackId": "vortex-17",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.2401875
-        },
-        "Point1PositionY": {
-          "floatValue": -0.528275496
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.4095
-        },
-        "Point2PositionY": {
-          "floatValue": 0
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.1693125
-        },
-        "Point3PositionY": {
-          "floatValue": 0.372390924
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.275625
-        },
-        "StartPositionY": {
-          "floatValue": -0.606217783
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.133875
-        },
-        "EndPositionY": {
-          "floatValue": 0.294448637
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-243",
-      "trackId": "vortex-18",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-244",
-      "trackId": "vortex-18",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.33967642
-        },
-        "Point1PositionY": {
-          "floatValue": -0.431335137
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.395546626
-        },
-        "Point2PositionY": {
-          "floatValue": 0.134585903
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0.087642599
-        },
-        "Point3PositionY": {
-          "floatValue": 0.415348105
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": -0.142673999
-        },
-        "StartPositionY": {
-          "floatValue": -0.676148078
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.189327841
-        },
-        "EndPositionY": {
-          "floatValue": 0.240416306
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-245",
-      "trackId": "vortex-19",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-246",
-      "trackId": "vortex-19",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.416016953
-        },
-        "Point1PositionY": {
-          "floatValue": -0.305
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.354637403
-        },
-        "Point2PositionY": {
-          "floatValue": 0.26
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": 0
-        },
-        "Point3PositionY": {
-          "floatValue": 0.43
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": -0.7
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.231878302
-        },
-        "EndPositionY": {
-          "floatValue": 0.17
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-247",
-      "trackId": "vortex-20",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-248",
-      "trackId": "vortex-20",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.464006619
-        },
-        "Point1PositionY": {
-          "floatValue": -0.157879618
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.289560227
-        },
-        "Point2PositionY": {
-          "floatValue": 0.367695526
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.087642599
-        },
-        "Point3PositionY": {
-          "floatValue": 0.415348105
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.142673999
-        },
-        "StartPositionY": {
-          "floatValue": -0.676148078
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.25862664
-        },
-        "EndPositionY": {
-          "floatValue": 0.087998475
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-249",
-      "trackId": "vortex-21",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-250",
-      "trackId": "vortex-21",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.480375
-        },
-        "Point1PositionY": {
-          "floatValue": 0
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.20475
-        },
-        "Point2PositionY": {
-          "floatValue": 0.45033321
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.1693125
-        },
-        "Point3PositionY": {
-          "floatValue": 0.372390924
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.275625
-        },
-        "StartPositionY": {
-          "floatValue": -0.606217783
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.26775
-        },
-        "EndPositionY": {
-          "floatValue": 0
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-251",
-      "trackId": "vortex-22",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-252",
-      "trackId": "vortex-22",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.464006619
-        },
-        "Point1PositionY": {
-          "floatValue": 0.157879618
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0.105986399
-        },
-        "Point2PositionY": {
-          "floatValue": 0.50228143
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.239444034
-        },
-        "Point3PositionY": {
-          "floatValue": 0.304055916
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.389792613
-        },
-        "StartPositionY": {
-          "floatValue": -0.494974747
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.25862664
-        },
-        "EndPositionY": {
-          "floatValue": -0.087998475
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-253",
-      "trackId": "vortex-23",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-254",
-      "trackId": "vortex-23",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.416016953
-        },
-        "Point1PositionY": {
-          "floatValue": 0.305
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": 0
-        },
-        "Point2PositionY": {
-          "floatValue": 0.52
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.293257852
-        },
-        "Point3PositionY": {
-          "floatValue": 0.215
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.477396504
-        },
-        "StartPositionY": {
-          "floatValue": -0.35
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.231878302
-        },
-        "EndPositionY": {
-          "floatValue": -0.17
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-255",
-      "trackId": "vortex-24",
-      "effectName": "Color",
-      "parameters": {
-        "Mode": {
-          "stringValue": "Gradient"
-        },
-        "Gradient": {
-          "stringValue": "radial-gradient(circle, rgba(12,40,56,1) 0%, rgba(12,40,56,1) 46%, rgba(12,40,56,0) 48%)"
-        },
-        "Opacity": {
-          "floatValue": 1
-        }
-      }
-    },
-    {
-      "id": "sample-fx-256",
-      "trackId": "vortex-24",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease In"
-        },
-        "Waypoints": {
-          "stringValue": "3"
-        },
-        "Path": {
-          "stringValue": "Curve"
-        },
-        "Point1PositionX": {
-          "floatValue": 0.33967642
-        },
-        "Point1PositionY": {
-          "floatValue": 0.431335137
-        },
-        "Point1ScaleX": {
-          "floatValue": 0.0255
-        },
-        "Point1ScaleY": {
-          "floatValue": 0.0255
-        },
-        "Point1OriginX": {
-          "floatValue": 0
-        },
-        "Point1OriginY": {
-          "floatValue": 0
-        },
-        "Point1Rotation": {
-          "floatValue": 0
-        },
-        "Point2PositionX": {
-          "floatValue": -0.105986399
-        },
-        "Point2PositionY": {
-          "floatValue": 0.50228143
-        },
-        "Point2ScaleX": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2ScaleY": {
-          "floatValue": 0.020999999999999998
-        },
-        "Point2OriginX": {
-          "floatValue": 0
-        },
-        "Point2OriginY": {
-          "floatValue": 0
-        },
-        "Point2Rotation": {
-          "floatValue": 0
-        },
-        "Point3PositionX": {
-          "floatValue": -0.327086633
-        },
-        "Point3PositionY": {
-          "floatValue": 0.111292189
-        },
-        "Point3ScaleX": {
-          "floatValue": 0.0165
-        },
-        "Point3ScaleY": {
-          "floatValue": 0.0165
-        },
-        "Point3OriginX": {
-          "floatValue": 0
-        },
-        "Point3OriginY": {
-          "floatValue": 0
-        },
-        "Point3Rotation": {
-          "floatValue": 0
-        },
-        "StartPositionX": {
-          "floatValue": 0.532466612
-        },
-        "StartPositionY": {
-          "floatValue": -0.181173332
-        },
-        "StartScaleX": {
-          "floatValue": 0.03
-        },
-        "StartScaleY": {
-          "floatValue": 0.03
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": -0.189327841
-        },
-        "EndPositionY": {
-          "floatValue": -0.240416306
-        },
-        "EndScaleX": {
-          "floatValue": 0.012
-        },
-        "EndScaleY": {
-          "floatValue": 0.012
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "sample-fx-257",
+      "id": "sample-fx-155",
       "trackId": "clip:selection-46",
       "effectName": "Gain",
       "parameters": {
@@ -12208,7 +5734,7 @@
       }
     },
     {
-      "id": "sample-fx-258",
+      "id": "sample-fx-156",
       "trackId": "clip:selection-47",
       "effectName": "Gain",
       "parameters": {
@@ -12221,7 +5747,7 @@
       }
     },
     {
-      "id": "sample-fx-259",
+      "id": "sample-fx-157",
       "trackId": "clip:selection-47",
       "effectName": "Bitcrush",
       "parameters": {
@@ -12237,7 +5763,7 @@
       }
     },
     {
-      "id": "sample-fx-260",
+      "id": "sample-fx-158",
       "trackId": "clip:selection-48",
       "effectName": "Gain",
       "parameters": {
@@ -12250,7 +5776,7 @@
       }
     },
     {
-      "id": "sample-fx-261",
+      "id": "sample-fx-159",
       "trackId": "clip:selection-48",
       "effectName": "Phaser",
       "parameters": {
@@ -12275,7 +5801,7 @@
       }
     },
     {
-      "id": "sample-fx-262",
+      "id": "sample-fx-160",
       "trackId": "clip:selection-49",
       "effectName": "Gain",
       "parameters": {
@@ -12288,7 +5814,7 @@
       }
     },
     {
-      "id": "sample-fx-263",
+      "id": "sample-fx-161",
       "trackId": "clip:selection-49",
       "effectName": "Chorus",
       "parameters": {
@@ -12313,7 +5839,7 @@
       }
     },
     {
-      "id": "sample-fx-264",
+      "id": "sample-fx-162",
       "trackId": "clip:selection-50",
       "effectName": "Gain",
       "parameters": {
@@ -12326,7 +5852,7 @@
       }
     },
     {
-      "id": "sample-fx-265",
+      "id": "sample-fx-163",
       "trackId": "clip:selection-50",
       "effectName": "Auto Pan",
       "parameters": {
@@ -12345,7 +5871,7 @@
       }
     },
     {
-      "id": "sample-fx-266",
+      "id": "sample-fx-164",
       "trackId": "clip:selection-51",
       "effectName": "Gain",
       "parameters": {
@@ -12358,7 +5884,7 @@
       }
     },
     {
-      "id": "sample-fx-267",
+      "id": "sample-fx-165",
       "trackId": "clip:selection-51",
       "effectName": "Tremolo",
       "parameters": {
@@ -12377,7 +5903,7 @@
       }
     },
     {
-      "id": "sample-fx-268",
+      "id": "sample-fx-166",
       "trackId": "clip:selection-52",
       "effectName": "Gain",
       "parameters": {
@@ -12390,7 +5916,7 @@
       }
     },
     {
-      "id": "sample-fx-269",
+      "id": "sample-fx-167",
       "trackId": "clip:selection-52",
       "effectName": "Transient Shaper",
       "parameters": {
@@ -12406,7 +5932,7 @@
       }
     },
     {
-      "id": "sample-fx-270",
+      "id": "sample-fx-168",
       "trackId": "clip:selection-53",
       "effectName": "Gain",
       "parameters": {
@@ -12419,7 +5945,7 @@
       }
     },
     {
-      "id": "sample-fx-271",
+      "id": "sample-fx-169",
       "trackId": "clip:selection-53",
       "effectName": "Compressor",
       "parameters": {
@@ -12447,7 +5973,7 @@
       }
     },
     {
-      "id": "sample-fx-272",
+      "id": "sample-fx-170",
       "trackId": "clip:selection-54",
       "effectName": "Gain",
       "parameters": {
@@ -12460,7 +5986,7 @@
       }
     },
     {
-      "id": "sample-fx-273",
+      "id": "sample-fx-171",
       "trackId": "clip:selection-54",
       "effectName": "High Cut",
       "parameters": {
@@ -12476,7 +6002,7 @@
       }
     },
     {
-      "id": "sample-fx-274",
+      "id": "sample-fx-172",
       "trackId": "clip:selection-55",
       "effectName": "Gain",
       "parameters": {
@@ -12489,7 +6015,7 @@
       }
     },
     {
-      "id": "sample-fx-275",
+      "id": "sample-fx-173",
       "trackId": "clip:selection-55",
       "effectName": "Low Cut",
       "parameters": {
@@ -12505,7 +6031,7 @@
       }
     },
     {
-      "id": "sample-fx-276",
+      "id": "sample-fx-174",
       "trackId": "clip:selection-56",
       "effectName": "Gain",
       "parameters": {
@@ -12518,7 +6044,7 @@
       }
     },
     {
-      "id": "sample-fx-277",
+      "id": "sample-fx-175",
       "trackId": "clip:selection-56",
       "effectName": "EQ",
       "parameters": {
@@ -12546,7 +6072,7 @@
       }
     },
     {
-      "id": "sample-fx-278",
+      "id": "sample-fx-176",
       "trackId": "clip:selection-57",
       "effectName": "Gain",
       "parameters": {
@@ -12559,7 +6085,7 @@
       }
     },
     {
-      "id": "sample-fx-279",
+      "id": "sample-fx-177",
       "trackId": "clip:selection-57",
       "effectName": "Saturation",
       "parameters": {
@@ -12581,7 +6107,7 @@
       }
     },
     {
-      "id": "sample-fx-280",
+      "id": "sample-fx-178",
       "trackId": "clip:selection-58",
       "effectName": "Gain",
       "parameters": {
@@ -12594,7 +6120,7 @@
       }
     },
     {
-      "id": "sample-fx-281",
+      "id": "sample-fx-179",
       "trackId": "clip:selection-58",
       "effectName": "Phaser",
       "parameters": {
@@ -12619,7 +6145,7 @@
       }
     },
     {
-      "id": "sample-fx-282",
+      "id": "sample-fx-180",
       "trackId": "clip:selection-58",
       "effectName": "Delay",
       "parameters": {
@@ -12644,7 +6170,7 @@
       }
     },
     {
-      "id": "sample-fx-283",
+      "id": "sample-fx-181",
       "trackId": "clip:selection-59",
       "effectName": "Gain",
       "parameters": {
@@ -12657,7 +6183,7 @@
       }
     },
     {
-      "id": "sample-fx-284",
+      "id": "sample-fx-182",
       "trackId": "clip:selection-59",
       "effectName": "Re-Pitch",
       "parameters": {
@@ -12676,7 +6202,7 @@
       }
     },
     {
-      "id": "sample-fx-285",
+      "id": "sample-fx-183",
       "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
@@ -12689,7 +6215,7 @@
       }
     },
     {
-      "id": "sample-fx-286",
+      "id": "sample-fx-184",
       "trackId": "clip:selection-60",
       "effectName": "De-ess",
       "parameters": {
@@ -12708,7 +6234,7 @@
       }
     },
     {
-      "id": "sample-fx-287",
+      "id": "sample-fx-185",
       "trackId": "clip:selection-61",
       "effectName": "Gain",
       "parameters": {
@@ -12721,13 +6247,13 @@
       }
     },
     {
-      "id": "sample-fx-288",
+      "id": "sample-fx-186",
       "trackId": "clip:selection-61",
       "effectName": "Reverse",
       "parameters": {}
     },
     {
-      "id": "sample-fx-289",
+      "id": "sample-fx-187",
       "trackId": "clip:selection-61",
       "effectName": "Re-Pitch",
       "parameters": {
@@ -12740,7 +6266,7 @@
       }
     },
     {
-      "id": "sample-fx-290",
+      "id": "sample-fx-188",
       "trackId": "clip:selection-62",
       "effectName": "Gain",
       "parameters": {
@@ -12753,7 +6279,7 @@
       }
     },
     {
-      "id": "sample-fx-291",
+      "id": "sample-fx-189",
       "trackId": "clip:selection-62",
       "effectName": "Limiter",
       "parameters": {
@@ -12772,7 +6298,7 @@
       }
     },
     {
-      "id": "sample-fx-292",
+      "id": "sample-fx-190",
       "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
@@ -12785,7 +6311,7 @@
       }
     },
     {
-      "id": "sample-fx-293",
+      "id": "sample-fx-191",
       "trackId": "clip:selection-63",
       "effectName": "Delay",
       "parameters": {
@@ -12813,7 +6339,7 @@
       }
     },
     {
-      "id": "sample-fx-294",
+      "id": "sample-fx-192",
       "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
@@ -12826,7 +6352,7 @@
       }
     },
     {
-      "id": "sample-fx-295",
+      "id": "sample-fx-193",
       "trackId": "clip:selection-64",
       "effectName": "Reverb",
       "parameters": {
@@ -12848,7 +6374,7 @@
       }
     },
     {
-      "id": "sample-fx-296",
+      "id": "sample-fx-194",
       "trackId": "clip:selection-45",
       "effectName": "Scopes",
       "parameters": {}
