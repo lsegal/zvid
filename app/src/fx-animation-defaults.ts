@@ -1,6 +1,6 @@
 // The Animation modifier an effect can carry: its settings, and each
-// effect's defaults for them. Effects that aren't listed here, Layout, Mask
-// and Shape among them, don't support animation. Kept apart from the
+// effect's defaults for them. Effects that aren't listed here, Layout and
+// Mask among them, don't support animation. Kept apart from the
 // registry so the animation work doesn't collide with registry edits.
 
 import { ORDER_EFFECT_NAME } from "./composition-order.ts";
@@ -16,6 +16,11 @@ import {
   MOVE_WAYPOINT_LIMIT,
   moveWaypointPrefix,
 } from "./fx/effects/move/move.ts";
+import {
+  DRAWN_KEY,
+  OFFSET_KEY,
+  SHAPE_EFFECT_NAME,
+} from "./fx/effects/shape/shape.ts";
 import {
   TRANSITION_EFFECT_NAME,
   TRANSITION_FRAMES,
@@ -361,6 +366,15 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     COLOR_EFFECT_NAME,
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
   ],
+  // A Shape animates its outline: Clip mode draws it on, and the music or
+  // the LFO marches its dashes. A filled shape has no outline to move, so
+  // new devices come with Animation off.
+  [
+    SHAPE_EFFECT_NAME,
+    offWhenAdded(
+      defaults("Ease Out", "Ease In", [24, 16, 8], "Bounce", 0.3, [OFFSET_KEY]),
+    ),
+  ],
   [
     TEXT_EFFECT_NAME,
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
@@ -672,6 +686,11 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     },
   ],
   ["Colorize", { _HueOffset: { neutral: 0 } }],
+  // An outline enters drawn from nothing, its dashes marching into place.
+  [
+    SHAPE_EFFECT_NAME,
+    { [DRAWN_KEY]: { neutral: 0 }, [OFFSET_KEY]: { neutral: 0 } },
+  ],
   // 0 stops leaves the light as it is.
   ["Exposure", { _Stops: { neutral: 0 } }],
   // Contrast 1 leaves the picture as it is, whatever the Pivot.

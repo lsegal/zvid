@@ -5,6 +5,16 @@ import { customShapeMediaPath } from "./shapes/custom.ts";
 export const SHAPE_EFFECT_NAME = "Shape";
 export const SHAPE_KEY = "Shape";
 
+// The outline's parameters. A Stroke of 0 fills the shape; above 0 the shape
+// is drawn as an outline that wide inside its edge, dashed when Dash is above
+// 0. Lengths are in output pixels at 1080p, as the shape is shown.
+export const STROKE_KEY = "StrokeWidth";
+export const DASH_KEY = "DashLength";
+export const GAP_KEY = "DashGap";
+export const OFFSET_KEY = "DashOffset";
+// How much of the outline is drawn, from its start at the top clockwise.
+export const DRAWN_KEY = "StrokeDrawn";
+
 export function isShapeEffectName(effectName: string) {
   return effectName.trim().toLowerCase() === "shape";
 }
