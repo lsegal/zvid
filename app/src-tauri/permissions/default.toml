@@ -28,6 +28,18 @@ identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
 
+[[permission]]
+identifier = "allow-chatgpt"
+description = "Enables Sign in with ChatGPT and requests on the user's ChatGPT plan."
+commands.allow = [
+  "chatgpt_status",
+  "chatgpt_sign_in",
+  "chatgpt_cancel_sign_in",
+  "chatgpt_sign_out",
+  "chatgpt_open_usage",
+  "chatgpt_respond",
+]
+
 [default]
 description = "Default application permissions."
 permissions = [
@@ -37,4 +49,5 @@ permissions = [
   "allow-read-file-prefix",
   "allow-files-exist",
   "allow-write-file-bytes",
+  "allow-chatgpt",
 ]
