@@ -4,6 +4,7 @@ import { warpSourceTime } from "../clip-warp.ts";
 import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
 import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
+import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import type { ProjectSession } from "../session.ts";
 import { projectToSession } from "../session-save.ts";
 import { retimeSourceSpan } from "../source-span-edit.ts";
@@ -868,5 +869,72 @@ describe("layer clips after their source clip changes", () => {
     };
     const project = sessionToProject(slipped, []);
     assert.deepEqual(shown(project), [[2, 60, [[2, 60, 75]]]]);
+  });
+});
+
+describe("a session with a MIDI clip", () => {
+  const session: ProjectSession = {
+    timeline: { bpm: 120, fps: 30 },
+    tracks: [
+      {
+        id: "keys",
+        name: "Keys",
+        synth: { ...DEFAULT_SYNTH_PARAMS, wave: "square", cutoff: 800 },
+      },
+      { id: "bass", name: "Bass" },
+    ],
+    clips: [
+      {
+        id: "1",
+        trackId: "keys",
+        frameStart: 0,
+        frameCount: 60,
+        filePath: "",
+        notes: [
+          { pitch: 64, start: 1, length: 0.5, velocity: 90 },
+          { pitch: 60, start: 0, length: 1, velocity: 100 },
+        ],
+      },
+      // Imported from a Live set: no notes, so a placeholder.
+      { id: "2", trackId: "bass", frameStart: 0, frameCount: 60, filePath: "" },
+    ],
+  };
+
+  it("opens its notes on the clip and its synth on the track", () => {
+    const project = sessionToProject(session, []);
+    const [midi, placeholder] = project.sourceSpans;
+    assert.deepEqual(midi.notes, [
+      { pitch: 60, start: 0, length: 1, velocity: 100 },
+      { pitch: 64, start: 1, length: 0.5, velocity: 90 },
+    ]);
+    assert.equal("notes" in placeholder, false);
+    assert.equal(project.sourceTracks[0].synth?.wave, "square");
+    assert.equal(project.sourceTracks[0].synth?.cutoff, 800);
+    assert.equal("synth" in project.sourceTracks[1], false);
+  });
+
+  it("saves them as it opened them", () => {
+    const project = sessionToProject(session, []);
+    const saved = projectToSession(
+      { ...INITIAL_PROJECT_STATE, ...project },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      saved.clips?.map((clip) => clip.notes),
+      [project.sourceSpans[0].notes, undefined],
+    );
+    assert.deepEqual(
+      saved.tracks?.map((track) => track.synth),
+      [project.sourceTracks[0].synth, undefined],
+    );
+    const reopened = sessionToProject(saved, []);
+    assert.deepEqual(
+      reopened.sourceSpans[0].notes,
+      project.sourceSpans[0].notes,
+    );
+    assert.deepEqual(
+      reopened.sourceTracks[0].synth,
+      project.sourceTracks[0].synth,
+    );
   });
 });
