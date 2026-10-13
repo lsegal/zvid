@@ -8,6 +8,13 @@ export type FxParameterVisibility = {
   values: readonly string[];
 };
 
+// A labeled knob row that shows only while `visibleWhen` holds, like the
+// parameters in it.
+export type FxKnobRowDefinition = {
+  label: string;
+  visibleWhen: FxParameterVisibility;
+};
+
 export type FxNumberParameterDefinition = {
   kind: "number";
   key: string;
@@ -182,8 +189,9 @@ export type FxEffectDefinition = {
   // menu offers it.
   layerDefault?: boolean;
   // Labels for the knob rows, when the knobs split evenly into labeled
-  // rows (a Move's Start and End) instead of filling two rows freely.
-  knobRows?: readonly string[];
+  // rows (a Move's Start, waypoints and End) instead of filling two rows
+  // freely. A conditional row's label shows only while its knobs do.
+  knobRows?: readonly (string | FxKnobRowDefinition)[];
   // How many columns the knobs fill, when not the usual two rows: Levels'
   // four color wheels and its curve in one row.
   knobColumns?: number;

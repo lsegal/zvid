@@ -104,8 +104,8 @@ export function transformParameter(
   };
 }
 
-// Transform's knobs with keys prefixed by `prefix` ("Start" or "End"), for
-// one row of a Move.
+// Transform's knobs with keys prefixed by `prefix` ("Start", "End" or a
+// waypoint's "Point<n>"), for one row of a Move.
 export function moveParameters(prefix: string): FxNumberParameterDefinition[] {
   return [
     transformParameter(

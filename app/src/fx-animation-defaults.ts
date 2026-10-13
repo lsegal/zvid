@@ -7,6 +7,10 @@ import { ORDER_EFFECT_NAME } from "./composition-order.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
 import { COLOR_EFFECT_NAME } from "./fill-paint.ts";
 import {
+  MOVE_WAYPOINT_LIMIT,
+  moveWaypointPrefix,
+} from "./fx/effects/move/move.ts";
+import {
   LEVELS_EFFECT_NAME,
   WHEEL_CHANNELS,
   WHEELS,
@@ -641,6 +645,13 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     MOVE_EFFECT_NAME,
     {
       ...prefixed("Start", TRANSFORM_NEUTRALS),
+      ...Object.fromEntries(
+        Array.from({ length: MOVE_WAYPOINT_LIMIT }, (_, index) =>
+          Object.entries(
+            prefixed(moveWaypointPrefix(index + 1), TRANSFORM_NEUTRALS),
+          ),
+        ).flat(),
+      ),
       ...prefixed("End", TRANSFORM_NEUTRALS),
     },
   ],
