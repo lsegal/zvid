@@ -6,6 +6,10 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
 .fx-move-points__chip,

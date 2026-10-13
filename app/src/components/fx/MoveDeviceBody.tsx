@@ -106,11 +106,7 @@ export function MoveDeviceBody({
           parameter={parameter}
         />
       ))}
-      <div
-        className="fx-move-points"
-        role="toolbar"
-        aria-label={`${device.name} points`}
-      >
+      <fieldset className="fx-move-points" aria-label={`${device.name} points`}>
         {CHIPS.map((point) => {
           const isSet = typeof point !== "number" || point <= waypointCount;
           const isNext = point === waypointCount + 1;
@@ -147,7 +143,7 @@ export function MoveDeviceBody({
             Remove
           </button>
         ) : null}
-      </div>
+      </fieldset>
       {row ? (
         <fieldset className="fx-device-panel__knob-row">
           <legend className="fx-device-panel__row-label">{row.label}</legend>

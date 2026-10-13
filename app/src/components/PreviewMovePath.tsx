@@ -344,7 +344,12 @@ export function PreviewMovePath({
                     : `${name}. Drag to move it.`
                 }
                 style={{ left: screen.x, top: screen.y }}
-                onClick={() => selection.select(source.effectId, point)}
+                onClick={(event) => {
+                  // An Alt-click removed the waypoint on press.
+                  if (!event.altKey) {
+                    selection.select(source.effectId, point);
+                  }
+                }}
                 onPointerDown={(event) => handleDotPointerDown(event, point)}
                 onPointerMove={handleDotPointerMove}
                 onPointerUp={endDrag}
