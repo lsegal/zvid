@@ -6,6 +6,7 @@ import {
 } from "react";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
+import { checkForDesktopUpdate } from "../desktop-updater";
 import { supportsHarnessCapability } from "../harness";
 import type {
   CollaborationStateResult,
@@ -155,8 +156,20 @@ export function TopBar(props: TopBarProps) {
               >
                 Getting Started
               </DropdownMenuItem>
-              {/* The desktop app has no downloads to offer. */}
-              {supportsHarnessCapability("native-dialogs") ? null : (
+              {/* The desktop app updates itself and has no downloads to
+                  offer. */}
+              {supportsHarnessCapability("native-dialogs") ? (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    void checkForDesktopUpdate({
+                      interactive: true,
+                      onStatus: setStatus,
+                    })
+                  }
+                >
+                  Check for Updates…
+                </DropdownMenuItem>
+              ) : (
                 <>
                   <DropdownMenuItem
                     onSelect={() => setIsCaptureInstallerDialogOpen(true)}

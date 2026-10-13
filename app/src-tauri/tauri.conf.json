@@ -52,6 +52,13 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://zvid.lsegal.workers.dev/downloads/desktop/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBOEQzNjk0MzM2RTJBOEYKUldTUEttNHpsRGFObXQxNFV4NWFueXF2TllIK0ZTRnM1bk9BN0d3c1Vnc1ViQ0JKR3E4TG9LTm8K",
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": false,
     "icon": [
