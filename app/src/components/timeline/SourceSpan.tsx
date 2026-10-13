@@ -19,6 +19,7 @@ import type {
   SourceSpan as SourceSpanClip,
   SourceSpanDragState,
 } from "../../app/types.ts";
+import { pluralize } from "../../app/util.ts";
 import {
   describeClipMediaState,
   formatClipMediaState,
@@ -27,7 +28,6 @@ import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { MediaItem } from "../../media";
-import { pluralize } from "../../app/util.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import {
   describeMediaSync,
@@ -46,8 +46,8 @@ import {
 } from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
-import { MidiClipThumbnail } from "./MidiClipThumbnail";
 import { MediaLoopMarkers } from "./MediaLoopMarkers";
+import { MidiClipThumbnail } from "./MidiClipThumbnail";
 import "./source-span.css";
 
 // What every source span shares.

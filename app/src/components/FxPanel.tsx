@@ -5,6 +5,7 @@ import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
+import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";
 import { TrackRecordDevice } from "./TrackRecordDevice";
 import "./fx-panel.css";
@@ -27,6 +28,8 @@ export type FxPanelProps = Pick<
   | "fxPanelTitle"
   | "fxRecordTrack"
   | "fxSourceTrackId"
+  | "fxSynthTrack"
+  | "fxMidiClip"
   | "orderLayerOptions"
 > &
   Pick<
@@ -50,6 +53,8 @@ export type FxPanelProps = Pick<
     | "setFxDeviceParameter"
     | "setLayerFxEnabled"
     | "setSourceTrackFxEnabled"
+    | "setSourceTrackSynth"
+    | "setMidiClipNotes"
   > & {
     isInspectorCollapsed: boolean;
     toggleInspectorCollapsed: () => void;
@@ -62,7 +67,8 @@ export type FxPanelProps = Pick<
 // The collapsible FX panel under the editor: its header toggle, the title
 // for the selected layer or clip, and the FX chain. A source track's Record
 // device leads the chain, ahead of the selected source clip's properties,
-// even though it belongs to the track.
+// even though it belongs to the track. A source track with MIDI clips adds
+// its Synth device, and a selected MIDI clip its piano roll, after those.
 export function FxPanel({
   addFxDevice,
   clearFxDevices,
@@ -83,6 +89,8 @@ export function FxPanel({
   fxPanelTitle,
   fxRecordTrack,
   fxSourceTrackId,
+  fxSynthTrack,
+  fxMidiClip,
   isInspectorCollapsed,
   moveFxDevice,
   moveFxDeviceToStack,
@@ -98,6 +106,8 @@ export function FxPanel({
   setFxDeviceParameter,
   setLayerFxEnabled,
   setSourceTrackFxEnabled,
+  setSourceTrackSynth,
+  setMidiClipNotes,
   sheetHeader,
   sourceClip,
   toggleInspectorCollapsed,
@@ -124,7 +134,7 @@ export function FxPanel({
         id="fx-panel-body"
       >
         <FxChain
-          leading={({ collapsed, toggleCollapsed }) => (
+          leading={(collapse) => (
             <>
               {fxRecordTrack ? (
                 <TrackRecordDevice
@@ -135,13 +145,25 @@ export function FxPanel({
               ) : null}
               {sourceClip ? (
                 <SourceClipProperties
-                  collapsed={collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
+                  collapsed={collapse.collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
                   model={sourceClip}
                   onToggleCollapsed={() =>
-                    toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                    collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
                   }
                 />
               ) : null}
+              <MidiDevices
+                {...collapse}
+                midiClip={fxMidiClip}
+                revealPanel={() => {
+                  if (isInspectorCollapsed) {
+                    toggleInspectorCollapsed();
+                  }
+                }}
+                setNotes={setMidiClipNotes}
+                setSynthParam={setSourceTrackSynth}
+                synthTrack={fxSynthTrack}
+              />
             </>
           )}
           devices={fxDevices}

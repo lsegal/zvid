@@ -24,6 +24,7 @@ import {
   type SessionEffect,
 } from "../fx-stack";
 import type { MediaItem } from "../media";
+import { getMidiPanelModel } from "../midi-panel-model.ts";
 import { getMissingFonts, subscribeFonts } from "../text-fonts.ts";
 
 export type FxPanelModelInputs = {
@@ -150,6 +151,10 @@ export function useFxPanelModel({
     ],
   );
   const fxPanelTitle = getFxPanelTitle(fxLayerName, fxClipName);
+  const { fxSynthTrack, fxMidiClip } = useMemo(
+    () => getMidiPanelModel(sourceSelection, sourceTracks, sourceSpans, bpm),
+    [bpm, sourceSelection, sourceSpans, sourceTracks],
+  );
 
   return {
     fxLaneId,
@@ -174,6 +179,10 @@ export function useFxPanelModel({
       ? sourceStacks.trackFxEnabled
       : isLayerFxEnabled(fxLane),
     fxClipTrackId,
+    // The selected source track's synth, while it has MIDI clips, and the
+    // selected MIDI clip the piano roll edits.
+    fxSynthTrack,
+    fxMidiClip,
     orderLayerOptions,
     fxClipLayerOptions,
     missingFonts,

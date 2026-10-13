@@ -113,7 +113,10 @@ export function deleteNote(
 }
 
 /** Whether two note lists hold the same notes in the same order. */
-export function sameNotes(left: readonly MidiNote[], right: readonly MidiNote[]) {
+export function sameNotes(
+  left: readonly MidiNote[],
+  right: readonly MidiNote[],
+) {
   return (
     left.length === right.length &&
     left.every((note, index) => {
@@ -134,7 +137,10 @@ export function sameNotes(left: readonly MidiNote[], right: readonly MidiNote[])
  */
 export function thumbnailPitchRange(notes: readonly MidiNote[]) {
   if (!notes.length) {
-    return { low: PIANO_ROLL_DEFAULT_PITCH - 6, high: PIANO_ROLL_DEFAULT_PITCH + 6 };
+    return {
+      low: PIANO_ROLL_DEFAULT_PITCH - 6,
+      high: PIANO_ROLL_DEFAULT_PITCH + 6,
+    };
   }
   let low = Number.POSITIVE_INFINITY;
   let high = Number.NEGATIVE_INFINITY;
