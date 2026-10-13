@@ -82,6 +82,8 @@ describe("dotLottie archives", () => {
     const assets = [
       { id: "image_0", w: 8, h: 8, u: "/images/", p: "red.png", e: 0 },
       { id: "image_1", w: 8, h: 8, u: "", p: "blue.png" },
+      // Marked embedded, yet naming its file (#1373).
+      { id: "image_3", w: 8, h: 8, u: "images/", p: "red.png", e: 1 },
       {
         id: "image_2",
         w: 8,
@@ -113,10 +115,18 @@ describe("dotLottie archives", () => {
       [
         { ...assets[0], u: "", p: inlined, e: 1 },
         { ...assets[1], u: "", p: inlined, e: 1 },
-        assets[2],
+        { ...assets[2], u: "", p: inlined, e: 1 },
         assets[3],
         assets[4],
+        assets[5],
       ],
+    );
+  });
+
+  it("read a plain Lottie JSON file named .lottie", async () => {
+    assert.deepEqual(
+      await readDotLottie(new TextEncoder().encode(JSON.stringify(LOTTIE))),
+      { data: LOTTIE },
     );
   });
 

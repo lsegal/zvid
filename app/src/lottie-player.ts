@@ -14,6 +14,11 @@ import { type LottieData, lottieFrameCount, parseLottie } from "./lottie.ts";
 // Drawn frames kept per animation, least recently used dropped first.
 const KEPT_FRAMES = 8;
 
+// The shortest long edge, in pixels, frames are drawn at. Animations are
+// mostly vector shapes, so a small one draws sharp at this size rather than
+// being stretched from its own.
+const MIN_DRAWN_EDGE = 1920;
+
 export type LottiePlayer = {
   data: LottieData;
   width: number;
@@ -63,9 +68,10 @@ export async function openLottie(
   );
   const width = Math.round(data.w);
   const height = Math.round(data.h);
+  const scale = Math.max(1, MIN_DRAWN_EDGE / Math.max(width, height, 1));
   const work = document.createElement("canvas");
-  work.width = width;
-  work.height = height;
+  work.width = Math.round(width * scale);
+  work.height = Math.round(height * scale);
   const context = work.getContext("2d");
   if (!context) {
     throw new Error("2D canvas is unavailable");
@@ -94,8 +100,8 @@ export async function openLottie(
       }
       animation.goToAndStop(at, true);
       const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = work.width;
+      canvas.height = work.height;
       canvas.getContext("2d")?.drawImage(work, 0, 0);
       frames.set(at, canvas);
       for (const oldIndex of frames.keys()) {

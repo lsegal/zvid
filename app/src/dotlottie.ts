@@ -3,7 +3,7 @@
 // `animations/` and `images/`, version 2 under `a/` and `i/`. The animation
 // the manifest names first plays, with its images inlined as data URLs.
 
-import { asLottieData, type LottieData } from "./lottie.ts";
+import { asLottieData, type LottieData, parseLottie } from "./lottie.ts";
 import { readZip, type ZipArchive } from "./zip.ts";
 
 const ANIMATION_FOLDERS = ["animations/", "a/"];
@@ -84,7 +84,8 @@ function assetName(archive: ZipArchive, asset: LottieAsset) {
 }
 
 // Inlines each of `data`'s images stored in `archive`, so the player loads
-// them without the archive.
+// them without the archive. An asset marked embedded (`e: 1`) can still name
+// a file, so only a data URL counts as already inlined.
 async function inlineImages(archive: ZipArchive, data: LottieData) {
   const assets = (data as { assets?: unknown }).assets;
   if (!Array.isArray(assets)) {
@@ -93,7 +94,9 @@ async function inlineImages(archive: ZipArchive, data: LottieData) {
   const inlined = await Promise.all(
     assets.map(async (asset: LottieAsset) => {
       const name =
-        asset && typeof asset === "object" && asset.e !== 1
+        asset &&
+        typeof asset === "object" &&
+        !(typeof asset.p === "string" && asset.p.startsWith("data:"))
           ? assetName(archive, asset)
           : undefined;
       const type = IMAGE_TYPES[name?.split(".").pop()?.toLowerCase() ?? ""];
@@ -106,11 +109,15 @@ async function inlineImages(archive: ZipArchive, data: LottieData) {
   return { ...data, assets: inlined };
 }
 
-/** The animation the dotLottie archive `bytes` plays first, or why not. */
+/**
+ * The animation the dotLottie archive `bytes` plays first, or why not. A
+ * plain Lottie JSON file saved with the `.lottie` extension plays too.
+ */
 export async function readDotLottie(bytes: Uint8Array): Promise<LottieFile> {
   const archive = readZip(bytes);
   if (!archive) {
-    return { error: "Not a dotLottie archive" };
+    const data = parseLottie(new TextDecoder().decode(bytes));
+    return data ? { data } : { error: "Not a dotLottie archive" };
   }
   for (const name of await animationNames(archive)) {
     const data = asLottieData(await readJson(archive, name));
