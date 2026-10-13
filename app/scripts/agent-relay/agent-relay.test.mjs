@@ -225,6 +225,20 @@ test("relays requests to the desktop app with its recorded token", async (t) => 
   );
   assert.equal(wrong.ok, false);
   assert.equal(await readDesktopDiscovery(join(path, "missing")), null);
+
+  // A killed app's file names a process that no longer runs.
+  const exited = spawn(process.execPath, ["-e", ""]);
+  await once(exited, "exit");
+  await writeFile(
+    path,
+    JSON.stringify({ port: discovery.port, token: "secret", pid: exited.pid }),
+  );
+  assert.equal(await readDesktopDiscovery(path), null);
+  await writeFile(
+    path,
+    JSON.stringify({ port: discovery.port, token: "secret", pid: process.pid }),
+  );
+  assert.equal((await readDesktopDiscovery(path)).port, discovery.port);
 });
 
 test("the zvid-mcp command drives the desktop app over stdio", async (t) => {

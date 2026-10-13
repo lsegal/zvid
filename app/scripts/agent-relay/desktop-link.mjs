@@ -36,7 +36,19 @@ export function desktopDiscoveryPath(
   return join(dataHome, APP_IDENTIFIER, DISCOVERY_FILE);
 }
 
-/** The recorded `{ port, token }`, or null when the app has not run. */
+function isRunning(pid) {
+  if (!Number.isInteger(pid)) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to someone else.
+    return error.code === "EPERM";
+  }
+}
+
+/** The recorded `{ port, token }`, or null when the app isn't running. A
+ * killed app leaves its file behind, so the recorded process must be alive. */
 export async function readDesktopDiscovery(path) {
   let text;
   try {
@@ -45,8 +57,8 @@ export async function readDesktopDiscovery(path) {
     return null;
   }
   try {
-    const { port, token } = JSON.parse(text);
-    if (Number.isInteger(port) && typeof token === "string") {
+    const { port, token, pid } = JSON.parse(text);
+    if (Number.isInteger(port) && typeof token === "string" && isRunning(pid)) {
       return { port, token };
     }
   } catch {}
