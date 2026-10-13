@@ -135,6 +135,7 @@ test("lists the layer lane menu's entries and pastes a copied source clip", {
     "Duplicate",
     "Split at playhead",
     "Delete",
+    "New MIDI Clip",
   ]);
   await enabled(menuItem(/^Paste/));
 
@@ -207,7 +208,13 @@ test("respects the source track lock", { timeout: TIMEOUT }, async () => {
   await userEvent.click(firstSpan());
 
   await rightClickEmpty(200);
-  for (const name of [/^Cut/, /^Paste/, /^Duplicate/, /^Delete/]) {
+  for (const name of [
+    /^Cut/,
+    /^Paste/,
+    /^Duplicate/,
+    /^Delete/,
+    /^New MIDI Clip/,
+  ]) {
     await disabled(menuItem(name));
   }
   await enabled(menuItem(/^Copy/));

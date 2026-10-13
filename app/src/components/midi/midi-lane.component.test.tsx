@@ -14,6 +14,7 @@ import {
   click,
   drag,
   isVisible,
+  menuItem,
   nextFrames,
   rightClick,
   undo,
@@ -21,6 +22,7 @@ import {
 import { installHarness } from "../../harness";
 import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
+import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
 import {
   PIANO_ROLL_QUARTER_PX,
   PIANO_ROLL_ROW_PX,
@@ -29,7 +31,8 @@ import {
 
 // MIDI clips in source-track lanes (#1351): their piano-roll thumbnails,
 // the track handle's instrument slot and Synth device, and the piano roll
-// that edits the selected clip's notes, each edit one undo step.
+// that edits the selected clip's notes, each edit one undo step. The source
+// lane menu creates empty ones (#1363).
 
 const NOTES: MidiNote[] = [
   { pitch: 48, start: 0, length: 1, velocity: 100 },
@@ -65,10 +68,10 @@ function midiProject(): ProjectState {
   };
 }
 
-async function open() {
+async function open(initial = midiProject()) {
   let state: ProjectState | undefined;
   await renderEditor({
-    project: midiProject(),
+    project: initial,
     onState: (next) => {
       state = next.project;
     },
@@ -80,6 +83,7 @@ async function open() {
     return state;
   };
   return {
+    project,
     notes: () =>
       project().sourceSpans.find((span) => span.id === "source-bassline")
         ?.notes,
@@ -335,6 +339,86 @@ test(
     await expect
       .element(page.getByRole("region", { name: "Bass synth" }))
       .toBeVisible();
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "the source lane menu creates an empty MIDI clip whose piano roll adds notes",
+  async () => {
+    const midi = midiProject();
+    // The Bass track, empty.
+    const { project } = await open({
+      ...midi,
+      sourceSpans: midi.sourceSpans.filter(
+        (span) => span.sourceTrackId !== "bass",
+      ),
+    });
+    const bassSpans = () =>
+      project().sourceSpans.filter((span) => span.sourceTrackId === "bass");
+    await expect.poll(bassRow).toBeTruthy();
+    const lane = bassRow()?.querySelector(
+      ".track-row__content--source",
+    ) as HTMLElement;
+    lane.scrollIntoView({ block: "nearest" });
+    // From the timeline's start, so quarter 8 shows past the track handles.
+    const scroller = document.querySelector(".timeline-scroll") as HTMLElement;
+    scroller.scrollLeft = 0;
+    await nextFrames();
+
+    // Quarters are as wide as the test pattern's clip says.
+    const pattern = project().sourceSpans[0];
+    const patternWidth = (
+      document.querySelector(
+        `[data-source-span-id="${pattern.id}"]`,
+      ) as HTMLElement
+    ).getBoundingClientRect().width;
+    const quarterPx =
+      patternWidth / ((pattern.durationSeconds * project().bpm) / 60);
+
+    // Right-clicking just past quarter 8 places a bar at quarter 8.
+    const box = lane.getBoundingClientRect();
+    await click(box.x + 8.05 * quarterPx, box.y + box.height / 2, {
+      button: "right",
+    });
+    await userEvent.click(menuItem("New MIDI Clip"));
+    await expect.poll(() => bassSpans()).toHaveLength(1);
+    const [clip] = bassSpans();
+    expect(clip.notes).toEqual([]);
+    expect(clip.startQ).toBe(8);
+    expect((clip.durationSeconds * project().bpm) / 60).toBe(4);
+    expect(clip.label).toBe(NEW_MIDI_CLIP_LABEL);
+
+    // It shows as a MIDI clip, its track gets an instrument slot, and it is
+    // selected with its piano roll open.
+    const span = () =>
+      document.querySelector<HTMLElement>(`[data-source-span-id="${clip.id}"]`);
+    await expect.poll(() => span()?.textContent).toContain("MIDI · 0 notes");
+    expect(bassRow()?.querySelector(".track-label__instrument")).toBeTruthy();
+    await expect
+      .element(
+        page.getByRole("region", { name: `${NEW_MIDI_CLIP_LABEL} notes` }),
+      )
+      .toBeVisible();
+
+    const grid = document.querySelector<HTMLElement>("[data-piano-roll-grid]");
+    if (!grid) {
+      throw new Error("missing piano roll grid");
+    }
+    const point = cell(grid, 1, 60);
+    await click(point.x, point.y);
+    await expect
+      .poll(() => bassSpans()[0]?.notes)
+      .toEqual([{ pitch: 60, start: 1, length: 1, velocity: 100 }]);
+    await expect
+      .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
+      .toBe(1);
+
+    // Adding the note and creating the clip are an undo step each.
+    await undo();
+    await expect.poll(() => bassSpans()[0]?.notes).toEqual([]);
+    await undo();
+    await expect.poll(() => bassSpans()).toHaveLength(0);
   },
   EDITOR_TEST_TIMEOUT,
 );
