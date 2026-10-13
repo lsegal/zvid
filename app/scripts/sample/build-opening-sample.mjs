@@ -922,7 +922,7 @@ const dotAt = (radius, degrees, size, stretch = 1) => ({
 // 24–27 s: a dot blooms behind the returning wordmark and splits along six
 // radial paths, while a dashed ring draws itself round the wordmark, its
 // dashes marching into place, and turns steadily on. The dots land on the
-// ring and ride it round, then sink into its stroke before the hard cut to
+// ring and ride it round, then fade into its stroke before the hard cut to
 // the card, where the ring turns ink and keeps turning as it widens away
 // from the card's titles, its dashes withdrawing.
 const BLOOM_RADIUS = 0.36;
@@ -930,7 +930,8 @@ const BLOOM_SPLIT = 24.4;
 const BLOOM_FLIGHT = 0.5;
 const BLOOM_LANDED = BLOOM_SPLIT + BLOOM_FLIGHT;
 const BLOOM_RIDE = 27 - BLOOM_LANDED;
-const BLOOM_DOT_SIZE = 0.035;
+// The smallest scale a Move gives.
+const BLOOM_DOT_SIZE = 0.05;
 // The ring is a circle of BLOOM_RADIUS frame heights, turning clockwise at a
 // steady RING_SPEED degrees a second across both its clips. Its Move holds
 // its scale, so the circle turns rather than an oval squashed into one.
@@ -960,7 +961,7 @@ for (let index = 0; index < BLOOM_DOTS; index++) {
     dotAt(BLOOM_RADIUS, degrees, BLOOM_DOT_SIZE),
   );
   // Landed, each rides the ring round at its speed, curving through four
-  // waypoints on the circle, and shrinks into its stroke over the last leg.
+  // waypoints on the circle, and fades into its stroke before the cut.
   const ride = clipTrack(
     layerClip(
       "fills",
@@ -970,16 +971,20 @@ for (let index = 0; index < BLOOM_DOTS; index++) {
       BLOOM_RIDE,
     ),
   );
-  addEffect(ride, "Color", dotPaint(LIGHT));
-  const riding = (leg, size) =>
-    dotAt(BLOOM_RADIUS, degrees + (RING_SPEED * BLOOM_RIDE * leg) / 5, size);
-  move(
-    ride,
-    "Linear",
-    riding(0, BLOOM_DOT_SIZE),
-    riding(5, 0),
-    [1, 2, 3, 4].map((leg) => riding(leg, BLOOM_DOT_SIZE)),
-  );
+  addEffect(ride, "Color", dotPaint(LIGHT), {
+    animation: animation("clip", {
+      motionIn: "None",
+      motionOut: "Ease In",
+      timing: "Slow",
+    }),
+  });
+  const riding = (leg) =>
+    dotAt(
+      BLOOM_RADIUS,
+      degrees + (RING_SPEED * BLOOM_RIDE * leg) / 5,
+      BLOOM_DOT_SIZE,
+    );
+  move(ride, "Linear", riding(0), riding(5), [1, 2, 3, 4].map(riding));
 }
 const RING_SCALE = {
   scaleX: (2 * BLOOM_RADIUS * HEIGHT) / WIDTH,

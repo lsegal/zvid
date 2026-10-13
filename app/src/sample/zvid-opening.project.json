@@ -7046,10 +7046,10 @@
           "floatValue": -0.36
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7076,6 +7076,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -7099,10 +7114,10 @@
           "floatValue": -0.351330034297949
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -7120,10 +7135,10 @@
           "floatValue": -0.32573773888776697
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -7141,10 +7156,10 @@
           "floatValue": -0.28445580445524843
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -7162,10 +7177,10 @@
           "floatValue": -0.22947263630952813
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -7183,10 +7198,10 @@
           "floatValue": -0.36
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -7204,10 +7219,10 @@
           "floatValue": -0.1634365799062366
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7272,10 +7287,10 @@
           "floatValue": -0.17999999999999997
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7302,6 +7317,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -7325,10 +7355,10 @@
           "floatValue": -0.10765468521219115
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -7346,10 +7376,10 @@
           "floatValue": -0.030124023599633468
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -7367,10 +7397,10 @@
           "floatValue": 0.04885760607634974
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -7388,10 +7418,10 @@
           "floatValue": 0.12548593703585367
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -7409,10 +7439,10 @@
           "floatValue": -0.17999999999999997
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -7430,10 +7460,10 @@
           "floatValue": 0.19607005260540994
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7498,10 +7528,10 @@
           "floatValue": 0.17999999999999997
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7528,6 +7558,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -7551,10 +7596,10 @@
           "floatValue": 0.24367534908575786
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -7572,10 +7617,10 @@
           "floatValue": 0.29561371528813346
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -7593,10 +7638,10 @@
           "floatValue": 0.33331341053159813
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -7614,10 +7659,10 @@
           "floatValue": 0.3549585733453818
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -7635,10 +7680,10 @@
           "floatValue": 0.17999999999999997
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -7656,10 +7701,10 @@
           "floatValue": 0.35950663251164655
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7724,10 +7769,10 @@
           "floatValue": 0.36
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7754,6 +7799,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -7777,10 +7837,10 @@
           "floatValue": 0.35133003429794907
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -7798,10 +7858,10 @@
           "floatValue": 0.32573773888776697
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -7819,10 +7879,10 @@
           "floatValue": 0.2844558044552485
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -7840,10 +7900,10 @@
           "floatValue": 0.2294726363095281
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -7861,10 +7921,10 @@
           "floatValue": 0.36
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -7882,10 +7942,10 @@
           "floatValue": 0.16343657990623658
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7950,10 +8010,10 @@
           "floatValue": 0.17999999999999997
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -7980,6 +8040,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -8003,10 +8078,10 @@
           "floatValue": 0.10765468521219115
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -8024,10 +8099,10 @@
           "floatValue": 0.030124023599633502
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -8045,10 +8120,10 @@
           "floatValue": -0.04885760607634968
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -8066,10 +8141,10 @@
           "floatValue": -0.1254859370358536
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -8087,10 +8162,10 @@
           "floatValue": 0.17999999999999997
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -8108,10 +8183,10 @@
           "floatValue": -0.19607005260541013
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -8176,10 +8251,10 @@
           "floatValue": -0.18000000000000002
         },
         "EndScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0
@@ -8206,6 +8281,21 @@
         "Opacity": {
           "floatValue": 1
         }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "None",
+          "motionOut": "Ease In",
+          "timing": "Slow"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
       }
     },
     {
@@ -8229,10 +8319,10 @@
           "floatValue": -0.24367534908575794
         },
         "Point1ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point1OriginX": {
           "floatValue": 0
@@ -8250,10 +8340,10 @@
           "floatValue": -0.2956137152881335
         },
         "Point2ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point2OriginX": {
           "floatValue": 0
@@ -8271,10 +8361,10 @@
           "floatValue": -0.3333134105315981
         },
         "Point3ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point3OriginX": {
           "floatValue": 0
@@ -8292,10 +8382,10 @@
           "floatValue": -0.3549585733453818
         },
         "Point4ScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4ScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "Point4OriginX": {
           "floatValue": 0
@@ -8313,10 +8403,10 @@
           "floatValue": -0.18000000000000002
         },
         "StartScaleX": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartScaleY": {
-          "floatValue": 0.035
+          "floatValue": 0.05
         },
         "StartOriginX": {
           "floatValue": 0
@@ -8334,10 +8424,10 @@
           "floatValue": -0.35950663251164655
         },
         "EndScaleX": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndScaleY": {
-          "floatValue": 0
+          "floatValue": 0.05
         },
         "EndOriginX": {
           "floatValue": 0

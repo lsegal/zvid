@@ -716,20 +716,26 @@ describe("zvid opening sample", () => {
       angles.add(Math.round(angle(flight, "End")));
 
       // It doesn't vanish on arrival: it rides the ring round at the
-      // ring's speed until the cut, sinking into its stroke at the end.
+      // ring's speed until the cut, fading into its stroke at the end.
       const ride = fill(`fill-bloom-dot-${index}-ride`);
       assert.equal(ride.mainTrackId, dot.mainTrackId);
-      assert.deepEqual([ride.frameStart, ride.frameEnd], [dot.frameEnd, ring.frameEnd]);
+      assert.deepEqual(
+        [ride.frameStart, ride.frameEnd],
+        [dot.frameEnd, ring.frameEnd],
+      );
       const rideEffects = effectsOn(`clip:${ride.id}`);
       assert.deepEqual(
         rideEffects.map((effect) => effect.effectName),
         ["Color", "Move"],
       );
-      const orbit = rideEffects[1];
+      const [paint, orbit] = rideEffects;
+      assert.equal(paint.animation?.mode, "clip");
+      assert.equal(paint.animation?.clip?.motionIn, "None");
+      assert.notEqual(paint.animation?.clip?.motionOut, "None");
       assert.equal(stringParameter(orbit, "Motion"), "Linear");
       assert.equal(stringParameter(orbit, "Path"), "Curve");
-      const points = ["Start", "Point1", "Point2", "Point3", "Point4", "End"];
       assert.equal(stringParameter(orbit, "Waypoints"), "4");
+      const points = ["Start", "Point1", "Point2", "Point3", "Point4", "End"];
       for (const prefix of points) {
         assert.ok(Math.abs(radius(orbit, prefix) - ringRadius) < 1e-6, prefix);
       }
@@ -740,8 +746,6 @@ describe("zvid opening sample", () => {
           field,
         );
       }
-      assert.ok((numberParameter(orbit, "Point4ScaleX") ?? 0) > 0);
-      assert.equal(numberParameter(orbit, "EndScaleX"), 0);
       const turned = angle(orbit, "End") - angle(orbit, "Start");
       const spin = effectsOn(`clip:${ring.id}`).find(
         (effect) => effect.effectName === "Move",
