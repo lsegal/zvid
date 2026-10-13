@@ -258,6 +258,12 @@ export const pass: EffectPass = {
     const tint = readTint(params);
     gl.uniform3f(loc.uTint, tint.r / 255, tint.g / 255, tint.b / 255);
   },
+  // The glow reaches as far as its blur, which grows with the picture.
+  spread(params, ctx) {
+    const reach =
+      readIntensity(params) > 0 ? reachPixels(params, ctx.resolution) : 0;
+    return [reach, reach];
+  },
   // Intensity 0 adds no glow.
   isIdentity(params) {
     return clampUnit(readEffectNumber(params, "_Intensity", 0.6), 0, 2) <= 0;

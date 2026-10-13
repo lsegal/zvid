@@ -218,6 +218,10 @@ export const pass: EffectPass = {
   setUniforms(gl, loc, params, ctx) {
     gl.uniform1f(loc.uReach, reachPixels(params, ctx));
   },
+  spread(params, ctx) {
+    const reach = reachPixels(params, ctx);
+    return [reach, reach];
+  },
   // Radius 0 leaves the picture sharp.
   isIdentity(params) {
     return readRadius(params) <= 0;

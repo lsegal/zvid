@@ -83,6 +83,11 @@ export type EffectPass = {
   // and the main shader must then not read them.
   stages?: EffectStage[];
   stageScale?(params: EffectParameter[], ctx: EffectContext): number;
+  // How far the pass spreads the picture past where it was drawn, across
+  // and up, in pixels of the picture `ctx` describes. A text clip's frame is
+  // padded by it so the spread isn't cut off at the text box (see
+  // text-effect-bleed.ts). Passes without it draw each pixel in place.
+  spread?(params: EffectParameter[], ctx: EffectContext): [number, number];
   // True for a view-only pass, such as Scopes, that leaves the picture as
   // it is. The chain never draws it into the picture: in the preview, while
   // its panel asks for it, the chain reads back the picture at its position
