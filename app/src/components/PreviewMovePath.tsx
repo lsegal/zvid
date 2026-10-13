@@ -67,7 +67,8 @@ const DRAG_THRESHOLD_PX = 3;
 const HINT_MS = 1600;
 
 // The selected clip's Move path over the preview: its Start, waypoints and
-// End as dots joined by the path the clip takes between them. Dragging a dot
+// End as dots joined by the path the clip takes between them, with its other
+// Transforms and Moves where the playhead has them. Dragging a dot
 // moves that point, clicking the path adds a waypoint there, and
 // right-clicking (or Alt-clicking) a waypoint removes it. Only the dots and
 // the path itself take the pointer; everywhere else reaches the transform
@@ -118,13 +119,18 @@ export function PreviewMovePath({
     layer && (selectedClipId === undefined || layer.clipId === selectedClipId)
       ? layer
       : undefined;
-  const source = shown
+  const found = shown
     ? findPathMove(
         shown,
         { laneId: shown.laneId, clipId: selectedClipId },
         selection.activeEffectId,
       )
     : undefined;
+  // The path is drawn from the Move as stored, which its dots edit, rather
+  // than as its Animation has it at the playhead, so a dragged dot stays
+  // under the pointer even where the Animation eases the Move in or out.
+  const stored = found && editing.getMove(found.effectId);
+  const source = found && stored ? { ...found, move: stored } : found;
   const path = shown && source ? resolveMovePath(shown, source, canvas) : null;
   const video = resolveVideoRect(monitor, canvas);
   const toScreen = (point: Point) => canvasToScreen(point, video, canvas);
