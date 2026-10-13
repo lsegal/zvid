@@ -3,6 +3,7 @@ import { type Locator, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { addFromMenu } from "../../component-test/fx-actions.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
+import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
 import { FX_COLLAPSED_STORAGE_KEY } from "../../fx-chain.ts";
 
 // The Animation modifier: a motion-icon toggle beside each device's power
@@ -300,7 +301,20 @@ describe("FX Animation", { timeout: 60_000 }, () => {
       .toHaveAttribute("aria-pressed", "true");
     await expect
       .poll(() => textOf(animation().getByRole("combobox", { name: "Rate" })))
-      .toBe("1 Bar");
+      .toBe("1/8");
+    // The synced Rate offers every note value from 4 Bars down to 1/32.
+    await userEvent.click(animation().getByRole("combobox", { name: "Rate" }));
+    const rates = page.getByRole("listbox").getByRole("option");
+    await expect.element(rates.first()).toBeVisible();
+    expect(
+      rates.elements().map((option) => option.textContent?.trim()),
+    ).toEqual([...LFO_SYNC_RATES]);
+    await userEvent.click(
+      page.getByRole("option", { name: "1/32", exact: true }),
+    );
+    await expect
+      .poll(() => textOf(animation().getByRole("combobox", { name: "Rate" })))
+      .toBe("1/32");
     expect(labels()).toEqual(["Depth", "Phase"]);
     await expect
       .element(animation().getByRole("button", { name: "Parameters: 1 of 1" }))
