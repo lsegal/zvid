@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "vitest";
+import { PALETTE } from "./app/constants.ts";
 import type { ArrangementClip, Lane } from "./app/types.ts";
 import { CompositionRenderer } from "./CompositionPlayer";
+import { analyzeMediaSelection } from "./harness/web-media.ts";
 import { imageAnimationSeconds } from "./image-media-frames.ts";
 import type { MediaItem } from "./media";
 
 // Image clips (#1357) draw their image in exact frames, as export renders
-// them: a still as it is, an animated GIF's frame at the clip's time,
-// looping.
+// them: a still as it is, an animated GIF's or Lottie's (#1365) frame at the
+// clip's time, looping.
 
 type Rgba = [number, number, number, number];
 
@@ -71,6 +73,49 @@ function twoFrameGif() {
     ...frame([0x4c, 0x01]),
     0x3b,
   ]);
+}
+
+// A solid layer of `color` covering the 64×64 Lottie from frame `ip` to
+// `op`.
+function solidLayer(index: number, color: string, ip: number, op: number) {
+  const still = (k: unknown) => ({ a: 0, k });
+  return {
+    ddd: 0,
+    ind: index,
+    ty: 1,
+    nm: color,
+    sc: color,
+    sw: SIZE,
+    sh: SIZE,
+    ip,
+    op,
+    st: 0,
+    sr: 1,
+    bm: 0,
+    ks: {
+      o: still(100),
+      r: still(0),
+      p: still([0, 0, 0]),
+      a: still([0, 0, 0]),
+      s: still([100, 100, 100]),
+    },
+  };
+}
+
+// A 64×64 Lottie at 30 fps that shows red for half a second, then blue.
+function redThenBlueLottie() {
+  return JSON.stringify({
+    v: "5.7.0",
+    fr: 30,
+    ip: 0,
+    op: 30,
+    w: SIZE,
+    h: SIZE,
+    nm: "red then blue",
+    ddd: 0,
+    assets: [],
+    layers: [solidLayer(1, "#ff0000", 0, 15), solidLayer(2, "#0000ff", 15, 30)],
+  });
 }
 
 async function greenPng() {
@@ -194,6 +239,49 @@ describe("image clips", () => {
       }),
     ).toBeCloseTo(1);
     const pixels = await centerPixels(media, [0.25, 0.75, 1.25, 1.75]);
+    expect(
+      pixels.map((pixel) =>
+        isRed(pixel) ? "red" : isBlue(pixel) ? "blue" : `${pixel}`,
+      ),
+    ).toEqual(["red", "blue", "red", "blue"]);
+  });
+
+  test("import a Lottie and play its frames at the clip's time, looping", {
+    timeout: 30_000,
+  }, async () => {
+    // A session is JSON too, but no Lottie, so it imports offline.
+    const [lottie, session] = await analyzeMediaSelection(
+      {
+        kind: "files",
+        files: [
+          new File([redThenBlueLottie()], "spinner.json", {
+            type: "application/json",
+          }),
+          new File([JSON.stringify({ bpm: 120, tracks: [] })], "set.json", {
+            type: "application/json",
+          }),
+        ],
+      },
+      PALETTE,
+      0,
+    );
+    urls.push(lottie.previewUrl, session.previewUrl);
+    if (lottie.thumbnailUrl) urls.push(lottie.thumbnailUrl);
+    expect(lottie).toMatchObject({
+      kind: "image",
+      container: "Lottie",
+      width: SIZE,
+      height: SIZE,
+      availability: "ready",
+    });
+    expect(lottie.durationSeconds).toBeCloseTo(1);
+    expect(lottie.thumbnailUrl).toBeTruthy();
+    expect(session).toMatchObject({
+      availability: "offline",
+      lastError: "Not a Lottie animation",
+    });
+
+    const pixels = await centerPixels(lottie, [0.25, 0.75, 1.25, 1.75]);
     expect(
       pixels.map((pixel) =>
         isRed(pixel) ? "red" : isBlue(pixel) ? "blue" : `${pixel}`,

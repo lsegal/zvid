@@ -271,6 +271,14 @@ export function isImageMedia(item: Pick<MediaItem, "kind">) {
   return item.kind === "image";
 }
 
+// The picture an image shows as its thumbnail: the image itself, or a
+// Lottie's frame drawn when it was imported.
+export function imageThumbnailUrl(
+  item: Pick<MediaItem, "name" | "previewUrl" | "thumbnailUrl">,
+) {
+  return isLottieName(item.name) ? item.thumbnailUrl : item.previewUrl;
+}
+
 // Whether `item` shows a picture on the timeline: a video's frames, or an
 // image.
 export function showsPicture(item: Pick<MediaItem, "hasVideo" | "kind">) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildFallbackMediaItem,
+  imageThumbnailUrl,
   inferMediaKind,
   isEffectMedia,
   isImageMedia,
@@ -25,6 +26,23 @@ describe("image media", () => {
     assert.equal(inferMediaKind("take.webm"), "video");
     assert.equal(isImageMedia({ kind: "image" }), true);
     assert.equal(isImageMedia({ kind: "video" }), false);
+  });
+
+  it("shows an image as its thumbnail, and a Lottie's drawn frame", () => {
+    const image = { previewUrl: "blob:image", thumbnailUrl: "blob:image" };
+    assert.equal(imageThumbnailUrl({ ...image, name: "a.png" }), "blob:image");
+    assert.equal(
+      imageThumbnailUrl({
+        name: "spinner.json",
+        previewUrl: "blob:json",
+        thumbnailUrl: "blob:frame",
+      }),
+      "blob:frame",
+    );
+    assert.equal(
+      imageThumbnailUrl({ name: "spinner.json", previewUrl: "blob:json" }),
+      undefined,
+    );
   });
 
   it("makes clips of images but not of LUTs", () => {

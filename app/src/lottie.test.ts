@@ -18,8 +18,14 @@ describe("Lottie animations", () => {
   it("are told apart from other JSON by their content", () => {
     assert.deepEqual(parseLottie(JSON.stringify(LOTTIE)), LOTTIE);
     // A session, a Lottie missing its layers or frame rate, and non-JSON.
-    assert.equal(parseLottie(JSON.stringify({ tracks: [], bpm: 120 })), undefined);
-    assert.equal(parseLottie(JSON.stringify({ ...LOTTIE, layers: undefined })), undefined);
+    assert.equal(
+      parseLottie(JSON.stringify({ tracks: [], bpm: 120 })),
+      undefined,
+    );
+    assert.equal(
+      parseLottie(JSON.stringify({ ...LOTTIE, layers: undefined })),
+      undefined,
+    );
     assert.equal(parseLottie(JSON.stringify({ ...LOTTIE, fr: 0 })), undefined);
     assert.equal(parseLottie(JSON.stringify({ ...LOTTIE, op: 0 })), undefined);
     assert.equal(parseLottie("[1, 2]"), undefined);
