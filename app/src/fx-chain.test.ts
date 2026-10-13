@@ -390,6 +390,12 @@ describe("addableEffectsFor", () => {
     assert.ok(!names("global").includes("Layout"));
     assert.ok(!names("fxClip").includes("Layout"));
     assert.ok(names("clip").includes("Layout"));
+    assert.ok(
+      !addableEffectsFor("clip", undefined, [{ effectName: "Layout" }]).some(
+        (definition) => definition.effectName === "Layout",
+      ),
+      "a clip keeps one Layout",
+    );
   });
 
   it("offers only clip-scoped effects in the clip menu", () => {

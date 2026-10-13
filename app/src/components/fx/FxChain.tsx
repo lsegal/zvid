@@ -414,9 +414,11 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    const definition = addableEffectsFor(scopeOf(group), kind).find(
-      (candidate) => candidate.effectName === effectName,
-    );
+    const definition = addableEffectsFor(
+      scopeOf(group),
+      kind,
+      groups[group],
+    ).find((candidate) => candidate.effectName === effectName);
     if (!trackId || !definition) {
       return;
     }
@@ -599,7 +601,7 @@ export function FxChain({
     const label = addMenuLabel(group, layerLabel);
     return (
       <AddDeviceMenu
-        effects={addableEffectsFor(scopeOf(group), kind)}
+        effects={addableEffectsFor(scopeOf(group), kind, groups[group])}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
