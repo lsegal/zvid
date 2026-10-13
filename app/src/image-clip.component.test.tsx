@@ -5,10 +5,11 @@ import { CompositionRenderer } from "./CompositionPlayer";
 import { analyzeMediaSelection } from "./harness/web-media.ts";
 import { imageAnimationSeconds } from "./image-media-frames.ts";
 import type { MediaItem } from "./media";
+import { writeZip } from "./zip-test-utils.ts";
 
 // Image clips (#1357) draw their image in exact frames, as export renders
-// them: a still as it is, an animated GIF's or Lottie's (#1365) frame at the
-// clip's time, looping.
+// them: a still as it is, an animated GIF's, Lottie's (#1365) or dotLottie's
+// (#1367) frame at the clip's time, looping.
 
 type Rgba = [number, number, number, number];
 
@@ -75,18 +76,12 @@ function twoFrameGif() {
   ]);
 }
 
-// A solid layer of `color` covering the 64×64 Lottie from frame `ip` to
-// `op`.
-function solidLayer(index: number, color: string, ip: number, op: number) {
+// A layer covering the 64×64 Lottie from frame `ip` to `op`.
+function layer(index: number, ip: number, op: number) {
   const still = (k: unknown) => ({ a: 0, k });
   return {
     ddd: 0,
     ind: index,
-    ty: 1,
-    nm: color,
-    sc: color,
-    sw: SIZE,
-    sh: SIZE,
     ip,
     op,
     st: 0,
@@ -99,6 +94,19 @@ function solidLayer(index: number, color: string, ip: number, op: number) {
       a: still([0, 0, 0]),
       s: still([100, 100, 100]),
     },
+  };
+}
+
+// A solid layer of `color` covering the 64×64 Lottie from frame `ip` to
+// `op`.
+function solidLayer(index: number, color: string, ip: number, op: number) {
+  return {
+    ...layer(index, ip, op),
+    ty: 1,
+    nm: color,
+    sc: color,
+    sw: SIZE,
+    sh: SIZE,
   };
 }
 
@@ -118,14 +126,44 @@ function redThenBlueLottie() {
   });
 }
 
-async function greenPng() {
+// A dotLottie archive whose animation, listed second in its manifest after
+// one it doesn't hold, shows a red PNG image asset for half a second, then
+// blue.
+async function redThenBlueDotLottie() {
+  const red = new Uint8Array(
+    await (await solidPng("#ff0000", SIZE)).arrayBuffer(),
+  );
+  const animation = JSON.stringify({
+    ...JSON.parse(redThenBlueLottie()),
+    assets: [
+      { id: "image_0", w: SIZE, h: SIZE, u: "/images/", p: "red.png", e: 0 },
+    ],
+    layers: [
+      { ...layer(1, 0, 15), ty: 2, nm: "red", refId: "image_0" },
+      solidLayer(2, "#0000ff", 15, 30),
+    ],
+  });
+  return writeZip([
+    {
+      name: "manifest.json",
+      data: JSON.stringify({
+        version: "1",
+        animations: [{ id: "missing" }, { id: "spinner" }],
+      }),
+    },
+    { name: "animations/spinner.json", data: animation, deflate: true },
+    { name: "images/red.png", data: red },
+  ]);
+}
+
+async function solidPng(color: string, size: number) {
   const canvas = document.createElement("canvas");
-  canvas.width = 8;
-  canvas.height = 8;
+  canvas.width = size;
+  canvas.height = size;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("2D canvas is unavailable.");
-  context.fillStyle = "#00ff00";
-  context.fillRect(0, 0, 8, 8);
+  context.fillStyle = color;
+  context.fillRect(0, 0, size, size);
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("No PNG"))),
@@ -221,7 +259,11 @@ const isGreen = ([red, green, blue]: Rgba) =>
 
 describe("image clips", () => {
   test("draw a still image", { timeout: 30_000 }, async () => {
-    const media = imageMedia("still", "still.png", await greenPng());
+    const media = imageMedia(
+      "still",
+      "still.png",
+      await solidPng("#00ff00", 8),
+    );
     const [first, later] = await centerPixels(media, [0.1, 3]);
     expect(isGreen(first), `${first}`).toBe(true);
     expect(isGreen(later), `${later}`).toBe(true);
@@ -279,6 +321,54 @@ describe("image clips", () => {
     expect(session).toMatchObject({
       availability: "offline",
       lastError: "Not a Lottie animation",
+    });
+
+    const pixels = await centerPixels(lottie, [0.25, 0.75, 1.25, 1.75]);
+    expect(
+      pixels.map((pixel) =>
+        isRed(pixel) ? "red" : isBlue(pixel) ? "blue" : `${pixel}`,
+      ),
+    ).toEqual(["red", "blue", "red", "blue"]);
+  });
+
+  test("import a dotLottie and play its frames, image assets included", {
+    timeout: 30_000,
+  }, async () => {
+    const lottieFile = (name: string, data: BlobPart) =>
+      new File([data], name, { type: "application/zip" });
+    const [lottie, broken, empty] = await analyzeMediaSelection(
+      {
+        kind: "files",
+        files: [
+          lottieFile("spinner.lottie", await redThenBlueDotLottie()),
+          lottieFile("broken.lottie", "not a zip"),
+          lottieFile(
+            "empty.lottie",
+            await writeZip([{ name: "manifest.json", data: "{}" }]),
+          ),
+        ],
+      },
+      PALETTE,
+      0,
+    );
+    urls.push(lottie.previewUrl, broken.previewUrl, empty.previewUrl);
+    if (lottie.thumbnailUrl) urls.push(lottie.thumbnailUrl);
+    expect(lottie).toMatchObject({
+      kind: "image",
+      container: "Lottie",
+      width: SIZE,
+      height: SIZE,
+      availability: "ready",
+    });
+    expect(lottie.durationSeconds).toBeCloseTo(1);
+    expect(lottie.thumbnailUrl).toBeTruthy();
+    expect(broken).toMatchObject({
+      availability: "offline",
+      lastError: "Not a dotLottie archive",
+    });
+    expect(empty).toMatchObject({
+      availability: "offline",
+      lastError: "No animation in the dotLottie archive",
     });
 
     const pixels = await centerPixels(lottie, [0.25, 0.75, 1.25, 1.75]);

@@ -24,8 +24,10 @@ export const MEDIA_EXTENSIONS = [
   "webp",
   "gif",
   "avif",
-  // Lottie animations, which import as images; other JSON is offline.
+  // Lottie animations and dotLottie archives, which import as images; other
+  // JSON is offline.
   "json",
+  "lottie",
   // 3D LUTs, used by the LUT effect.
   "cube",
 ];

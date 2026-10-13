@@ -4,6 +4,11 @@
 // The player library loads on first use.
 
 import type { AnimationItem } from "lottie-web";
+import {
+  isDotLottieName,
+  type LottieFile,
+  readDotLottie,
+} from "./dotlottie.ts";
 import { type LottieData, lottieFrameCount, parseLottie } from "./lottie.ts";
 
 // Drawn frames kept per animation, least recently used dropped first.
@@ -30,17 +35,29 @@ function waitForLoad(animation: AnimationItem) {
   });
 }
 
+// The Lottie animation in the file `name` at `url`, or why it holds none.
+async function readLottie(url: string, name: string): Promise<LottieFile> {
+  const response = await fetch(url);
+  if (isDotLottieName(name)) {
+    return readDotLottie(new Uint8Array(await response.arrayBuffer()));
+  }
+  const data = parseLottie(await response.text());
+  return data ? { data } : { error: "Not a Lottie animation" };
+}
+
 /**
- * A player for the Lottie animation at `url`, or undefined when it doesn't
- * hold one.
+ * A player for the Lottie animation in the file `name` at `url`. It throws
+ * the reason when the file holds none.
  */
 export async function openLottie(
   url: string,
-): Promise<LottiePlayer | undefined> {
-  const data = parseLottie(await (await fetch(url)).text());
-  if (!data) {
-    return undefined;
+  name: string,
+): Promise<LottiePlayer> {
+  const file = await readLottie(url, name);
+  if ("error" in file) {
+    throw new Error(file.error);
   }
+  const { data } = file;
   const { default: lottie } = await import(
     "lottie-web/build/player/lottie_light_canvas"
   );
@@ -51,7 +68,7 @@ export async function openLottie(
   work.height = height;
   const context = work.getContext("2d");
   if (!context) {
-    return undefined;
+    throw new Error("2D canvas is unavailable");
   }
   const animation = lottie.loadAnimation({
     renderer: "canvas",
