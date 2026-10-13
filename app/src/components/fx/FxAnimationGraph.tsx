@@ -51,7 +51,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
   const shape = lfo?.shape ?? "Sine";
   const sync = lfo?.sync ?? false;
   const rate = lfo?.rate ?? 0;
-  const syncRate = lfo?.syncRate ?? "1 Bar";
+  const syncRate = lfo?.syncRate ?? "1/8";
   const phase = lfo?.phase ?? 0;
   const depth = lfo?.depth ?? 0;
   const seedKey = lfo?.parameters[0] ?? "";
