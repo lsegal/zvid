@@ -316,7 +316,17 @@ function toDevice(
       domain === "audio" && supportsModulation(effect.effectName),
     ...(effect.modulation ? { modulation: effect.modulation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
-    ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
+    ...(definition.knobRows
+      ? {
+          knobRows: definition.knobRows.flatMap((row) =>
+            typeof row === "string"
+              ? [row]
+              : matchesCondition(row.visibleWhen, definition, effect)
+                ? [row.label]
+                : [],
+          ),
+        }
+      : {}),
     ...(definition.knobColumns ? { knobColumns: definition.knobColumns } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:

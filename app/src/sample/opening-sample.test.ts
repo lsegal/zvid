@@ -544,6 +544,60 @@ describe("zvid opening sample", () => {
     );
   });
 
+  it("slams 'edit' in and glides 'repeat' across on an LFO wave", () => {
+    const textClip = (id: string) => {
+      const clip = (session.texts ?? []).find(
+        (candidate) => candidate.id === id,
+      );
+      assert.ok(clip, id);
+      return {
+        span: [clip.frameStart, clip.frameEnd],
+        effects: effectsOn(`clip:${id}`),
+      };
+    };
+
+    // On bar 5's second beat, after the Glitch transition, "edit" flies in
+    // from just off the left edge, blurred until it lands, then holds there.
+    const slam = textClip("text-edit-slam");
+    const hold = textClip("text-edit");
+    assert.deepEqual(slam.span, [383, 396]);
+    assert.deepEqual(hold.span, [396, 450]);
+    assert.deepEqual(
+      slam.effects.map((effect) => effect.effectName),
+      ["Text", "Move", "GaussianBlur"],
+    );
+    const [slamText, flight, smear] = slam.effects;
+    assert.equal(stringParameter(slamText, "Text"), "edit");
+    assert.equal(stringParameter(flight, "Motion"), "Ease Out");
+    assert.equal(numberParameter(flight, "StartPositionX"), -0.3);
+    assert.equal(numberParameter(flight, "EndPositionX"), 0);
+    assert.equal(
+      numberParameter(flight, "EndPositionY"),
+      numberParameter(hold.effects[1], "PositionY"),
+    );
+    assert.equal(smear.animation?.mode, "clip");
+    assert.equal(smear.animation?.clip?.motionIn, "None");
+    assert.notEqual(smear.animation?.clip?.motionOut, "None");
+
+    // "repeat" crosses right to left at a steady speed while a synced LFO
+    // swings its Y.
+    const glide = textClip("text-repeat");
+    assert.deepEqual(glide.span, [630, 720]);
+    assert.deepEqual(
+      glide.effects.map((effect) => effect.effectName),
+      ["Text", "Move", "Transform"],
+    );
+    const [, cross, wave] = glide.effects;
+    assert.equal(stringParameter(cross, "Motion"), "Linear");
+    assert.ok(
+      (numberParameter(cross, "StartPositionX") ?? 0) >
+        (numberParameter(cross, "EndPositionX") ?? 0),
+    );
+    assert.equal(wave.animation?.mode, "lfo");
+    assert.equal(wave.animation?.lfo?.sync, true);
+    assert.deepEqual(wave.animation?.lfo?.parameters, ["PositionY"]);
+  });
+
   it("colors the reactive passages with audio-driven Colorize", () => {
     const colorized = (session.effects ?? []).filter(
       (effect) => effect.effectName === "Colorize",

@@ -1,3 +1,4 @@
+import { polygonOutline } from "./outline.ts";
 import { glslFloat, type ShapeDefinition } from "./types.ts";
 
 // A block arrow pointing right: a shaft 40% of the box's height across, and
@@ -33,5 +34,15 @@ export const arrow: ShapeDefinition = {
     );
     return Math.min(shaft, head);
   },
+  // Clockwise from the shaft's top-left corner, as previewPath runs.
+  outline: polygonOutline([
+    [0, 0.3],
+    [0.6, 0.3],
+    [0.6, 0],
+    [1, 0.5],
+    [0.6, 1],
+    [0.6, 0.7],
+    [0, 0.7],
+  ]),
   previewPath: "M0 30H60V0L100 50L60 100V70H0Z",
 };

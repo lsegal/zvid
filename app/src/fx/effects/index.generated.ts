@@ -40,6 +40,8 @@ import * as lut from "./lut/definition.ts";
 import { pass as lutPass } from "./lut/pass.ts";
 import * as mask from "./mask/definition.ts";
 import * as mono from "./mono/definition.ts";
+import * as motionBlur from "./motion-blur/definition.ts";
+import { pass as motionBlurPass } from "./motion-blur/pass.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
@@ -95,6 +97,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   lut,
   mask,
   mono,
+  motionBlur,
   move,
   negativeSplit,
   noiseGate,
@@ -130,6 +133,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   gaussianBlurPass,
   levelsPass,
   lutPass,
+  motionBlurPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import { loadLutFiles, setLutMedia } from "../fx/effects/lut/lut-media.ts";
+import { SHAPE_EFFECT_NAME } from "../fx/effects/shape/shape.ts";
 import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
 import { applyClipAnimationWeight } from "../fx-animation-clip.ts";
 import {
@@ -216,7 +217,8 @@ describe("effect passes", () => {
   });
 
   // Clip mode at weight 0 runs every knob back to its neutral value, which
-  // must cost no pass.
+  // must cost no pass. Shape's draws its outline on from nothing instead, so
+  // at weight 0 its outline is hidden rather than the effect.
   it("changes nothing at Clip animation weight 0, and something at 0.5", async () => {
     // A LUT effect grades only with a LUT picked and loaded.
     const cube = `LUT_3D_SIZE 2\n${"0 0 0\n".repeat(8)}`;
@@ -252,8 +254,11 @@ describe("effect passes", () => {
             value: "Custom:black.cube",
           })),
       ];
-      // Effects without Animation, such as Shape, have no Clip weight.
-      if (!supportsAnimation(pass.effectName)) {
+      // Effects without Animation, such as Scopes, have no Clip weight.
+      if (
+        !supportsAnimation(pass.effectName) ||
+        pass.effectName === SHAPE_EFFECT_NAME
+      ) {
         continue;
       }
       assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);

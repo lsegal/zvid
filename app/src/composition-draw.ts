@@ -396,18 +396,19 @@ function drawLayer(
   // slot first and that frame is drawn transformed: by the clip's own
   // Transform inside its layer's Transform, with their Moves.
   const transformed = !isIdentityChain(visualTransformChain(entry.visual));
+  const matrix = transformed
+    ? (textBox?.matrix ??
+      visualTransformMatrix(
+        frameBoxInCanvas(frame, surface),
+        surface,
+        entry.visual,
+      ))
+    : undefined;
   // The clip's own chain steps come first, then its layer's.
   const layerSteps = effectChain.prepare(entry.effectChain);
-  const matrix =
-    transformed && !textBox
-      ? visualTransformMatrix(
-          frameBoxInCanvas(frame, surface),
-          surface,
-          entry.visual,
-        )
-      : undefined;
   if (
     matrix &&
+    !textBox &&
     !layerSteps.length &&
     fillsFrame(placement, entry.visual.rotationDeg)
   ) {
@@ -423,8 +424,9 @@ function drawLayer(
     const fitted = textBox && fitTextureSize(gl, sourceWidth, sourceHeight);
     // A Transform that shrinks the slot frames it at the size it is drawn
     // at, keeping its aspect.
-    const shrink = matrix ? transformShrink(matrix) : 1;
+    const shrink = matrix && !textBox ? transformShrink(matrix) : 1;
     const frameSize = fitted || shrunkSize(scissor, shrink);
+    const frameScale = fitted ? fitted.factor : shrink;
     const framed = renderLayerFrame(
       resources,
       texture,
@@ -447,22 +449,23 @@ function drawLayer(
             // The frame is in output pixels, unless a text box is scaled
             // down to fit a texture or a Transform shrinks it.
             pixelScale:
-              ((fitted ? fitted.factor : shrink) * Math.min(width, height)) /
-              REFERENCE_OUTPUT_SIDE,
+              (frameScale * Math.min(width, height)) / REFERENCE_OUTPUT_SIDE,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
+            // The Transforms stretch the frame where it is shown.
+            displayScale: matrix && [
+              Math.hypot(matrix.a, matrix.b) / frameScale,
+              Math.hypot(matrix.c, matrix.d) / frameScale,
+            ],
+            frameScale,
           },
         ) ?? framed);
     // The framed result already holds the layer's placement, so it fills
     // its slot exactly, or the box its Transforms move the slot to. A text
     // box already holds the Transforms' scale, so it is drawn without it.
     uniforms = layerUniforms(
-      transformed
-        ? matrixQuadAxes(
-            frame,
-            (textBox?.matrix ?? matrix) as Matrix2D,
-            surface,
-          )
+      matrix
+        ? matrixQuadAxes(frame, matrix, surface)
         : quadAxes(
             [frame.halfWidth, frame.halfHeight],
             [frame.centerX, frame.centerY],
