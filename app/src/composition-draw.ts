@@ -419,6 +419,14 @@ function drawLayer(
   // slot first and that frame is drawn transformed: by the clip's own
   // Transform inside its layer's Transform, with their Moves.
   const transformed = !isIdentityChain(visualTransformChain(entry.visual));
+  const matrix = transformed
+    ? (textBox?.matrix ??
+      visualTransformMatrix(
+        frameBoxInCanvas(frame, surface),
+        surface,
+        entry.visual,
+      ))
+    : undefined;
   // The clip's own chain steps come first, then its layer's.
   const layerSteps = effectChain.prepare(entry.effectChain);
   if (layerSteps.length || transformed) {
@@ -451,23 +459,19 @@ function drawLayer(
               REFERENCE_OUTPUT_SIDE,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
+            // The Transforms stretch the frame where it is shown.
+            displayScale: matrix && [
+              Math.hypot(matrix.a, matrix.b),
+              Math.hypot(matrix.c, matrix.d),
+            ],
           },
         ) ?? framed);
     // The framed result already holds the layer's placement, so it fills
     // its slot exactly, or the box its Transforms move the slot to. A text
     // box already holds the Transforms' scale, so it is drawn without it.
     uniforms = layerUniforms(
-      transformed
-        ? matrixQuadAxes(
-            frame,
-            textBox?.matrix ??
-              visualTransformMatrix(
-                frameBoxInCanvas(frame, surface),
-                surface,
-                entry.visual,
-              ),
-            surface,
-          )
+      matrix
+        ? matrixQuadAxes(frame, matrix, surface)
         : quadAxes(
             [frame.halfWidth, frame.halfHeight],
             [frame.centerX, frame.centerY],
