@@ -181,8 +181,13 @@ async function run() {
     gpuMedian: percentile(total, 0.5),
     gpuP95: percentile(total, 0.95),
   };
+  // The last frame is drawn again, so it stays on screen, then kept with
+  // `keep`.
+  renderer.renderPreviewFrame(FRAMES * frameQ, PIXEL_RATIO, false);
   status.textContent = `DONE ${JSON.stringify(summary)}`;
-  renderer.destroy();
+  if (!params.has("keep")) {
+    renderer.destroy();
+  }
 }
 
 document.getElementById("run")?.addEventListener("click", () => void run());
