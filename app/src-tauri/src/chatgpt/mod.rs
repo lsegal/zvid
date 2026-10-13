@@ -38,6 +38,8 @@ pub struct ChatGpt {
   // Locked across a refresh, so two requests never race a rotating token.
   credentials: Mutex<Option<Credentials>>,
   model: Mutex<Option<String>>,
+  // The issuer's signing keys, fetched on first use.
+  keys: Mutex<Option<oauth::KeySet>>,
   // Cancels the sign-in waiting on the browser, if any.
   pending_sign_in: std::sync::Mutex<Option<oneshot::Sender<()>>>,
 }
@@ -76,6 +78,7 @@ impl ChatGpt {
       http: reqwest::Client::new(),
       credentials: Mutex::new(credentials),
       model: Mutex::new(None),
+      keys: Mutex::new(None),
       pending_sign_in: std::sync::Mutex::new(None),
     }
   }
@@ -102,6 +105,48 @@ impl ChatGpt {
       code,
       format!("ChatGPT sign-in failed ({}): {code}", status.as_u16()),
     ))
+  }
+
+  async fn get_json(&self, url: &str) -> Result<Value, ChatGptError> {
+    let response = self
+      .http
+      .get(url)
+      .send()
+      .await
+      .and_then(reqwest::Response::error_for_status)
+      .map_err(|error| format!("Couldn't reach ChatGPT: {error}"))?;
+    Ok(response.json().await.map_err(|error| format!("Couldn't reach ChatGPT: {error}"))?)
+  }
+
+  // The issuer's current signing keys, from the URL its discovery document
+  // names.
+  async fn fetch_keys(&self) -> Result<oauth::KeySet, ChatGptError> {
+    let discovery = self.get_json(oauth::DISCOVERY_URL).await?;
+    let jwks_uri = discovery
+      .get("jwks_uri")
+      .and_then(Value::as_str)
+      .filter(|uri| uri.starts_with("https://"))
+      .ok_or("Sign-in failed: ChatGPT didn't publish its signing keys.")?;
+    let keys = self.get_json(jwks_uri).await?;
+    let keys = serde_json::from_value(keys)
+      .map_err(|_| "Sign-in failed: ChatGPT's signing keys are malformed.")?;
+    Ok(keys)
+  }
+
+  // Verifies an ID token against the cached keys, refetching them once when
+  // the token names a key the cache lacks (the issuer rotated its keys).
+  async fn verify_id_token(
+    &self,
+    id_token: &str,
+    client_id: &str,
+    nonce: Option<&str>,
+  ) -> Result<oauth::IdClaims, ChatGptError> {
+    let mut keys = self.keys.lock().await;
+    if !keys.as_ref().is_some_and(|keys| keys.has_key_for(id_token)) {
+      *keys = Some(self.fetch_keys().await?);
+    }
+    let keys = keys.as_ref().expect("keys were just fetched");
+    Ok(oauth::verify_id_token(id_token, keys, client_id, nonce, now())?)
   }
 
   // Applies a token response to `credentials`, keeping any field it omits.
@@ -164,7 +209,7 @@ impl ChatGpt {
     let mut next = credentials.clone();
     Self::apply_tokens(&mut next, &tokens)?;
     if let Some(id_token) = tokens.get("id_token").and_then(Value::as_str) {
-      let claims = oauth::verify_id_token(id_token, &next.client_id, None, now())?;
+      let claims = self.verify_id_token(id_token, &next.client_id, None).await?;
       if claims.sub != next.subject {
         return Err("ChatGPT returned a different account's sign-in.".into());
       }
@@ -312,7 +357,9 @@ pub async fn chatgpt_sign_in(
     .get("id_token")
     .and_then(Value::as_str)
     .ok_or("Sign-in failed: ChatGPT returned no ID token.")?;
-  let claims = oauth::verify_id_token(id_token, &client_id, Some(&attempt.nonce), now())?;
+  let claims = chatgpt
+    .verify_id_token(id_token, &client_id, Some(&attempt.nonce))
+    .await?;
   if !next.subject.is_empty() && next.subject != claims.sub {
     return Err("Sign-in failed: that's a different ChatGPT account than this registration.".into());
   }
