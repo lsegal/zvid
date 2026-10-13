@@ -19,6 +19,7 @@ import {
   createMidiClip,
   deleteSourceSpan,
   duplicateSourceSpan,
+  fitMidiClipDurationQ,
   pasteIntoSourceTrack,
   type SourceClipPatch,
   splitSourceSpan,
@@ -37,6 +38,7 @@ export type SourceClipActionsInputs = {
   playheadQRef: RefObject<number>;
   selectSource: (selection: SourceSelection | undefined) => void;
   setStatus: Dispatch<SetStateAction<string>>;
+  sourceSpans: SourceSpan[];
   sourceTracksLocked: boolean;
 };
 
@@ -55,6 +57,7 @@ export function useSourceClipActions({
   playheadQRef,
   selectSource,
   setStatus,
+  sourceSpans,
   sourceTracksLocked,
 }: SourceClipActionsInputs) {
   // Commits `edit` unless the source tracks are locked; false when locked.
@@ -133,17 +136,30 @@ export function useSourceClipActions({
     setStatus(`Pasted ${clipboard.sourceSpan.label}.`);
   }
 
-  // Places an empty MIDI clip `durationQ` long in source track
-  // `sourceTrackId` at `startQ`, selected afterwards so the piano roll shows.
-  function newMidiClip(
+  // Places an empty MIDI clip up to `maxDurationQ` long in source track
+  // `sourceTrackId` at `startQ`, ending where the next clip begins, selected
+  // afterwards so the piano roll shows. Does nothing inside a clip.
+  function addMidiClip(
     sourceTrackId: string,
     startQ: number,
-    durationQ: number,
+    maxDurationQ: number,
   ) {
+    const fits =
+      fitMidiClipDurationQ(
+        { bpm, sourceSpans },
+        sourceTrackId,
+        startQ,
+        maxDurationQ,
+      ) > 0;
+    if (!fits) {
+      setStatus("Move the playhead off the clip to add a MIDI clip there.");
+      return;
+    }
+
     const id = newSourceSpanId();
     if (
-      commitEdit("New MIDI Clip", (current) =>
-        createMidiClip(current, sourceTrackId, startQ, durationQ, id),
+      commitEdit("Add MIDI Clip", (current) =>
+        createMidiClip(current, sourceTrackId, startQ, maxDurationQ, id),
       )
     ) {
       selectSource(selectSourceSpan({ id, sourceTrackId }));
@@ -189,7 +205,7 @@ export function useSourceClipActions({
     duplicate,
     split,
     remove,
-    newMidiClip,
+    addMidiClip,
   };
   // The keyboard shortcuts read the latest actions without re-subscribing.
   const sourceClipActionsRef = useRef(sourceClipActions);

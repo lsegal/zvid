@@ -311,6 +311,7 @@ export function useTimelineEditing({
     playheadQRef,
     selectSource,
     setStatus,
+    sourceSpans,
     sourceTracksLocked,
   });
   const selectedSourceSpan = selectedClip
