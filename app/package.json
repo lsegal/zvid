@@ -21,6 +21,7 @@
     "cf:dev": "wrangler dev",
     "deploy:dry-run": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
+    "agent-mcp": "node scripts/agent-relay/zvid-mcp.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

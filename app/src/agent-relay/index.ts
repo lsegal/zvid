@@ -3,11 +3,11 @@ import { serveDesktopAgentRelay } from "./desktop.ts";
 import type { AgentCommandHost } from "./protocol.ts";
 import { connectWebTabAgentRelay, resolveAgentRelayUrl } from "./web-tab.ts";
 
-// The running app's control surface, which the app installs as `window.zvid`
-// once the editor mounts. Read per request, so requests that arrive first
-// get a "still starting up" answer.
+// The running app's control surface (control/surface.ts), which the editor
+// installs as `window.zvid` once it mounts. Read per request, so requests
+// that arrive first get a "still starting up" answer.
 function controlSurface(): AgentCommandHost | undefined {
-  return (window as { zvid?: AgentCommandHost }).zvid;
+  return window.zvid;
 }
 
 /** Lets an external agent drive this zvid: always in the desktop app, and
