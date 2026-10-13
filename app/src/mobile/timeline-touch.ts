@@ -2,6 +2,7 @@
 // the view while the timeline scrolls under it (near the start, where it
 // can't, the playhead moves from the labels' edge to the center), two fingers zoom, and a
 // press held still picks up a clip or starts a lane selection.
+import { snapQuarterValue } from "../app/timeline-math.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "../context-menu.ts";
 import { clampZoom } from "../zoom.ts";
 
@@ -160,5 +161,23 @@ export function quickLoopRegion(
   }
   const bar = barLength > 0 ? barLength : 4;
   const startQ = Math.floor(Math.max(0, playheadQ) / bar) * bar;
+  return { startQ, endQ: startQ + bar };
+}
+
+/**
+ * The phone Loop button's loop when nothing is selected: one bar starting at
+ * the playhead, snapped to the grid like a clip drag.
+ */
+export function playheadLoopRange(
+  playheadQ: number,
+  barLength: number,
+  snapUnit: number,
+  snapEnabled: boolean,
+) {
+  const bar = barLength > 0 ? barLength : 4;
+  const startQ = Math.max(
+    0,
+    snapQuarterValue(playheadQ, snapUnit, snapEnabled && snapUnit > 0),
+  );
   return { startQ, endQ: startQ + bar };
 }
