@@ -69,14 +69,16 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 // Layers, top first. The Transitions layer is layer 1, so each transition
 // renders above every other layer, titles and FX regions included. The
 // titles sit above the other FX and Order layers, so no other effect or
-// arrangement touches them. The hidden icon layer is never drawn itself: it
-// is the Mask Target that cuts the 1.5 s shot to the zvid logo. The Audio layer
-// holds only the music.
+// arrangement touches them. The hidden layers are never drawn themselves:
+// the icon layer is the Mask Target that cuts the 1.5 s shot to the zvid
+// logo, and the star layer limits bar 7's Analog Glitch to a star. The
+// Audio layer holds only the music.
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
-  { id: "fx-regions", name: "FX regions (Transform + Move)" },
+  { id: "fx-regions", name: "FX regions" },
+  { id: "star-mask", name: "Mask · star", hidden: true },
   { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
@@ -593,33 +595,75 @@ addEffect(
   transformValues("", ICON_FULL),
 );
 
-// Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
-// canvas) and a Move before it sweeps the box left to right, widening it
-// and turning it from -16° to +16° over the clip.
-const REGIONS = [
-  [12, "Pixelate", { _NumPixels: 0.75 }],
-  [15, "NegativeSplit", { _LowIntensity: 1, _HighIntensity: 1 }],
-  [18, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 }],
-];
-for (const [start, effectName, parameters] of REGIONS) {
-  const id = layerClip(
-    "fxClips",
-    `region-${effectName.toLowerCase()}`,
-    "fx-regions",
-    start,
-    3,
+// Localized FX, one box per bar. Pixelate's FX clip Transform sizes its box
+// (30% × 56% of the canvas) and a Move before it sweeps the box left to
+// right, widening it and turning it from -16° to +16° over the clip.
+const regionClip = (effectName, start) =>
+  clipTrack(
+    layerClip(
+      "fxClips",
+      `region-${effectName.toLowerCase()}`,
+      "fx-regions",
+      start,
+      3,
+    ),
   );
-  addEffect(clipTrack(id), effectName, parameters);
-  move(
-    clipTrack(id),
-    "Ease In Out",
-    { x: -0.22, y: 0.03, scaleX: 0.93, rotation: -16 },
-    { x: 0.22, y: -0.03, scaleX: 1.3, rotation: 16 },
-  );
-  addEffect(clipTrack(id), "Transform", {
-    ...transformValues("", { scaleX: 0.3, scaleY: 0.56 }),
-  });
-}
+const pixelate = regionClip("Pixelate", 12);
+addEffect(pixelate, "Pixelate", { _NumPixels: 0.75 });
+move(
+  pixelate,
+  "Ease In Out",
+  { x: -0.22, y: 0.03, scaleX: 0.93, rotation: -16 },
+  { x: 0.22, y: -0.03, scaleX: 1.3, rotation: 16 },
+);
+addEffect(pixelate, "Transform", {
+  ...transformValues("", { scaleX: 0.3, scaleY: 0.56 }),
+});
+
+// Negative Split's box is a wide band that drops from the top of the frame
+// to the bottom, tilting as it falls, and a quarter-note LFO on its Height
+// makes it breathe on every beat.
+const negativeSplit = regionClip("NegativeSplit", 15);
+addEffect(negativeSplit, "NegativeSplit", {
+  _LowIntensity: 1,
+  _HighIntensity: 1,
+});
+move(
+  negativeSplit,
+  "Ease Out",
+  { y: 0.36, scaleX: 0.8, rotation: 6 },
+  { y: -0.36, scaleX: 1.1, rotation: -6 },
+);
+addEffect(
+  negativeSplit,
+  "Transform",
+  transformValues("", { scaleX: 0.9, scaleY: 0.2 }),
+  {
+    animation: animation(
+      "lfo",
+      {},
+      {},
+      { syncRate: "1/4", depth: 0.05, parameters: ["ScaleY"] },
+    ),
+  },
+);
+
+// Analog Glitch applies only inside a star on the hidden star-mask layer,
+// which spins a full turn of its points as it grows across the frame on
+// the diagonal.
+const starBox = (height) => ({ scaleX: (height * HEIGHT) / WIDTH, scaleY: height });
+const star = layerClip("fills", "fill-star-mask", "star-mask", 18, 3);
+addEffect(clipTrack(star), "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
+addEffect(clipTrack(star), "Shape", { Shape: "Star" });
+move(
+  clipTrack(star),
+  "Linear",
+  { x: -0.3, y: -0.25, ...starBox(0.3), rotation: -72 },
+  { x: 0.25, y: 0.15, ...starBox(1.1), rotation: 72 },
+);
+const analogGlitch = regionClip("AnalogGlitch", 18);
+addEffect(analogGlitch, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 });
+addEffect(analogGlitch, "Mask", { Target: "star-mask", Mode: "Additive" });
 
 function text(id, layerId, start, duration, style, extra = {}) {
   layerClip("texts", id, layerId, start, duration);
