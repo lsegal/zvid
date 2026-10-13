@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { type Locator, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { patchProjectState } from "../../../app/session-project.ts";
 import type { ProjectState } from "../../../app/types.ts";
 import {
   addFromMenu,
@@ -235,5 +236,73 @@ describe("Motion Blur rendering", { timeout: 60_000 }, () => {
     // Each pair of the larger frame's pixels averages to the smaller one's.
     const sampled = small.map((_, x) => (large[2 * x] + large[2 * x + 1]) / 2);
     expect(maxDifference(sampled, small)).toBeLessThanOrEqual(10);
+  });
+});
+
+// A text clip on Layer 1 whose text fills its box, which the layer's
+// Transform shrinks to the middle half of a 320×180 frame, with `effects`
+// after the Transform.
+function textPastItsBox(effects: ReturnType<typeof layerEffect>[]) {
+  const { project, clip } = withTextClip(EMPTY_PROJECT);
+  return rendererState(
+    patchProjectState(project, {
+      effects: [
+        ...project.effects.map((effect) =>
+          effect.trackId.includes(clip.id)
+            ? {
+                ...effect,
+                parameters: [
+                  ...effect.parameters.filter(
+                    ({ key }) => key !== "Text" && key !== "FontSize",
+                  ),
+                  ...parameters({ Text: "MMMMMMMMMMMMMMMM", FontSize: 300 }),
+                ],
+              }
+            : effect,
+        ),
+        layerEffect("Transform", parameters({ ScaleX: 0.5, ScaleY: 0.5 })),
+        ...effects,
+      ],
+    }),
+    PREVIEW,
+  );
+}
+
+// The first and last columns the text lights, in any row.
+function litColumns(frame: Frame) {
+  let first = frame.width;
+  let last = -1;
+  for (let y = 0; y < frame.height; y++) {
+    for (let x = 0; x < frame.width; x++) {
+      if (pixelAt(frame, x, y)[0] > 16) {
+        first = Math.min(first, x);
+        last = Math.max(last, x);
+      }
+    }
+  }
+  return { first, last };
+}
+
+// The text box's first and last columns: the middle half of the frame.
+const BOX_LEFT = 80;
+const BOX_RIGHT = 239;
+
+describe("Motion Blur on text", { timeout: 60_000 }, () => {
+  test("a text clip's smear trails past its box instead of stopping at its edges", async () => {
+    const sharp = litColumns(await renderFrame(textPastItsBox([]), 4));
+    expect(sharp.first).toBeGreaterThanOrEqual(BOX_LEFT);
+    expect(sharp.last).toBeLessThanOrEqual(BOX_RIGHT);
+
+    // 400 px at 1080p is 67 px of this 180 px frame, so the smear reaches
+    // about 33 px past the text on each side, well past its box.
+    const blur = layerEffect(
+      "MotionBlur",
+      parameters({ _Angle: 0, _Distance: 400 }),
+    );
+    const smeared = litColumns(await renderFrame(textPastItsBox([blur]), 4));
+    expect(smeared.first).toBeLessThan(BOX_LEFT - 8);
+    expect(smeared.first).toBeGreaterThanOrEqual(sharp.first - 34);
+    expect(smeared.last).toBeGreaterThan(BOX_RIGHT + 8);
+    expect(smeared.last).toBeLessThanOrEqual(sharp.last + 34);
   });
 });
