@@ -56,6 +56,7 @@ export type FxPanelProps = Pick<
     | "setSourceTrackSynth"
     | "setSourceTrackArp"
     | "setMidiClipNotes"
+    | "setMidiClipTimeline"
   > & {
     isInspectorCollapsed: boolean;
     toggleInspectorCollapsed: () => void;
@@ -110,6 +111,7 @@ export function FxPanel({
   setSourceTrackSynth,
   setSourceTrackArp,
   setMidiClipNotes,
+  setMidiClipTimeline,
   sheetHeader,
   sourceClip,
   toggleInspectorCollapsed,
@@ -148,7 +150,13 @@ export function FxPanel({
               {sourceClip ? (
                 <SourceClipProperties
                   collapsed={collapse.collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
+                  midiClip={
+                    fxMidiClip?.spanId === sourceClip.spanId
+                      ? fxMidiClip
+                      : undefined
+                  }
                   model={sourceClip}
+                  onSetMidiTimeline={setMidiClipTimeline}
                   onToggleCollapsed={() =>
                     collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
                   }
@@ -159,6 +167,7 @@ export function FxPanel({
                 midiClip={fxMidiClip}
                 setArpeggiator={setSourceTrackArp}
                 setNotes={setMidiClipNotes}
+                setTimeline={setMidiClipTimeline}
                 setSynthParam={setSourceTrackSynth}
                 synthTrack={fxSynthTrack}
               />

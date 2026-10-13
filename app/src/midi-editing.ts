@@ -4,6 +4,10 @@
 import { patchProjectState } from "./app/session-project.ts";
 import type { ProjectState } from "./app/types.ts";
 import { type MidiNote, type SynthParams, synthParamsOf } from "./midi-clip.ts";
+import type {
+  MidiClipTimeline,
+  MidiTimelineField,
+} from "./midi-clip-timeline.ts";
 import type { Arpeggiator } from "./note-generators.ts";
 
 export type SynthParamKey = keyof SynthParams;
@@ -33,6 +37,14 @@ export const midiHistoryLabels = {
   arpeggiatorRate: "Change Arpeggiator Rate",
   arpeggiatorPattern: "Change Arpeggiator Pattern",
   arpeggiatorOctaves: "Change Arpeggiator Octaves",
+  timeline: {
+    length: "Set MIDI Clip Length",
+    start: "Move Start Marker",
+    loopStart: "Move Loop Start",
+    loopEnd: "Move Loop End",
+  } satisfies Record<MidiTimelineField, string>,
+  moveLoop: "Move Loop",
+  loop: (loop: boolean) => (loop ? "Enable Clip Loop" : "Disable Clip Loop"),
 };
 
 /** `current` with `trackId`'s synth `key` set to `value`. */
@@ -84,6 +96,19 @@ export function setSourceSpanNotes(
   return patchProjectState(current, {
     sourceSpans: current.sourceSpans.map((span) =>
       span.id === spanId ? { ...span, notes: [...notes] } : span,
+    ),
+  });
+}
+
+/** `current` with the MIDI clip `spanId`'s timeline set to `timeline`. */
+export function setSourceSpanMidiTimeline(
+  current: ProjectState,
+  spanId: string,
+  timeline: MidiClipTimeline,
+): ProjectState {
+  return patchProjectState(current, {
+    sourceSpans: current.sourceSpans.map((span) =>
+      span.id === spanId ? { ...span, midiTimeline: { ...timeline } } : span,
     ),
   });
 }

@@ -243,6 +243,7 @@ export const SourceSpan = memo(function SourceSpan({
           <MidiClipThumbnail
             lengthQ={getClipDurationQ(clip, bpm)}
             notes={midiNotes}
+            timeline={clip.midiTimeline}
             trimStartQ={secondsToQuarters(clip.trimStartSeconds, bpm)}
           />
         )

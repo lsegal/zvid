@@ -951,6 +951,36 @@ describe("a session with a MIDI clip", () => {
       project.sourceTracks[0].noteGenerators,
     );
   });
+  it("saves and reopens a clip's Length, loop and Start marker", () => {
+    const project = sessionToProject(session, []);
+    const midiTimeline = {
+      length: 16,
+      start: 4,
+      loopStart: 0.25,
+      loopEnd: 12,
+      loop: true,
+    };
+    const saved = projectToSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        sourceSpans: project.sourceSpans.map((span, index) =>
+          index === 0 ? { ...span, midiTimeline } : span,
+        ),
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      saved.clips?.map((clip) => clip.midiTimeline),
+      [midiTimeline, undefined],
+    );
+    const reopened = sessionToProject(saved, []);
+    assert.deepEqual(reopened.sourceSpans[0].midiTimeline, midiTimeline);
+    assert.equal("midiTimeline" in reopened.sourceSpans[1], false);
+    // A clip that never set one opens without one.
+    assert.equal("midiTimeline" in project.sourceSpans[0], false);
+  });
+
   it("keeps an empty MIDI clip a MIDI clip", () => {
     const project = sessionToProject(session, []);
     const empty = {

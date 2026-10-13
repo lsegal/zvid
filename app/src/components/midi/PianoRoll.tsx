@@ -8,6 +8,7 @@ import {
 } from "react";
 import { auditionNote } from "../../midi-audition.ts";
 import type { MidiNote, SynthParams } from "../../midi-clip.ts";
+import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
@@ -25,10 +26,18 @@ import {
 import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
 import "./midi-devices.css";
+import { PianoRollRuler } from "./PianoRollRuler";
 
 export type SetMidiClipNotes = (
   spanId: string,
   notes: readonly MidiNote[],
+  label: string,
+  mode?: FxEditMode,
+) => void;
+
+export type SetMidiClipTimeline = (
+  spanId: string,
+  timeline: MidiClipTimeline,
   label: string,
   mode?: FxEditMode,
 ) => void;
@@ -38,6 +47,7 @@ type PianoRollProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSetNotes: SetMidiClipNotes;
+  onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's track's synth; tests listen instead.
   onAudition?: (pitch: number, synth: SynthParams) => void;
 };
@@ -45,6 +55,8 @@ type PianoRollProps = {
 // A key row's height and a quarter note's width on the roll's grid.
 export const PIANO_ROLL_ROW_PX = 10;
 export const PIANO_ROLL_QUARTER_PX = 32;
+// The ruler's height over the grid.
+export const PIANO_ROLL_RULER_PX = 22;
 
 const PITCHES = Array.from(
   { length: PIANO_ROLL_HIGH_PITCH - PIANO_ROLL_LOW_PITCH + 1 },
@@ -65,29 +77,44 @@ type NoteDrag = {
   notes: MidiNote[];
 };
 
+// The quarters the roll shows: the clip's Length and every note, out to the
+// next bar, and one more bar to drag the loop or the clip's end into.
+function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
+  const lastQ = notes.reduce(
+    (end, note) => Math.max(end, note.start + note.length),
+    timeline.length,
+  );
+  return Math.ceil(lastQ / 4) * 4 + 4;
+}
+
 // The selected MIDI clip's piano roll, after its Clip properties: a key for
-// each pitch down the left and the clip's window across. Clicking empty
-// grid adds a note there, dragging a note moves it in time and pitch, and
-// right-clicking a note deletes it; each edit is one undo step. Clicking a
-// note or a key auditions it through the track's synth.
+// each pitch down the left and the clip's notes across, from its quarter 0,
+// under its own ruler with the loop brace and Start marker (see
+// PianoRollRuler). Clicking empty grid inside the clip's Length adds a note
+// there, dragging a note moves it in time and pitch, and right-clicking a
+// note deletes it; each edit is one undo step. Clicking a note or a key
+// auditions it through the track's synth.
 export function PianoRoll({
   model,
   collapsed,
   onToggleCollapsed,
   onSetNotes,
+  onSetTimeline,
   onAudition = auditionNote,
 }: PianoRollProps) {
-  const { spanId, label, accent, notes, trimStartQ, lengthQ, synth } = model;
+  const { spanId, label, accent, notes, timeline, synth } = model;
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
   const shownNotes = drag?.notes ?? notes;
-  const gridWidth = Math.max(1, lengthQ) * PIANO_ROLL_QUARTER_PX;
+  const viewQ = rollViewQ(notes, timeline);
+  const gridWidth = viewQ * PIANO_ROLL_QUARTER_PX;
   const gridHeight = PITCHES.length * PIANO_ROLL_ROW_PX;
   const style = {
     "--fx-accent": accent,
     "--piano-roll-row": `${PIANO_ROLL_ROW_PX}px`,
     "--piano-roll-quarter": `${PIANO_ROLL_QUARTER_PX}px`,
+    "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
   } as CSSProperties;
 
   // Opens on the clip's notes, or on middle C when it has none.
@@ -101,6 +128,7 @@ export function PianoRoll({
     const scroller = scrollRef.current;
     if (scroller) {
       scroller.scrollTop =
+        PIANO_ROLL_RULER_PX +
         (rowOf(centerPitch) + 0.5) * PIANO_ROLL_ROW_PX -
         scroller.clientHeight / 2;
     }
@@ -118,8 +146,7 @@ export function PianoRoll({
     const row = Math.floor((event.clientY - bounds.top) / PIANO_ROLL_ROW_PX);
     return {
       pitch: PIANO_ROLL_HIGH_PITCH - row,
-      startQ:
-        trimStartQ + (event.clientX - bounds.left) / PIANO_ROLL_QUARTER_PX,
+      startQ: (event.clientX - bounds.left) / PIANO_ROLL_QUARTER_PX,
     };
   }
 
@@ -153,7 +180,7 @@ export function PianoRoll({
       return;
     }
     const point = gridPoint(event);
-    if (!point || point.startQ >= trimStartQ + lengthQ) {
+    if (!point || point.startQ >= timeline.length) {
       return;
     }
     audition(point.pitch);
@@ -253,6 +280,15 @@ export function PianoRoll({
         </button>
       </header>
       <div className="piano-roll__scroll" data-fx-no-drag ref={scrollRef}>
+        <div className="piano-roll__corner" />
+        <PianoRollRuler
+          onChange={(next, historyLabel, mode) =>
+            onSetTimeline(spanId, next, historyLabel, mode)
+          }
+          quarterPx={PIANO_ROLL_QUARTER_PX}
+          timeline={timeline}
+          viewQ={viewQ}
+        />
         <div className="piano-roll__keys" style={{ height: gridHeight }}>
           {PITCHES.map((pitch) => (
             <button
@@ -287,14 +323,14 @@ export function PianoRoll({
           onPointerMove={handleGridPointerMove}
           onPointerUp={(event) => endDrag(event, true)}
           ref={gridRef}
-          style={{
-            width: gridWidth,
-            height: gridHeight,
-            backgroundPositionX: `${-(trimStartQ % 4) * PIANO_ROLL_QUARTER_PX}px`,
-          }}
+          style={{ width: gridWidth, height: gridHeight }}
         >
+          <span
+            className="piano-roll__beyond-end"
+            style={{ left: timeline.length * PIANO_ROLL_QUARTER_PX }}
+          />
           {shownNotes.map((note, index) => {
-            const left = (note.start - trimStartQ) * PIANO_ROLL_QUARTER_PX;
+            const left = note.start * PIANO_ROLL_QUARTER_PX;
             const width = note.length * PIANO_ROLL_QUARTER_PX;
             if (left + width <= 0 || left >= gridWidth) {
               return null;

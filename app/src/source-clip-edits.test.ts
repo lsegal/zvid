@@ -402,6 +402,14 @@ describe("createMidiClip", () => {
         durationSeconds: 8,
         trimStartSeconds: 0,
         notes: [],
+        // Its Length is the clip's, looping all of it.
+        midiTimeline: {
+          length: 16,
+          start: 0,
+          loopStart: 0,
+          loopEnd: 16,
+          loop: true,
+        },
         tint: swatch.color,
         accent: swatch.accent,
       },

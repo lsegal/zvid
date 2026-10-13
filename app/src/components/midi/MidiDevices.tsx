@@ -7,7 +7,11 @@ import {
 } from "../../midi-panel-model.ts";
 import type { FxCollapseState } from "../fx/FxChain";
 import { ArpeggiatorDevice, type SetArpeggiator } from "./ArpeggiatorDevice";
-import { PianoRoll, type SetMidiClipNotes } from "./PianoRoll";
+import {
+  PianoRoll,
+  type SetMidiClipNotes,
+  type SetMidiClipTimeline,
+} from "./PianoRoll";
 import { type SetSynthParam, SynthDevice } from "./SynthDevice";
 
 type MidiDevicesProps = FxCollapseState & {
@@ -16,6 +20,7 @@ type MidiDevicesProps = FxCollapseState & {
   setSynthParam: SetSynthParam;
   setArpeggiator: SetArpeggiator;
   setNotes: SetMidiClipNotes;
+  setTimeline: SetMidiClipTimeline;
 };
 
 // The FX panel's MIDI devices for the source selection: the track's Synth
@@ -28,6 +33,7 @@ export function MidiDevices({
   setSynthParam,
   setArpeggiator,
   setNotes,
+  setTimeline,
 }: MidiDevicesProps) {
   return (
     <>
@@ -55,6 +61,7 @@ export function MidiDevices({
           key={midiClip.spanId}
           model={midiClip}
           onSetNotes={setNotes}
+          onSetTimeline={setTimeline}
           onToggleCollapsed={() => toggleCollapsed(PIANO_ROLL_COLLAPSE_KEY)}
         />
       ) : null}

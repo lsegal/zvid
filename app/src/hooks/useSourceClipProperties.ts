@@ -144,6 +144,7 @@ export function useSourceClipProperties({
   const format: TimeValueFormat = { timelineMode, bpm, signature, fps };
 
   return {
+    spanId: committedSpan.id,
     clipName: committedSpan.label,
     accent: committedSpan.accent,
     format,

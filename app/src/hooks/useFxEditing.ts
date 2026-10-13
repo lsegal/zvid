@@ -35,9 +35,11 @@ import {
   setLaneFxEnabled,
 } from "../fx-stack";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import {
   midiHistoryLabels,
   type SynthParamKey,
+  setSourceSpanMidiTimeline,
   setSourceSpanNotes,
   setSourceTrackArpeggiator,
   setSourceTrackSynthParam,
@@ -223,6 +225,27 @@ export function useFxEditing({
     ) => {
       const updater = (current: ProjectState) =>
         setSourceSpanNotes(current, spanId, notes);
+      dispatchProject(
+        mode === "transient"
+          ? { type: "transient", updater }
+          : { type: "commit", label, updater },
+      );
+    },
+    [dispatchProject],
+  );
+
+  // Edits to a MIDI clip's Length, loop and Start marker, from its piano
+  // roll's ruler and its Clip properties: a drag sends `transient` updates
+  // and the `commit` labeled `label` ends it.
+  const setMidiClipTimeline = useCallback(
+    (
+      spanId: string,
+      timeline: MidiClipTimeline,
+      label: string,
+      mode: FxEditMode = "commit",
+    ) => {
+      const updater = (current: ProjectState) =>
+        setSourceSpanMidiTimeline(current, spanId, timeline);
       dispatchProject(
         mode === "transient"
           ? { type: "transient", updater }
@@ -442,6 +465,7 @@ export function useFxEditing({
     setSourceTrackSynth,
     setSourceTrackArp,
     setMidiClipNotes,
+    setMidiClipTimeline,
     setFxDeviceEnabled,
     setFxDeviceParameter,
     setFxDeviceAnimationEnabled,

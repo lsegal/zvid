@@ -11,6 +11,7 @@ import {
 import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes, readSynthParams } from "../midi-clip.ts";
+import { readMidiTimeline } from "../midi-clip-timeline.ts";
 import { readNoteGenerators } from "../note-generators.ts";
 import {
   fitSourceSpansToMedia,
@@ -235,8 +236,12 @@ export function sessionToProject(
     const media = pickMediaByPath(mediaItems, clip.filePath);
     const trimStartSeconds = clipSourceFrame(clip) / fps;
     const notes = readMidiNotes(clip.notes);
+    const midiTimeline = notes
+      ? readMidiTimeline(clip.midiTimeline)
+      : undefined;
     return {
       ...(notes ? { notes } : {}),
+      ...(midiTimeline ? { midiTimeline } : {}),
       id: `source-${clip.id}`,
       sourceTrackId: clip.trackId,
       label:

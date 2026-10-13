@@ -116,6 +116,7 @@ export function FixtureFxPanel({
       setSourceTrackSynth={noop}
       setSourceTrackArp={noop}
       setMidiClipNotes={noop}
+      setMidiClipTimeline={noop}
       sheetHeader={sheetHeader?.(model.fxPanelTitle)}
       sourceClip={null}
       toggleInspectorCollapsed={noop}

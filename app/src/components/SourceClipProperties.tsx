@@ -4,10 +4,13 @@ import {
 } from "@heroicons/react/24/solid";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
+import type { MidiClipModel } from "../midi-panel-model.ts";
 import {
   SOURCE_CLIP_FIELD_LABELS,
   SOURCE_CLIP_FIELDS,
 } from "../source-clip-properties.ts";
+import { MidiClipTimelineFields } from "./MidiClipTimelineFields";
+import type { SetMidiClipTimeline } from "./midi/PianoRoll";
 import { TimeValueControl } from "./ui/TimeValueControl";
 import "./fx/fx-chain.css";
 import "./source-clip-properties.css";
@@ -16,9 +19,14 @@ type SourceClipPropertiesProps = {
   model: SourceClipPropertiesModel;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  // Set when the clip is a MIDI clip: its Length, loop and Start marker,
+  // which it edits beside the clip's own fields.
+  midiClip?: MidiClipModel;
+  onSetMidiTimeline?: SetMidiClipTimeline;
 };
 
-// The selected source clip's Start, Length and Offset, in one device-style
+// The selected source clip's Start, Length and Offset, and a MIDI clip's
+// Length, Start marker and loop in columns beside them, in one device-style
 // widget like a canned effect: an info icon where effects have power and
 // animation, no add menu, and it folds to a strip like a device. It leads the
 // FX chain, ahead of the Global, Track and Clip sections.
@@ -26,6 +34,8 @@ export function SourceClipProperties({
   model,
   collapsed,
   onToggleCollapsed,
+  midiClip,
+  onSetMidiTimeline,
 }: SourceClipPropertiesProps) {
   const { accent, clipName, format, limits, mediaOffline, setField, values } =
     model;
@@ -95,20 +105,30 @@ export function SourceClipProperties({
           Media offline: Length and Offset can't grow past their current values.
         </p>
       ) : null}
-      <div className="fx-device-panel__body source-clip-properties__fields">
-        {SOURCE_CLIP_FIELDS.map((field) => (
-          <TimeValueControl
-            key={field}
-            {...format}
+      <div className="fx-device-panel__body source-clip-properties__columns">
+        <div className="source-clip-properties__fields">
+          {SOURCE_CLIP_FIELDS.map((field) => (
+            <TimeValueControl
+              key={field}
+              {...format}
+              accent={accent}
+              kind={field === "start" ? "position" : "duration"}
+              label={SOURCE_CLIP_FIELD_LABELS[field]}
+              max={limits[field].max}
+              min={limits[field].min}
+              onChange={(value, { commit }) => setField(field, value, commit)}
+              value={values[field]}
+            />
+          ))}
+        </div>
+        {midiClip && onSetMidiTimeline ? (
+          <MidiClipTimelineFields
             accent={accent}
-            kind={field === "start" ? "position" : "duration"}
-            label={SOURCE_CLIP_FIELD_LABELS[field]}
-            max={limits[field].max}
-            min={limits[field].min}
-            onChange={(value, { commit }) => setField(field, value, commit)}
-            value={values[field]}
+            format={format}
+            midiClip={midiClip}
+            onSetTimeline={onSetMidiTimeline}
           />
-        ))}
+        ) : null}
       </div>
     </section>
   );

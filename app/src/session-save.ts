@@ -15,6 +15,7 @@ import {
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
+import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
 import type { NoteGenerator } from "./note-generators.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
@@ -77,6 +78,7 @@ export type SaveableSourceSpan = {
   trimStartSeconds: number;
   warp?: ClipWarp;
   notes?: MidiNote[];
+  midiTimeline?: MidiClipTimeline;
 };
 
 export type SaveableClip = {
@@ -241,6 +243,7 @@ export function projectToSession(
       ...spanSourceFrames(span, fps),
       filePath: span.mediaPath,
       ...(span.notes ? { notes: span.notes } : {}),
+      ...(span.midiTimeline ? { midiTimeline: span.midiTimeline } : {}),
       ...(span.warp
         ? {
             warpMarkers: span.warp.markers.map((marker, index) => ({

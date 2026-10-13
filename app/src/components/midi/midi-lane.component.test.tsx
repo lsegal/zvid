@@ -19,6 +19,7 @@ import {
 } from "../../component-test/input.ts";
 import { installHarness } from "../../harness";
 import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
+import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
@@ -351,10 +352,12 @@ test("clicking a note or a key auditions it through the track's synth", async ()
         notes: NOTES,
         trimStartQ: 0,
         lengthQ: 8,
+        timeline: defaultMidiTimeline(8),
         synth,
       }}
       onAudition={onAudition}
       onSetNotes={onSetNotes}
+      onSetTimeline={() => {}}
       onToggleCollapsed={() => {}}
     />,
   );

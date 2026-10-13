@@ -7,6 +7,7 @@ import type {
 } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import type { NoteGenerator } from "../note-generators.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
@@ -63,6 +64,9 @@ export type SourceSpan = {
   // Set on a MIDI clip: its notes, which its track's synth plays (see
   // midi-clip.ts).
   notes?: MidiNote[];
+  // Set on a MIDI clip whose Length, loop or Start was set (see
+  // midi-clip-timeline.ts); without it the clip plays its notes once.
+  midiTimeline?: MidiClipTimeline;
   tint: string;
   accent: string;
 };
