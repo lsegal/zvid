@@ -8,6 +8,13 @@ import {
   drawQuad,
 } from "./composition-draw-gl.ts";
 import {
+  fillsFrame,
+  renderLayerFrame,
+  shrunkSize,
+  transformShrink,
+  visualShrink,
+} from "./composition-framing.ts";
+import {
   applyFxClip,
   createFxMaskProgram,
   drawMaskedFxResult,
@@ -28,7 +35,6 @@ import {
 import {
   isSlotScissorEmpty,
   type LayerDrawStep,
-  type LayerPlacement,
   type LayerVisual,
   planHiddenLayerDraws,
   planLayerDraws,
@@ -243,43 +249,6 @@ function layerUniforms(
   };
 }
 
-// Draws the layer's source into a `size` region exactly as it would appear
-// in its slot, or a text layer's box (cover, Layout anchor, scale, offset
-// and rotation), so the effect chain works on what the slot shows rather
-// than on the whole source. Rows are written top row first to match uploaded video textures,
-// which is the orientation the effect passes and the composite shader expect.
-function renderLayerFrame(
-  resources: WebGlResources,
-  texture: TextureRegion,
-  placement: LayerPlacement,
-  visual: CompositeVisual,
-  size: { width: number; height: number },
-  opacity: number,
-) {
-  const { gl, effectChain } = resources;
-  const { frame, halfExtents, translate } = placement;
-  const target = effectChain.getLayerTarget(size.width, size.height);
-  bindCompositeState(resources, target.framebuffer, size.width, size.height);
-  gl.disable(gl.BLEND);
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  drawQuad(resources, texture, {
-    ...quadAxes(
-      [halfExtents.x / frame.halfWidth, -halfExtents.y / frame.halfHeight],
-      [
-        (translate.x - frame.centerX) / frame.halfWidth,
-        -(translate.y - frame.centerY) / frame.halfHeight,
-      ],
-      (-visual.rotationDeg * Math.PI) / 180,
-    ),
-    opacity,
-    brightness: 0,
-    contrast: 1,
-    saturation: 1,
-  });
-  return target.region;
-}
-
 // A surface a stack of layers is drawn into: the canvas itself
 // (`framebuffer` null) or an offscreen target the FX clips can read back.
 type StackTarget = {
@@ -347,13 +316,21 @@ function drawLayer(
     const moving = sized(motion);
     const raster = motion ? sized(undefined) : moving;
     ({ width: sourceWidth, height: sourceHeight, textBox } = moving);
+    // A fill is drawn only as large as its Transforms show it.
+    const shrink = entry.fill
+      ? visualShrink(
+          resolveSlotBounds(index, count, order, width, height),
+          surface,
+          entry.visual,
+        )
+      : 1;
     const uploaded = entry.fill
       ? uploadFillTexture(
           resources,
           entry.sourceKey,
           entry.fill,
-          raster.width,
-          raster.height,
+          raster.width * shrink,
+          raster.height * shrink,
           frameContext,
         )
       : uploadTextTexture(
@@ -429,10 +406,27 @@ function drawLayer(
     : undefined;
   // The clip's own chain steps come first, then its layer's.
   const layerSteps = effectChain.prepare(entry.effectChain);
-  if (layerSteps.length || transformed) {
+  if (
+    matrix &&
+    !textBox &&
+    !layerSteps.length &&
+    fillsFrame(placement, entry.visual.rotationDeg)
+  ) {
+    // A source that fills its frame unrotated, with no effects to run, is
+    // its own frame: it is drawn transformed directly, sparing a pass.
+    uniforms = layerUniforms(
+      matrixQuadAxes(frame, matrix, surface),
+      entry.visual,
+      entry.visual.opacity * sourceOpacity * opacity,
+    );
+  } else if (layerSteps.length || transformed) {
     // Text is framed at its box's size, so its effects see it unstretched.
     const fitted = textBox && fitTextureSize(gl, sourceWidth, sourceHeight);
-    const frameSize = fitted || scissor;
+    // A Transform that shrinks the slot frames it at the size it is drawn
+    // at, keeping its aspect.
+    const shrink = matrix && !textBox ? transformShrink(matrix) : 1;
+    const frameSize = fitted || shrunkSize(scissor, shrink);
+    const frameScale = fitted ? fitted.factor : shrink;
     const framed = renderLayerFrame(
       resources,
       texture,
@@ -453,17 +447,17 @@ function drawLayer(
             clipProgress: entry.clipProgress,
             resolution: [frameSize.width, frameSize.height],
             // The frame is in output pixels, unless a text box is scaled
-            // down to fit a texture.
+            // down to fit a texture or a Transform shrinks it.
             pixelScale:
-              ((fitted ? fitted.factor : 1) * Math.min(width, height)) /
-              REFERENCE_OUTPUT_SIDE,
+              (frameScale * Math.min(width, height)) / REFERENCE_OUTPUT_SIDE,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
             // The Transforms stretch the frame where it is shown.
             displayScale: matrix && [
-              Math.hypot(matrix.a, matrix.b),
-              Math.hypot(matrix.c, matrix.d),
+              Math.hypot(matrix.a, matrix.b) / frameScale,
+              Math.hypot(matrix.c, matrix.d) / frameScale,
             ],
+            frameScale,
           },
         ) ?? framed);
     // The framed result already holds the layer's placement, so it fills

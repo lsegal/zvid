@@ -157,7 +157,8 @@ export const pass: EffectPass = {
       Math.max(display[1], 1e-6),
     );
     const outline = outlineOf(params);
-    const scale = effectPixelScale(ctx);
+    // Outline lengths are in output pixels as the shape is shown.
+    const scale = effectPixelScale(ctx) / (ctx.frameScale ?? 1);
     gl.uniform1f(loc.uStroke, outline.width * scale);
     gl.uniform3f(
       loc.uDash,

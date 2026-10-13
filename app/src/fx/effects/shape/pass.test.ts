@@ -82,6 +82,17 @@ describe("Shape pass", () => {
     });
     assert.deepEqual(half.uStroke, [5]);
     assert.deepEqual(half.uDash, [15, 10, -2.5]);
+    // A quarter-size frame of the same output, shown four times larger.
+    const shrunk = uniformValues(pass, outline, {
+      ...CONTEXT,
+      resolution: [270, 480],
+      pixelScale: 0.25,
+      frameScale: 0.25,
+      displayScale: [2, 1],
+    });
+    assert.deepEqual(shrunk.uStroke, [10]);
+    assert.deepEqual(shrunk.uDash, [30, 20, -5]);
+    assert.deepEqual(shrunk.uDisplay, [2, 1]);
   });
 
   it("never outlines a Custom shape", () => {

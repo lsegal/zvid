@@ -31,6 +31,7 @@ import {
   zoomFillFraction,
   zoomToSliderPosition,
 } from "../../zoom";
+import { PromptButton } from "../prompt/PromptButton";
 import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
 import "./transport-bar.css";
@@ -239,6 +240,7 @@ export function TransportBar({
         >
           <SparklesIcon aria-hidden="true" />
         </button>
+        <PromptButton />
         <button
           aria-label={isRecording ? "Stop recording" : "Record armed tracks"}
           aria-pressed={isRecording}

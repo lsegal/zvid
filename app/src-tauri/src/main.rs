@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod agent_relay;
+mod chatgpt;
 
 use agent_relay::AgentRelay;
 use serde::Serialize;
@@ -257,6 +258,8 @@ fn main() {
       path: Mutex::new(None),
     })
     .setup(|app| {
+      let dir = app.path().app_config_dir()?;
+      app.manage(chatgpt::ChatGpt::new(dir));
       start_agent_relay(app);
       Ok(())
     })
@@ -269,7 +272,13 @@ fn main() {
       files_exist,
       write_file_bytes,
       agent_relay_ready,
-      agent_relay_respond
+      agent_relay_respond,
+      chatgpt::chatgpt_status,
+      chatgpt::chatgpt_sign_in,
+      chatgpt::chatgpt_cancel_sign_in,
+      chatgpt::chatgpt_sign_out,
+      chatgpt::chatgpt_open_usage,
+      chatgpt::chatgpt_respond
     ])
     .build(tauri::generate_context!())
     .expect("error while building tauri application")
