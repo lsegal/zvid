@@ -10,6 +10,9 @@
 // track's stack, then summed into the master, which runs the Global stack,
 // then the limiter. Gain is one stage among them; a clip with no enabled
 // Gain on its track's stack or its own stays silent.
+//
+// A source clip with MIDI notes sounds like one with audio: it plays its
+// notes through its source track's synth (see synth.ts).
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
@@ -24,6 +27,7 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
+import type { MidiNote, SynthParams } from "../midi-clip.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
   getClipPieceClips,
@@ -36,6 +40,7 @@ import {
   DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
 import { type AudioStageEffect, audioStageOf } from "./stages.ts";
+import { type SynthClip, synthClipOf, synthMediaId } from "./synth.ts";
 
 type AudioEffect = AudioStageEffect;
 
@@ -46,11 +51,13 @@ type AudioLayerClip = TrackContentClip & {
   laneId: string;
 };
 
-type AudioSourceSpan = TrackContentSpan;
+// A MIDI clip carries `notes` (see midi-clip.ts).
+type AudioSourceSpan = TrackContentSpan & { notes?: readonly MidiNote[] };
 
 // A layer or source track whose FX switch is off bypasses its own stack and
-// its clips' stacks, Gain included.
-type AudioTrack = { id: string; fxEnabled?: boolean };
+// its clips' stacks, Gain included. A source track plays its MIDI clips
+// through `synth`, or the default synth without one.
+type AudioTrack = { id: string; fxEnabled?: boolean; synth?: SynthParams };
 
 export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
   clips: readonly AudioLayerClip[];
@@ -86,6 +93,9 @@ export type AudioMixClip<Effect extends AudioEffect = AudioEffect> = {
   // Its media's length, which it loops past: 0 or unset while it is not
   // known.
   mediaDurationSeconds?: number;
+  // Set on a MIDI clip, whose media is its notes played through its
+  // track's synth rather than a file; `mediaId` names that performance.
+  synth?: SynthClip;
   // Its audio effects, Global first, then its layer's or source track's,
   // then its own; bypassed stacks are left out.
   effects: Effect[];
@@ -223,29 +233,69 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
+  // What each MIDI clip with notes plays, and the media id it plays as.
+  const synthById = new Map(
+    sourceSpans.flatMap((span) => {
+      if (!span.notes?.length) {
+        return [];
+      }
+      const synth = synthClipOf(
+        span.notes,
+        sourceTracks.find((track) => track.id === span.sourceTrackId)?.synth,
+        span.trimStartSeconds + span.durationSeconds,
+      );
+      const mediaId = synthMediaId(span.id, synth, bpm);
+      return [[span.id, { synth, mediaId }] as const];
+    }),
+  );
+  // The media fields a piece of `spanId` plays from: a MIDI clip's
+  // performance, or else its media when that has audio.
+  const soundOf = (spanId: string, mediaId: string | undefined) => {
+    const midi = synthById.get(spanId);
+    if (midi) {
+      return {
+        mediaId: midi.mediaId,
+        mediaDurationSeconds: midi.synth.durationSeconds,
+        synth: midi.synth,
+      };
+    }
+    return hasAudio(mediaById, mediaId)
+      ? {
+          mediaId: mediaId as string,
+          mediaDurationSeconds: mediaDurationOf(mediaById, mediaId),
+        }
+      : undefined;
+  };
+
   // Each piece of a media layer clip's source track window that has audio.
   const layerClips = clips.flatMap((clip) =>
     clip.kind
       ? []
-      : getClipPieceClips(clip, sourceSpans, bpm).flatMap((piece, index) =>
-          hasAudio(mediaById, piece.mediaId)
-            ? [{ ...piece, pieceId: index ? `${clip.id}#${index}` : clip.id }]
-            : [],
-        ),
+      : getClipPieceClips(clip, sourceSpans, bpm).flatMap((piece, index) => {
+          const sound = soundOf(piece.sourceSpanId, piece.mediaId);
+          return sound
+            ? [
+                {
+                  ...piece,
+                  sound,
+                  pieceId: index ? `${clip.id}#${index}` : clip.id,
+                },
+              ]
+            : [];
+        }),
   );
   if (layerClips.length) {
     const mixed = layerClips.map((clip) =>
       mixClip(
         {
           id: clip.pieceId,
-          mediaId: clip.mediaId as string,
           startSeconds: quartersToSeconds(clip.startQ, bpm),
           durationSeconds: clip.durationSeconds,
           sourceOffsetSeconds: clip.sourceOffsetSeconds,
           sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
           sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
           ...(clip.warp ? { warp: clip.warp } : {}),
-          mediaDurationSeconds: mediaDurationOf(mediaById, clip.mediaId),
+          ...clip.sound,
         },
         clip.laneId,
         clip.laneId,
@@ -263,27 +313,30 @@ export function resolveAudioClips<Effect extends AudioEffect>({
     };
   }
 
-  const mixed = sourceSpans
-    .filter((span) => hasAudio(mediaById, span.mediaId))
-    .map((span) => {
-      const startSeconds = quartersToSeconds(span.startQ, bpm);
-      return mixClip(
+  const mixed = sourceSpans.flatMap((span) => {
+    const sound = soundOf(span.id, span.mediaId);
+    if (!sound) {
+      return [];
+    }
+    const startSeconds = quartersToSeconds(span.startQ, bpm);
+    return [
+      mixClip(
         {
           id: sourceRenderClipId(span.id),
-          mediaId: span.mediaId as string,
           startSeconds,
           durationSeconds: span.durationSeconds,
           sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
           sourceWindowStartSeconds: span.trimStartSeconds,
           sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
           ...(span.warp ? { warp: span.warp } : {}),
-          mediaDurationSeconds: mediaDurationOf(mediaById, span.mediaId),
+          ...sound,
         },
         span.sourceTrackId,
         sourceTrackEffectTrackId(span.sourceTrackId),
         sourceClipEffectTrackId(span.id),
-      );
-    });
+      ),
+    ];
+  });
   return {
     clips: mixed,
     buses: [...buses.values()],

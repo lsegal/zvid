@@ -44,12 +44,12 @@ import {
   audioMixTempo,
   audioMixTiming,
   clipMediaTimeAt,
-  clipReadSeconds,
 } from "./mix.ts";
 import {
   DecodedClipVoice,
   DecodedVoiceClock,
   decodedClipSeconds,
+  needsDecodedVoice,
   prefersDecodedVoice,
 } from "./preview-buffer-voice.ts";
 import {
@@ -419,12 +419,12 @@ export class PreviewAudioMixer {
   }
 
   private urlOf(clip: AudioMixClip) {
-    return this.urlById.get(clip.mediaId);
+    return clip.synth ? clip.mediaId : this.urlById.get(clip.mediaId);
   }
 
   private needsDecoded(clip: AudioMixClip) {
     return (
-      clipReadSeconds(clip, this.registry) !== undefined ||
+      needsDecodedVoice(clip, this.registry) ||
       (this.preferDecoded &&
         (!this.videoClips.isVideo(clip) || this.videoClips.isWebM(clip)) &&
         prefersDecodedVoice(clip))

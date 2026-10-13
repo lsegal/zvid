@@ -6,6 +6,7 @@ import type {
   SelectionEditKind,
 } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
+import type { MidiNote, SynthParams } from "../midi-clip.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 
@@ -38,6 +39,8 @@ export type SourceTrack = {
   // Set when the track's video is hidden wherever its clips appear. Its
   // audio still plays.
   hidden?: boolean;
+  // The synth its MIDI clips play through; the default synth when unset.
+  synth?: SynthParams;
 };
 
 export type SourceSpan = {
@@ -54,6 +57,9 @@ export type SourceSpan = {
   // Set on a clip made from a session's old main audio before its file's
   // length was known; it takes that length once the media reports it.
   fitsMedia?: true;
+  // Set on a MIDI clip: its notes, which its track's synth plays (see
+  // midi-clip.ts).
+  notes?: MidiNote[];
   tint: string;
   accent: string;
 };
