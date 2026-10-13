@@ -66,7 +66,7 @@ export function buildArchiveOpenPayload(
         name: basename(rawPath),
         url: entry
           ? URL.createObjectURL(
-              withMediaType(entry.file, inferMediaKind(rawPath)),
+              withMediaType(entry.file, rawPath),
             )
           : "",
         exists: Boolean(entry),

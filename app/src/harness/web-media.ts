@@ -526,7 +526,7 @@ async function analyzeLocalMediaFile(
   const image =
     file.type === SVG_MIME_TYPE || inferMediaKind(file.name) === "image";
   const previewUrl = URL.createObjectURL(
-    image ? withMediaType(file, "image") : file,
+    image ? withMediaType(file, file.name) : file,
   );
   const options: MediaAnalysisOptions = {
     id: createMediaId(file),

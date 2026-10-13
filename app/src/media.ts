@@ -1,8 +1,8 @@
 import { parseCubeLut } from "./fx/effects/lut/cube.ts";
 import type { ServerMediaRef } from "./session";
 
-// Images (SVG) and LUTs (.cube) have no timeline clips; they only feed
-// effects such as Shape ▸ Custom and LUT.
+// Images make 1-bar clips and SVGs also feed Shape ▸ Custom; LUTs (.cube)
+// have no timeline clips and only feed the LUT effect.
 export type MediaKind = "video" | "audio" | "image" | "lut";
 
 export type Palette = {
@@ -218,16 +218,44 @@ export function probeMediaUrlDuration(
 
 export const SVG_MIME_TYPE = "image/svg+xml";
 
+// The MIME type of each image extension the app imports.
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  ".svg": SVG_MIME_TYPE,
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".apng": "image/apng",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".avif": "image/avif",
+};
+
+function fileExtension(name: string) {
+  return name.slice(Math.max(0, name.lastIndexOf("."))).toLowerCase();
+}
+
+/** The MIME type of the image file `name`, or undefined for other media. */
+export function imageMimeType(name: string): string | undefined {
+  return IMAGE_MIME_TYPES[fileExtension(name)];
+}
+
+/** Whether `type` is the MIME type of an image the app imports. */
+export function isImageMimeType(type: string) {
+  return Object.values(IMAGE_MIME_TYPES).includes(type);
+}
+
 // The blob each typed copy made by withMediaType wraps.
 const typedMediaSources = new WeakMap<Blob, Blob>();
 
 // Browsers only render an SVG served with its MIME type, which blobs read
-// back from the media cache or a project archive lack.
-export function withMediaType(blob: Blob, kind: MediaKind): Blob {
-  if (kind !== "image" || blob.type === SVG_MIME_TYPE) {
+// back from the media cache or a project archive lack. Other images get
+// theirs too, so they decode by type like a freshly picked file.
+export function withMediaType(blob: Blob, name: string): Blob {
+  const type = imageMimeType(name);
+  if (!type || blob.type === type) {
     return blob;
   }
-  const typed = new Blob([blob], { type: SVG_MIME_TYPE });
+  const typed = new Blob([blob], { type });
   typedMediaSources.set(typed, mediaBlobSource(blob));
   return typed;
 }
@@ -240,6 +268,11 @@ export function mediaBlobSource(blob: Blob): Blob {
 
 export function isImageMedia(item: Pick<MediaItem, "kind">) {
   return item.kind === "image";
+}
+
+// Shape ▸ Custom masks are drawn from SVG images only.
+export function isSvgMedia(item: Pick<MediaItem, "kind" | "name">) {
+  return isImageMedia(item) && imageMimeType(item.name) === SVG_MIME_TYPE;
 }
 
 export function isLutMedia(item: Pick<MediaItem, "kind">) {
@@ -270,23 +303,15 @@ export function rejectMalformedLuts<T extends MediaItem>(items: readonly T[]) {
 
 // The status after importing only `items` that make no clips.
 export function describeEffectMediaImport(items: readonly MediaItem[]) {
-  const images = items.filter(isImageMedia).length;
   const luts = items.filter(isLutMedia).length;
-  return [
-    images
-      ? `Imported ${images} image${images === 1 ? "" : "s"} for Shape ▸ Custom.`
-      : "",
-    luts
-      ? `Imported ${luts} LUT${luts === 1 ? "" : "s"} for the LUT effect.`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return luts
+    ? `Imported ${luts} LUT${luts === 1 ? "" : "s"} for the LUT effect.`
+    : "";
 }
 
-// Media that only feeds effects and makes no clips: images and LUTs.
+// Media that only feeds effects and makes no clips: LUTs.
 export function isEffectMedia(item: Pick<MediaItem, "kind">) {
-  return item.kind === "image" || item.kind === "lut";
+  return item.kind === "lut";
 }
 
 export function createMediaId(file: File) {
@@ -294,10 +319,10 @@ export function createMediaId(file: File) {
 }
 
 export function inferMediaKind(name: string): MediaKind {
-  const extension = name
-    .slice(Math.max(0, name.lastIndexOf(".")))
-    .toLowerCase();
-  switch (extension) {
+  if (imageMimeType(name)) {
+    return "image";
+  }
+  switch (fileExtension(name)) {
     case ".wav":
     case ".mp3":
     case ".m4a":
@@ -308,8 +333,6 @@ export function inferMediaKind(name: string): MediaKind {
     case ".ogg":
     case ".oga":
       return "audio";
-    case ".svg":
-      return "image";
     case ".cube":
       return "lut";
     default:
