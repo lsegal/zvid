@@ -2,7 +2,7 @@ import {
   type AgentCommandHost,
   type AgentRelayHello,
   respondToAgentRelayMessage,
-} from "./protocol";
+} from "./protocol.ts";
 
 // A zvid page opened with `?agent-relay` (or `?agent-relay=<port or ws URL>`)
 // connects to the external-agent relay (scripts/agent-relay) and runs the

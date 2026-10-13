@@ -2,7 +2,7 @@ import {
   type AgentCommandHost,
   type AgentRelayResult,
   runAgentRelayRequest,
-} from "./protocol";
+} from "./protocol.ts";
 
 // In the desktop app the native process listens for the relay on a local
 // port (src-tauri/src/agent_relay.rs) and hands each request to this window
