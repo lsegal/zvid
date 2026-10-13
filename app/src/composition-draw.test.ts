@@ -899,6 +899,107 @@ describe("drawComposition fill layers", () => {
     assert.equal(preview(WIDTH - 60), true);
     assert.equal(renderStats.fillRasterizations - before, 2);
   });
+
+  describe("shrunk by a Transform", () => {
+    // A dot a quarter of the canvas on each side, as in a grid of hundreds.
+    const DOT: LayerTransform = {
+      ...IDENTITY_TRANSFORM,
+      positionX: 0.2,
+      scaleX: 0.25,
+      scaleY: 0.25,
+    };
+    const RED_TO_CLEAR: FillPaint = {
+      kind: "radial",
+      stops: [
+        { offset: 0.45, color: { r: 255, g: 0, b: 0, a: 1 } },
+        { offset: 0.5, color: { r: 255, g: 0, b: 0, a: 0 } },
+      ],
+      opacity: 1,
+    };
+    const dotLayer = (
+      fill: FillPaint,
+      lane = 0,
+      effects: ChainEffect[] = [],
+    ) => {
+      const layer = fillLayer(fill, lane);
+      return {
+        ...layer,
+        visual: { ...layer.visual, clipTransform: DOT },
+        effectChain: resolveEffectChain(effects, `lane-${lane}`),
+      };
+    };
+
+    it("draws a fill without effects straight onto the canvas", () => {
+      const recording = createRecordingGl();
+      const resources = createWebGlResources(recording.gl);
+      const composites = drawFrame(recording, resources, [dotLayer(RED_FILL)]);
+      assert.ok(
+        recording.draws.every((draw) => draw.framebuffer === null),
+        "nothing is framed offscreen",
+      );
+      assert.equal(composites.length, 1);
+      const surface = { width: WIDTH, height: HEIGHT };
+      const { frame } = resolveLayerPlacement({
+        index: 0,
+        count: 1,
+        canvasWidth: WIDTH,
+        canvasHeight: HEIGHT,
+        sourceWidth: WIDTH,
+        sourceHeight: HEIGHT,
+        visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
+      });
+      const expected = matrixQuadAxes(
+        frame,
+        nestedTransformMatrix(
+          frameBoxInCanvas(frame, surface),
+          surface,
+          undefined,
+          DOT,
+        ),
+        surface,
+      );
+      assert.deepEqual(composites[0].axes, {
+        uAxisX: expected.axisX,
+        uAxisY: expected.axisY,
+        uOffset: expected.offset,
+      });
+    });
+
+    it("runs a fill's effects at the size it is drawn", () => {
+      const recording = createRecordingGl();
+      const resources = createWebGlResources(recording.gl);
+      drawFrame(recording, resources, [
+        dotLayer(RED_FILL, 0, [colorize("lane-0")]),
+      ]);
+      const offscreen = recording.draws.filter(
+        (draw) => draw.framebuffer !== null,
+      );
+      assert.ok(offscreen.length >= 2, "the fill is framed, then filtered");
+      for (const draw of offscreen) {
+        assert.deepEqual(draw.viewport, [0, 0, WIDTH / 4, HEIGHT / 4]);
+      }
+    });
+
+    it("draws a gradient at the size it is drawn", () => {
+      const recording = createRecordingGl();
+      const resources = createWebGlResources(recording.gl);
+      drawFrame(recording, resources, [dotLayer(RED_TO_CLEAR)]);
+      const [upload] = recording.uploads;
+      assert.deepEqual([upload[3], upload[4]], [WIDTH / 4, HEIGHT / 4]);
+    });
+
+    it("draws a gradient once for every clip filled alike", () => {
+      const recording = createRecordingGl();
+      const resources = createWebGlResources(recording.gl);
+      const before = renderStats.fillRasterizations;
+      const dots = [0, 1, 2].map((lane) => dotLayer(RED_TO_CLEAR, lane));
+      drawFrame(recording, resources, dots, new Map(), Z_ORDER_COMPOSITION);
+      assert.equal(renderStats.fillRasterizations - before, 1);
+      assert.equal(recording.uploads.length, 3, "each clip has its texture");
+      const pixels = recording.uploads.map((upload) => upload.at(-1));
+      assert.ok(pixels.every((drawn) => drawn === pixels[0]));
+    });
+  });
 });
 
 describe("drawComposition text layers", () => {
