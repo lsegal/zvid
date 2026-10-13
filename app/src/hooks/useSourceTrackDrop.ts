@@ -34,6 +34,8 @@ import { useThumbnailCache } from "../use-thumbnail-cache";
 
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
+  // Sizes the preview of a dropped image, whose clip is a bar long.
+  bpm: number;
   appShellRef: RefObject<HTMLDivElement | null>;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   labelWidth: number;
@@ -79,6 +81,7 @@ const releasePreviewThumbnail = (
 // source track drop target.
 export function useSourceTrackDrop({
   mediaItems,
+  bpm,
   appShellRef,
   timelineScrollRef,
   labelWidth,
@@ -213,7 +216,8 @@ export function useSourceTrackDrop({
               label: stripFilenameExtension(previewItem.name),
               status: "ready",
               kind: previewItem.kind,
-              durationSeconds: previewItem.durationSeconds,
+              durationSeconds: getSourceDropPreviewItems([previewItem], bpm)[0]
+                ?.durationSeconds,
               thumbnailUrl,
             };
           });
@@ -236,7 +240,7 @@ export function useSourceTrackDrop({
         }
       })();
     },
-    [mediaItems.length],
+    [bpm, mediaItems.length],
   );
 
   // Media from the Media drawer is already analyzed, so its card is ready at
@@ -257,7 +261,7 @@ export function useSourceTrackDrop({
         if (!first) {
           return null;
         }
-        const previewItems = getSourceDropPreviewItems(items);
+        const previewItems = getSourceDropPreviewItems(items, bpm);
         return {
           dragKey,
           fileCount: items.length,
@@ -272,7 +276,7 @@ export function useSourceTrackDrop({
         };
       });
     },
-    [mediaItems],
+    [bpm, mediaItems],
   );
 
   // Most browsers hide the dragged files until drop, exposing only their

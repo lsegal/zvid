@@ -56,11 +56,13 @@ import {
   beginTextureDraw,
   createSourceTextures,
   fitTextureSize,
+  imageFrameOf,
+  type MediaSource,
   releaseAllTextures,
   type SourceTextures,
   uploadFillTexture,
+  uploadMediaTexture,
   uploadTextTexture,
-  uploadVideoTexture,
 } from "./composition-textures.ts";
 import {
   type Box,
@@ -113,7 +115,10 @@ export type CompositeLayer = {
     laneId?: string;
     durationSeconds?: number;
   };
-  media: { id: string; width?: number; height?: number };
+  // Image clips also name their kind, URL and file name.
+  media: MediaSource["media"] & { id: string };
+  // Seconds into the media the clip shows, which picks an animation's frame.
+  mediaTime?: number;
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
   isInBounds: boolean;
@@ -352,22 +357,15 @@ function drawLayer(
     settled = uploaded.settled;
     sourceOpacity = entry.fill?.opacity ?? 1;
   } else {
-    if (!(mediaElement instanceof HTMLVideoElement)) {
-      return true;
-    }
-
-    const uploaded = uploadVideoTexture(
-      resources,
-      entry.sourceKey,
-      entry.media,
-      mediaElement,
-    );
+    const uploaded = uploadMediaTexture(resources, entry, mediaElement, {
+      width,
+      height,
+    });
     if (!uploaded) {
       return true;
     }
-    texture = wholeTexture(uploaded);
-    sourceWidth = mediaElement.videoWidth || entry.media.width || width;
-    sourceHeight = mediaElement.videoHeight || entry.media.height || height;
+    texture = wholeTexture(uploaded.texture);
+    ({ width: sourceWidth, height: sourceHeight } = uploaded);
   }
 
   const placement = resolveLayerPlacement({
@@ -568,7 +566,8 @@ export function drawComposition(
         : entry.isInBounds &&
           (entry.fill ||
             entry.text ||
-            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
+            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement ||
+            imageFrameOf(entry))
     ) {
       drawnLayers.push(entry);
     }

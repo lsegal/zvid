@@ -1,6 +1,6 @@
-// What an exact frame waits for besides its media: text fonts, the SVGs of
-// Custom shapes and LUTs' .cube files, bundled or from the media library. A
-// paused preview redraws when any of them loads.
+// What an exact frame waits for besides its video: image clips' frames,
+// text fonts, the SVGs of Custom shapes and LUTs' .cube files, bundled or
+// from the media library. A paused preview redraws when any of them loads.
 
 import type { ActiveClip, SessionEffect } from "./composition-active-clips.ts";
 import { bundledLutsIn, customLutMediaPaths } from "./fx/effects/lut/lut.ts";
@@ -14,13 +14,20 @@ import {
   subscribeShapeImages,
 } from "./fx/effects/shape/custom-mask.ts";
 import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
+import { loadImageFrame, subscribeImageMedia } from "./image-media-frames.ts";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 
 export async function loadFrameAssets(
-  clips: readonly Pick<ActiveClip, "text">[],
+  clips: readonly Pick<
+    ActiveClip,
+    "text" | "media" | "mediaTime" | "isInBounds"
+  >[],
   effects: readonly SessionEffect[],
 ) {
   await Promise.all([
+    ...clips
+      .filter(({ media, isInBounds }) => isInBounds && media.kind === "image")
+      .map(({ media, mediaTime }) => loadImageFrame(media, mediaTime)),
     loadTextFaces(clips.map((entry) => entry.text)),
     loadShapeSvgs(customShapeMediaPaths(effects)),
     loadLutFiles(customLutMediaPaths(effects)),
@@ -32,7 +39,9 @@ export function subscribeFrameAssets(listener: () => void) {
   const unsubscribeFonts = subscribeFonts(listener);
   const unsubscribeShapes = subscribeShapeImages(listener);
   const unsubscribeLuts = subscribeLutMedia(listener);
+  const unsubscribeImages = subscribeImageMedia(listener);
   return () => {
+    unsubscribeImages();
     unsubscribeFonts();
     unsubscribeShapes();
     unsubscribeLuts();

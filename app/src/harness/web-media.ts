@@ -1,12 +1,14 @@
 import type { RecordingProbe } from "../als-import";
 import { readCubeLut } from "../fx/effects/lut/lut-media.ts";
+import { imageAnimationSeconds } from "../image-media-frames.ts";
 import {
   createMediaId,
+  imageMimeType,
   inferMediaKind,
+  isImageMimeType,
   type MediaItem,
   type Palette,
   probeImageUrl,
-  SVG_MIME_TYPE,
   withMediaType,
 } from "../media";
 import { probeMediaDetails } from "../media-details.ts";
@@ -457,24 +459,41 @@ async function createMetadataFallbackItem(
   };
 }
 
+// The people-facing names of image formats, by MIME type.
+const IMAGE_CONTAINERS: Record<string, string> = {
+  "image/svg+xml": "SVG",
+  "image/jpeg": "JPEG",
+  "image/png": "PNG",
+  "image/apng": "APNG",
+  "image/webp": "WebP",
+  "image/gif": "GIF",
+  "image/avif": "AVIF",
+};
+
 // An image has no tracks for mediabunny to read; its own URL is its
-// thumbnail. One that won't load is kept, offline, so the import still shows
-// it.
+// thumbnail, and an animated one is as long as its loop. One that won't
+// load is kept, offline, so the import still shows it.
 async function analyzeImageMedia(
   options: MediaAnalysisOptions,
 ): Promise<MediaItem> {
   const size = await probeImageUrl(options.previewUrl).catch(() => undefined);
+  const durationSeconds = size
+    ? await imageAnimationSeconds({
+        previewUrl: options.previewUrl,
+        name: options.name,
+      })
+    : 0;
   return {
     id: options.id,
     name: options.name,
     kind: "image",
-    durationSeconds: 0,
+    durationSeconds,
     width: size?.width,
     height: size?.height,
     hasAudio: false,
     hasVideo: false,
     fileSizeBytes: options.fileSizeBytes,
-    container: "SVG",
+    container: IMAGE_CONTAINERS[imageMimeType(options.name) ?? ""],
     lastModified: options.lastModified,
     color: options.palette.color,
     accent: options.palette.accent,
@@ -524,9 +543,9 @@ async function analyzeLocalMediaFile(
   runtime: WebMediaRuntime,
 ) {
   const image =
-    file.type === SVG_MIME_TYPE || inferMediaKind(file.name) === "image";
+    isImageMimeType(file.type) || inferMediaKind(file.name) === "image";
   const previewUrl = URL.createObjectURL(
-    image ? withMediaType(file, "image") : file,
+    image ? withMediaType(file, file.name) : file,
   );
   const options: MediaAnalysisOptions = {
     id: createMediaId(file),

@@ -27,7 +27,7 @@ import {
 import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
-import type { MediaItem } from "../../media";
+import { type MediaItem, showsPicture } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
 import {
   describeMediaSync,
@@ -129,7 +129,7 @@ export const SourceSpan = memo(function SourceSpan({
         )) ??
       media?.thumbnailUrl);
   const filmstrip =
-    !collapsed && media?.hasVideo && mediaState === "online"
+    !collapsed && media && showsPicture(media) && mediaState === "online"
       ? spanFilmstrips.get(clip.id)
       : undefined;
   const mediaSync = media

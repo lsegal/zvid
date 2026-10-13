@@ -26,7 +26,7 @@ import { describeFxClip, isFxClip } from "../../fx-clip.ts";
 import { clipEffectTrackId, type SessionEffect } from "../../fx-stack";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { usePreviewEditing } from "../../hooks/usePreviewEditing.ts";
-import type { MediaItem } from "../../media";
+import { type MediaItem, showsPicture } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
 import {
   describeMediaSync,
@@ -142,7 +142,8 @@ export const ClipCard = memo(function ClipCard({
     !collapsed &&
     firstPiece &&
     firstPiece.startQ === clip.startQ &&
-    firstPieceMedia?.hasVideo &&
+    firstPieceMedia &&
+    showsPicture(firstPieceMedia) &&
     describeClipMediaState(firstPiece, firstPieceMedia.availability) ===
       "online"
       ? (thumbnails.get(

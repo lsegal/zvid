@@ -15,8 +15,15 @@ export const MEDIA_EXTENSIONS = [
   "opus",
   "ogg",
   "oga",
-  // Images, used by effects such as Shape ▸ Custom rather than as clips.
+  // Images, which make clips; SVGs also feed Shape ▸ Custom.
   "svg",
+  "jpg",
+  "jpeg",
+  "png",
+  "apng",
+  "webp",
+  "gif",
+  "avif",
   // 3D LUTs, used by the LUT effect.
   "cube",
 ];

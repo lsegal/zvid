@@ -9,6 +9,7 @@ import { readHydratableMedia } from "../app/media-hydration.ts";
 import {
   buildStandaloneProject,
   hydrateProjectMedia,
+  makesStandaloneClip,
   patchProjectState,
   sessionToProject,
 } from "../app/session-project.ts";
@@ -30,7 +31,6 @@ import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
 import { getHarness, type SaveTarget, type SessionSelection } from "../harness";
 import {
   buildFallbackMediaItem,
-  isEffectMedia,
   type MediaItem,
   rejectMalformedLuts,
   toShareableMediaItem,
@@ -352,9 +352,9 @@ export function useSessionIO({
       const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
 
       const nextMedia = [...projectMediaItems, ...sharedAnalyzed];
-      // Images and LUTs make no clips, so importing only those keeps the
-      // timeline.
-      if (!sessionName && analyzed.some((item) => !isEffectMedia(item))) {
+      // Images and LUTs make no clips here, so importing only those keeps
+      // the timeline; images are dropped onto source tracks instead.
+      if (!sessionName && analyzed.some(makesStandaloneClip)) {
         const standalone = buildStandaloneProject(nextMedia);
         commitProjectChange("Import media", (current) =>
           patchProjectState(current, {
