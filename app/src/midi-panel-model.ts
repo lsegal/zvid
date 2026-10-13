@@ -5,11 +5,14 @@ import type { SourceSelection } from "./app/source-selection.ts";
 import { getClipDurationQ, secondsToQuarters } from "./app/timeline-math.ts";
 import type { SourceSpan, SourceTrack } from "./app/types.ts";
 import { type MidiNote, type SynthParams, synthParamsOf } from "./midi-clip.ts";
+import { type Arpeggiator, arpeggiatorOf } from "./note-generators.ts";
 
 export type SynthTrackModel = {
   trackId: string;
   trackName: string;
   synth: SynthParams;
+  // Its arpeggiator, when its chain has one.
+  arpeggiator?: Arpeggiator;
 };
 
 export type MidiClipModel = {
@@ -40,7 +43,13 @@ export function getMidiPanelModel(
     return {};
   }
   const synth = synthParamsOf(track.synth);
-  const fxSynthTrack = { trackId: track.id, trackName: track.name, synth };
+  const arpeggiator = arpeggiatorOf(track.noteGenerators);
+  const fxSynthTrack: SynthTrackModel = {
+    trackId: track.id,
+    trackName: track.name,
+    synth,
+    ...(arpeggiator ? { arpeggiator } : {}),
+  };
   const span = sourceSpans.find(
     (candidate) => candidate.id === selection?.sourceSpanId,
   );
@@ -64,4 +73,5 @@ export function getMidiPanelModel(
 // The FX chain's fold keys for the Synth device and the piano roll, kept
 // with the devices' (see fx-chain.ts).
 export const SYNTH_COLLAPSE_KEY = "synth";
+export const ARPEGGIATOR_COLLAPSE_KEY = "arpeggiator";
 export const PIANO_ROLL_COLLAPSE_KEY = "midi-notes";

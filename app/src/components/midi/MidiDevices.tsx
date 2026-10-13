@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import {
+  ARPEGGIATOR_COLLAPSE_KEY,
   type MidiClipModel,
   PIANO_ROLL_COLLAPSE_KEY,
   SYNTH_COLLAPSE_KEY,
@@ -7,6 +8,7 @@ import {
 } from "../../midi-panel-model.ts";
 import { useSynthDeviceReveal } from "../../synth-device-reveal.ts";
 import type { FxCollapseState } from "../fx/FxChain";
+import { ArpeggiatorDevice, type SetArpeggiator } from "./ArpeggiatorDevice";
 import { PianoRoll, type SetMidiClipNotes } from "./PianoRoll";
 import { type SetSynthParam, SynthDevice } from "./SynthDevice";
 
@@ -14,6 +16,7 @@ type MidiDevicesProps = FxCollapseState & {
   synthTrack: SynthTrackModel | undefined;
   midiClip: MidiClipModel | undefined;
   setSynthParam: SetSynthParam;
+  setArpeggiator: SetArpeggiator;
   setNotes: SetMidiClipNotes;
   // Unfolds the FX panel when a track handle's instrument button asks for
   // its Synth device.
@@ -21,13 +24,14 @@ type MidiDevicesProps = FxCollapseState & {
 };
 
 // The FX panel's MIDI devices for the source selection: the track's Synth
-// device, then the selected MIDI clip's piano roll.
+// device, led by its Arpeggiator, then the selected MIDI clip's piano roll.
 export function MidiDevices({
   collapsed,
   toggleCollapsed,
   synthTrack,
   midiClip,
   setSynthParam,
+  setArpeggiator,
   setNotes,
   revealPanel,
 }: MidiDevicesProps) {
@@ -51,6 +55,15 @@ export function MidiDevices({
 
   return (
     <>
+      {synthTrack ? (
+        <ArpeggiatorDevice
+          collapsed={collapsed.has(ARPEGGIATOR_COLLAPSE_KEY)}
+          key={`arp-${synthTrack.trackId}`}
+          model={synthTrack}
+          onSet={setArpeggiator}
+          onToggleCollapsed={() => toggleCollapsed(ARPEGGIATOR_COLLAPSE_KEY)}
+        />
+      ) : null}
       {synthTrack ? (
         <SynthDevice
           collapsed={synthCollapsed}

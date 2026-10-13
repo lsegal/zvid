@@ -4,6 +4,7 @@ import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
+import type { NoteGenerator } from "./note-generators.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
@@ -39,6 +40,11 @@ export type ProjectSession = {
      * they play through the default synth.
      */
     synth?: SynthParams;
+    /**
+     * zvid-only: the note generators, such as an arpeggiator, that turn the
+     * track's MIDI clips' notes into what its synth plays.
+     */
+    noteGenerators?: NoteGenerator[];
     recordings?: Array<{
       filename: string;
       frameStart?: number;

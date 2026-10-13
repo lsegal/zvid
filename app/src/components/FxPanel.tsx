@@ -54,6 +54,7 @@ export type FxPanelProps = Pick<
     | "setLayerFxEnabled"
     | "setSourceTrackFxEnabled"
     | "setSourceTrackSynth"
+    | "setSourceTrackArp"
     | "setMidiClipNotes"
   > & {
     isInspectorCollapsed: boolean;
@@ -107,6 +108,7 @@ export function FxPanel({
   setLayerFxEnabled,
   setSourceTrackFxEnabled,
   setSourceTrackSynth,
+  setSourceTrackArp,
   setMidiClipNotes,
   sheetHeader,
   sourceClip,
@@ -160,6 +162,7 @@ export function FxPanel({
                     toggleInspectorCollapsed();
                   }
                 }}
+                setArpeggiator={setSourceTrackArp}
                 setNotes={setMidiClipNotes}
                 setSynthParam={setSourceTrackSynth}
                 synthTrack={fxSynthTrack}

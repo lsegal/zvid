@@ -7,6 +7,7 @@ import {
   type MidiNote,
   type SynthParams,
 } from "../midi-clip.ts";
+import { DEFAULT_ARPEGGIATOR, type NoteGenerator } from "../note-generators.ts";
 import { renderAudioMixOffline } from "./offline.ts";
 import { type AudioMixPlayback, PreviewAudioMixer } from "./preview-mixer.ts";
 import { resolveAudioClips } from "./resolve.ts";
@@ -25,11 +26,21 @@ const NOTES: MidiNote[] = [
   { pitch: 72, start: 4, length: 1, velocity: 127 },
 ];
 
-function midiMix(notes = NOTES, synth?: SynthParams) {
+function midiMix(
+  notes = NOTES,
+  synth?: SynthParams,
+  noteGenerators?: NoteGenerator[],
+) {
   return resolveAudioClips({
     clips: [],
     lanes: [],
-    sourceTracks: [{ id: "keys", ...(synth ? { synth } : {}) }],
+    sourceTracks: [
+      {
+        id: "keys",
+        ...(synth ? { synth } : {}),
+        ...(noteGenerators ? { noteGenerators } : {}),
+      },
+    ],
     sourceSpans: [
       {
         id: "midi",
@@ -46,13 +57,21 @@ function midiMix(notes = NOTES, synth?: SynthParams) {
   });
 }
 
-async function render(notes = NOTES, synth?: SynthParams) {
-  const channels = await renderAudioMixOffline(midiMix(notes, synth), [], {
-    sampleRate: SAMPLE_RATE,
-    numberOfChannels: 2,
-    startSeconds: 0,
-    length: 6 * SAMPLE_RATE,
-  });
+async function render(
+  notes = NOTES,
+  synth?: SynthParams,
+  noteGenerators?: NoteGenerator[],
+) {
+  const channels = await renderAudioMixOffline(
+    midiMix(notes, synth, noteGenerators),
+    [],
+    {
+      sampleRate: SAMPLE_RATE,
+      numberOfChannels: 2,
+      startSeconds: 0,
+      length: 6 * SAMPLE_RATE,
+    },
+  );
   if (!channels) {
     throw new Error("The MIDI clip rendered nothing");
   }
@@ -113,6 +132,61 @@ test("export follows edits to the notes and to the synth", async () => {
     );
   }
   expect(difference).toBeGreaterThan(0.05);
+});
+
+// How many times the signal crosses zero from `from` to `to` seconds, which
+// grows with the pitch it plays.
+function zeroCrossings(samples: Float32Array, from: number, to: number) {
+  let crossings = 0;
+  for (
+    let index = Math.floor(from * SAMPLE_RATE) + 1;
+    index < to * SAMPLE_RATE;
+    index++
+  ) {
+    if (samples[index - 1] < 0 !== samples[index] < 0) {
+      crossings++;
+    }
+  }
+  return crossings;
+}
+
+test("export renders an arpeggiated performance at the arpeggiator's rate", async () => {
+  // Middle C held for the clip's four seconds, through a sine, arpeggiated
+  // in eighths (a quarter of a second) up two octaves: it alternates
+  // between middle C and the C above on every step from 1 s.
+  const held: MidiNote[] = [{ pitch: 60, start: 0, length: 8, velocity: 127 }];
+  const sine = { ...DEFAULT_SYNTH_PARAMS, wave: "sine" as const };
+  const arp = {
+    ...DEFAULT_ARPEGGIATOR,
+    rate: 0.5 as const,
+    octaves: 2,
+  };
+  const samples = await render(held, sine, [arp]);
+  const stepPitches = Array.from({ length: 16 }, (_, step) => {
+    const start = 1 + step * 0.25;
+    // Each step sounds, its onset on the step.
+    expect(peak(samples, start + 0.02, start + 0.2)).toBeGreaterThan(0.05);
+    return zeroCrossings(samples, start + 0.03, start + 0.22);
+  });
+  for (const [step, crossings] of stepPitches.entries()) {
+    // About 100 crossings for middle C in the window, 200 an octave up.
+    if (step % 2) {
+      expect(crossings).toBeGreaterThan(180);
+    } else {
+      expect(crossings).toBeGreaterThan(85);
+      expect(crossings).toBeLessThan(115);
+    }
+  }
+  expect(peak(samples, 5.25, 6)).toBeLessThan(1e-4);
+
+  // Bypassed, it plays the held note at one pitch throughout.
+  const bypassed = await render(held, sine, [{ ...arp, enabled: false }]);
+  for (let step = 0; step < 16; step++) {
+    const start = 1 + step * 0.25;
+    const crossings = zeroCrossings(bypassed, start + 0.03, start + 0.22);
+    expect(crossings).toBeGreaterThan(85);
+    expect(crossings).toBeLessThan(115);
+  }
 });
 
 // Hears the mix: the loudest sample since it was last asked.

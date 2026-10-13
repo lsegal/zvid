@@ -39,8 +39,10 @@ import {
   midiHistoryLabels,
   type SynthParamKey,
   setSourceSpanNotes,
+  setSourceTrackArpeggiator,
   setSourceTrackSynthParam,
 } from "../midi-editing.ts";
+import type { Arpeggiator } from "../note-generators.ts";
 import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
 import {
@@ -194,6 +196,19 @@ export function useFxEditing({
             },
       );
     },
+    [dispatchProject],
+  );
+
+  // The Arpeggiator device's edits: `arp` replaces the track's arpeggiator,
+  // or removes it when undefined, as one history entry labeled `label`.
+  const setSourceTrackArp = useCallback(
+    (trackId: string, arp: Arpeggiator | undefined, label: string) =>
+      dispatchProject({
+        type: "commit",
+        label,
+        updater: (current: ProjectState) =>
+          setSourceTrackArpeggiator(current, trackId, arp),
+      }),
     [dispatchProject],
   );
 
@@ -425,6 +440,7 @@ export function useFxEditing({
     setLayerHidden,
     setSourceTrackHidden,
     setSourceTrackSynth,
+    setSourceTrackArp,
     setMidiClipNotes,
     setFxDeviceEnabled,
     setFxDeviceParameter,

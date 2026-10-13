@@ -2,6 +2,8 @@
    (fx-chain.css). */
 .synth-device .fx-device-panel__title,
 .synth-device .fx-device-panel__name,
+.arp-device .fx-device-panel__title,
+.arp-device .fx-device-panel__name,
 .piano-roll .fx-device-panel__title,
 .piano-roll .fx-device-panel__name {
   cursor: default;
@@ -135,4 +137,16 @@
 .piano-roll__note--dragging {
   cursor: grabbing;
   opacity: 0.85;
+}
+
+/* The Arpeggiator's settings stack, one segmented choice per row. */
+.arp-device__body {
+  grid-template-columns: auto;
+}
+
+/* The add strip's plus sits above its label. */
+.arp-device__add-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--fx-accent);
 }
