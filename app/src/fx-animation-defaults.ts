@@ -7,15 +7,15 @@ import { ORDER_EFFECT_NAME } from "./composition-order.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
 import { COLOR_EFFECT_NAME } from "./fill-paint.ts";
 import {
-  MOVE_WAYPOINT_LIMIT,
-  moveWaypointPrefix,
-} from "./fx/effects/move/move.ts";
-import {
   LEVELS_EFFECT_NAME,
   WHEEL_CHANNELS,
   WHEELS,
   wheelKey,
 } from "./fx/effects/levels/levels.ts";
+import {
+  MOVE_WAYPOINT_LIMIT,
+  moveWaypointPrefix,
+} from "./fx/effects/move/move.ts";
 import {
   TRANSITION_EFFECT_NAME,
   TRANSITION_FRAMES,
