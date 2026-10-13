@@ -6,6 +6,7 @@
 import { formatCssColor, type GradientStop } from "./fill-paint.ts";
 import { type FontFace, formatFontSpec } from "./text-fonts.ts";
 import { layoutText, type TextLayout } from "./text-layout.ts";
+import { type CircleTextLayout, layoutCircleText } from "./text-path.ts";
 import { MIN_FONT_SIZE, type TextPaint, type TextStyle } from "./text-style.ts";
 
 export type TextCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -40,14 +41,18 @@ function setLetterSpacing(context: Context2D, pixels: number) {
   }
 }
 
+type Point = [x: number, y: number];
+
 // CSS gradient geometry: a linear gradient runs through the box center at
 // its angle, just long enough to reach the far corners; a radial one reaches
-// the farthest corner.
+// the farthest corner. `toLocal` maps box points into the context's current
+// transform, so a rotated glyph still shows its part of the box's gradient.
 function createPaintStyle(
   context: Context2D,
   paint: TextPaint,
   width: number,
   height: number,
+  toLocal: (point: Point) => Point = (point) => point,
 ) {
   if (paint.kind === "solid") {
     return formatCssColor(paint.color);
@@ -60,19 +65,17 @@ function createPaintStyle(
     const sin = Math.sin(radians);
     const cos = Math.cos(radians);
     const half = (Math.abs(width * sin) + Math.abs(height * cos)) / 2;
-    gradient = context.createLinearGradient(
-      centerX - sin * half,
-      centerY + cos * half,
-      centerX + sin * half,
-      centerY - cos * half,
-    );
+    const [x0, y0] = toLocal([centerX - sin * half, centerY + cos * half]);
+    const [x1, y1] = toLocal([centerX + sin * half, centerY - cos * half]);
+    gradient = context.createLinearGradient(x0, y0, x1, y1);
   } else {
+    const [x, y] = toLocal([centerX, centerY]);
     gradient = context.createRadialGradient(
-      centerX,
-      centerY,
+      x,
+      y,
       0,
-      centerX,
-      centerY,
+      x,
+      y,
       Math.hypot(centerX, centerY),
     );
   }
@@ -160,6 +163,9 @@ export function drawText(
     return undefined;
   }
   context.clearRect(0, 0, canvas.width, canvas.height);
+  if (style.path === "circle") {
+    return drawCircleText(context, style, face, width, height, scale);
+  }
   const layout = layoutTextStyle(context, style, face, width, height, scale);
   const { fontSize, lineHeight } = layout;
   const spacing = style.letterSpacing * fontSize;
@@ -169,9 +175,7 @@ export function drawText(
   context.textBaseline = "alphabetic";
 
   // Lines sit centered in their line box on the font's own ascent and descent.
-  const metrics = context.measureText("Hg");
-  const ascent = metrics.fontBoundingBoxAscent || fontSize * 0.8;
-  const descent = metrics.fontBoundingBoxDescent || fontSize * 0.2;
+  const { ascent, descent } = measureFontBox(context, fontSize);
   const runs: Run[] = [];
   const decorations: Array<{ x: number; y: number; width: number }> = [];
   const thickness = Math.max(1, fontSize * 0.06);
@@ -203,13 +207,8 @@ export function drawText(
     }
   }
 
-  const applyShadow = (on: boolean) => {
-    const shadow = on ? style.shadow : undefined;
-    context.shadowColor = shadow ? formatCssColor(shadow.color) : "transparent";
-    context.shadowBlur = shadow ? shadow.blur * scale : 0;
-    context.shadowOffsetX = shadow ? shadow.offsetX * scale : 0;
-    context.shadowOffsetY = shadow ? shadow.offsetY * scale : 0;
-  };
+  const applyShadow = (on: boolean) =>
+    setShadow(context, on ? style.shadow : undefined, scale);
 
   // The stroke is centered on the outline and the fill covers its inner
   // half, so the visible outline is the stroke width. The shadow is cast by
@@ -235,5 +234,138 @@ export function drawText(
     context.fillRect(line.x, line.y - thickness / 2, line.width, thickness);
   }
   applyShadow(false);
+  return layout;
+}
+
+// The font's own ascent and descent at the context's current font.
+function measureFontBox(context: Context2D, fontSize: number) {
+  const metrics = context.measureText("Hg");
+  return {
+    ascent: metrics.fontBoundingBoxAscent || fontSize * 0.8,
+    descent: metrics.fontBoundingBoxDescent || fontSize * 0.2,
+  };
+}
+
+function setShadow(
+  context: Context2D,
+  shadow: TextStyle["shadow"],
+  scale: number,
+) {
+  context.shadowColor = shadow ? formatCssColor(shadow.color) : "transparent";
+  context.shadowBlur = shadow ? shadow.blur * scale : 0;
+  context.shadowOffsetX = shadow ? shadow.offsetX * scale : 0;
+  context.shadowOffsetY = shadow ? shadow.offsetY * scale : 0;
+}
+
+// Draws the text round a circle centered in the box, each character upright
+// to the circle. Vertical places it against the circle: Top sits on it,
+// Middle centers on it and Bottom hangs inside it.
+function drawCircleText(
+  context: Context2D,
+  style: TextStyle,
+  face: FontFace,
+  width: number,
+  height: number,
+  scale: number,
+): CircleTextLayout {
+  const radius = style.pathRadius * scale;
+  let measuredSize = Number.NaN;
+  setLetterSpacing(context, 0);
+  const layout = layoutCircleText(
+    {
+      text: style.allCaps ? style.text.toUpperCase() : style.text,
+      fontSize: style.fontSize * scale,
+      minFontSize: MIN_FONT_SIZE * scale,
+      resizeToFit: style.resizeToFit,
+      letterSpacing: style.letterSpacing,
+      align: style.align,
+      radius,
+    },
+    (text, fontSize) => {
+      if (fontSize !== measuredSize) {
+        context.font = formatFontSpec(face, fontSize);
+        measuredSize = fontSize;
+      }
+      return context.measureText(text).width;
+    },
+  );
+  const { fontSize } = layout;
+  context.font = formatFontSpec(face, fontSize);
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+  const { ascent, descent } = measureFontBox(context, fontSize);
+  const baseline =
+    style.verticalAlign === "top"
+      ? radius
+      : style.verticalAlign === "bottom"
+        ? radius - ascent
+        : radius - (ascent - descent) / 2;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const thickness = Math.max(1, fontSize * 0.06);
+  const decorations = [
+    ...(style.underline ? [baseline - fontSize * 0.1] : []),
+    ...(style.strikethrough ? [baseline + fontSize * 0.3] : []),
+  ];
+
+  // Shadow offsets ignore the context's transform, so they stay in the box.
+  const applyShadow = (on: boolean) =>
+    setShadow(context, on ? style.shadow : undefined, scale);
+  const drawGlyphs = (mode: "fill" | "stroke", shadow: boolean) => {
+    applyShadow(shadow);
+    for (const glyph of layout.glyphs) {
+      const rotation = glyph.angle + Math.PI / 2;
+      context.setTransform(1, 0, 0, 1, centerX, centerY);
+      context.rotate(rotation);
+      if (mode === "fill") {
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        context.fillStyle = createPaintStyle(
+          context,
+          style.paint,
+          width,
+          height,
+          ([x, y]) => [
+            (x - centerX) * cos + (y - centerY) * sin,
+            (y - centerY) * cos - (x - centerX) * sin,
+          ],
+        );
+        context.fillText(glyph.text, -glyph.width / 2, -baseline);
+      } else {
+        context.strokeText(glyph.text, -glyph.width / 2, -baseline);
+      }
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0);
+  };
+  const drawDecorations = (lineWidth: number, shadow: boolean) => {
+    applyShadow(shadow);
+    context.lineWidth = lineWidth;
+    context.lineCap = "butt";
+    for (const decoration of decorations) {
+      context.beginPath();
+      context.arc(
+        centerX,
+        centerY,
+        Math.max(0, decoration),
+        layout.startAngle,
+        layout.startAngle + layout.sweep,
+      );
+      context.stroke();
+    }
+  };
+
+  // As on straight text, the stroke goes under the fill and whichever is
+  // drawn first casts the shadow.
+  if (style.stroke) {
+    context.strokeStyle = formatCssColor(style.stroke.color);
+    context.lineWidth = style.stroke.width * scale * 2;
+    context.lineJoin = "round";
+    drawGlyphs("stroke", true);
+    drawDecorations(thickness + style.stroke.width * scale * 2, true);
+  }
+  drawGlyphs("fill", !style.stroke);
+  context.strokeStyle = createPaintStyle(context, style.paint, width, height);
+  drawDecorations(thickness, !style.stroke);
+  setShadow(context, undefined, scale);
   return layout;
 }
