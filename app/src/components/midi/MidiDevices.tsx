@@ -42,7 +42,7 @@ export function MidiDevices({
       ) : null}
       {synthTrack ? (
         <SynthDevice
-          collapsed={synthCollapsed}
+          collapsed={collapsed.has(SYNTH_COLLAPSE_KEY)}
           key={synthTrack.trackId}
           model={synthTrack}
           onSetParam={setSynthParam}

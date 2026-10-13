@@ -439,11 +439,7 @@ export function useMenus({
           trackId,
           Math.max(
             0,
-            snapQuarterValue(
-              playheadQRef.current,
-              snapUnit,
-              snapEnabled,
-            ),
+            snapQuarterValue(playheadQRef.current, snapUnit, snapEnabled),
           ),
           barLength,
         ),

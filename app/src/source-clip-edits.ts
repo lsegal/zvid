@@ -83,12 +83,6 @@ export function pasteIntoSourceTrack(
     return undefined;
   }
 
-  const atQ = Math.max(0, startQ);
-  const durationQ = fitMidiClipDurationQ(current, trackId, atQ, maxDurationQ);
-  if (durationQ <= 0) {
-    return undefined;
-  }
-
   const swatch = getSwatch(track.colorIndex);
   const id = createId();
   const copies: Array<[string, string]> = [

@@ -10,6 +10,7 @@ import {
   createMidiClip,
   deleteSourceSpan,
   duplicateSourceSpan,
+  fitMidiClipDurationQ,
   NEW_MIDI_CLIP_LABEL,
   pasteIntoSourceTrack,
   type SourceClipProject,
@@ -407,22 +408,54 @@ describe("createMidiClip", () => {
     ]);
   });
 
-  it("overwrites what it lands on in its own track only", () => {
+  it("ends where the next clip in its own track begins", () => {
     const patch = createMidiClip(
-      project([span("a", 0, 8), span("b", 0, 8, { trackId: "t2" })]),
+      project([span("a", 6, 8), span("b", 3, 8, { trackId: "t2" })]),
       "t1",
       2,
       4,
       "midi",
     );
     assert.deepEqual(timing(patch?.sourceSpans), [
-      "a@t1:0+2q from 10s",
-      "b@t2:0+8q from 10s",
+      "a@t1:6+8q from 10s",
+      "b@t2:3+8q from 10s",
       "midi@t1:2+4q from 0s",
     ]);
+    assert.deepEqual(
+      timing(
+        createMidiClip(project([span("a", 4, 8)]), "t1", 2, 4, "midi")
+          ?.sourceSpans,
+      ),
+      ["a@t1:4+8q from 10s", "midi@t1:2+2q from 0s"],
+    );
+  });
+
+  it("does nothing inside a clip or at its start", () => {
+    const current = project([span("a", 2, 4)]);
+    assert.equal(createMidiClip(current, "t1", 2, 4, "midi"), undefined);
+    assert.equal(createMidiClip(current, "t1", 5, 4, "midi"), undefined);
+    // Right where it ends is free.
+    assert.deepEqual(
+      timing(createMidiClip(current, "t1", 6, 4, "midi")?.sourceSpans),
+      ["a@t1:2+4q from 10s", "midi@t1:6+4q from 0s"],
+    );
   });
 
   it("does nothing for a missing track", () => {
     assert.equal(createMidiClip(project([]), "nope", 0, 4, "midi"), undefined);
+  });
+});
+
+describe("fitMidiClipDurationQ", () => {
+  it("fits up to the most, before the next clip in the track", () => {
+    const current = project([
+      span("a", 0, 2),
+      span("b", 5, 2),
+      span("c", 3, 2, { trackId: "t2" }),
+    ]);
+    assert.equal(fitMidiClipDurationQ(current, "t1", 2, 4), 3);
+    assert.equal(fitMidiClipDurationQ(current, "t1", 8, 4), 4);
+    assert.equal(fitMidiClipDurationQ(current, "t1", 1, 4), 0);
+    assert.equal(fitMidiClipDurationQ(current, "t2", 0, 4), 3);
   });
 });
