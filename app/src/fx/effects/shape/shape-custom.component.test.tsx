@@ -24,7 +24,7 @@ import {
 } from "../../../component-test/fx-scenes.ts";
 import { getDefaultFillColor } from "../../../fill-clip.ts";
 import { analyzeMediaSelection } from "../../../harness/web-media.ts";
-import { isEffectMedia, rejectMalformedLuts } from "../../../media.ts";
+import { isSvgMedia, rejectMalformedLuts } from "../../../media.ts";
 import { setShapeImageMedia } from "./custom-mask.ts";
 import "./pass.ts";
 
@@ -89,8 +89,8 @@ describe("Shape ▸ Custom", { timeout: 60_000 }, () => {
         .toBeVisible();
       await userEvent.keyboard("{Escape}");
 
-      // Importing an SVG reads it as an image that only feeds effects, so
-      // it makes no clips; the app hands the project's media to Shape.
+      // Importing an SVG reads it as an image, which Shape ▸ Custom can
+      // mask with; the app hands the project's media to Shape.
       const { accepted, message } = rejectMalformedLuts(
         await analyzeMediaSelection(
           {
@@ -107,7 +107,7 @@ describe("Shape ▸ Custom", { timeout: 60_000 }, () => {
       expect(accepted.map((item) => [item.name, item.kind])).toEqual([
         ["half.svg", "image"],
       ]);
-      expect(accepted.every(isEffectMedia)).toBe(true);
+      expect(accepted.every(isSvgMedia)).toBe(true);
       setShapeImageMedia(accepted);
 
       await userEvent.click(trigger());

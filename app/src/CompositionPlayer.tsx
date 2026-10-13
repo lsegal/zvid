@@ -774,7 +774,7 @@ export const CompositionPlayer = forwardRef<
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
-  // A paused preview redraws once a text font or Custom shape SVG loads.
+  // A paused preview redraws once an image, font or Custom shape SVG loads.
   useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.

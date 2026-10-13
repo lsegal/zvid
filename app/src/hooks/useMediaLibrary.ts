@@ -505,7 +505,7 @@ export function useMediaLibraryCommands({
         const sharedAnalyzed = analyzed.map((item) =>
           toShareableMediaItem(item),
         );
-        // Images and LUTs go to the Media drawer only; they make no clips.
+        // LUTs go to the Media drawer only; they make no clips.
         const clipMedia = analyzed.filter((item) => !isEffectMedia(item));
 
         commitProjectChange("Drop media into source tracks", (current) => {
