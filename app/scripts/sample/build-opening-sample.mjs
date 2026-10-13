@@ -912,9 +912,14 @@ const dotPaint = (color) => ({
   Gradient: `radial-gradient(circle, ${color} 0%, ${color} 46%, ${color.replace(/,1\)$/, ",0)")} 48%)`,
   Opacity: 1,
 });
+// Positions are rounded: Math.cos and Math.sin can differ in the last bit
+// between platforms, and the generated session must not.
+const steady = (value) => Math.round(value * 1e9) / 1e9 || 0;
 const dotAt = (radius, degrees, size, stretch = 1) => ({
-  x: (radius * stretch * Math.cos((degrees * Math.PI) / 180) * HEIGHT) / WIDTH,
-  y: radius * Math.sin((degrees * Math.PI) / 180),
+  x: steady(
+    (radius * stretch * Math.cos((degrees * Math.PI) / 180) * HEIGHT) / WIDTH,
+  ),
+  y: steady(radius * Math.sin((degrees * Math.PI) / 180)),
   scaleX: size,
   scaleY: size,
 });

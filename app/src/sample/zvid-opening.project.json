@@ -7040,7 +7040,7 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 1.2399548841366951e-17
+          "floatValue": 0
         },
         "EndPositionY": {
           "floatValue": -0.36
@@ -7108,10 +7108,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.04417400638279989
+          "floatValue": 0.044174006
         },
         "Point1PositionY": {
-          "floatValue": -0.351330034297949
+          "floatValue": -0.351330034
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -7129,10 +7129,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.08622030654192724
+          "floatValue": 0.086220307
         },
         "Point2PositionY": {
-          "floatValue": -0.32573773888776697
+          "floatValue": -0.325737739
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -7150,10 +7150,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.1241136783647278
+          "floatValue": 0.124113678
         },
         "Point3PositionY": {
-          "floatValue": -0.28445580445524843
+          "floatValue": -0.284455804
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -7171,10 +7171,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": 0.1560289316620974
+          "floatValue": 0.156028932
         },
         "Point4PositionY": {
-          "floatValue": -0.22947263630952813
+          "floatValue": -0.229472636
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -7192,7 +7192,7 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 1.2399548841366951e-17
+          "floatValue": 0
         },
         "StartPositionY": {
           "floatValue": -0.36
@@ -7213,10 +7213,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.18042882114814457
+          "floatValue": 0.180428821
         },
         "EndPositionY": {
-          "floatValue": -0.1634365799062366
+          "floatValue": -0.16343658
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -7281,10 +7281,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.1753701442663488
+          "floatValue": 0.175370144
         },
         "EndPositionY": {
-          "floatValue": -0.17999999999999997
+          "floatValue": -0.18
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -7349,10 +7349,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.19323366652454607
+          "floatValue": 0.193233667
         },
         "Point1PositionY": {
-          "floatValue": -0.10765468521219115
+          "floatValue": -0.107654685
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -7370,10 +7370,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.20178980399802462
+          "floatValue": 0.201789804
         },
         "Point2PositionY": {
-          "floatValue": -0.030124023599633468
+          "floatValue": -0.030124024
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -7391,10 +7391,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.2006264376954673
+          "floatValue": 0.200626438
         },
         "Point3PositionY": {
-          "floatValue": 0.04885760607634974
+          "floatValue": 0.048857606
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -7412,10 +7412,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": 0.189799602872108
+          "floatValue": 0.189799603
         },
         "Point4PositionY": {
-          "floatValue": 0.12548593703585367
+          "floatValue": 0.125485937
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -7433,10 +7433,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.1753701442663488
+          "floatValue": 0.175370144
         },
         "StartPositionY": {
-          "floatValue": -0.17999999999999997
+          "floatValue": -0.18
         },
         "StartScaleX": {
           "floatValue": 0.05
@@ -7454,10 +7454,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.1698307900089483
+          "floatValue": 0.16983079
         },
         "EndPositionY": {
-          "floatValue": 0.19607005260540994
+          "floatValue": 0.196070053
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -7522,10 +7522,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.1753701442663488
+          "floatValue": 0.175370144
         },
         "EndPositionY": {
-          "floatValue": 0.17999999999999997
+          "floatValue": 0.18
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -7590,10 +7590,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.14905966014174618
+          "floatValue": 0.14905966
         },
         "Point1PositionY": {
-          "floatValue": 0.24367534908575786
+          "floatValue": 0.243675349
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -7611,10 +7611,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.11556949745609738
+          "floatValue": 0.115569497
         },
         "Point2PositionY": {
-          "floatValue": 0.29561371528813346
+          "floatValue": 0.295613715
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -7632,10 +7632,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.07651275933073953
+          "floatValue": 0.076512759
         },
         "Point3PositionY": {
-          "floatValue": 0.33331341053159813
+          "floatValue": 0.333313411
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -7653,10 +7653,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": 0.03377067121001059
+          "floatValue": 0.033770671
         },
         "Point4PositionY": {
-          "floatValue": 0.3549585733453818
+          "floatValue": 0.354958573
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -7674,10 +7674,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.1753701442663488
+          "floatValue": 0.175370144
         },
         "StartPositionY": {
-          "floatValue": 0.17999999999999997
+          "floatValue": 0.18
         },
         "StartScaleX": {
           "floatValue": 0.05
@@ -7695,10 +7695,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.010598031139196263
+          "floatValue": -0.010598031
         },
         "EndPositionY": {
-          "floatValue": 0.35950663251164655
+          "floatValue": 0.359506633
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -7763,7 +7763,7 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 1.2399548841366951e-17
+          "floatValue": 0
         },
         "EndPositionY": {
           "floatValue": 0.36
@@ -7831,10 +7831,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.04417400638279987
+          "floatValue": -0.044174006
         },
         "Point1PositionY": {
-          "floatValue": 0.35133003429794907
+          "floatValue": 0.351330034
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -7852,10 +7852,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.08622030654192721
+          "floatValue": -0.086220307
         },
         "Point2PositionY": {
-          "floatValue": 0.32573773888776697
+          "floatValue": 0.325737739
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -7873,10 +7873,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.12411367836472774
+          "floatValue": -0.124113678
         },
         "Point3PositionY": {
-          "floatValue": 0.2844558044552485
+          "floatValue": 0.284455804
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -7894,10 +7894,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": -0.15602893166209741
+          "floatValue": -0.156028932
         },
         "Point4PositionY": {
-          "floatValue": 0.2294726363095281
+          "floatValue": 0.229472636
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -7915,7 +7915,7 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 1.2399548841366951e-17
+          "floatValue": 0
         },
         "StartPositionY": {
           "floatValue": 0.36
@@ -7936,10 +7936,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.18042882114814457
+          "floatValue": -0.180428821
         },
         "EndPositionY": {
-          "floatValue": 0.16343657990623658
+          "floatValue": 0.16343658
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -8004,10 +8004,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.1753701442663488
+          "floatValue": -0.175370144
         },
         "EndPositionY": {
-          "floatValue": 0.17999999999999997
+          "floatValue": 0.18
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -8072,10 +8072,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.19323366652454607
+          "floatValue": -0.193233667
         },
         "Point1PositionY": {
-          "floatValue": 0.10765468521219115
+          "floatValue": 0.107654685
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -8093,10 +8093,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.20178980399802462
+          "floatValue": -0.201789804
         },
         "Point2PositionY": {
-          "floatValue": 0.030124023599633502
+          "floatValue": 0.030124024
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -8114,10 +8114,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.2006264376954673
+          "floatValue": -0.200626438
         },
         "Point3PositionY": {
-          "floatValue": -0.04885760607634968
+          "floatValue": -0.048857606
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -8135,10 +8135,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": -0.189799602872108
+          "floatValue": -0.189799603
         },
         "Point4PositionY": {
-          "floatValue": -0.1254859370358536
+          "floatValue": -0.125485937
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -8156,10 +8156,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.1753701442663488
+          "floatValue": -0.175370144
         },
         "StartPositionY": {
-          "floatValue": 0.17999999999999997
+          "floatValue": 0.18
         },
         "StartScaleX": {
           "floatValue": 0.05
@@ -8177,10 +8177,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.1698307900089482
+          "floatValue": -0.16983079
         },
         "EndPositionY": {
-          "floatValue": -0.19607005260541013
+          "floatValue": -0.196070053
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -8245,10 +8245,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.17537014426634878
+          "floatValue": -0.175370144
         },
         "EndPositionY": {
-          "floatValue": -0.18000000000000002
+          "floatValue": -0.18
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -8313,10 +8313,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.14905966014174613
+          "floatValue": -0.14905966
         },
         "Point1PositionY": {
-          "floatValue": -0.24367534908575794
+          "floatValue": -0.243675349
         },
         "Point1ScaleX": {
           "floatValue": 0.05
@@ -8334,10 +8334,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.11556949745609738
+          "floatValue": -0.115569497
         },
         "Point2PositionY": {
-          "floatValue": -0.2956137152881335
+          "floatValue": -0.295613715
         },
         "Point2ScaleX": {
           "floatValue": 0.05
@@ -8355,10 +8355,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.07651275933073959
+          "floatValue": -0.076512759
         },
         "Point3PositionY": {
-          "floatValue": -0.3333134105315981
+          "floatValue": -0.333313411
         },
         "Point3ScaleX": {
           "floatValue": 0.05
@@ -8376,10 +8376,10 @@
           "floatValue": 0
         },
         "Point4PositionX": {
-          "floatValue": -0.033770671210010615
+          "floatValue": -0.033770671
         },
         "Point4PositionY": {
-          "floatValue": -0.3549585733453818
+          "floatValue": -0.354958573
         },
         "Point4ScaleX": {
           "floatValue": 0.05
@@ -8397,10 +8397,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.17537014426634878
+          "floatValue": -0.175370144
         },
         "StartPositionY": {
-          "floatValue": -0.18000000000000002
+          "floatValue": -0.18
         },
         "StartScaleX": {
           "floatValue": 0.05
@@ -8418,10 +8418,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.010598031139196327
+          "floatValue": 0.010598031
         },
         "EndPositionY": {
-          "floatValue": -0.35950663251164655
+          "floatValue": -0.359506633
         },
         "EndScaleX": {
           "floatValue": 0.05
@@ -8937,10 +8937,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.24018750000000005
+          "floatValue": 0.2401875
         },
         "Point1PositionY": {
-          "floatValue": 0.5282754963085076
+          "floatValue": 0.528275496
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -8958,10 +8958,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.2047499999999999
+          "floatValue": -0.20475
         },
         "Point2PositionY": {
-          "floatValue": 0.45033320996790815
+          "floatValue": 0.45033321
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -8979,10 +8979,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.3386249999999999
+          "floatValue": -0.338625
         },
         "Point3PositionY": {
-          "floatValue": 5.265981236333618e-17
+          "floatValue": 0
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9000,7 +9000,7 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.5512499999999999
+          "floatValue": 0.55125
         },
         "StartPositionY": {
           "floatValue": 0
@@ -9021,10 +9021,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.1338750000000001
+          "floatValue": -0.133875
         },
         "EndPositionY": {
-          "floatValue": -0.29444863728670906
+          "floatValue": -0.294448637
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9074,10 +9074,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.12433019879112339
+          "floatValue": 0.124330199
         },
         "Point1PositionY": {
-          "floatValue": 0.5892147540363316
+          "floatValue": 0.589214754
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9095,10 +9095,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.28956022689589117
+          "floatValue": -0.289560227
         },
         "Point2PositionY": {
-          "floatValue": 0.36769552621700474
+          "floatValue": 0.367695526
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9116,10 +9116,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.32708663292713575
+          "floatValue": -0.327086633
         },
         "Point3PositionY": {
-          "floatValue": -0.11129218939408374
+          "floatValue": -0.111292189
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9137,10 +9137,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.5324666117418488
+          "floatValue": 0.532466612
         },
         "StartPositionY": {
-          "floatValue": 0.18117333157176452
+          "floatValue": 0.181173332
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9158,10 +9158,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.0692987993261999
+          "floatValue": -0.069298799
         },
         "EndPositionY": {
-          "floatValue": -0.3284147809382832
+          "floatValue": -0.328414781
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9211,7 +9211,7 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 2.941448530702049e-17
+          "floatValue": 0
         },
         "Point1PositionY": {
           "floatValue": 0.61
@@ -9232,10 +9232,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.3546374028497276
+          "floatValue": -0.354637403
         },
         "Point2PositionY": {
-          "floatValue": 0.25999999999999995
+          "floatValue": 0.26
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9253,10 +9253,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.2932578523565054
+          "floatValue": -0.293257852
         },
         "Point3PositionY": {
-          "floatValue": -0.21500000000000002
+          "floatValue": -0.215
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9274,10 +9274,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.47739650383617177
+          "floatValue": 0.477396504
         },
         "StartPositionY": {
-          "floatValue": 0.3499999999999999
+          "floatValue": 0.35
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9295,10 +9295,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -4.9184877070755564e-17
+          "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": -0.33999999999999997
+          "floatValue": -0.34
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9348,10 +9348,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.12433019879112345
+          "floatValue": -0.124330199
         },
         "Point1PositionY": {
-          "floatValue": 0.5892147540363316
+          "floatValue": 0.589214754
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9369,10 +9369,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.39554662586537337
+          "floatValue": -0.395546626
         },
         "Point2PositionY": {
-          "floatValue": 0.13458590345331092
+          "floatValue": 0.134585903
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9390,10 +9390,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.23944403377929466
+          "floatValue": -0.239444034
         },
         "Point3PositionY": {
-          "floatValue": -0.30405591591021536
+          "floatValue": -0.304055916
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9411,10 +9411,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.3897926131290843
+          "floatValue": 0.389792613
         },
         "StartPositionY": {
-          "floatValue": 0.4949747468305832
+          "floatValue": 0.494974747
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9432,10 +9432,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.06929879932620002
+          "floatValue": 0.069298799
         },
         "EndPositionY": {
-          "floatValue": -0.32841478093828314
+          "floatValue": -0.328414781
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9485,10 +9485,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.2401874999999999
+          "floatValue": -0.2401875
         },
         "Point1PositionY": {
-          "floatValue": 0.5282754963085076
+          "floatValue": 0.528275496
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9506,10 +9506,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.40950000000000003
+          "floatValue": -0.4095
         },
         "Point2PositionY": {
-          "floatValue": 6.368163355566237e-17
+          "floatValue": 0
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9527,10 +9527,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.16931250000000012
+          "floatValue": -0.1693125
         },
         "Point3PositionY": {
-          "floatValue": -0.37239092362730847
+          "floatValue": -0.372390924
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9551,7 +9551,7 @@
           "floatValue": 0.275625
         },
         "StartPositionY": {
-          "floatValue": 0.606217782649107
+          "floatValue": 0.606217783
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9569,10 +9569,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.13387500000000002
+          "floatValue": 0.133875
         },
         "EndPositionY": {
-          "floatValue": -0.2944486372867091
+          "floatValue": -0.294448637
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9622,10 +9622,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.3396764200124877
+          "floatValue": -0.33967642
         },
         "Point1PositionY": {
-          "floatValue": 0.431335136523794
+          "floatValue": 0.431335137
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9643,10 +9643,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.3955466258653735
+          "floatValue": -0.395546626
         },
         "Point2PositionY": {
-          "floatValue": -0.1345859034533106
+          "floatValue": -0.134585903
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9664,10 +9664,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.08764259914784103
+          "floatValue": -0.087642599
         },
         "Point3PositionY": {
-          "floatValue": -0.41534810530429933
+          "floatValue": -0.415348105
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9685,10 +9685,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.1426739986127645
+          "floatValue": 0.142673999
         },
         "StartPositionY": {
-          "floatValue": 0.6761480784023478
+          "floatValue": 0.676148078
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9706,10 +9706,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.18932784066269803
+          "floatValue": 0.189327841
         },
         "EndPositionY": {
-          "floatValue": -0.2404163056034262
+          "floatValue": -0.240416306
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9759,10 +9759,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.4160169533429497
+          "floatValue": -0.416016953
         },
         "Point1PositionY": {
-          "floatValue": 0.30499999999999994
+          "floatValue": 0.305
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9780,10 +9780,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.35463740284972756
+          "floatValue": -0.354637403
         },
         "Point2PositionY": {
-          "floatValue": -0.26000000000000006
+          "floatValue": -0.26
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9801,10 +9801,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -6.220440335419085e-17
+          "floatValue": 0
         },
         "Point3PositionY": {
-          "floatValue": -0.42999999999999994
+          "floatValue": -0.43
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9822,7 +9822,7 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 3.375432740149892e-17
+          "floatValue": 0
         },
         "StartPositionY": {
           "floatValue": 0.7
@@ -9843,10 +9843,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.23187830186328334
+          "floatValue": 0.231878302
         },
         "EndPositionY": {
-          "floatValue": -0.17000000000000012
+          "floatValue": -0.17
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -9896,10 +9896,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.46400661880361116
+          "floatValue": -0.464006619
         },
         "Point1PositionY": {
-          "floatValue": 0.15787961751253782
+          "floatValue": 0.157879618
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -9917,10 +9917,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.2895602268958912
+          "floatValue": -0.289560227
         },
         "Point2PositionY": {
-          "floatValue": -0.3676955262170047
+          "floatValue": -0.367695526
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -9938,10 +9938,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.0876425991478412
+          "floatValue": 0.087642599
         },
         "Point3PositionY": {
-          "floatValue": -0.4153481053042993
+          "floatValue": -0.415348105
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -9959,10 +9959,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.14267399861276459
+          "floatValue": -0.142673999
         },
         "StartPositionY": {
-          "floatValue": 0.6761480784023478
+          "floatValue": 0.676148078
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -9980,10 +9980,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.258626639988898
+          "floatValue": 0.25862664
         },
         "EndPositionY": {
-          "floatValue": -0.08799847533485702
+          "floatValue": -0.087998475
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10033,10 +10033,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.48037499999999994
+          "floatValue": -0.480375
         },
         "Point1PositionY": {
-          "floatValue": 7.470345474798854e-17
+          "floatValue": 0
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10054,10 +10054,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.20475000000000018
+          "floatValue": -0.20475
         },
         "Point2PositionY": {
-          "floatValue": -0.45033320996790804
+          "floatValue": -0.45033321
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10078,7 +10078,7 @@
           "floatValue": 0.1693125
         },
         "Point3PositionY": {
-          "floatValue": -0.3723909236273085
+          "floatValue": -0.372390924
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10096,10 +10096,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.27562499999999984
+          "floatValue": -0.275625
         },
         "StartPositionY": {
-          "floatValue": 0.6062177826491071
+          "floatValue": 0.606217783
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10120,7 +10120,7 @@
           "floatValue": 0.26775
         },
         "EndPositionY": {
-          "floatValue": -8.327598234202001e-17
+          "floatValue": 0
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10170,10 +10170,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.46400661880361127
+          "floatValue": -0.464006619
         },
         "Point1PositionY": {
-          "floatValue": -0.1578796175125374
+          "floatValue": -0.157879618
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10191,10 +10191,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.1059863989694822
+          "floatValue": -0.105986399
         },
         "Point2PositionY": {
-          "floatValue": -0.5022814296703155
+          "floatValue": -0.50228143
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10212,10 +10212,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.23944403377929457
+          "floatValue": 0.239444034
         },
         "Point3PositionY": {
-          "floatValue": -0.30405591591021547
+          "floatValue": -0.304055916
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10233,10 +10233,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.38979261312908425
+          "floatValue": -0.389792613
         },
         "StartPositionY": {
-          "floatValue": 0.4949747468305833
+          "floatValue": 0.494974747
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10254,10 +10254,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.258626639988898
+          "floatValue": 0.25862664
         },
         "EndPositionY": {
-          "floatValue": 0.08799847533485687
+          "floatValue": 0.087998475
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10307,10 +10307,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.41601695334294964
+          "floatValue": -0.416016953
         },
         "Point1PositionY": {
-          "floatValue": -0.30500000000000005
+          "floatValue": -0.305
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10328,7 +10328,7 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -7.522392963762618e-17
+          "floatValue": 0
         },
         "Point2PositionY": {
           "floatValue": -0.52
@@ -10349,10 +10349,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.29325785235650537
+          "floatValue": 0.293257852
         },
         "Point3PositionY": {
-          "floatValue": -0.21500000000000016
+          "floatValue": -0.215
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10370,10 +10370,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.47739650383617177
+          "floatValue": -0.477396504
         },
         "StartPositionY": {
-          "floatValue": 0.3499999999999999
+          "floatValue": 0.35
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10391,10 +10391,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.23187830186328348
+          "floatValue": 0.231878302
         },
         "EndPositionY": {
-          "floatValue": 0.16999999999999973
+          "floatValue": 0.17
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10444,10 +10444,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.3396764200124878
+          "floatValue": -0.33967642
         },
         "Point1PositionY": {
-          "floatValue": -0.43133513652379396
+          "floatValue": -0.431335137
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10465,10 +10465,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.10598639896948239
+          "floatValue": 0.105986399
         },
         "Point2PositionY": {
-          "floatValue": -0.5022814296703155
+          "floatValue": -0.50228143
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10486,10 +10486,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.32708663292713575
+          "floatValue": 0.327086633
         },
         "Point3PositionY": {
-          "floatValue": -0.11129218939408388
+          "floatValue": -0.111292189
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10507,10 +10507,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.5324666117418487
+          "floatValue": -0.532466612
         },
         "StartPositionY": {
-          "floatValue": 0.1811733315717647
+          "floatValue": 0.181173332
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10528,10 +10528,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.18932784066269828
+          "floatValue": 0.189327841
         },
         "EndPositionY": {
-          "floatValue": 0.24041630560342586
+          "floatValue": 0.240416306
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10581,10 +10581,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.24018750000000022
+          "floatValue": -0.2401875
         },
         "Point1PositionY": {
-          "floatValue": -0.5282754963085075
+          "floatValue": -0.528275496
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10602,10 +10602,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.20475000000000004
+          "floatValue": 0.20475
         },
         "Point2PositionY": {
-          "floatValue": -0.4503332099679081
+          "floatValue": -0.45033321
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10623,10 +10623,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.3386249999999999
+          "floatValue": 0.338625
         },
         "Point3PositionY": {
-          "floatValue": -1.0531962472667236e-16
+          "floatValue": 0
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10644,10 +10644,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.5512499999999999
+          "floatValue": -0.55125
         },
         "StartPositionY": {
-          "floatValue": 8.572527594031472e-17
+          "floatValue": 0
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10665,10 +10665,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.13387499999999988
+          "floatValue": 0.133875
         },
         "EndPositionY": {
-          "floatValue": 0.29444863728670917
+          "floatValue": 0.294448637
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10718,10 +10718,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -0.12433019879112335
+          "floatValue": -0.124330199
         },
         "Point1PositionY": {
-          "floatValue": -0.5892147540363316
+          "floatValue": -0.589214754
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -10739,10 +10739,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.2895602268958911
+          "floatValue": 0.289560227
         },
         "Point2PositionY": {
-          "floatValue": -0.3676955262170048
+          "floatValue": -0.367695526
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10760,10 +10760,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.32708663292713575
+          "floatValue": 0.327086633
         },
         "Point3PositionY": {
-          "floatValue": 0.11129218939408368
+          "floatValue": 0.111292189
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10781,10 +10781,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.5324666117418488
+          "floatValue": -0.532466612
         },
         "StartPositionY": {
-          "floatValue": -0.18117333157176424
+          "floatValue": -0.181173332
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10802,10 +10802,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.06929879932619992
+          "floatValue": 0.069298799
         },
         "EndPositionY": {
-          "floatValue": 0.3284147809382832
+          "floatValue": 0.328414781
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10855,7 +10855,7 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": -8.824345592106146e-17
+          "floatValue": 0
         },
         "Point1PositionY": {
           "floatValue": -0.61
@@ -10876,10 +10876,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.3546374028497275
+          "floatValue": 0.354637403
         },
         "Point2PositionY": {
-          "floatValue": -0.26000000000000023
+          "floatValue": -0.26
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -10897,10 +10897,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.29325785235650564
+          "floatValue": 0.293257852
         },
         "Point3PositionY": {
-          "floatValue": 0.21499999999999966
+          "floatValue": 0.215
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -10918,10 +10918,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.4773965038361717
+          "floatValue": -0.477396504
         },
         "StartPositionY": {
-          "floatValue": -0.35000000000000003
+          "floatValue": -0.35
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -10939,10 +10939,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 8.197479511792594e-17
+          "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.33999999999999997
+          "floatValue": 0.34
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -10992,10 +10992,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.12433019879112359
+          "floatValue": 0.124330199
         },
         "Point1PositionY": {
-          "floatValue": -0.5892147540363316
+          "floatValue": -0.589214754
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11013,10 +11013,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.3955466258653734
+          "floatValue": 0.395546626
         },
         "Point2PositionY": {
-          "floatValue": -0.13458590345331076
+          "floatValue": -0.134585903
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11034,10 +11034,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.23944403377929485
+          "floatValue": 0.239444034
         },
         "Point3PositionY": {
-          "floatValue": 0.304055915910215
+          "floatValue": 0.304055916
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11055,10 +11055,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.38979261312908436
+          "floatValue": -0.389792613
         },
         "StartPositionY": {
-          "floatValue": -0.4949747468305832
+          "floatValue": -0.494974747
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11076,10 +11076,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.06929879932619977
+          "floatValue": -0.069298799
         },
         "EndPositionY": {
-          "floatValue": 0.32841478093828325
+          "floatValue": 0.328414781
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11129,10 +11129,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.24018750000000005
+          "floatValue": 0.2401875
         },
         "Point1PositionY": {
-          "floatValue": -0.5282754963085076
+          "floatValue": -0.528275496
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11150,10 +11150,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.40950000000000003
+          "floatValue": 0.4095
         },
         "Point2PositionY": {
-          "floatValue": -1.2736326711132475e-16
+          "floatValue": 0
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11171,10 +11171,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.16931249999999987
+          "floatValue": 0.1693125
         },
         "Point3PositionY": {
-          "floatValue": 0.37239092362730863
+          "floatValue": 0.372390924
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11192,10 +11192,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.2756250000000002
+          "floatValue": -0.275625
         },
         "StartPositionY": {
-          "floatValue": -0.6062177826491069
+          "floatValue": -0.606217783
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11213,10 +11213,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.13387499999999977
+          "floatValue": -0.133875
         },
         "EndPositionY": {
-          "floatValue": 0.2944486372867093
+          "floatValue": 0.294448637
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11266,10 +11266,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.33967642001248766
+          "floatValue": 0.33967642
         },
         "Point1PositionY": {
-          "floatValue": -0.43133513652379407
+          "floatValue": -0.431335137
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11287,10 +11287,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.3955466258653735
+          "floatValue": 0.395546626
         },
         "Point2PositionY": {
-          "floatValue": 0.13458590345331053
+          "floatValue": 0.134585903
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11308,10 +11308,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 0.08764259914784106
+          "floatValue": 0.087642599
         },
         "Point3PositionY": {
-          "floatValue": 0.41534810530429933
+          "floatValue": 0.415348105
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11329,10 +11329,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -0.14267399861276445
+          "floatValue": -0.142673999
         },
         "StartPositionY": {
-          "floatValue": -0.6761480784023478
+          "floatValue": -0.676148078
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11350,10 +11350,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.18932784066269817
+          "floatValue": -0.189327841
         },
         "EndPositionY": {
-          "floatValue": 0.240416305603426
+          "floatValue": 0.240416306
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11403,10 +11403,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.4160169533429496
+          "floatValue": 0.416016953
         },
         "Point1PositionY": {
-          "floatValue": -0.30500000000000027
+          "floatValue": -0.305
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11424,10 +11424,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.3546374028497278
+          "floatValue": 0.354637403
         },
         "Point2PositionY": {
-          "floatValue": 0.2599999999999996
+          "floatValue": 0.26
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11445,10 +11445,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": 1.036740055903181e-16
+          "floatValue": 0
         },
         "Point3PositionY": {
-          "floatValue": 0.42999999999999994
+          "floatValue": 0.43
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11466,7 +11466,7 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": -1.0126298220449675e-16
+          "floatValue": 0
         },
         "StartPositionY": {
           "floatValue": -0.7
@@ -11487,10 +11487,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.23187830186328345
+          "floatValue": -0.231878302
         },
         "EndPositionY": {
-          "floatValue": 0.1699999999999999
+          "floatValue": 0.17
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11540,10 +11540,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.4640066188036112
+          "floatValue": 0.464006619
         },
         "Point1PositionY": {
-          "floatValue": -0.15787961751253762
+          "floatValue": -0.157879618
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11561,10 +11561,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.28956022689589156
+          "floatValue": 0.289560227
         },
         "Point2PositionY": {
-          "floatValue": 0.3676955262170043
+          "floatValue": 0.367695526
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11582,10 +11582,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.08764259914784088
+          "floatValue": -0.087642599
         },
         "Point3PositionY": {
-          "floatValue": 0.4153481053042994
+          "floatValue": 0.415348105
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11603,10 +11603,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.14267399861276475
+          "floatValue": 0.142673999
         },
         "StartPositionY": {
-          "floatValue": -0.6761480784023477
+          "floatValue": -0.676148078
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11624,10 +11624,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.258626639988898
+          "floatValue": -0.25862664
         },
         "EndPositionY": {
-          "floatValue": 0.08799847533485707
+          "floatValue": 0.087998475
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11677,10 +11677,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.48037499999999994
+          "floatValue": 0.480375
         },
         "Point1PositionY": {
-          "floatValue": -1.4940690949597708e-16
+          "floatValue": 0
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11698,10 +11698,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.20474999999999988
+          "floatValue": 0.20475
         },
         "Point2PositionY": {
-          "floatValue": 0.4503332099679082
+          "floatValue": 0.45033321
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11719,10 +11719,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.16931249999999973
+          "floatValue": -0.1693125
         },
         "Point3PositionY": {
-          "floatValue": 0.3723909236273088
+          "floatValue": 0.372390924
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11743,7 +11743,7 @@
           "floatValue": 0.275625
         },
         "StartPositionY": {
-          "floatValue": -0.606217782649107
+          "floatValue": -0.606217783
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11764,7 +11764,7 @@
           "floatValue": -0.26775
         },
         "EndPositionY": {
-          "floatValue": 1.2491397351303e-16
+          "floatValue": 0
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11814,10 +11814,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.46400661880361127
+          "floatValue": 0.464006619
         },
         "Point1PositionY": {
-          "floatValue": 0.15787961751253735
+          "floatValue": 0.157879618
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11835,10 +11835,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 0.10598639896948224
+          "floatValue": 0.105986399
         },
         "Point2PositionY": {
-          "floatValue": 0.5022814296703155
+          "floatValue": 0.50228143
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -11856,10 +11856,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.23944403377929474
+          "floatValue": -0.239444034
         },
         "Point3PositionY": {
-          "floatValue": 0.30405591591021525
+          "floatValue": 0.304055916
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -11877,10 +11877,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.3897926131290842
+          "floatValue": 0.389792613
         },
         "StartPositionY": {
-          "floatValue": -0.49497474683058335
+          "floatValue": -0.494974747
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -11898,10 +11898,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.2586266399888979
+          "floatValue": -0.25862664
         },
         "EndPositionY": {
-          "floatValue": -0.08799847533485743
+          "floatValue": -0.087998475
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -11951,10 +11951,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.4160169533429499
+          "floatValue": 0.416016953
         },
         "Point1PositionY": {
-          "floatValue": 0.30499999999999955
+          "floatValue": 0.305
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -11972,7 +11972,7 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": 1.2537321606271029e-16
+          "floatValue": 0
         },
         "Point2PositionY": {
           "floatValue": 0.52
@@ -11993,10 +11993,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.29325785235650553
+          "floatValue": -0.293257852
         },
         "Point3PositionY": {
-          "floatValue": 0.21499999999999989
+          "floatValue": 0.215
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -12014,10 +12014,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.4773965038361716
+          "floatValue": 0.477396504
         },
         "StartPositionY": {
-          "floatValue": -0.3500000000000003
+          "floatValue": -0.35
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -12035,10 +12035,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.23187830186328331
+          "floatValue": -0.231878302
         },
         "EndPositionY": {
-          "floatValue": -0.1700000000000002
+          "floatValue": -0.17
         },
         "EndScaleX": {
           "floatValue": 0.012
@@ -12088,10 +12088,10 @@
           "stringValue": "Curve"
         },
         "Point1PositionX": {
-          "floatValue": 0.33967642001248816
+          "floatValue": 0.33967642
         },
         "Point1PositionY": {
-          "floatValue": 0.43133513652379346
+          "floatValue": 0.431335137
         },
         "Point1ScaleX": {
           "floatValue": 0.0255
@@ -12109,10 +12109,10 @@
           "floatValue": 0
         },
         "Point2PositionX": {
-          "floatValue": -0.10598639896948202
+          "floatValue": -0.105986399
         },
         "Point2PositionY": {
-          "floatValue": 0.5022814296703156
+          "floatValue": 0.50228143
         },
         "Point2ScaleX": {
           "floatValue": 0.020999999999999998
@@ -12130,10 +12130,10 @@
           "floatValue": 0
         },
         "Point3PositionX": {
-          "floatValue": -0.32708663292713575
+          "floatValue": -0.327086633
         },
         "Point3PositionY": {
-          "floatValue": 0.11129218939408393
+          "floatValue": 0.111292189
         },
         "Point3ScaleX": {
           "floatValue": 0.0165
@@ -12151,10 +12151,10 @@
           "floatValue": 0
         },
         "StartPositionX": {
-          "floatValue": 0.5324666117418488
+          "floatValue": 0.532466612
         },
         "StartPositionY": {
-          "floatValue": -0.18117333157176446
+          "floatValue": -0.181173332
         },
         "StartScaleX": {
           "floatValue": 0.03
@@ -12172,10 +12172,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": -0.18932784066269798
+          "floatValue": -0.189327841
         },
         "EndPositionY": {
-          "floatValue": -0.24041630560342628
+          "floatValue": -0.240416306
         },
         "EndScaleX": {
           "floatValue": 0.012
