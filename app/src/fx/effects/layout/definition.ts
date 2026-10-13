@@ -13,7 +13,8 @@ export const definition: FxEffectDefinition = {
   accent: "#5fd3e6",
   category: "transform",
   known: true,
-  scopes: ["layer"],
+  // Every layer has one; a clip's own overrides its layer's.
+  scopes: ["layer", "clip"],
   layerDefault: true,
   parameters: [
     {

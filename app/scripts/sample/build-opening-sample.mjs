@@ -208,12 +208,8 @@ function move(trackId, motion, from, to, through = []) {
 
 // ---- layer defaults ------------------------------------------------------
 
-// Layers carry no effects of their own but the corridor's Layout, so any
-// layer can hold any clip. Every layer gets a Center Layout when the session
-// loads, and Layout applies only from a layer's stack. In the Vertical rows
-// a source is cropped to a wide band, and Layout picks the part it keeps:
-// the corridor's rising line sits low in the frame.
-addEffect("corridor", "Layout", { Position: "Bottom" });
+// Layers carry no effects of their own, so any layer can hold any clip.
+// Every layer gets a Center Layout when the session loads.
 
 // ---- source spans and cuts -----------------------------------------------
 
@@ -1202,6 +1198,20 @@ for (const [name, parameters, then, slots = 1] of MUSIC_SECTIONS) {
 // where its panel shows the shot's waveform. Added last, it leaves the ids
 // of the effects before it as they were.
 addEffect(ribbonShot, "Scopes", {});
+
+// In the Vertical rows a source is cropped to a wide band, and Layout picks
+// the part it keeps: the corridor's rising line sits low in the frame. Each
+// corridor clip's own Layout overrides its layer's Center one, first in the
+// clip's stack.
+const clipLayouts = effects.length;
+for (const selection of selections) {
+  if (selection.mainTrackId === "corridor") {
+    addEffect(clipTrack(`selection-${selection.id}`), "Layout", {
+      Position: "Bottom",
+    });
+  }
+}
+effects.unshift(...effects.splice(clipLayouts));
 
 // ---- session -------------------------------------------------------------
 

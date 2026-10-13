@@ -418,8 +418,13 @@ export function resolveVisualState(
       .trim()
       .toLowerCase()
       .includes("layout");
-    // Layout is per layer: the anchor comes only from the layer's own stack.
-    if (isLayoutEffect && effect.trackId !== laneId) {
+    // Layout is per layer or clip: the anchor comes only from the layer's
+    // own stack, or the clip's, which comes last and so overrides it.
+    if (
+      isLayoutEffect &&
+      effect.trackId !== laneId &&
+      effect.trackId !== clipTrackId
+    ) {
       continue;
     }
 
