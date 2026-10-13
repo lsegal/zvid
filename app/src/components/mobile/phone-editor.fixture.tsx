@@ -114,6 +114,7 @@ export function FixtureFxPanel({
       setLayerFxEnabled={noop}
       setSourceTrackFxEnabled={noop}
       setSourceTrackSynth={noop}
+      setSourceTrackArp={noop}
       setMidiClipNotes={noop}
       sheetHeader={sheetHeader?.(model.fxPanelTitle)}
       sourceClip={null}

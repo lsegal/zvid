@@ -15,6 +15,7 @@ import {
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
+import type { NoteGenerator } from "./note-generators.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {
@@ -63,6 +64,7 @@ export type SaveableSourceTrack = {
   fxEnabled?: boolean;
   hidden?: boolean;
   synth?: SynthParams;
+  noteGenerators?: NoteGenerator[];
 };
 
 export type SaveableSourceSpan = {
@@ -329,6 +331,9 @@ export function projectToSession(
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
       ...(track.hidden ? { hidden: true } : {}),
       ...(track.synth ? { synth: track.synth } : {}),
+      ...(track.noteGenerators?.length
+        ? { noteGenerators: track.noteGenerators }
+        : {}),
       recordings: track.recordingPaths.map((filename) => ({ filename })),
     })),
     clips,

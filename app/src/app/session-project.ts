@@ -11,6 +11,7 @@ import {
 import { isEffectMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes, readSynthParams } from "../midi-clip.ts";
+import { readNoteGenerators } from "../note-generators.ts";
 import {
   fitSourceSpansToMedia,
   migrateClipContentEffects,
@@ -208,6 +209,7 @@ export function sessionToProject(
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => {
       const synth = readSynthParams(track.synth);
+      const noteGenerators = readNoteGenerators(track.noteGenerators);
       return {
         id: track.id,
         name: track.name,
@@ -218,6 +220,7 @@ export function sessionToProject(
         ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
         ...(track.hidden === true ? { hidden: true } : {}),
         ...(synth ? { synth } : {}),
+        ...(noteGenerators ? { noteGenerators } : {}),
       };
     },
   );

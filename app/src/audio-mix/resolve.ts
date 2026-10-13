@@ -28,7 +28,9 @@ import {
 } from "../fx/stack/clip-stacks.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import { applyNoteGenerators, type NoteGenerator } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
+import { secondsToQuarters } from "../app/timeline-math.ts";
 import {
   getClipPieceClips,
   type TrackContentClip,
@@ -56,8 +58,14 @@ type AudioSourceSpan = TrackContentSpan & { notes?: readonly MidiNote[] };
 
 // A layer or source track whose FX switch is off bypasses its own stack and
 // its clips' stacks, Gain included. A source track plays its MIDI clips
-// through `synth`, or the default synth without one.
-type AudioTrack = { id: string; fxEnabled?: boolean; synth?: SynthParams };
+// through its `noteGenerators`, then `synth`, or the default synth without
+// one.
+type AudioTrack = {
+  id: string;
+  fxEnabled?: boolean;
+  synth?: SynthParams;
+  noteGenerators?: readonly NoteGenerator[];
+};
 
 export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
   clips: readonly AudioLayerClip[];
@@ -239,9 +247,19 @@ export function resolveAudioClips<Effect extends AudioEffect>({
       if (!span.notes?.length) {
         return [];
       }
-      const synth = synthClipOf(
+      const track = sourceTracks.find(
+        (candidate) => candidate.id === span.sourceTrackId,
+      );
+      // Generators step on the track's beat grid, where the clip's quarter 0
+      // falls trimmed-start quarters before the clip.
+      const notes = applyNoteGenerators(
         span.notes,
-        sourceTracks.find((track) => track.id === span.sourceTrackId)?.synth,
+        track?.noteGenerators,
+        span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
+      );
+      const synth = synthClipOf(
+        notes,
+        track?.synth,
         span.trimStartSeconds + span.durationSeconds,
       );
       const mediaId = synthMediaId(span.id, synth, bpm);
