@@ -11,9 +11,9 @@ import {
   ARP_MAX_OCTAVES,
   ARP_PATTERNS,
   ARP_RATES,
+  type Arpeggiator,
   type ArpPattern,
   type ArpRate,
-  type Arpeggiator,
   DEFAULT_ARPEGGIATOR,
 } from "../../note-generators.ts";
 import "../fx/fx-chain.css";
@@ -48,7 +48,10 @@ const PATTERN_LABELS: Record<ArpPattern, string> = {
   random: "Random",
 };
 
-const OCTAVES = Array.from({ length: ARP_MAX_OCTAVES }, (_, index) => index + 1);
+const OCTAVES = Array.from(
+  { length: ARP_MAX_OCTAVES },
+  (_, index) => index + 1,
+);
 
 // A source track's Arpeggiator, the note generator ahead of its Synth: on
 // each step of its rate it plays one held note, walking the held chord in
@@ -76,7 +79,11 @@ export function ArpeggiatorDevice({
           aria-label="Add Arpeggiator"
           className="fx-device-panel__strip"
           onClick={() =>
-            onSet(trackId, DEFAULT_ARPEGGIATOR, midiHistoryLabels.addArpeggiator)
+            onSet(
+              trackId,
+              DEFAULT_ARPEGGIATOR,
+              midiHistoryLabels.addArpeggiator,
+            )
           }
           title="Add Arpeggiator"
           type="button"

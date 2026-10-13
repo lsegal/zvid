@@ -133,10 +133,12 @@ export function arpeggiate(
   const step = arp.rate;
   const first = Math.min(...notes.map((note) => note.start));
   const last = Math.max(...notes.map((note) => note.start + note.length));
-  // The first grid line at or after the first note, in clip quarters.
+  // The first grid line at or after the first note, in clip quarters. The
+  // ceiling of a tiny negative is -0, which `+ 0` makes 0.
   let time =
     Math.ceil((first + gridOffsetQ) / step - GRID_EPSILON) * step -
-    gridOffsetQ;
+    gridOffsetQ +
+    0;
   const played: MidiNote[] = [];
   let chordKey = "";
   let index = 0;

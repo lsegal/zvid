@@ -13,7 +13,7 @@
 //
 // A source clip with MIDI notes sounds like one with audio: it plays its
 // notes through its source track's synth (see synth.ts).
-import { quartersToSeconds } from "../app/timeline-math.ts";
+import { quartersToSeconds, secondsToQuarters } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
   gainChainAmplitude,
@@ -30,7 +30,6 @@ import { isAudioEffectName } from "../fx-registry.ts";
 import type { MidiNote, SynthParams } from "../midi-clip.ts";
 import { applyNoteGenerators, type NoteGenerator } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
-import { secondsToQuarters } from "../app/timeline-math.ts";
 import {
   getClipPieceClips,
   type TrackContentClip,
