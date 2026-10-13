@@ -3,7 +3,7 @@ import { PALETTE } from "./app/constants.ts";
 import type { ArrangementClip, Lane } from "./app/types.ts";
 import { CompositionRenderer } from "./CompositionPlayer";
 import { analyzeMediaSelection } from "./harness/web-media.ts";
-import { imageAnimationSeconds } from "./image-media-frames.ts";
+import { imageAnimationSeconds, imageFrameAt } from "./image-media-frames.ts";
 import type { MediaItem } from "./media";
 import { writeZip } from "./zip-test-utils.ts";
 
@@ -128,7 +128,8 @@ function redThenBlueLottie() {
 
 // A dotLottie archive whose animation, listed second in its manifest after
 // one it doesn't hold, shows a red PNG image asset for half a second, then
-// blue.
+// blue. The asset is marked embedded but names its file, as some exporters
+// write them (#1373).
 async function redThenBlueDotLottie() {
   const red = new Uint8Array(
     await (await solidPng("#ff0000", SIZE)).arrayBuffer(),
@@ -136,7 +137,7 @@ async function redThenBlueDotLottie() {
   const animation = JSON.stringify({
     ...JSON.parse(redThenBlueLottie()),
     assets: [
-      { id: "image_0", w: SIZE, h: SIZE, u: "/images/", p: "red.png", e: 0 },
+      { id: "image_0", w: SIZE, h: SIZE, u: "/images/", p: "red.png", e: 1 },
     ],
     layers: [
       { ...layer(1, 0, 15), ty: 2, nm: "red", refId: "image_0" },
@@ -331,17 +332,35 @@ describe("image clips", () => {
     ).toEqual(["red", "blue", "red", "blue"]);
   });
 
+  test("draw a small Lottie's frames larger than its own size", {
+    timeout: 30_000,
+  }, async () => {
+    // Shapes stretched from a 64×64 frame would look blocky (#1373).
+    const media = imageMedia(
+      "small",
+      "small.json",
+      new Blob([redThenBlueLottie()], { type: "application/json" }),
+    );
+    const ref = { previewUrl: media.previewUrl, name: media.name };
+    await imageAnimationSeconds(ref);
+    const frame = imageFrameAt(ref, 0.25);
+    expect(frame).toMatchObject({ width: SIZE, height: SIZE });
+    const image = frame?.image as HTMLCanvasElement;
+    expect([image.width, image.height]).toEqual([1920, 1920]);
+  });
+
   test("import a dotLottie and play its frames, image assets included", {
     timeout: 30_000,
   }, async () => {
     const lottieFile = (name: string, data: BlobPart) =>
       new File([data], name, { type: "application/zip" });
-    const [lottie, broken, empty] = await analyzeMediaSelection(
+    const [lottie, broken, plain, empty] = await analyzeMediaSelection(
       {
         kind: "files",
         files: [
           lottieFile("spinner.lottie", await redThenBlueDotLottie()),
           lottieFile("broken.lottie", "not a zip"),
+          lottieFile("plain.lottie", redThenBlueLottie()),
           lottieFile(
             "empty.lottie",
             await writeZip([{ name: "manifest.json", data: "{}" }]),
@@ -351,7 +370,13 @@ describe("image clips", () => {
       PALETTE,
       0,
     );
-    urls.push(lottie.previewUrl, broken.previewUrl, empty.previewUrl);
+    urls.push(
+      lottie.previewUrl,
+      broken.previewUrl,
+      plain.previewUrl,
+      empty.previewUrl,
+    );
+    if (plain.thumbnailUrl) urls.push(plain.thumbnailUrl);
     if (lottie.thumbnailUrl) urls.push(lottie.thumbnailUrl);
     expect(lottie).toMatchObject({
       kind: "image",
@@ -366,6 +391,8 @@ describe("image clips", () => {
       availability: "offline",
       lastError: "Not a dotLottie archive",
     });
+    // A plain Lottie JSON file named .lottie plays too.
+    expect(plain).toMatchObject({ container: "Lottie", availability: "ready" });
     expect(empty).toMatchObject({
       availability: "offline",
       lastError: "No animation in the dotLottie archive",
