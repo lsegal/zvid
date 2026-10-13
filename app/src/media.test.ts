@@ -17,6 +17,7 @@ describe("image media", () => {
     for (const name of ["a.jpg", "a.JPEG", "a.png", "a.webp", "a.gif"]) {
       assert.equal(inferMediaKind(name), "image", name);
     }
+    assert.equal(inferMediaKind("spinner.json"), "image");
     assert.equal(inferMediaKind("take.mov"), "video");
     assert.equal(inferMediaKind("mix.wav"), "audio");
     assert.equal(inferMediaKind("voice.opus"), "audio");

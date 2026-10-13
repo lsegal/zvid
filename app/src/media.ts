@@ -1,4 +1,5 @@
 import { parseCubeLut } from "./fx/effects/lut/cube.ts";
+import { isLottieName } from "./lottie.ts";
 import type { ServerMediaRef } from "./session";
 
 // Images make 1-bar clips and SVGs also feed Shape ▸ Custom; LUTs (.cube)
@@ -325,7 +326,7 @@ export function createMediaId(file: File) {
 }
 
 export function inferMediaKind(name: string): MediaKind {
-  if (imageMimeType(name)) {
+  if (imageMimeType(name) || isLottieName(name)) {
     return "image";
   }
   switch (fileExtension(name)) {

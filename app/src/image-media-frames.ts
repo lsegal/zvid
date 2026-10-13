@@ -1,9 +1,16 @@
 // The pictures image clips draw: a still image, or the frames of an animated
-// GIF, WebP, PNG or AVIF, decoded with WebCodecs' ImageDecoder. A browser
-// without ImageDecoder shows an animated image's first frame. Images load
+// GIF, WebP, PNG or AVIF, decoded with WebCodecs' ImageDecoder, or of a
+// Lottie animation, drawn by its player. A browser without ImageDecoder
+// shows an animated image's first frame. Images load
 // once per URL; animated ones keep a few decoded frames and decode the one
 // a clip needs on demand. A paused preview redraws when one loads.
 
+import { isLottieName, lottieFrameIndex, lottieSeconds } from "./lottie.ts";
+import {
+  type LottiePlayer,
+  lottieFrameUrl,
+  openLottie,
+} from "./lottie-player.ts";
 import { imageMimeType } from "./media.ts";
 
 export type ImageMediaRef = { previewUrl: string; name: string };
@@ -36,6 +43,7 @@ type LoadedImage =
   | { status: "loading"; promise: Promise<void> }
   | { status: "still"; frame: ImageFrame }
   | { status: "animated"; animation: Animation }
+  | { status: "lottie"; player: LottiePlayer }
   | { status: "failed" };
 
 const images = new Map<string, LoadedImage>();
@@ -148,6 +156,10 @@ async function loadStill(url: string): Promise<ImageFrame> {
 
 async function loadImage(url: string, name: string): Promise<LoadedImage> {
   try {
+    if (isLottieName(name)) {
+      const player = await openLottie(url);
+      return player ? { status: "lottie", player } : { status: "failed" };
+    }
     const type = imageMimeType(name);
     if (type && type !== "image/svg+xml" && type !== "image/jpeg") {
       const blob = await (await fetch(url)).blob();
@@ -232,9 +244,34 @@ function show(animation: Animation, frame: VideoFrame): ImageFrame {
  */
 export async function imageAnimationSeconds(media: ImageMediaRef) {
   const image = await loaded(media);
+  if (image?.status === "lottie") {
+    return lottieSeconds(image.player.data);
+  }
   return image?.status === "animated"
     ? (image.animation.frameEnds[image.animation.frameEnds.length - 1] ?? 0)
     : 0;
+}
+
+/**
+ * The size, length and middle frame, as a PNG object URL, of the Lottie
+ * animation at `media`, or undefined when it doesn't hold one.
+ */
+export async function lottieMediaDetails(media: ImageMediaRef) {
+  const image = await loaded(media);
+  if (image?.status !== "lottie") {
+    return undefined;
+  }
+  const { player } = image;
+  const durationSeconds = lottieSeconds(player.data);
+  return {
+    width: player.width,
+    height: player.height,
+    durationSeconds,
+    thumbnailUrl: await lottieFrameUrl(
+      player,
+      lottieFrameIndex(player.data, durationSeconds / 2),
+    ),
+  };
 }
 
 /**
@@ -255,6 +292,14 @@ export function imageFrameAt(
   if (image.status === "still") {
     return image.frame;
   }
+  if (image.status === "lottie") {
+    const { player } = image;
+    return {
+      image: player.frame(lottieFrameIndex(player.data, seconds)),
+      width: player.width,
+      height: player.height,
+    };
+  }
   if (image.status !== "animated") {
     return undefined;
   }
@@ -274,7 +319,8 @@ export function imageFrameAt(
 
 /**
  * Loads `media` and decodes its frame at `seconds`, so an exact frame such
- * as an export's draws it with imageFrameAt.
+ * as an export's draws it with imageFrameAt. A Lottie's frames draw when
+ * they are asked for, once it has loaded.
  */
 export async function loadImageFrame(media: ImageMediaRef, seconds: number) {
   const image = await loaded(media);

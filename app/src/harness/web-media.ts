@@ -1,6 +1,10 @@
 import type { RecordingProbe } from "../als-import";
 import { readCubeLut } from "../fx/effects/lut/lut-media.ts";
-import { imageAnimationSeconds } from "../image-media-frames.ts";
+import {
+  imageAnimationSeconds,
+  lottieMediaDetails,
+} from "../image-media-frames.ts";
+import { isLottieName } from "../lottie.ts";
 import {
   createMediaId,
   imageMimeType,
@@ -473,9 +477,44 @@ const IMAGE_CONTAINERS: Record<string, string> = {
 // An image has no tracks for mediabunny to read; its own URL is its
 // thumbnail, and an animated one is as long as its loop. One that won't
 // load is kept, offline, so the import still shows it.
+// A Lottie is drawn by its player, which gives its size and length; its
+// middle frame is its thumbnail. JSON that isn't a Lottie, such as a session,
+// is kept offline with the reason.
+async function analyzeLottieMedia(
+  options: MediaAnalysisOptions,
+): Promise<MediaItem> {
+  const details = await lottieMediaDetails({
+    previewUrl: options.previewUrl,
+    name: options.name,
+  }).catch(() => undefined);
+  return {
+    id: options.id,
+    name: options.name,
+    kind: "image",
+    durationSeconds: details?.durationSeconds ?? 0,
+    width: details?.width,
+    height: details?.height,
+    hasAudio: false,
+    hasVideo: false,
+    fileSizeBytes: options.fileSizeBytes,
+    container: details ? "Lottie" : undefined,
+    lastModified: options.lastModified,
+    color: options.palette.color,
+    accent: options.palette.accent,
+    previewUrl: options.previewUrl,
+    thumbnailUrl: details?.thumbnailUrl,
+    sourcePath: options.sourcePath,
+    availability: details ? "ready" : "offline",
+    ...(details ? {} : { lastError: "Not a Lottie animation" }),
+  };
+}
+
 async function analyzeImageMedia(
   options: MediaAnalysisOptions,
 ): Promise<MediaItem> {
+  if (isLottieName(options.name)) {
+    return analyzeLottieMedia(options);
+  }
   const size = await probeImageUrl(options.previewUrl).catch(() => undefined);
   const durationSeconds = size
     ? await imageAnimationSeconds({
