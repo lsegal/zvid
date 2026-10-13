@@ -658,7 +658,7 @@ describe("zvid opening sample", () => {
     assert.ok(outer.turn * inner.turn < 0);
   });
 
-  it("blooms a dot into six radial dots and a dashed ring round the wordmark", () => {
+  it("blooms a dot into a dashed ring round the wordmark on one layer", () => {
     const fill = (id: string) => {
       const clip = (session.fills ?? []).find(
         (candidate) => candidate.id === id,
@@ -667,112 +667,32 @@ describe("zvid opening sample", () => {
       return clip;
     };
     const core = fill("fill-bloom-core");
+    const ring = fill("fill-bloom-ring");
+    const outro = fill("fill-bloom-ring-outro");
+    // The whole bloom costs one layer, and nothing else draws on it.
+    const bloomLayers = (session.mainTracks ?? [])
+      .map((layer) => layer.id)
+      .filter((id) => id.includes("bloom"));
+    assert.deepEqual(bloomLayers, [core.mainTrackId]);
+    const onLayer = (session.fills ?? [])
+      .filter((clip) => clip.mainTrackId === core.mainTrackId)
+      .map((clip) => clip.id);
+    assert.deepEqual(onLayer, [core.id, ring.id, outro.id]);
+    // It runs unbroken from 24 s to the last frame: the sample's ending.
     assert.deepEqual([core.frameStart, core.frameEnd], [720, 732]);
+    assert.deepEqual([ring.frameStart, ring.frameEnd], [732, 810]);
+    assert.deepEqual([outro.frameStart, outro.frameEnd], [810, 900]);
+
     const [coreMove] = effectsOn(`clip:${core.id}`).filter(
       (effect) => effect.effectName === "Move",
     );
     assert.equal(numberParameter(coreMove, "StartScaleX"), 0);
-    assert.ok((numberParameter(coreMove, "EndScaleX") ?? 0) > 0);
-
-    const ring = fill("fill-bloom-ring");
-    const outro = fill("fill-bloom-ring-outro");
-    type Parameterized = Parameters<typeof numberParameter>[0];
-    const angle = (effect: Parameterized, prefix: string) =>
-      (Math.atan2(
-        (numberParameter(effect, `${prefix}PositionY`) ?? 0) * 1080,
-        (numberParameter(effect, `${prefix}PositionX`) ?? 0) * 1920,
-      ) *
-        180) /
-      Math.PI;
-    const radius = (effect: Parameterized, prefix: string) =>
-      Math.hypot(
-        ((numberParameter(effect, `${prefix}PositionX`) ?? 0) * 1920) / 1080,
-        numberParameter(effect, `${prefix}PositionY`) ?? 0,
-      );
-    const ringRadius =
-      (numberParameter(
-        effectsOn(`clip:${ring.id}`).find(
-          (effect) => effect.effectName === "Move",
-        ) ?? {},
-        "StartScaleY",
-      ) ?? 0) / 2;
-    const angles = new Set<number>();
-    for (let index = 1; index <= 6; index++) {
-      const dot = fill(`fill-bloom-dot-${index}`);
-      assert.equal(dot.frameStart, core.frameEnd);
-      const effects = effectsOn(`clip:${dot.id}`);
-      assert.deepEqual(
-        effects.map((effect) => effect.effectName),
-        ["Color", "Move"],
-      );
-      assert.equal(stringParameter(effects[0], "Mode"), "Gradient");
-      const flight = effects[1];
-      assert.equal(numberParameter(flight, "StartPositionX"), 0);
-      assert.equal(numberParameter(flight, "StartPositionY"), 0);
-      // The flight lands on the ring, quickly and slowing as it arrives.
-      assert.equal(stringParameter(flight, "Motion"), "Ease Out");
-      assert.ok(dot.frameEnd - dot.frameStart <= FPS / 2, dot.id);
-      assert.ok(Math.abs(radius(flight, "End") - ringRadius) < 1e-6, dot.id);
-      angles.add(Math.round(angle(flight, "End")));
-
-      // It doesn't vanish on arrival: it rides the ring round at the
-      // ring's speed until the cut, fading into its stroke at the end.
-      const ride = fill(`fill-bloom-dot-${index}-ride`);
-      assert.equal(ride.mainTrackId, dot.mainTrackId);
-      assert.deepEqual(
-        [ride.frameStart, ride.frameEnd],
-        [dot.frameEnd, ring.frameEnd],
-      );
-      const rideEffects = effectsOn(`clip:${ride.id}`);
-      assert.deepEqual(
-        rideEffects.map((effect) => effect.effectName),
-        ["Color", "Move"],
-      );
-      const [paint, orbit] = rideEffects;
-      assert.equal(paint.animation?.mode, "clip");
-      assert.equal(paint.animation?.clip?.motionIn, "None");
-      assert.notEqual(paint.animation?.clip?.motionOut, "None");
-      assert.equal(stringParameter(orbit, "Motion"), "Linear");
-      assert.equal(stringParameter(orbit, "Path"), "Curve");
-      assert.equal(stringParameter(orbit, "Waypoints"), "4");
-      const points = ["Start", "Point1", "Point2", "Point3", "Point4", "End"];
-      for (const prefix of points) {
-        assert.ok(Math.abs(radius(orbit, prefix) - ringRadius) < 1e-6, prefix);
-      }
-      for (const field of ["PositionX", "PositionY", "ScaleX"]) {
-        assert.equal(
-          numberParameter(orbit, `Start${field}`),
-          numberParameter(flight, `End${field}`),
-          field,
-        );
-      }
-      const turned = angle(orbit, "End") - angle(orbit, "Start");
-      const spin = effectsOn(`clip:${ring.id}`).find(
-        (effect) => effect.effectName === "Move",
-      );
-      const ringSpeed =
-        (((numberParameter(spin ?? {}, "EndRotation") ?? 0) -
-          (numberParameter(spin ?? {}, "StartRotation") ?? 0)) *
-          FPS) /
-        (ring.frameEnd - ring.frameStart);
-      assert.ok(
-        Math.abs(
-          (((turned + 540) % 360) - 180) * FPS -
-            ringSpeed * (ride.frameEnd - ride.frameStart),
-        ) < 1e-3,
-        dot.id,
-      );
-    }
-    // Each dot leaves on a path of its own.
-    assert.equal(angles.size, 6);
+    const coreSize = numberParameter(coreMove, "EndScaleX") ?? 0;
+    assert.ok(coreSize > 0);
 
     // The ring draws itself on with its dashes marching in, then at the
     // hard cut to the card turns ink and widens out as its dashes withdraw.
     // It turns at one steady speed across both clips, never sitting still.
-    assert.deepEqual([ring.frameStart, ring.frameEnd], [732, 810]);
-    assert.equal(outro.mainTrackId, ring.mainTrackId);
-    assert.equal(outro.frameStart, ring.frameEnd);
-    assert.ok(outro.frameEnd < 900);
     const ringEffects = (id: string) => {
       const effects = effectsOn(`clip:${id}`);
       const shape = effects.find((effect) => effect.effectName === "Shape");
@@ -791,75 +711,51 @@ describe("zvid opening sample", () => {
     assert.equal(drawOn.shape.animation?.clip?.motionOut, "None");
     assert.equal(exit.shape.animation?.clip?.motionIn, "None");
     assert.notEqual(exit.shape.animation?.clip?.motionOut, "None");
-    const speed = ({ spin }: { spin: typeof drawOn.spin }, clip: typeof ring) =>
-      (((numberParameter(spin, "EndRotation") ?? 0) -
-        (numberParameter(spin, "StartRotation") ?? 0)) *
+
+    // The ring opens out of the core over its Move's first leg, then holds
+    // its circle while every leg turns it alike.
+    const spin = drawOn.spin;
+    assert.equal(stringParameter(spin, "Waypoints"), "4");
+    const legs = ["Start", "Point1", "Point2", "Point3", "Point4", "End"];
+    const full = numberParameter(spin, "EndScaleY") ?? 0;
+    const startScaleX = numberParameter(spin, "StartScaleX") ?? 0;
+    assert.ok(startScaleX >= 0.05 && startScaleX < coreSize);
+    assert.ok((numberParameter(spin, "StartScaleY") ?? 0) < full);
+    for (const prefix of legs.slice(1)) {
+      assert.equal(numberParameter(spin, `${prefix}ScaleY`), full, prefix);
+    }
+    const turns = legs.map(
+      (prefix) => numberParameter(spin, `${prefix}Rotation`) ?? 0,
+    );
+    const leg = turns[1] - turns[0];
+    assert.ok(leg > 0);
+    for (let index = 1; index < turns.length; index++) {
+      assert.ok(Math.abs(turns[index] - turns[index - 1] - leg) < 1e-6);
+    }
+    const speed = (effect: typeof spin, clip: typeof ring) =>
+      (((numberParameter(effect, "EndRotation") ?? 0) -
+        (numberParameter(effect, "StartRotation") ?? 0)) *
         FPS) /
       (clip.frameEnd - clip.frameStart);
-    assert.ok(speed(drawOn, ring) > 0);
-    assert.ok(Math.abs(speed(exit, outro) - speed(drawOn, ring)) < 1e-6);
+    assert.ok(Math.abs(speed(exit.spin, outro) - speed(spin, ring)) < 1e-6);
     assert.equal(
       numberParameter(exit.spin, "StartRotation"),
-      numberParameter(drawOn.spin, "EndRotation"),
+      numberParameter(spin, "EndRotation"),
     );
-    // The Move holds the ring's circle, and the outro widens it.
-    assert.equal(
-      numberParameter(exit.spin, "StartScaleY"),
-      numberParameter(drawOn.spin, "EndScaleY"),
-    );
-    assert.ok(
-      (numberParameter(exit.spin, "EndScaleY") ?? 0) >
-        (numberParameter(exit.spin, "StartScaleY") ?? 0),
-    );
+    // The outro widens the circle it was handed.
+    assert.equal(numberParameter(exit.spin, "StartScaleY"), full);
+    assert.ok((numberParameter(exit.spin, "EndScaleY") ?? 0) > full);
   });
 
-  it("drains hundreds of effect-free dot clips into a vortex on the title card", () => {
-    const layers = (session.mainTracks ?? [])
-      .map((layer) => layer.id)
-      .filter((id) => id.startsWith("vortex-"));
-    assert.equal(layers.length, 24);
-    const dots = (session.fills ?? []).filter((clip) =>
-      layers.includes(clip.mainTrackId),
+  it("has no vortex layers or clips", () => {
+    const ids = [
+      ...(session.mainTracks ?? []).map((layer) => layer.id),
+      ...(session.fills ?? []).map((clip) => clip.id),
+    ];
+    assert.deepEqual(
+      ids.filter((id) => id.includes("vortex")),
+      [],
     );
-    assert.ok(dots.length >= 200, String(dots.length));
-    for (const dot of dots) {
-      assert.ok(dot.frameStart >= 810 && dot.frameEnd <= 900, dot.id);
-      // Within the per-clip budget: no effects of their own.
-      assert.deepEqual(effectsOn(`clip:${dot.id}`), [], dot.id);
-    }
-    const starts = new Set<number>();
-    for (const layer of layers) {
-      const clips = dots
-        .filter((dot) => dot.mainTrackId === layer)
-        .sort((left, right) => left.frameStart - right.frameStart);
-      starts.add(clips[0].frameStart);
-      // A layer shows one dot at a time.
-      for (let index = 1; index < clips.length; index++) {
-        assert.ok(clips[index].frameStart >= clips[index - 1].frameEnd);
-      }
-      // The layer paints its dots and spirals each one in through
-      // waypoints.
-      const effects = effectsOn(layer);
-      const color = effects.find((effect) => effect.effectName === "Color");
-      assert.equal(stringParameter(color ?? {}, "Mode"), "Gradient");
-      const spiral = effects.find((effect) => effect.effectName === "Move");
-      assert.ok(spiral, layer);
-      assert.equal(stringParameter(spiral, "Path"), "Curve");
-      assert.equal(stringParameter(spiral, "Waypoints"), "3");
-      const radius = (prefix: string) =>
-        Math.hypot(
-          (numberParameter(spiral, `${prefix}PositionX`) ?? 0) * 1920,
-          (numberParameter(spiral, `${prefix}PositionY`) ?? 0) * 1080,
-        );
-      assert.ok(radius("Start") > radius("End"), layer);
-      assert.ok(
-        (numberParameter(spiral, "StartScaleX") ?? 0) >
-          (numberParameter(spiral, "EndScaleX") ?? 0),
-        layer,
-      );
-    }
-    // The arms start their streams at different times.
-    assert.ok(starts.size > 1);
   });
 
   it("colors the reactive passages with audio-driven Colorize", () => {
