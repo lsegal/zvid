@@ -85,72 +85,97 @@ const layout = (spans: readonly SourceSpan[]) =>
     item.trimStartSeconds,
   ]);
 
+const trim = (item: MediaItem) => getMediaClipTrim(item, BPM);
+
 describe("getMediaClipTrim", () => {
   it("plays the In/Out range of media that has one", () => {
-    assert.deepEqual(
-      getMediaClipTrim(media("a", 10, { inSeconds: 2, outSeconds: 5.5 })),
-      {
-        trimStartSeconds: 2,
-        durationSeconds: 3.5,
-      },
-    );
+    assert.deepEqual(trim(media("a", 10, { inSeconds: 2, outSeconds: 5.5 })), {
+      trimStartSeconds: 2,
+      durationSeconds: 3.5,
+    });
   });
 
   it("plays the whole file without a range", () => {
-    assert.deepEqual(getMediaClipTrim(media("a", 10)), {
+    assert.deepEqual(trim(media("a", 10)), {
       trimStartSeconds: 0,
       durationSeconds: 10,
     });
   });
 
   it("keeps a range shorter than a second at its own length", () => {
-    assert.deepEqual(
-      getMediaClipTrim(media("a", 10, { inSeconds: 1, outSeconds: 1.5 })),
-      { trimStartSeconds: 1, durationSeconds: 0.5 },
-    );
+    assert.deepEqual(trim(media("a", 10, { inSeconds: 1, outSeconds: 1.5 })), {
+      trimStartSeconds: 1,
+      durationSeconds: 0.5,
+    });
   });
 
   it("makes media without a duration yet a second long", () => {
-    assert.deepEqual(getMediaClipTrim(media("a", 0)), {
+    assert.deepEqual(trim(media("a", 0)), {
       trimStartSeconds: 0,
       durationSeconds: 1,
     });
   });
 
+  it("makes an image a bar long at the tempo, still or animated", () => {
+    const still = { ...media("still", 0), kind: "image" as const };
+    assert.deepEqual(getMediaClipTrim(still, 120), {
+      trimStartSeconds: 0,
+      durationSeconds: 2,
+    });
+    assert.deepEqual(getMediaClipTrim({ ...still, durationSeconds: 0.7 }, 90), {
+      trimStartSeconds: 0,
+      durationSeconds: 240 / 90,
+    });
+  });
+
   it("ignores a stored range that is out of order", () => {
-    assert.deepEqual(
-      getMediaClipTrim(media("a", 10, { inSeconds: 6, outSeconds: 4 })),
-      { trimStartSeconds: 0, durationSeconds: 10 },
-    );
+    assert.deepEqual(trim(media("a", 10, { inSeconds: 6, outSeconds: 4 })), {
+      trimStartSeconds: 0,
+      durationSeconds: 10,
+    });
   });
 });
 
 describe("addMediaToSourceTrack", () => {
-  it("leaves images out, and the project as it is with only images", () => {
+  it("drops an image as a bar-long clip with no Gain", () => {
     const image: MediaItem = {
       ...media("logo", 0),
-      name: "logo.svg",
+      name: "logo.png",
       kind: "image",
       hasAudio: false,
       hasVideo: false,
     };
+    const placed = addMediaToSourceTrack(project(), [image, media("a", 2)], {
+      kind: "track",
+      trackId: "t1",
+      startQ: 4,
+    });
+    // A bar of four quarters, then the video's two seconds.
+    assert.deepEqual(layout(placed.sourceSpans), [
+      ["logo", "t1", 4, 8, 0],
+      ["a", "t1", 8, 12, 0],
+    ]);
+    assert.deepEqual(
+      placed.effects.map((effect) => effect.trackId),
+      [`source-clip:${placed.sourceSpans[1]?.id}`],
+    );
+  });
+
+  it("leaves LUTs out, and the project as it is with only LUTs", () => {
+    const lut: MediaItem = {
+      ...media("look", 0),
+      name: "look.cube",
+      kind: "lut",
+      hasAudio: false,
+      hasVideo: false,
+    };
     const current = project();
-    const onlyImages = addMediaToSourceTrack(current, [image], {
+    const onlyLuts = addMediaToSourceTrack(current, [lut], {
       kind: "new-track",
       startQ: 0,
     });
-    assert.equal(onlyImages.sourceTracks, current.sourceTracks);
-    assert.equal(onlyImages.sourceSpans, current.sourceSpans);
-
-    const mixed = addMediaToSourceTrack(current, [image, media("a", 2)], {
-      kind: "track",
-      trackId: "t1",
-      startQ: 0,
-    });
-    assert.deepEqual(
-      mixed.sourceSpans.map((entry) => entry.mediaId),
-      ["a"],
-    );
+    assert.equal(onlyLuts.sourceTracks, current.sourceTracks);
+    assert.equal(onlyLuts.sourceSpans, current.sourceSpans);
   });
 
   it("starts the clip at the drop position, pre-trimmed to the range", () => {

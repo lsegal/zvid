@@ -5,7 +5,7 @@ import type { ArrangementClip } from "../../app/types.ts";
 import { describeClipMediaState } from "../../clip-media-state";
 import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
-import type { MediaItem } from "../../media";
+import { type MediaItem, showsPicture } from "../../media";
 import {
   describeMediaSync,
   type RemoteMediaProgressMap,
@@ -63,7 +63,7 @@ export function ClipPieceMedia({
   const leftPx = piece.startQ * quarterPx;
   const widthPx = getClipDurationQ(piece, bpm) * quarterPx;
   const filmstrip =
-    media?.hasVideo && mediaState === "online"
+    media && showsPicture(media) && mediaState === "online"
       ? clipFilmstrips.get(pieceKey)
       : undefined;
   // A tile shows the piece's first frame until its own frame is decoded.

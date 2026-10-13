@@ -22,9 +22,10 @@ export type SourceDropPreviewItem = {
 
 export function getSourceDropPreviewItems(
   items: readonly MediaItem[],
+  bpm: number,
 ): SourceDropPreviewItem[] {
   return items.map((item) => {
-    const { trimStartSeconds, durationSeconds } = getMediaClipTrim(item);
+    const { trimStartSeconds, durationSeconds } = getMediaClipTrim(item, bpm);
     return {
       mediaId: item.id,
       label: stripFilenameExtension(item.name),

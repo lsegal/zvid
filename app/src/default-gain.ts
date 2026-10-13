@@ -13,7 +13,8 @@ import { createEffect } from "./fx/stack/ops.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
 import type { MediaItem } from "./media.ts";
 
-type GainMedia = Pick<MediaItem, "id" | "hasAudio" | "durationSeconds">;
+type GainMedia = Pick<MediaItem, "id" | "hasAudio" | "durationSeconds"> &
+  Partial<Pick<MediaItem, "kind">>;
 
 // An arrangement clip; fill, text and FX clips set `kind` and have no sound.
 type GainClip = { id: string; kind?: string; mediaId?: string };
@@ -26,13 +27,18 @@ export type DefaultGainTargets = {
 };
 
 // Whether a media clip may have sound. Media that hasn't been read yet,
-// such as a just-opened session's placeholders, has no duration and may.
+// such as a just-opened session's placeholders, has no duration and may;
+// an image, which has none either, never does.
 function mayHaveAudio(
   mediaId: string | undefined,
   mediaById: ReadonlyMap<string, GainMedia>,
 ) {
   const media = mediaId === undefined ? undefined : mediaById.get(mediaId);
-  return !media || media.hasAudio || !(media.durationSeconds > 0);
+  return (
+    !media ||
+    media.hasAudio ||
+    (media.kind !== "image" && !(media.durationSeconds > 0))
+  );
 }
 
 // The stacks of `targets` that may have sound.

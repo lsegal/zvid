@@ -204,7 +204,7 @@ describe("media store with OPFS", () => {
     const cached = await test.store.get("svg");
     assert.ok(cached);
     const before = test.opfsFiles().get("svg");
-    await test.store.put("svg", withMediaType(cached, "image"));
+    await test.store.put("svg", withMediaType(cached, "logo.svg"));
     assert.equal(test.opfsFiles().get("svg"), before);
   });
 

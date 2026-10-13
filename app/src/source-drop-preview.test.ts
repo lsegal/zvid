@@ -37,9 +37,10 @@ function media(
 describe("getSourceDropPreviewItems", () => {
   it("trims each item to its In/Out range, like the drop", () => {
     assert.deepEqual(
-      getSourceDropPreviewItems([
-        media("a", 3, { inSeconds: 1, outSeconds: 2.5 }),
-      ]),
+      getSourceDropPreviewItems(
+        [media("a", 3, { inSeconds: 1, outSeconds: 2.5 })],
+        BPM,
+      ),
       [
         {
           mediaId: "a",
@@ -52,8 +53,18 @@ describe("getSourceDropPreviewItems", () => {
     );
   });
 
+  it("makes an image a bar long at the tempo", () => {
+    const [item] = getSourceDropPreviewItems(
+      [media("still", 0, undefined, { kind: "image", hasVideo: false })],
+      BPM,
+    );
+    assert.equal(item?.inSeconds, 0);
+    // Four quarters at 120 BPM.
+    assert.equal(item?.durationSeconds, 2);
+  });
+
   it("uses the whole file without a range", () => {
-    const [item] = getSourceDropPreviewItems([media("a", 3)]);
+    const [item] = getSourceDropPreviewItems([media("a", 3)], BPM);
     assert.equal(item?.inSeconds, 0);
     assert.equal(item?.durationSeconds, 3);
   });
@@ -61,9 +72,10 @@ describe("getSourceDropPreviewItems", () => {
 
 describe("getSourceDropPreviewLayout", () => {
   it("spans the range's length at the current zoom from the drop position", () => {
-    const items = getSourceDropPreviewItems([
-      media("a", 3, { inSeconds: 1, outSeconds: 2 }),
-    ]);
+    const items = getSourceDropPreviewItems(
+      [media("a", 3, { inSeconds: 1, outSeconds: 2 })],
+      BPM,
+    );
     // One second is two quarters.
     assert.deepEqual(getSourceDropPreviewLayout(items, 12, BPM, 40), {
       leftPx: 480,
@@ -77,11 +89,14 @@ describe("getSourceDropPreviewLayout", () => {
   });
 
   it("spans several items back to back, marking each one", () => {
-    const items = getSourceDropPreviewItems([
-      media("a", 3, { inSeconds: 1, outSeconds: 2 }),
-      media("b", 2),
-      media("c", 4, { inSeconds: 0.5, outSeconds: 1 }),
-    ]);
+    const items = getSourceDropPreviewItems(
+      [
+        media("a", 3, { inSeconds: 1, outSeconds: 2 }),
+        media("b", 2),
+        media("c", 4, { inSeconds: 0.5, outSeconds: 1 }),
+      ],
+      BPM,
+    );
     // One, two and half a second: two, four and one quarters from 3.
     assert.deepEqual(getSourceDropPreviewLayout(items, 3, BPM, 10), {
       leftPx: 30,
@@ -106,7 +121,7 @@ describe("getSourceDropPreviewThumbnailRequests", () => {
       availability: "offline",
       previewUrl: "",
     });
-    const items = getSourceDropPreviewItems([a, tone, offline]);
+    const items = getSourceDropPreviewItems([a, tone, offline], BPM);
     const requests = getSourceDropPreviewThumbnailRequests(
       items,
       new Map([a, tone, offline].map((item) => [item.id, item])),

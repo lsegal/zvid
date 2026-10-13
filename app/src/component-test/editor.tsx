@@ -305,6 +305,7 @@ export function Editor({
   // Drops onto the source tracks import nothing.
   const sourceTrackDrop = useSourceTrackDrop({
     mediaItems: project.mediaItems,
+    bpm: project.bpm,
     appShellRef,
     timelineScrollRef,
     labelWidth,

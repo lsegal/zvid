@@ -2,7 +2,7 @@
 // stretched over its box, and its opaque area drawn into a mask texture at
 // the size of the box it masks, so it stays crisp when scaled.
 
-import { isImageMedia, type MediaItem } from "../../../media.ts";
+import { isSvgMedia, type MediaItem } from "../../../media.ts";
 import { effectMediaPath, findEffectMedia } from "../../effect-media.ts";
 import { alphaToMask, stretchSvgSource } from "./custom-svg.ts";
 
@@ -44,7 +44,7 @@ export function getShapeImageMedia() {
 
 /** Keeps the session's SVG media, as the app has them now, for Custom. */
 export function setShapeImageMedia(items: readonly MediaItem[]) {
-  const next = items.filter(isImageMedia).map<ShapeImageMedia>((item) => ({
+  const next = items.filter(isSvgMedia).map<ShapeImageMedia>((item) => ({
     id: item.id,
     name: item.name,
     sourcePath: item.sourcePath,

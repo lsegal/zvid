@@ -16,7 +16,7 @@ import {
   getSourceSpanFilmstripClip,
 } from "../clip-filmstrip.ts";
 import { isPlaceholderClip } from "../clip-media-state";
-import type { MediaItem } from "../media";
+import { type MediaItem, showsPicture } from "../media";
 import { isRowCollapsed, type RowHeights } from "../row-heights.ts";
 import { getClipPieceClips } from "../source-track-content.ts";
 import {
@@ -98,7 +98,8 @@ export function useTimelineThumbnails({
       const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
       if (
         isPlaceholderClip(clip) ||
-        !media?.hasVideo ||
+        !media ||
+        !showsPicture(media) ||
         !media.previewUrl ||
         media.availability !== "ready"
       ) {
@@ -147,7 +148,8 @@ export function useTimelineThumbnails({
     for (const span of shownSourceSpans) {
       const media = span.mediaId ? mediaItemsById.get(span.mediaId) : undefined;
       if (
-        !media?.hasVideo ||
+        !media ||
+        !showsPicture(media) ||
         !media.previewUrl ||
         media.availability !== "ready"
       ) {
@@ -201,6 +203,7 @@ export function useTimelineThumbnails({
       size: ThumbnailSize | undefined,
       timeSeconds: (media: MediaItem) => number,
     ) => {
+      // An image's tiles show the image itself, which needs no decoding.
       if (
         !media?.hasVideo ||
         !media.previewUrl ||

@@ -253,7 +253,7 @@ describe("buildStandaloneProject", () => {
     assert.equal(project.sourceTracks[1].name, "b");
   });
 
-  it("makes no clips of images, which only feed effects", () => {
+  it("makes no clips of images, which are dropped onto source tracks instead", () => {
     const project = buildStandaloneProject([
       media({
         id: "logo",
