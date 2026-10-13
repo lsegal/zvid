@@ -29,8 +29,13 @@
   background: rgba(10, 12, 20, 0.36);
 }
 
+/* The field's focus ring goes around the whole box, icon included. */
 .prompt-palette__form:focus-within {
-  border-color: rgba(246, 183, 60, 0.6);
+  box-shadow: 0 0 0 2px rgba(246, 183, 60, 0.45);
+}
+
+.prompt-palette__input:focus-visible {
+  box-shadow: none;
 }
 
 .prompt-palette__icon {
