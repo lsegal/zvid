@@ -29,6 +29,11 @@ description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
 
 [[permission]]
+identifier = "allow-agent-relay"
+description = "Enables the agent_relay_ready and agent_relay_respond commands."
+commands.allow = ["agent_relay_ready", "agent_relay_respond"]
+
+[[permission]]
 identifier = "allow-chatgpt"
 description = "Enables Sign in with ChatGPT and requests on the user's ChatGPT plan."
 commands.allow = [
@@ -49,5 +54,6 @@ permissions = [
   "allow-read-file-prefix",
   "allow-files-exist",
   "allow-write-file-bytes",
+  "allow-agent-relay",
   "allow-chatgpt",
 ]

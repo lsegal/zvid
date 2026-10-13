@@ -102,6 +102,10 @@ The editor only supplies canvas frames and timeline state. Media analysis uses t
 
 Agents and scripts drive the editor through `window.zvid`, which App installs in the web and desktop apps alike: every editing operation (sessions, layers, clips, effects and their parameters, media import, playhead, transport, loop, selection, undo and export) as a command with a JSON Schema input that resolves to a structured result. `window.zvid.tools()` lists the commands as tools in the shape MCP and model tool-calling APIs take. [`src/control/SKILL.md`](src/control/SKILL.md) is the skill document for agents; the commands live in `src/control/commands`.
 
+## External agents
+
+An MCP client such as Claude Code or Codex drives a running zvid through the control surface with the zvid MCP server, `scripts/agent-relay/zvid-mcp.mjs`. It reaches a web tab opened with `?agent-relay` in its address, which connects to the server over a loopback WebSocket, or the desktop app, whose native process listens on a loopback port recorded in `agent-relay.json` in its app data folder. [`scripts/agent-relay/README.md`](scripts/agent-relay/README.md) covers registering the server with an agent.
+
 ## Collaboration signaling
 
 Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.
