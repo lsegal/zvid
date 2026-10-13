@@ -107,9 +107,7 @@ export type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
   | { kind: "source-track"; trackId: string }
-  // `atQ` is where the menu was opened, its New MIDI Clip's start; the
-  // playhead when it is undefined.
-  | { kind: "source-lane"; trackId: string; atQ?: number }
+  | { kind: "source-lane"; trackId: string }
   | { kind: "audio" }
 );
 

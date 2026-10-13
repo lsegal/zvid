@@ -278,8 +278,7 @@ export function useMenus({
 
   // Right-clicking empty space in a source track's row keeps its selected
   // source clip, for the entries that act on one, and otherwise selects the
-  // track. The menu remembers the position under the pointer for New MIDI
-  // Clip; opened from the keyboard, that is the playhead.
+  // track.
   function openSourceLaneMenu(
     event: ReactMouseEvent<HTMLElement>,
     trackId: string,
@@ -290,15 +289,9 @@ export function useMenus({
     if (selectedSourceSpan?.sourceTrackId !== trackId) {
       selectSource(selectSourceTrack(trackId));
     }
-    const atQ =
-      event.clientX || event.clientY
-        ? (event.clientX - event.currentTarget.getBoundingClientRect().left) /
-          quarterPx
-        : undefined;
     setClipMenu({
       kind: "source-lane",
       trackId,
-      atQ,
       anchor: getMenuAnchor(event),
     });
   }
@@ -372,7 +365,7 @@ export function useMenus({
 
     if (menu.kind === "source-lane") {
       return sourceTracks.some((track) => track.id === menu.trackId)
-        ? getSourceLaneMenuEntries(menu.trackId, menu.atQ)
+        ? getSourceLaneMenuEntries(menu.trackId)
         : [];
     }
 
@@ -411,10 +404,10 @@ export function useMenus({
     });
   }
 
-  // Paste goes into the track and New MIDI Clip places a bar-long clip at
-  // `atQ`, snapped like a drop, or at the playhead; the other entries act on
-  // its selected source clip.
-  function getSourceLaneMenuEntries(trackId: string, atQ?: number) {
+  // Paste goes into the track and Add MIDI Clip places a clip of up to a bar
+  // at the playhead, snapped like a drop; the other entries act on its
+  // selected source clip.
+  function getSourceLaneMenuEntries(trackId: string) {
     const span =
       selectedSourceSpan?.sourceTrackId === trackId
         ? selectedSourceSpan
@@ -441,16 +434,12 @@ export function useMenus({
         split: withSpan(sourceClipActions.split),
         remove: withSpan(sourceClipActions.remove),
       },
-      newMidiClip: () =>
-        sourceClipActions.newMidiClip(
+      addMidiClip: () =>
+        sourceClipActions.addMidiClip(
           trackId,
           Math.max(
             0,
-            snapQuarterValue(
-              atQ ?? playheadQRef.current,
-              snapUnit,
-              snapEnabled,
-            ),
+            snapQuarterValue(playheadQRef.current, snapUnit, snapEnabled),
           ),
           barLength,
         ),
