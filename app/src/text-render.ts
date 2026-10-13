@@ -1,6 +1,6 @@
 // Draws a text clip into a canvas the size of its box with Canvas 2D: fill
-// (solid or gradient), optional stroke outline, drop shadow, underline and
-// strikethrough. Preview and export both upload the result as the layer's
+// (solid or gradient), optional solid or dashed stroke outline, drop shadow,
+// underline and strikethrough. Preview and export both upload the result as the layer's
 // texture, so they draw identically.
 
 import { formatCssColor, type GradientStop } from "./fill-paint.ts";
@@ -218,12 +218,14 @@ export function drawText(
     context.strokeStyle = formatCssColor(style.stroke.color);
     context.lineWidth = style.stroke.width * scale * 2;
     context.lineJoin = "round";
+    setStrokeDash(context, style.stroke, scale);
     for (const run of runs) {
       drawRun(context, run, spacing, "stroke");
     }
     for (const line of decorations) {
       context.strokeRect(line.x, line.y - thickness / 2, line.width, thickness);
     }
+    setStrokeDash(context, undefined, scale);
   }
   applyShadow(!style.stroke);
   context.fillStyle = createPaintStyle(context, style.paint, width, height);
@@ -244,6 +246,18 @@ function measureFontBox(context: Context2D, fontSize: number) {
     ascent: metrics.fontBoundingBoxAscent || fontSize * 0.8,
     descent: metrics.fontBoundingBoxDescent || fontSize * 0.2,
   };
+}
+
+// Dashes the context's strokes as the style's stroke asks, or makes them
+// solid. Each glyph run starts the pattern afresh.
+function setStrokeDash(
+  context: Context2D,
+  stroke: TextStyle["stroke"],
+  scale: number,
+) {
+  const dash = stroke?.dash;
+  context.setLineDash(dash ? [dash.length * scale, dash.gap * scale] : []);
+  context.lineDashOffset = dash ? dash.offset * scale : 0;
 }
 
 function setShadow(
@@ -360,8 +374,10 @@ function drawCircleText(
     context.strokeStyle = formatCssColor(style.stroke.color);
     context.lineWidth = style.stroke.width * scale * 2;
     context.lineJoin = "round";
+    setStrokeDash(context, style.stroke, scale);
     drawGlyphs("stroke", true);
     drawDecorations(thickness + style.stroke.width * scale * 2, true);
+    setStrokeDash(context, undefined, scale);
   }
   drawGlyphs("fill", !style.stroke);
   context.strokeStyle = createPaintStyle(context, style.paint, width, height);

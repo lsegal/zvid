@@ -239,6 +239,9 @@ describe("Text effect parameters", () => {
         ["LineHeight", "number"],
         ["LetterSpacing", "number"],
         ["StrokeWidth", "number"],
+        ["StrokeDash", "number"],
+        ["StrokeGap", "number"],
+        ["StrokeOffset", "number"],
         ["Padding", "number"],
       ],
     );

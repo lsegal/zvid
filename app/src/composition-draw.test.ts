@@ -1042,6 +1042,7 @@ describe("drawComposition text layers", () => {
         },
         fillRect: () => undefined,
         strokeRect: () => undefined,
+        setLineDash: () => undefined,
       };
     }
 

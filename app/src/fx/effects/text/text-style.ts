@@ -44,6 +44,10 @@ export const TEXT_PATHS = ["None", "Circle"] as const;
 export const MIN_PATH_RADIUS = 10;
 export const MAX_PATH_RADIUS = 2000;
 export const DEFAULT_PATH_RADIUS = 300;
+// Stroke dash lengths, in pixels at 1080p. A Dash of 0 strokes solid.
+export const MAX_STROKE_DASH = 500;
+export const DEFAULT_STROKE_GAP = 20;
+export const MAX_STROKE_DASH_OFFSET = 1000;
 
 // Style toggles, stored comma-separated in the FontStyle parameter.
 export const TEXT_STYLE_FLAGS = [
@@ -80,7 +84,13 @@ export type TextStyle = {
   // Extra space between characters, in ems.
   letterSpacing: number;
   paint: TextPaint;
-  stroke?: { color: Rgba; width: number };
+  // `dash` is set when the stroke is dashed: the dash and gap lengths and
+  // how far along the pattern starts.
+  stroke?: {
+    color: Rgba;
+    width: number;
+    dash?: { length: number; gap: number; offset: number };
+  };
   shadow?: { color: Rgba; blur: number; offsetX: number; offsetY: number };
   padding: number;
   path: TextPath;
@@ -185,6 +195,13 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
     getFontWeights(parseFontChoice(font)),
   );
   const strokeWidth = read.number("StrokeWidth", 0, 0, 20);
+  const dashLength = read.number("StrokeDash", 0, 0, MAX_STROKE_DASH);
+  const dashGap = read.number(
+    "StrokeGap",
+    DEFAULT_STROKE_GAP,
+    0,
+    MAX_STROKE_DASH,
+  );
   const shadowOn = read.option("Shadow", OFF_ON, "Off") === "On";
   return {
     text: read.string("Text") ?? DEFAULT_TEXT,
@@ -215,6 +232,20 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
         ? {
             color: readColor(read.string("Stroke"), DEFAULT_STROKE_COLOR),
             width: strokeWidth,
+            ...(dashLength > 0 && dashGap > 0
+              ? {
+                  dash: {
+                    length: dashLength,
+                    gap: dashGap,
+                    offset: read.number(
+                      "StrokeOffset",
+                      0,
+                      -MAX_STROKE_DASH_OFFSET,
+                      MAX_STROKE_DASH_OFFSET,
+                    ),
+                  },
+                }
+              : {}),
           }
         : undefined,
     shadow: shadowOn
