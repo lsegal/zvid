@@ -2,21 +2,10 @@
 // with the control surface's commands as tools, runs each command the model
 // calls, and hands the results back until the model answers in words.
 
-// The control surface's shape as the loop uses it (see control/surface.ts).
-export type PromptTool = {
-  name: string;
-  description: string;
-  inputSchema: object;
-};
+import type { ControlSurface } from "../control/surface.ts";
 
-export type PromptCommandResult =
-  | { ok: true; result: unknown }
-  | { ok: false; error: { code: string; message: string } };
-
-export type PromptSurface = {
-  tools(): PromptTool[];
-  call(name: string, input?: unknown): Promise<PromptCommandResult>;
-};
+// The control surface the model's commands run on: the app's `window.zvid`.
+export type PromptSurface = Pick<ControlSurface, "tools" | "call">;
 
 // A Responses API item, as sent and returned.
 export type ResponseItem = { type: string } & Record<string, unknown>;
@@ -49,11 +38,11 @@ export type PromptOutcome = {
 export const PROMPT_NAMESPACE = "zvid";
 export const MAX_PROMPT_TURNS = 16;
 
-export const PROMPT_INSTRUCTIONS = `You are the assistant built into zvid, a music-video editor where clips sit on layers in a timeline measured in quarter notes. The user types one request at a time into a prompt box.
+export const PROMPT_INSTRUCTIONS = `You are the assistant built into zvid, a music-video editor. The user types one request at a time into a prompt box.
 
-Do what the user asks by calling the zvid tools, which edit the open session directly. Read the session first when you need to know what's in it, such as which clip is selected, its ID, or which effects exist; never guess IDs. When a tool returns an error, read it, fix the input and try again, or explain what stopped you.
+Do what the user asks by calling the zvid tools, which edit the open session directly. Call get_session first to read the session: its layers, clips, selection, media and effects. Never guess IDs. "The selected clip" is the session's selectedClipId. Timeline positions and lengths are in beats (quarter notes at the session tempo). Effects go in stacks (a clip's own, a layer's, or the Global stack); take effect names and parameters from list_effects. Every edit is one undoable step.
 
-When you're done, reply with one or two short sentences saying what you changed. Don't ask follow-up questions unless the request can't be carried out without an answer.`;
+When a tool returns an error, read it, fix the input and try again, or explain what stopped you. When you're done, reply with one or two short sentences saying what you changed. Don't ask follow-up questions unless the request can't be carried out without an answer.`;
 
 export function buildTools(surface: PromptSurface): object[] {
   return [

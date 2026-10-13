@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { objectSchema } from "../control/schema.ts";
+import type { ControlResult } from "../control/types.ts";
 import {
   buildTools,
   type CompletedResponse,
   commandName,
-  type PromptCommandResult,
   type PromptSurface,
   type ResponseItem,
   type ResponsesRequest,
@@ -21,22 +22,21 @@ function fakeSurface() {
       {
         name: "get_selection",
         description: "The selected clip.",
-        inputSchema: { type: "object", properties: {} },
+        inputSchema: objectSchema({}),
       },
       {
         name: "add_effect",
         description: "Adds an effect to a clip.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            clipId: { type: "string" },
-            effect: { type: "string" },
+        inputSchema: objectSchema(
+          {
+            clipId: { type: "string", description: "The clip." },
+            effect: { type: "string", description: "The effect." },
           },
-          required: ["clipId", "effect"],
-        },
+          ["clipId", "effect"],
+        ),
       },
     ],
-    async call(name, input): Promise<PromptCommandResult> {
+    async call(name, input): Promise<ControlResult> {
       calls.push({ name, input });
       if (name === "get_selection") {
         return { ok: true, result: { clipId: "clip-7" } };
@@ -235,8 +235,12 @@ describe("the prompt's tools", () => {
     );
     assert.deepEqual(namespace.tools[1].parameters, {
       type: "object",
-      properties: { clipId: { type: "string" }, effect: { type: "string" } },
+      properties: {
+        clipId: { type: "string", description: "The clip." },
+        effect: { type: "string", description: "The effect." },
+      },
       required: ["clipId", "effect"],
+      additionalProperties: false,
     });
   });
 

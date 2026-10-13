@@ -7,10 +7,8 @@ import {
 import type { PromptSurface } from "../../prompt/prompt-agent";
 import { PromptPalette } from "./PromptPalette";
 
-// The control surface the running app installs (see control/surface.ts).
-function appSurface(): PromptSurface | undefined {
-  return (window as { zvid?: PromptSurface }).zvid;
-}
+// The control surface the running app installs (see useControlSurface.ts).
+const appSurface = () => window.zvid;
 
 type PromptButtonProps = {
   // Stand-ins for tests; the app uses the native client and `window.zvid`.

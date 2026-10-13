@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { type RenderResult, render } from "vitest-browser-react";
 import { DEFAULT_PREVIEW_VOLUME } from "../../app/preview-volume.ts";
+import { objectSchema } from "../../control/schema.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
 import {
   type ChatGptClient,
@@ -64,7 +65,7 @@ function fakeSurface() {
       {
         name: "add_effect",
         description: "Adds an effect to the selected clip.",
-        inputSchema: { type: "object", properties: {} },
+        inputSchema: objectSchema({}),
       },
     ],
     call: async (_name, input) => {
