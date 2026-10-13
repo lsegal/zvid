@@ -38,9 +38,11 @@ test("an agent builds, edits and exports a session through window.zvid", async (
   expect(session.name).toBe("Agent cut");
   const layerId = session.layers[0].id;
 
+  // Silent video, so the export writes no audio track: Chromium on Linux
+  // has no AAC encoder for an audible MP4.
   const imported = await call("import_media", {
-    url: FIXTURES["test-pattern-audio.webm"].url,
-    name: "pattern.webm",
+    url: FIXTURES["test-pattern.mp4"].url,
+    name: "pattern.mp4",
   });
   expect(imported.media).toHaveLength(1);
   expect(imported.sourceClips).toHaveLength(1);
