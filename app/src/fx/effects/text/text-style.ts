@@ -232,9 +232,9 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
         ? {
             color: readColor(read.string("Stroke"), DEFAULT_STROKE_COLOR),
             width: strokeWidth,
-            dash:
-              dashLength > 0 && dashGap > 0
-                ? {
+            ...(dashLength > 0 && dashGap > 0
+              ? {
+                  dash: {
                     length: dashLength,
                     gap: dashGap,
                     offset: read.number(
@@ -243,8 +243,9 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
                       -MAX_STROKE_DASH_OFFSET,
                       MAX_STROKE_DASH_OFFSET,
                     ),
-                  }
-                : undefined,
+                  },
+                }
+              : {}),
           }
         : undefined,
     shadow: shadowOn

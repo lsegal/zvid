@@ -117,7 +117,7 @@ describe("readTextStyle", () => {
       readTextStyle(
         textEffect([{ key: "StrokeWidth", value: "4" }, ...parameters]),
       ).stroke;
-    assert.equal(stroke([]).dash, undefined);
+    assert.equal(stroke([])?.dash, undefined);
     assert.deepEqual(stroke([{ key: "StrokeDash", value: "30" }])?.dash, {
       length: 30,
       gap: 20,
