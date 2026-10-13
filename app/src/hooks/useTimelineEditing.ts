@@ -438,6 +438,8 @@ export function useTimelineEditing({
     setSelectedClipId,
     setSelectedLaneId,
     shortcutLabels,
+    snapEnabled,
+    snapUnit,
     sourceClipActions,
     sourceSpans,
     sourceTracks,

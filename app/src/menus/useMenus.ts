@@ -11,7 +11,11 @@ import {
   type SourceSelection,
   selectSourceTrack,
 } from "../app/source-selection.ts";
-import { getClipDurationQ, getClipEndQ } from "../app/timeline-math.ts";
+import {
+  getClipDurationQ,
+  getClipEndQ,
+  snapQuarterValue,
+} from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
   ClipMenuState,
@@ -117,6 +121,8 @@ export type MenusInputs = Pick<
     setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
     setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
     shortcutLabels: ReturnType<typeof getShortcutLabels>;
+    snapEnabled: boolean;
+    snapUnit: number;
     sourceSpans: SourceSpan[];
     sourceTracks: SourceTrack[];
     sourceTracksLocked: boolean;
@@ -193,6 +199,8 @@ export function useMenus({
   setSelectedClipId,
   setSelectedLaneId,
   shortcutLabels,
+  snapEnabled,
+  snapUnit,
   sourceClipActions,
   sourceSpans,
   sourceTracks,
@@ -270,7 +278,8 @@ export function useMenus({
 
   // Right-clicking empty space in a source track's row keeps its selected
   // source clip, for the entries that act on one, and otherwise selects the
-  // track.
+  // track. The menu remembers the position under the pointer for New MIDI
+  // Clip; opened from the keyboard, that is the playhead.
   function openSourceLaneMenu(
     event: ReactMouseEvent<HTMLElement>,
     trackId: string,
@@ -281,9 +290,15 @@ export function useMenus({
     if (selectedSourceSpan?.sourceTrackId !== trackId) {
       selectSource(selectSourceTrack(trackId));
     }
+    const atQ =
+      event.clientX || event.clientY
+        ? (event.clientX - event.currentTarget.getBoundingClientRect().left) /
+          quarterPx
+        : undefined;
     setClipMenu({
       kind: "source-lane",
       trackId,
+      atQ,
       anchor: getMenuAnchor(event),
     });
   }
@@ -357,7 +372,7 @@ export function useMenus({
 
     if (menu.kind === "source-lane") {
       return sourceTracks.some((track) => track.id === menu.trackId)
-        ? getSourceLaneMenuEntries(menu.trackId)
+        ? getSourceLaneMenuEntries(menu.trackId, menu.atQ)
         : [];
     }
 
@@ -396,9 +411,10 @@ export function useMenus({
     });
   }
 
-  // Paste goes into the track; the other entries act on its selected source
-  // clip.
-  function getSourceLaneMenuEntries(trackId: string) {
+  // Paste goes into the track and New MIDI Clip places a bar-long clip at
+  // `atQ`, snapped like a drop, or at the playhead; the other entries act on
+  // its selected source clip.
+  function getSourceLaneMenuEntries(trackId: string, atQ?: number) {
     const span =
       selectedSourceSpan?.sourceTrackId === trackId
         ? selectedSourceSpan
@@ -425,6 +441,19 @@ export function useMenus({
         split: withSpan(sourceClipActions.split),
         remove: withSpan(sourceClipActions.remove),
       },
+      newMidiClip: () =>
+        sourceClipActions.newMidiClip(
+          trackId,
+          Math.max(
+            0,
+            snapQuarterValue(
+              atQ ?? playheadQRef.current,
+              snapUnit,
+              snapEnabled,
+            ),
+          ),
+          barLength,
+        ),
     });
   }
 
