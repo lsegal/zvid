@@ -3728,7 +3728,7 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.36
+          "floatValue": -0.36
         },
         "StartScaleX": {
           "floatValue": 0.8
@@ -3749,7 +3749,7 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": -0.36
+          "floatValue": 0.36
         },
         "EndScaleX": {
           "floatValue": 1.1

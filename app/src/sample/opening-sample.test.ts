@@ -494,14 +494,14 @@ describe("zvid opening sample", () => {
         (numberParameter(sweep, "EndPositionX") ?? 0),
     );
 
-    // Negative Split's wide band drops down the frame, breathing on each
+    // Negative Split's wide band drops down the frame (+Y is down), breathing on each
     // beat with a quarter-note LFO on its Height.
     const [, drop, band] = negativeSplit;
     assert.equal(stringParameter(drop, "Motion"), "Ease Out");
     assert.equal(numberParameter(drop, "StartPositionX"), 0);
     assert.equal(numberParameter(drop, "EndPositionX"), 0);
     assert.ok(
-      (numberParameter(drop, "StartPositionY") ?? 0) >
+      (numberParameter(drop, "StartPositionY") ?? 0) <
         (numberParameter(drop, "EndPositionY") ?? 0),
     );
     assert.ok(

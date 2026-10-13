@@ -631,8 +631,8 @@ addEffect(negativeSplit, "NegativeSplit", {
 move(
   negativeSplit,
   "Ease Out",
-  { y: 0.36, scaleX: 0.8, rotation: 6 },
-  { y: -0.36, scaleX: 1.1, rotation: -6 },
+  { y: -0.36, scaleX: 0.8, rotation: 6 },
+  { y: 0.36, scaleX: 1.1, rotation: -6 },
 );
 addEffect(
   negativeSplit,
@@ -649,8 +649,8 @@ addEffect(
 );
 
 // Analog Glitch applies only inside a star on the hidden star-mask layer,
-// which spins a full turn of its points as it grows across the frame on
-// the diagonal.
+// which turns 144° at a steady rate, two of its points' turns, as it grows
+// from the top left toward the bottom right.
 const starBox = (height) => ({
   scaleX: (height * HEIGHT) / WIDTH,
   scaleY: height,
