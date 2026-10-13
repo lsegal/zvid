@@ -68,12 +68,25 @@ describe("Shape", { timeout: 60_000 }, () => {
         )
         .toHaveAttribute("aria-valuetext", text);
     }
-    // Shape has no knobs, so it has no Animation.
+    // Its outline's knobs, which can be animated, start as a fill.
+    for (const [label, text] of [
+      ["Stroke", "0 px"],
+      ["Dash", "0 px"],
+      ["Gap", "20 px"],
+      ["Offset", "0 px"],
+      ["Drawn", "100%"],
+    ]) {
+      await expect
+        .element(
+          shapeDevice().getByRole("slider", { name: label, exact: true }),
+        )
+        .toHaveAttribute("aria-valuetext", text);
+    }
     expect(
       shapeDevice()
         .getByRole("button", { name: /Animation/ })
-        .elements(),
-    ).toHaveLength(0);
+        .elements().length,
+    ).toBeGreaterThan(0);
 
     const trigger = () =>
       shapeDevice().getByRole("button", { name: /^Shape: / });
@@ -119,6 +132,7 @@ async function renderPoints(
   shape: string,
   points: Array<[number, number]>,
   transform?: Record<string, number>,
+  outline: Record<string, number> = {},
 ) {
   const effects: SessionEffect[] = [
     colorEffect("1", "rgba(255,255,255,1)"),
@@ -127,7 +141,14 @@ async function renderPoints(
       trackId: "1",
       effectName: SHAPE_EFFECT_NAME,
       enabled: true,
-      parameters: [{ key: "Shape", value: shape }],
+      parameters: [
+        { key: "Shape", value: shape },
+        ...Object.entries(outline).map(([key, value]) => ({
+          key,
+          value: String(value),
+          numericValue: value,
+        })),
+      ],
     },
   ];
   if (transform) {
@@ -247,5 +268,81 @@ describe("Shape rendering", { timeout: 60_000 }, () => {
       Array.from({ length: WIDTH }, (_, index) => [(index + 0.5) / WIDTH, 0.2]),
     );
     expect(row.some((pixel) => pixel[0] > 25 && pixel[0] < 230)).toBe(true);
+  });
+});
+
+// A circle 100 px across in the frame's right half: an Oval whose 200×100
+// box its Transform squeezes to a square. Its outline's lengths are in
+// output pixels at 1080p, so 108 is 10 px on this 100 px tall frame.
+const CIRCLE = { ScaleX: 0.5, PositionX: 0.25 };
+const px = (pixels: number) => (pixels * 1080) / HEIGHT;
+const CIRCLE_TOP: [number, number] = [0.75, 0.04];
+const CIRCLE_RIGHT: [number, number] = [0.98, 0.5];
+const CIRCLE_BOTTOM: [number, number] = [0.75, 0.96];
+const CIRCLE_LEFT: [number, number] = [0.52, 0.5];
+const CIRCLE_CENTER: [number, number] = [0.75, 0.5];
+
+describe("Shape outlines", { timeout: 60_000 }, () => {
+  test("draws a Stroke wide band inside the edge, evenly once transformed", async () => {
+    const [top, right, bottom, left, center, nearTop] = await renderPoints(
+      "Oval",
+      [
+        CIRCLE_TOP,
+        CIRCLE_RIGHT,
+        CIRCLE_BOTTOM,
+        CIRCLE_LEFT,
+        CIRCLE_CENTER,
+        [0.75, 0.2],
+      ],
+      CIRCLE,
+      { StrokeWidth: px(10) },
+    );
+    for (const pixel of [top, right, bottom, left]) {
+      expect(isWhite(pixel)).toBe(true);
+    }
+    expect(isDark(center)).toBe(true);
+    expect(isDark(nearTop)).toBe(true);
+  });
+
+  test("dashes the outline, and its Offset marches the dashes", async () => {
+    // Dashes and gaps 30 px long start at the top: the top is in a dash.
+    const dashed = { StrokeWidth: px(10), DashLength: px(30), DashGap: px(30) };
+    const row = Array.from({ length: 101 }, (_, index): [number, number] => [
+      0.5 + index / 200,
+      0.04,
+    ]);
+    const [top, ...across] = await renderPoints(
+      "Oval",
+      [CIRCLE_TOP, ...row],
+      CIRCLE,
+      dashed,
+    );
+    expect(isWhite(top)).toBe(true);
+    // The band runs along the circle's top: some of it dashes, some gaps.
+    const band = across.filter((_, index) => Math.abs(index - 50) < 30);
+    expect(band.some(isWhite)).toBe(true);
+    expect(band.some(isDark)).toBe(true);
+    // Moved by half a period, a gap sits at the top instead.
+    const [marched] = await renderPoints("Oval", [CIRCLE_TOP], CIRCLE, {
+      ...dashed,
+      DashOffset: px(30),
+    });
+    expect(isDark(marched)).toBe(true);
+  });
+
+  test("draws only Drawn of the outline, clockwise from the top", async () => {
+    const [top, right, left] = await renderPoints(
+      "Oval",
+      [
+        [0.77, 0.04],
+        CIRCLE_RIGHT,
+        CIRCLE_LEFT,
+      ],
+      CIRCLE,
+      { StrokeWidth: px(10), StrokeDrawn: 0.5 },
+    );
+    expect(isWhite(top)).toBe(true);
+    expect(isWhite(right)).toBe(true);
+    expect(isDark(left)).toBe(true);
   });
 });
