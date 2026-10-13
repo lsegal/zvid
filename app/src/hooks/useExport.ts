@@ -31,7 +31,7 @@ import {
   describeExportActivity,
 } from "../export-progress.ts";
 import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
-import type { ExportProgress } from "../harness/contracts";
+import type { ExportProgress, SaveMethod } from "../harness/contracts";
 import type { MediaItem } from "../media";
 import { retainObjectUrls } from "../object-url-retention.ts";
 import { hasRenderableContent, resolveRenderClips } from "../render-clips.ts";
@@ -47,6 +47,19 @@ import type { WaveformPeaks } from "../waveform-peaks";
 // While the editor plays, the export renders at most one frame per this
 // many milliseconds, so preview playback stays smooth.
 const PLAYING_FRAME_YIELD_MS = 32;
+
+// How an export ended, for callers that wait on it.
+export type ExportOutcome =
+  | {
+      kind: "done";
+      fileName: string;
+      summary: string;
+      bytes: number;
+      mimeType: string;
+      saveMethod: SaveMethod;
+    }
+  | { kind: "failed"; message: string }
+  | { kind: "canceled" };
 
 // Whether an export is running, its progress, and the Export button label
 // that shows it. App calls this early, since App reads `isExporting`.
@@ -328,7 +341,13 @@ export function useExport({
     abortRef.current?.abort();
   }
 
-  async function runExport(exportOptions: ExportOptions, from: ExportSnapshot) {
+  // Renders `from` with `exportOptions` and saves it to `preparedTarget`,
+  // or else wherever the harness asks the user to save it.
+  async function runExport(
+    exportOptions: ExportOptions,
+    from: ExportSnapshot,
+    preparedTarget?: SaveTarget,
+  ): Promise<ExportOutcome> {
     const { bpm } = from.project;
     const settings = exportSettings(exportOptions);
     const { startSeconds, durationSeconds, frameCount } = exportTiming(
@@ -344,26 +363,31 @@ export function useExport({
 
     let saveTarget: SaveTarget;
     try {
-      const nextSaveTarget = await getHarness().prepareSave(exportName, {
-        mimeType: `video/${container}`,
-        extensions: [exportExtension(container)],
-        description: `${EXPORT_CONTAINER_LABELS[container]} video`,
-      });
+      const nextSaveTarget =
+        preparedTarget ??
+        (await getHarness().prepareSave(exportName, {
+          mimeType: `video/${container}`,
+          extensions: [exportExtension(container)],
+          description: `${EXPORT_CONTAINER_LABELS[container]} video`,
+        }));
       if (!nextSaveTarget) {
         setStatus("Export canceled before rendering.");
-        return;
+        return { kind: "canceled" };
       }
       saveTarget = nextSaveTarget;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (isAbort(error)) {
         setStatus("Export canceled before rendering.");
-        return;
+        return { kind: "canceled" };
       }
 
       setStatus(`Failed to prepare export destination: ${message}`);
       setMessage(`Failed to prepare export destination: ${message}`);
-      return;
+      return {
+        kind: "failed",
+        message: `Failed to prepare export destination: ${message}`,
+      };
     }
 
     const abort = new AbortController();
@@ -421,6 +445,7 @@ export function useExport({
     );
 
     let result: ExportActivity | null = null;
+    let outcome: ExportOutcome = { kind: "canceled" };
     try {
       const exported = await getHarness().exportVideo({
         filename: exportName,
@@ -454,6 +479,14 @@ export function useExport({
       setMessage(done);
       setSavedTarget(saveTarget);
       result = { kind: "done", label: `Exported ${exportName}` };
+      outcome = {
+        kind: "done",
+        fileName: exportName,
+        summary: exported.summary,
+        bytes: exported.bytes,
+        mimeType: exported.mimeType,
+        saveMethod: exported.saveMethod,
+      };
       logClient("export:complete", {
         filename: exportName,
         bytes: exported.bytes,
@@ -472,6 +505,7 @@ export function useExport({
         setStatus(`Export failed: ${message}`);
         setMessage(`Export failed: ${message}`);
         result = { kind: "failed", label: `Export failed: ${message}` };
+        outcome = { kind: "failed", message: `Export failed: ${message}` };
         logClient("export:error", { message });
       }
     } finally {
@@ -488,6 +522,20 @@ export function useExport({
         setUnseenResult(result);
       }
     }
+    return outcome;
+  }
+
+  function takeSnapshot(): ExportSnapshot {
+    return {
+      takenAt: new Date(),
+      project,
+      session,
+      defaultRange,
+      mediaItems,
+      audioPeaks,
+      signature,
+      beatUnit,
+    };
   }
 
   function startExport() {
@@ -498,16 +546,29 @@ export function useExport({
     setMessage("");
     setSavedTarget(null);
     setUnseenResult(null);
-    void runExport(options, {
-      takenAt: new Date(),
-      project,
-      session,
-      defaultRange,
-      mediaItems,
-      audioPeaks,
-      signature,
-      beatUnit,
-    });
+    void runExport(options, takeSnapshot());
+  }
+
+  // Exports the session as it is now with its own settings, without the
+  // dialog, over `range` (the default range when unset), saved to `target`
+  // under the target's file name. The control surface exports this way.
+  async function exportTo(
+    target: SaveTarget,
+    range?: ExportRange,
+  ): Promise<ExportOutcome> {
+    if (isExporting) {
+      return { kind: "failed", message: "An export is already running." };
+    }
+    if (!hasRenderableContent(project)) {
+      return { kind: "failed", message: "The session has nothing to export." };
+    }
+    setIsPlaying(false);
+    setUnseenResult(null);
+    return runExport(
+      createExportOptions(session, range ?? defaultRange, target.filename),
+      takeSnapshot(),
+      target,
+    );
   }
 
   function revealFile() {
@@ -579,6 +640,7 @@ export function useExport({
 
   return {
     openExportDialog,
+    exportTo,
     reopenExportDialog,
     dismissExportActivity,
     exportDialog,

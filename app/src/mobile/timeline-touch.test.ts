@@ -13,6 +13,7 @@ import {
   LONG_PRESS_MS,
   pickMenuItems,
   pinchZoom,
+  playheadLoopRange,
   playheadScrollLeft,
   quickLoopRegion,
   swipePlayheadQ,
@@ -181,5 +182,29 @@ describe("quickLoopRegion", () => {
   it("loops the playhead's bar without a clip", () => {
     assert.deepEqual(quickLoopRegion(9, 4), { startQ: 8, endQ: 12 });
     assert.deepEqual(quickLoopRegion(0, 3), { startQ: 0, endQ: 3 });
+  });
+});
+
+describe("playheadLoopRange", () => {
+  it("starts a bar at the playhead, snapped to the grid", () => {
+    assert.deepEqual(playheadLoopRange(9.3, 4, 0.5, true), {
+      startQ: 9.5,
+      endQ: 13.5,
+    });
+    assert.deepEqual(playheadLoopRange(9.2, 3, 0.5, true), {
+      startQ: 9,
+      endQ: 12,
+    });
+  });
+
+  it("starts at the playhead itself with snapping off", () => {
+    assert.deepEqual(playheadLoopRange(9.3, 4, 0.5, false), {
+      startQ: 9.3,
+      endQ: 13.3,
+    });
+  });
+
+  it("never starts before 0", () => {
+    assert.deepEqual(playheadLoopRange(-1, 4, 1, true), { startQ: 0, endQ: 4 });
   });
 });

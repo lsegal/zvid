@@ -24,6 +24,16 @@ export type EffectContext = {
   // same in the preview and in export at any output size. Unset, the
   // picture is taken to fill the output (see `effectPixelScale`).
   pixelScale?: number;
+  // How much the picture is stretched across and down where it is shown,
+  // such as by its layer's Transform after the chain. Unset, it is shown at
+  // its own size.
+  displayScale?: [number, number];
+  // Pixels of `resolution` per pixel of the output's it stands for, when the
+  // picture is drawn smaller than it is shown, such as a layer its Transform
+  // shrinks, which is framed at the size it is drawn. Unset, 1. A pass that
+  // measures lengths as the picture is shown, over `displayScale`, divides
+  // `pixelScale` by it.
+  frameScale?: number;
   // Set for a stage (see EffectStage): its size over the picture's.
   stageScale?: number;
 };

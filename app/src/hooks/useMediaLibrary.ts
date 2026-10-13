@@ -452,6 +452,8 @@ export type MediaLibraryCommandsInputs = {
   setStatus: (status: string) => void;
 };
 
+export type MediaImportResult = { imported: MediaItem[]; error?: string };
+
 // Importing dropped media into source tracks and relinking offline media.
 // They use the offline media state useMediaStatus derives after
 // useMediaLibrary, so useMediaImport calls this hook after it.
@@ -471,10 +473,14 @@ export function useMediaLibraryCommands({
     ReadonlySet<string>
   >(() => new Set());
 
+  // Resolves to the media it imported, or what stopped it.
   const importMediaIntoSourceTrack = useCallback(
-    async (files: File[], target: SourceTrackDropTarget) => {
+    async (
+      files: File[],
+      target: SourceTrackDropTarget,
+    ): Promise<MediaImportResult> => {
       if (refuseReadOnlyEdit()) {
-        return;
+        return { imported: [], error: "This tab is read-only." };
       }
 
       const harness = getHarness();
@@ -495,7 +501,7 @@ export function useMediaLibraryCommands({
         );
         if (!analyzed.length) {
           setStatus(rejected ?? "No media imported.");
-          return;
+          return { imported: [], error: rejected ?? "No media imported." };
         }
         const sharedAnalyzed = analyzed.map((item) =>
           toShareableMediaItem(item),
@@ -540,7 +546,7 @@ export function useMediaLibraryCommands({
               .filter(Boolean)
               .join(" "),
           );
-          return;
+          return { imported: analyzed };
         }
         // Reveal the dropped media, even when it landed on a collapsed header.
         setSourceTracksCollapsed(false);
@@ -551,9 +557,11 @@ export function useMediaLibraryCommands({
               : "a new source track"
           }.${rejected ? ` ${rejected}` : ""}`,
         );
+        return { imported: analyzed };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         setStatus(`Dropped media import failed: ${message}`);
+        return { imported: [], error: `Media import failed: ${message}` };
       }
     },
     [

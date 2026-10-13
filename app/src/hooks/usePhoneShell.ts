@@ -8,7 +8,10 @@ import {
   buildFileMenuEntries,
   type FileMenuInputs,
 } from "../menus/file-menu.ts";
-import { quickLoopRegion } from "../mobile/timeline-touch.ts";
+import {
+  playheadLoopRange,
+  quickLoopRegion,
+} from "../mobile/timeline-touch.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
 import { useMasterMeterTap } from "./useMasterMeterTap.ts";
@@ -130,8 +133,8 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
   }
 
   // Loops the timeline selection (a lane range, else the loop strip's
-  // playback selection) and clears it, else the selected clip, else the
-  // playhead's bar.
+  // playback selection) and clears it, else the selected clip, else one bar
+  // from the playhead, snapped to the grid.
   function toggleLoop() {
     if (timeline.loopRegion) {
       timeline.setLoopRegion(null);
@@ -155,6 +158,12 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
               endQ: getClipEndQ(selectedClip, project.bpm),
             }
           : undefined,
+        playheadLoopRange(
+          store.playheadQRef.current,
+          timeline.barLength,
+          timeline.snapUnit,
+          project.snapEnabled,
+        ),
       ),
     );
     selection.setPendingSelection(null);

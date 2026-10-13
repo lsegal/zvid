@@ -16,6 +16,12 @@
 // It is also a tour of the effects: every video effect sits on a clip of
 // its own, and the music plays from the Audio layer as two-beat selections,
 // each through a different audio effect.
+//
+// Hundreds of animated clips, such as a dot grid, must stay within the
+// preview's per-clip budget in app/ARCHITECTURE.md ("Many small animated
+// clips"): effect-free fills animated by a Transform cost almost nothing,
+// but every clip running shader effects of its own costs render passes a
+// frame.
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";

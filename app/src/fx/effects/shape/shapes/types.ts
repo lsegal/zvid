@@ -1,3 +1,5 @@
+import type { ShapeOutline } from "./outline.ts";
+
 // One shape the Shape effect can mask a layer to. Shapes are drawn over the
 // layer's whole box, in box coordinates: `x` and `y` run 0..1 from the box's
 // top-left corner to its bottom-right one.
@@ -12,6 +14,9 @@ export type ShapeDefinition = {
   // The same function in TypeScript, for tests and anything drawn off the
   // GPU.
   distance(x: number, y: number): number;
+  // The shape's edge measured along its length, for dashed outlines; a shape
+  // without one is only ever filled.
+  outline?: ShapeOutline;
   // SVG path of the shape in a 100 by 100 box, for the picker's previews.
   previewPath: string;
 };

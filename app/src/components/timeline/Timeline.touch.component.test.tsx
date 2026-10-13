@@ -259,7 +259,7 @@ describe(`${Timeline.name} on a phone`, {
   });
 
   // #1255: the transport's Loop button loops the selection and drops it.
-  test("Loop loops a lane selection and clears it, else the playhead's bar", async () => {
+  test("Loop loops a lane selection and clears it, else a bar from the playhead", async () => {
     await usePhone();
     await renderApp();
     const scroll = centerOf(".timeline-scroll");
@@ -280,13 +280,16 @@ describe(`${Timeline.name} on a phone`, {
     await tap(loop);
     await expect.poll(() => document.querySelector(".loop-overlay")).toBeNull();
 
-    // With nothing selected, it loops the bar the playhead is in.
+    // With nothing selected, it loops one bar from the playhead, snapped to
+    // the grid (#1295): not from the start of the playhead's bar.
+    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 70, y });
+    await settledPlayheadQ();
     await tap(loop);
     await expect.poll(() => isVisible(query(".loop-overlay"))).toBe(true);
     const bar = boxOf(".loop-overlay");
     const playhead = centerOf(".timeline-playhead-marker").x;
-    expect(bar.left).toBeLessThanOrEqual(playhead + 1);
-    expect(bar.right).toBeGreaterThan(playhead);
+    const cell = gridCellPx(query('[data-timeline-lane-id="1"]'));
+    expect(Math.abs(bar.left - playhead)).toBeLessThan(cell);
   });
 
   test("a double tap on empty lane space selects grid cells at least 64px wide", async () => {

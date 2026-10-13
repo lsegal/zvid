@@ -1,3 +1,4 @@
+import { polygonOutline } from "./outline.ts";
 import type { ShapeDefinition } from "./types.ts";
 
 // The whole box.
@@ -10,5 +11,12 @@ export const rectangle: ShapeDefinition = {
   distance(x, y) {
     return Math.max(Math.abs(x * 2 - 1), Math.abs(y * 2 - 1)) - 1;
   },
+  outline: polygonOutline([
+    [0.5, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [0, 0],
+  ]),
   previewPath: "M0 0H100V100H0Z",
 };
