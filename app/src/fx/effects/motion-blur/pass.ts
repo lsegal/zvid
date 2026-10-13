@@ -12,10 +12,15 @@ import {
 export const MOTION_BLUR_MAX_DISTANCE = 400;
 export const MOTION_BLUR_DEFAULT_DISTANCE = 60;
 
-// The reads each stage takes along the smear. Two stages of them make
-// MOTION_BLUR_TAPS² evenly spaced reads, under half a pixel apart even at
-// the longest Distance in 2160p.
-export const MOTION_BLUR_TAPS = 32;
+// The most reads either stage takes along the smear.
+export const MOTION_BLUR_TAPS = 64;
+
+// The comb stage's copies, at most, before its step grows past a pixel.
+const COMB_COPIES = 32;
+
+// The longest comb step in pixels, so the fine stage's reads stay half a
+// pixel apart.
+const MAX_COMB_STEP = MOTION_BLUR_TAPS / 2;
 
 export function readAngle(params: EffectParameter[]) {
   return clampUnit(readEffectNumber(params, "_Angle", 0), 0, 180);
@@ -34,27 +39,49 @@ function lengthPixels(params: EffectParameter[], ctx: EffectContext) {
   return readDistance(params) * effectPixelScale(ctx);
 }
 
-// The step between a stage's reads in texture coordinates: the smear's
-// length over MOTION_BLUR_TAPS for the first stage (`fine` false), and over
-// MOTION_BLUR_TAPS² for the second, which fills the gaps between the
-// first's. 0° runs left to right and 90° up the screen, whichever way up
-// the picture is stored.
-export function smearStep(
+export type SmearStage = {
+  // The step between reads in texture coordinates.
+  step: [number, number];
+  taps: number;
+};
+
+// The smear's two stages along `_Angle` over `_Distance`. The comb lays
+// copies of the fine stage end to end along the length, each a whole number
+// of pixels along the direction's main axis from the next, so on the pixel
+// grid they tile into one even smear with no ripple or ghosting. The fine
+// stage spreads each pixel over one comb step, with reads half a pixel
+// apart. 0° runs left to right and 90° up the screen, whichever way up the
+// picture is stored.
+export function smearStages(
   params: EffectParameter[],
   ctx: EffectContext,
-  fine: boolean,
-): [number, number] {
+): { fine: SmearStage; comb: SmearStage } {
   const radians = (readAngle(params) * Math.PI) / 180;
-  const length =
-    lengthPixels(params, ctx) / MOTION_BLUR_TAPS / (fine ? MOTION_BLUR_TAPS : 1);
+  const [cos, sin] = [Math.cos(radians), Math.sin(radians)];
+  // Pixels along the main axis per pixel along the smear.
+  const axis = Math.max(Math.abs(cos), Math.abs(sin));
+  const length = lengthPixels(params, ctx) * axis;
+  const combStep =
+    length <= 1
+      ? length
+      : clampUnit(Math.round(length / COMB_COPIES), 1, MAX_COMB_STEP);
+  const copies =
+    combStep > 0
+      ? clampUnit(Math.round(length / combStep), 1, MOTION_BLUR_TAPS)
+      : 1;
+  const fineTaps = clampUnit(Math.ceil(2 * combStep), 1, MOTION_BLUR_TAPS);
   const [width, height] = ctx.resolution;
-  return [
-    (Math.cos(radians) * length) / Math.max(1, width),
-    ((ctx.bottomUp ? 1 : -1) * Math.sin(radians) * length) / Math.max(1, height),
+  const step = (pixels: number): [number, number] => [
+    (cos * pixels) / axis / Math.max(1, width),
+    ((ctx.bottomUp ? 1 : -1) * sin * pixels) / axis / Math.max(1, height),
   ];
+  return {
+    fine: { step: step(combStep / fineTaps), taps: fineTaps },
+    comb: { step: step(combStep), taps: copies },
+  };
 }
 
-// One stage of the smear: the average of MOTION_BLUR_TAPS reads of `source`
+// One stage of the smear: the average of `uTaps` reads of `source`
 // centered on the pixel, `uStep` apart. `premultiply` weights the picture's
 // color by its alpha first.
 function smearSource(source: string, premultiply: boolean) {
@@ -65,62 +92,59 @@ function smearSource(source: string, premultiply: boolean) {
   return `
     uniform sampler2D ${source};
     uniform vec2 uStep;
+    uniform float uTaps;
     varying vec2 vUv;
 
     void main() {
       vec4 sum = vec4(0.0);
       vec4 c;
       for (int tap = 0; tap < ${MOTION_BLUR_TAPS}; tap++) {
-        float offset = float(tap) - ${(MOTION_BLUR_TAPS - 1) / 2};
+        if (float(tap) >= uTaps) break;
+        float offset = float(tap) - 0.5 * (uTaps - 1.0);
         ${read}
       }
-      gl_FragColor = sum / ${MOTION_BLUR_TAPS}.0;
+      gl_FragColor = sum / uTaps;
     }
   `;
 }
 
-function setStep(
+function setStage(
   gl: WebGLRenderingContext,
   loc: EffectUniformLocations,
-  params: EffectParameter[],
-  ctx: EffectContext,
-  fine: boolean,
+  { step, taps }: SmearStage,
 ) {
-  const [x, y] = smearStep(params, ctx, fine);
-  gl.uniform2f(loc.uStep, x, y);
+  gl.uniform2f(loc.uStep, step[0], step[1]);
+  gl.uniform1f(loc.uTaps, taps);
 }
 
 // Smears the picture evenly along `_Angle` over `_Distance`, in output
 // pixels at 1080p scaled to the output size, centered on each pixel as a
-// shutter open while the picture moved would. The first stage averages
-// reads spread over the whole length, and the second averages reads
-// spread over the gap between two of the first's, so together they average
-// MOTION_BLUR_TAPS² reads evenly along it: a smooth smear with no ghosted
-// copies, and nothing blurred across it. The picture is premultiplied by its
-// alpha, so transparent areas don't darken the edges they meet, and every
-// read is clamped to the picture's edges rather than wrapping. Nothing
-// depends on time, so preview and export match.
+// shutter open while the picture moved would, in two stages (see
+// `smearStages`). Both are drawn at full size, so nothing is blurred across
+// the smear. The picture is premultiplied by its alpha, so transparent
+// areas don't darken the edges they meet, and every read is clamped to the
+// picture's edges rather than wrapping. Nothing depends on time, so preview
+// and export match.
 export const pass: EffectPass = {
   effectName: "MotionBlur",
   stages: [
     {
-      name: "uSmearCoarse",
+      name: "uSmearFine",
       fragmentSource: smearSource("uTex", true),
-      uniforms: ["uStep"],
+      uniforms: ["uStep", "uTaps"],
       setUniforms(gl, loc, params, ctx) {
-        setStep(gl, loc, params, ctx, false);
+        setStage(gl, loc, smearStages(params, ctx).fine);
       },
     },
     {
       name: "uSmear",
-      fragmentSource: smearSource("uSmearCoarse", false),
-      uniforms: ["uStep"],
+      fragmentSource: smearSource("uSmearFine", false),
+      uniforms: ["uStep", "uTaps"],
       setUniforms(gl, loc, params, ctx) {
-        setStep(gl, loc, params, ctx, true);
+        setStage(gl, loc, smearStages(params, ctx).comb);
       },
     },
   ],
-  // Full size, so nothing is softened across the smear.
   stageScale(params, ctx) {
     return lengthPixels(params, ctx) > 0 ? 1 : 0;
   },
