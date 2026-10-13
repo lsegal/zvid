@@ -951,4 +951,22 @@ describe("a session with a MIDI clip", () => {
       project.sourceTracks[0].noteGenerators,
     );
   });
+  it("keeps an empty MIDI clip a MIDI clip", () => {
+    const project = sessionToProject(session, []);
+    const empty = {
+      ...INITIAL_PROJECT_STATE,
+      ...project,
+      sourceSpans: project.sourceSpans.map((span, index) =>
+        index === 0 ? { ...span, notes: [] } : span,
+      ),
+    };
+    const saved = projectToSession(empty, { playheadQ: 0 });
+    assert.deepEqual(
+      saved.clips?.map((clip) => clip.notes),
+      [[], undefined],
+    );
+    const reopened = sessionToProject(saved, []);
+    assert.deepEqual(reopened.sourceSpans[0].notes, []);
+    assert.equal("notes" in reopened.sourceSpans[1], false);
+  });
 });

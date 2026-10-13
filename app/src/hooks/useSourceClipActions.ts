@@ -16,6 +16,7 @@ import type { ProjectState, SourceSpan } from "../app/types.ts";
 import { canSplitAt } from "../clip-menu.ts";
 import {
   canPasteIntoSourceTrack,
+  createMidiClip,
   deleteSourceSpan,
   duplicateSourceSpan,
   pasteIntoSourceTrack,
@@ -132,6 +133,24 @@ export function useSourceClipActions({
     setStatus(`Pasted ${clipboard.sourceSpan.label}.`);
   }
 
+  // Places an empty MIDI clip `durationQ` long in source track
+  // `sourceTrackId` at `startQ`, selected afterwards so the piano roll shows.
+  function newMidiClip(
+    sourceTrackId: string,
+    startQ: number,
+    durationQ: number,
+  ) {
+    const id = newSourceSpanId();
+    if (
+      commitEdit("New MIDI Clip", (current) =>
+        createMidiClip(current, sourceTrackId, startQ, durationQ, id),
+      )
+    ) {
+      selectSource(selectSourceSpan({ id, sourceTrackId }));
+      setStatus("Added a MIDI clip.");
+    }
+  }
+
   function duplicate(span: SourceSpan) {
     const id = newSourceSpanId();
     if (
@@ -170,6 +189,7 @@ export function useSourceClipActions({
     duplicate,
     split,
     remove,
+    newMidiClip,
   };
   // The keyboard shortcuts read the latest actions without re-subscribing.
   const sourceClipActionsRef = useRef(sourceClipActions);

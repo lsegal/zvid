@@ -7,8 +7,10 @@ import type { SessionEffect } from "./fx-stack.ts";
 import { sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
   canPasteIntoSourceTrack,
+  createMidiClip,
   deleteSourceSpan,
   duplicateSourceSpan,
+  NEW_MIDI_CLIP_LABEL,
   pasteIntoSourceTrack,
   type SourceClipProject,
   splitSourceSpan,
@@ -382,5 +384,45 @@ describe("deleteSourceSpan", () => {
 
   it("does nothing for a missing clip", () => {
     assert.equal(deleteSourceSpan(project([]), "a"), undefined);
+  });
+});
+
+describe("createMidiClip", () => {
+  it("places an empty MIDI clip in the track's colors", () => {
+    const patch = createMidiClip(project([]), "t2", 4, 16, "midi");
+    const swatch = getSwatch(1);
+    assert.deepEqual(patch?.sourceSpans, [
+      {
+        id: "midi",
+        sourceTrackId: "t2",
+        label: NEW_MIDI_CLIP_LABEL,
+        mediaPath: "",
+        startQ: 4,
+        durationSeconds: 8,
+        trimStartSeconds: 0,
+        notes: [],
+        tint: swatch.color,
+        accent: swatch.accent,
+      },
+    ]);
+  });
+
+  it("overwrites what it lands on in its own track only", () => {
+    const patch = createMidiClip(
+      project([span("a", 0, 8), span("b", 0, 8, { trackId: "t2" })]),
+      "t1",
+      2,
+      4,
+      "midi",
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+2q from 10s",
+      "b@t2:0+8q from 10s",
+      "midi@t1:2+4q from 0s",
+    ]);
+  });
+
+  it("does nothing for a missing track", () => {
+    assert.equal(createMidiClip(project([]), "nope", 0, 4, "midi"), undefined);
   });
 });

@@ -1,11 +1,12 @@
 // Pasting, duplicating, splitting and deleting source clips (source spans)
-// from their right-click menu and the keyboard shortcuts. Each returns the
+// from their right-click menu and the keyboard shortcuts, and creating empty
+// MIDI clips from the source lane menu. Each returns the
 // project patch for one undo step. Pieces placed onto other spans in the same
 // source track overwrite them as a moved span does. Arrangement clips keep
 // their windows on their source tracks and show whatever those now hold
 // (see source-track-content.ts).
 import { type ClipClipboard, clipClipboardKind } from "./app/clip-ops.ts";
-import { getClipEndQ } from "./app/timeline-math.ts";
+import { getClipEndQ, quartersToSeconds } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
@@ -214,4 +215,46 @@ export function deleteSourceSpan(
       current.bpm,
     ),
   };
+}
+
+export const NEW_MIDI_CLIP_LABEL = "MIDI clip";
+
+/**
+ * An empty MIDI clip `id`, `durationQ` long, placed in source track
+ * `trackId` at `startQ` and overwriting what it lands on there. Its track's
+ * synth plays the notes the piano roll adds to it. Undefined without the
+ * track.
+ */
+export function createMidiClip(
+  current: SourceClipProject,
+  trackId: string,
+  startQ: number,
+  durationQ: number,
+  id: string,
+): SourceClipPatch | undefined {
+  const track = current.sourceTracks.find((item) => item.id === trackId);
+  if (!track) {
+    return undefined;
+  }
+
+  const swatch = getSwatch(track.colorIndex);
+  return placeSourceSpans(
+    current,
+    current.sourceSpans,
+    [
+      {
+        id,
+        sourceTrackId: trackId,
+        label: NEW_MIDI_CLIP_LABEL,
+        mediaPath: "",
+        startQ: Math.max(0, startQ),
+        durationSeconds: quartersToSeconds(durationQ, current.bpm),
+        trimStartSeconds: 0,
+        notes: [],
+        tint: swatch.color,
+        accent: swatch.accent,
+      },
+    ],
+    [],
+  );
 }
