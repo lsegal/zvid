@@ -702,9 +702,9 @@ describe("zvid opening sample", () => {
       (effect) => effect.effectName === "Shape",
     );
     assert.equal(stringParameter(shape, "Shape"), "Oval");
-    assert.ok((numberParameter(shape, "Stroke") ?? 0) > 0);
-    assert.ok((numberParameter(shape, "Dash") ?? 0) > 0);
-    assert.ok((numberParameter(shape, "Offset") ?? 0) !== 0);
+    assert.ok((numberParameter(shape, "StrokeWidth") ?? 0) > 0);
+    assert.ok((numberParameter(shape, "DashLength") ?? 0) > 0);
+    assert.ok((numberParameter(shape, "DashOffset") ?? 0) !== 0);
     assert.equal(shape.animation?.mode, "clip");
     assert.equal(shape.animation?.clip?.motionOut, "None");
   });

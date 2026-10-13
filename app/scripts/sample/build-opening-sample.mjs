@@ -83,8 +83,7 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 const BLOOM_DOTS = 6;
 const VORTEX_DOTS = 24;
 const bloomDotLayer = (index) => `bloom-dot-${index + 1}`;
-const vortexLayer = (index) =>
-  `vortex-${String(index + 1).padStart(2, "0")}`;
+const vortexLayer = (index) => `vortex-${String(index + 1).padStart(2, "0")}`;
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
@@ -831,12 +830,19 @@ function ring(id, layerId, words, fontSize, radius, turn) {
 ring(
   "text-ring-outer",
   "title-words",
-  "capture · edit · repeat · ",
+  "capture · edit · repeat · capture · edit · repeat · ",
   40,
   470,
   -90,
 );
-ring("text-ring-inner", "title-wordmark", "zvid · zvid · zvid · ", 56, 300, 120);
+ring(
+  "text-ring-inner",
+  "title-wordmark",
+  "zvid · zvid · zvid · zvid · ",
+  56,
+  300,
+  120,
+);
 
 // 21–24 s: "repeat" winds right to left across the reactive three-ups at a
 // steady speed, a ribbon through four waypoints, banking into each turn,
@@ -863,7 +869,7 @@ move(
     { x: -0.4, y: 0.1, rotation: -6 },
   ],
 );
-addEffect(repeatWord, "MotionBlur", { _Angle: 0, _Distance: 90 });
+addEffect(repeatWord, "MotionBlur", { _Angle: 0, _Distance: 36 });
 
 // 24–27 s: the wordmark returns above the alternating three-ups.
 const montageWordmark = text(
@@ -948,7 +954,14 @@ addEffect(bloomRing, "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
 addEffect(
   bloomRing,
   "Shape",
-  { Shape: "Oval", Stroke: 6, Dash: 22, Gap: 16, Offset: 160, Drawn: 1 },
+  {
+    Shape: "Oval",
+    StrokeWidth: 6,
+    DashLength: 22,
+    DashGap: 16,
+    DashOffset: 160,
+    StrokeDrawn: 1,
+  },
   {
     animation: animation("clip", {
       motionIn: "Ease Out",
@@ -1024,17 +1037,21 @@ addEffect(
 // Color paints its dots and whose Move spirals each dot in turn two thirds
 // of the way round, shrinking and speeding up, from beyond the frame's edge
 // to an ellipse clear of the titles. The arms start their streams a little
-// apart, so dots arrive continuously.
+// apart, so dots arrive continuously. Neighboring arms start five steps
+// apart, not one: in step, each arm's lag would cancel its turn and bunch
+// the dots on one side.
 const VORTEX_LIFE = 9;
 for (let index = 0; index < VORTEX_DOTS; index++) {
   const layerId = vortexLayer(index);
   const from = (index * 360) / VORTEX_DOTS;
   const spiral = Array.from({ length: 5 }, (_, step) =>
-    dotAt(1.05 - step * 0.17, from + step * 60, 0.03 - step * 0.0045, 1.4),
+    dotAt(0.7 - step * 0.09, from + step * 60, 0.03 - step * 0.0045, 1.4),
   );
   addEffect(layerId, "Color", dotPaint(INK));
   move(layerId, "Ease In", spiral[0], spiral[4], spiral.slice(1, 4));
-  const stagger = Math.round((index * VORTEX_LIFE) / VORTEX_DOTS);
+  const stagger = Math.round(
+    (((index * 5) % VORTEX_DOTS) * VORTEX_LIFE) / VORTEX_DOTS,
+  );
   for (
     let frame = frames(27) + stagger, dot = 1;
     frame + VORTEX_LIFE <= frames(DURATION_SECONDS);
