@@ -3,9 +3,14 @@ import { describe, it } from "node:test";
 import { getClipWaveformKind } from "./clip-waveform.ts";
 
 const clip = { mediaId: "m1", mediaPath: "take.mp4" };
-const videoWithAudio = { hasVideo: true, hasAudio: true };
-const videoOnly = { hasVideo: true, hasAudio: false };
-const audioOnly = { hasVideo: false, hasAudio: true };
+const videoWithAudio = {
+  kind: "video",
+  hasVideo: true,
+  hasAudio: true,
+} as const;
+const videoOnly = { kind: "video", hasVideo: true, hasAudio: false } as const;
+const audioOnly = { kind: "audio", hasVideo: false, hasAudio: true } as const;
+const image = { kind: "image", hasVideo: false, hasAudio: false } as const;
 
 describe("getClipWaveformKind", () => {
   it("overlays the waveform on video with audio", () => {
@@ -21,6 +26,10 @@ describe("getClipWaveformKind", () => {
 
   it("draws audio-only media's waveform in place of a filmstrip", () => {
     assert.equal(getClipWaveformKind(clip, audioOnly, "online"), "audio");
+  });
+
+  it("draws no waveform on an image, which shows its picture", () => {
+    assert.equal(getClipWaveformKind(clip, image, "online"), "none");
   });
 
   it("draws nothing for media that is not online", () => {

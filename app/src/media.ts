@@ -270,6 +270,12 @@ export function isImageMedia(item: Pick<MediaItem, "kind">) {
   return item.kind === "image";
 }
 
+// Whether `item` shows a picture on the timeline: a video's frames, or an
+// image.
+export function showsPicture(item: Pick<MediaItem, "hasVideo" | "kind">) {
+  return item.hasVideo || isImageMedia(item);
+}
+
 // Shape ▸ Custom masks are drawn from SVG images only.
 export function isSvgMedia(item: Pick<MediaItem, "kind" | "name">) {
   return isImageMedia(item) && imageMimeType(item.name) === SVG_MIME_TYPE;
