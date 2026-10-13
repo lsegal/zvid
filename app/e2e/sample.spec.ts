@@ -419,9 +419,7 @@ test("the logo reveal glitches under a 1 Hz LFO", async ({ page }) => {
   ).toBeVisible();
 
   // The second mask clip holds the logo still, unglitched.
-  await lane(page, "masks")
-    .locator('[data-clip-id="fill-logo-hold"]')
-    .click();
+  await lane(page, "masks").locator('[data-clip-id="fill-logo-hold"]').click();
   await expect(
     page.locator('.fx-chain section[aria-label="Transform"]'),
   ).not.toHaveCount(0);

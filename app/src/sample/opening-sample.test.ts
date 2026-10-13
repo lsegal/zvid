@@ -502,10 +502,11 @@ describe("zvid opening sample", () => {
       ["fill-logo-reveal", "fill-logo-hold"],
       ["fill-star-mask"],
     ]);
-    assert.deepEqual(
-      shapes.map((shape) => String(shape.id)).sort(),
-      ["fill-logo-hold", "fill-logo-reveal", "fill-star-mask"],
-    );
+    assert.deepEqual(shapes.map((shape) => String(shape.id)).sort(), [
+      "fill-logo-hold",
+      "fill-logo-reveal",
+      "fill-star-mask",
+    ]);
   });
 
   it("keeps no layer effects but the corridor's Layout", () => {
@@ -527,7 +528,8 @@ describe("zvid opening sample", () => {
     const { project } = openSample();
     for (const lane of project.lanes) {
       const layouts = project.effects.filter(
-        (effect) => effect.trackId === lane.id && effect.effectName === "Layout",
+        (effect) =>
+          effect.trackId === lane.id && effect.effectName === "Layout",
       );
       assert.equal(layouts.length, 1, `${lane.id} has one Layout`);
       assert.equal(
