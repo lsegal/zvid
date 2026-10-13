@@ -5,28 +5,46 @@ import { EXPORT_CONTAINER_LABELS } from "./session-settings.ts";
 // estimates swing wildly (or read 0:00) from too few frames.
 const MIN_ESTIMATE_ELAPSED_MS = 1000;
 
-// Seconds left in an export's render, from how long the frames rendered so
-// far took. Undefined until there is progress to extrapolate from.
-export function estimateExportSecondsLeft(
-  progress: ExportProgress | null,
-  renderStartedAt: number | null,
-  now: number,
-) {
-  const percent = progress?.progress;
-  if (
-    progress?.phase !== "rendering" ||
-    percent == null ||
-    percent <= 0 ||
-    renderStartedAt === null
-  ) {
-    return undefined;
-  }
-  const elapsedMs = now - renderStartedAt;
-  if (elapsedMs < MIN_ESTIMATE_ELAPSED_MS) {
-    return undefined;
-  }
-  const elapsedSeconds = elapsedMs / 1000;
-  return (elapsedSeconds * (100 - percent)) / percent;
+// How far back the render rate is measured, so the estimate follows the
+// render speeding up or slowing down instead of its since-start average.
+const RATE_WINDOW_MS = 5000;
+
+type ProgressSample = { at: number; percent: number };
+
+// Estimates seconds left in one export's render from its progress updates.
+// Undefined until there is progress to extrapolate from. The rate comes from
+// the trailing window, and the time left shown never climbs: when the render
+// slows, it holds until the estimate catches up instead of counting up.
+export function createExportTimeEstimator() {
+  // The render's start at 0%, then each time the percentage rose.
+  const samples: ProgressSample[] = [];
+  let startedAt: number | null = null;
+  let shown: number | undefined;
+  return (progress: ExportProgress | null, now: number) => {
+    const percent = progress?.progress;
+    if (progress?.phase !== "rendering" || percent == null) {
+      return undefined;
+    }
+    if (startedAt === null) {
+      startedAt = now;
+      samples.push({ at: now, percent: 0 });
+    }
+    if (percent > samples[samples.length - 1].percent) {
+      samples.push({ at: now, percent });
+    }
+    if (percent <= 0 || now - startedAt < MIN_ESTIMATE_ELAPSED_MS) {
+      return undefined;
+    }
+    // Measure from the newest earlier sample at least a window old.
+    while (samples.length > 2 && samples[1].at <= now - RATE_WINDOW_MS) {
+      samples.shift();
+    }
+    const from = samples[0];
+    const percentPerMs = (percent - from.percent) / (now - from.at);
+    const estimate = (100 - percent) / percentPerMs / 1000;
+    shown = shown === undefined ? estimate : Math.min(shown, estimate);
+    return shown;
+  };
 }
 
 // Like "1:12" (or "1:02:03" past an hour), rounded up to the second.

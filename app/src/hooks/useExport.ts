@@ -27,8 +27,8 @@ import {
   reopenExportOptions,
 } from "../export-options.ts";
 import {
+  createExportTimeEstimator,
   describeExportActivity,
-  estimateExportSecondsLeft,
 } from "../export-progress.ts";
 import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
@@ -373,7 +373,7 @@ export function useExport({
       from.mediaItems.map((item) => item.previewUrl),
     );
     const audioMix = audioMixOf(from.project, from.mediaItems);
-    let renderStartedAt: number | null = null;
+    const estimateSecondsLeft = createExportTimeEstimator();
     setSnapshot(from);
     setSecondsLeft(undefined);
     setPhase("exporting");
@@ -439,14 +439,8 @@ export function useExport({
         yieldBetweenFrames: () =>
           wait(isPlayingRef.current ? PLAYING_FRAME_YIELD_MS : 0),
         onProgress: (update) => {
-          const now = performance.now();
-          if (update.phase === "rendering" && renderStartedAt === null) {
-            renderStartedAt = now;
-          }
           setProgress(update);
-          setSecondsLeft(
-            estimateExportSecondsLeft(update, renderStartedAt, now),
-          );
+          setSecondsLeft(estimateSecondsLeft(update, performance.now()));
           updateExportState(update.phase, update.detail, update.progress);
         },
         onLog: logClient,
