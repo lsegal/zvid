@@ -74,9 +74,10 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 // Layers, top first. The Transitions layer is layer 1, so each transition
 // renders above every other layer, titles and FX regions included. The
 // titles sit above the other FX and Order layers, so no other effect or
-// arrangement touches them. The hidden layers are never drawn themselves:
-// the icon layer is the Mask Target that cuts the 1.5 s shot to the zvid
-// logo, and the star layer limits bar 7's Analog Glitch to a star. The bloom
+// arrangement touches them. The hidden Masks layer is never drawn itself:
+// it is the Mask Target that cuts the 1.5 s shot to the zvid logo and
+// limits bar 7's Analog Glitch to a star. Its logo (1.5–3 s) and star
+// (18–21 s) never overlap, so each Mask only ever sees its own shape. The bloom
 // is one layer, above the Order so no three-up arranges it. The Audio layer
 // holds only the music.
 const LAYERS = [
@@ -84,8 +85,7 @@ const LAYERS = [
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions" },
-  { id: "star-mask", name: "Mask · star", hidden: true },
-  { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
+  { id: "masks", name: "Masks", hidden: true },
   { id: "bloom", name: "Bloom" },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
@@ -208,14 +208,12 @@ function move(trackId, motion, from, to, through = []) {
 
 // ---- layer defaults ------------------------------------------------------
 
-// Every layer gets a Layout. In the Vertical rows a source is cropped to a
-// wide band, and Layout picks the part it keeps: the corridor's rising line
-// sits low in the frame.
-for (const layer of LAYERS) {
-  addEffect(layer.id, "Layout", {
-    Position: layer.id === "corridor" ? "Bottom" : "Center",
-  });
-}
+// Layers carry no effects of their own but the corridor's Layout, so any
+// layer can hold any clip. Every layer gets a Center Layout when the session
+// loads, and Layout applies only from a layer's stack. In the Vertical rows
+// a source is cropped to a wide band, and Layout picks the part it keeps:
+// the corridor's rising line sits low in the frame.
+addEffect("corridor", "Layout", { Position: "Bottom" });
 
 // ---- source spans and cuts -----------------------------------------------
 
@@ -304,7 +302,7 @@ addEffect(
   },
 );
 // The orbit opens out of the zvid logo on the hidden layer.
-addEffect(captureShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
+addEffect(captureShot, "Mask", { Target: "masks", Mode: "Additive" });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
 // and crop, and the sources rotate between the panels. Odd cuts crop tight.
@@ -578,7 +576,7 @@ const iconBox = (height) => ({
 });
 const ICON_FULL = { x: 0, y: 0, ...iconBox(0.9) };
 function iconClip(id, start) {
-  layerClip("fills", id, "icon-mask", start, 0.75);
+  layerClip("fills", id, "masks", start, 0.75);
   addEffect(clipTrack(id), "Color", {
     Mode: "Solid",
     Color: LIGHT,
@@ -671,14 +669,14 @@ addEffect(
   },
 );
 
-// Analog Glitch applies only inside a star on the hidden star-mask layer,
+// Analog Glitch applies only inside a star on the hidden Masks layer,
 // which turns 144° at a steady rate, two of its points' turns, as it grows
 // from the top left toward the bottom right.
 const starBox = (height) => ({
   scaleX: (height * HEIGHT) / WIDTH,
   scaleY: height,
 });
-const star = layerClip("fills", "fill-star-mask", "star-mask", 18, 3);
+const star = layerClip("fills", "fill-star-mask", "masks", 18, 3);
 addEffect(clipTrack(star), "Color", {
   Mode: "Solid",
   Color: LIGHT,
@@ -693,7 +691,7 @@ move(
 );
 const analogGlitch = regionClip("AnalogGlitch", 18);
 addEffect(analogGlitch, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 });
-addEffect(analogGlitch, "Mask", { Target: "star-mask", Mode: "Additive" });
+addEffect(analogGlitch, "Mask", { Target: "masks", Mode: "Additive" });
 
 function text(id, layerId, start, duration, style, extra = {}) {
   layerClip("texts", id, layerId, start, duration);
