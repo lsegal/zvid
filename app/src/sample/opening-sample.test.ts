@@ -546,7 +546,9 @@ describe("zvid opening sample", () => {
 
   it("slams 'edit' in and glides 'repeat' across on an LFO wave", () => {
     const textClip = (id: string) => {
-      const clip = (session.texts ?? []).find((candidate) => candidate.id === id);
+      const clip = (session.texts ?? []).find(
+        (candidate) => candidate.id === id,
+      );
       assert.ok(clip, id);
       return {
         span: [clip.frameStart / FPS, clip.frameEnd / FPS],
