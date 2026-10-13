@@ -258,3 +258,28 @@
     transition: none;
   }
 }
+
+/* A MIDI clip's piano-roll thumbnail, in place of a waveform: a bar for
+   each note across the span, behind its label. */
+.source-span__midi {
+  position: absolute;
+  inset: 18px 4px 6px;
+  pointer-events: none;
+}
+
+.source-span__midi-note {
+  position: absolute;
+  min-width: 2px;
+  min-height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--clip-accent) 70%, white);
+}
+
+.source-span--midi {
+  grid-template-columns: 1fr;
+}
+
+.source-span--midi .source-span__body {
+  position: relative;
+  min-width: 0;
+}

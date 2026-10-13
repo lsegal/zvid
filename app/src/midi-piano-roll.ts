@@ -1,0 +1,191 @@
+// The piano roll's note edits and geometry, and the lane thumbnail's. Notes
+// are a MIDI clip's (see midi-clip.ts): `start` and `length` in quarter notes
+// from the clip's content start, so the clip's visible window starts
+// `trimStartQ` quarters in.
+import type { MidiNote } from "./midi-clip.ts";
+
+// Edits snap to sixteenth notes.
+export const PIANO_ROLL_SNAP_Q = 0.25;
+// What a click adds: a quarter note at a firm velocity.
+export const NEW_NOTE_LENGTH_Q = 1;
+export const NEW_NOTE_VELOCITY = 100;
+// The roll's lowest and highest keys: C1 to C8.
+export const PIANO_ROLL_LOW_PITCH = 24;
+export const PIANO_ROLL_HIGH_PITCH = 108;
+// A clip without notes centers the roll on middle C.
+export const PIANO_ROLL_DEFAULT_PITCH = 60;
+
+const NOTE_NAMES = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
+
+/** `pitch`'s name, C4 being middle C (60). */
+export function pitchName(pitch: number) {
+  return `${NOTE_NAMES[((pitch % 12) + 12) % 12]}${Math.floor(pitch / 12) - 1}`;
+}
+
+/** Whether `pitch` is a black key. */
+export function isBlackKey(pitch: number) {
+  return NOTE_NAMES[((pitch % 12) + 12) % 12].endsWith("#");
+}
+
+/** `valueQ` snapped down to the roll's grid. */
+export function snapQ(valueQ: number) {
+  return Math.floor(valueQ / PIANO_ROLL_SNAP_Q + 1e-9) * PIANO_ROLL_SNAP_Q;
+}
+
+function clampPitch(pitch: number) {
+  return Math.min(
+    PIANO_ROLL_HIGH_PITCH,
+    Math.max(PIANO_ROLL_LOW_PITCH, Math.round(pitch)),
+  );
+}
+
+/** `notes` in start order, then low to high, as the session keeps them. */
+export function sortNotes(notes: readonly MidiNote[]) {
+  return [...notes].sort(
+    (left, right) => left.start - right.start || left.pitch - right.pitch,
+  );
+}
+
+/** `notes` with a new note of `pitch` at `startQ`, kept in start order. */
+export function addNote(
+  notes: readonly MidiNote[],
+  pitch: number,
+  startQ: number,
+): MidiNote[] {
+  return sortNotes([
+    ...notes,
+    {
+      pitch: clampPitch(pitch),
+      start: Math.max(0, snapQ(startQ)),
+      length: NEW_NOTE_LENGTH_Q,
+      velocity: NEW_NOTE_VELOCITY,
+    },
+  ]);
+}
+
+/**
+ * `notes` with the note at `index` moved by `deltaQ` quarters and
+ * `deltaPitch` semitones from `from`, its place before the move: snapped to
+ * the grid, kept at or after the content start and inside the roll's keys.
+ * The note keeps its index while it moves; `sortNotes` reorders the result.
+ */
+export function moveNote(
+  notes: readonly MidiNote[],
+  index: number,
+  from: MidiNote,
+  deltaQ: number,
+  deltaPitch: number,
+): MidiNote[] {
+  return notes.map((note, noteIndex) =>
+    noteIndex === index
+      ? {
+          ...note,
+          start: Math.max(
+            0,
+            Math.round((from.start + deltaQ) / PIANO_ROLL_SNAP_Q) *
+              PIANO_ROLL_SNAP_Q,
+          ),
+          pitch: clampPitch(from.pitch + deltaPitch),
+        }
+      : note,
+  );
+}
+
+/** `notes` without the note at `index`. */
+export function deleteNote(
+  notes: readonly MidiNote[],
+  index: number,
+): MidiNote[] {
+  return notes.filter((_, noteIndex) => noteIndex !== index);
+}
+
+/** Whether two note lists hold the same notes in the same order. */
+export function sameNotes(left: readonly MidiNote[], right: readonly MidiNote[]) {
+  return (
+    left.length === right.length &&
+    left.every((note, index) => {
+      const other = right[index];
+      return (
+        note.pitch === other.pitch &&
+        note.start === other.start &&
+        note.length === other.length &&
+        note.velocity === other.velocity
+      );
+    })
+  );
+}
+
+/**
+ * The pitches a lane thumbnail spans: its notes' lowest to highest, widened
+ * to at least an octave so a single note or a unison line sits mid-height.
+ */
+export function thumbnailPitchRange(notes: readonly MidiNote[]) {
+  if (!notes.length) {
+    return { low: PIANO_ROLL_DEFAULT_PITCH - 6, high: PIANO_ROLL_DEFAULT_PITCH + 6 };
+  }
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (const note of notes) {
+    low = Math.min(low, note.pitch);
+    high = Math.max(high, note.pitch);
+  }
+  const spread = Math.max(0, 12 - (high - low));
+  return {
+    low: low - Math.floor(spread / 2),
+    high: high + Math.ceil(spread / 2),
+  };
+}
+
+/** A note bar of a lane thumbnail, in fractions of the clip's box. */
+export type ThumbnailNote = {
+  left: number;
+  width: number;
+  top: number;
+  height: number;
+};
+
+/**
+ * The bars a clip's thumbnail draws for `notes` in its window of `lengthQ`
+ * quarters from `trimStartQ`: notes outside the window are left out and the
+ * rest cut to it. Each pitch takes a row, the highest at the top.
+ */
+export function thumbnailNotes(
+  notes: readonly MidiNote[],
+  trimStartQ: number,
+  lengthQ: number,
+): ThumbnailNote[] {
+  if (lengthQ <= 0) {
+    return [];
+  }
+  const { low, high } = thumbnailPitchRange(notes);
+  const rows = high - low + 1;
+  const endQ = trimStartQ + lengthQ;
+  return notes.flatMap((note) => {
+    const start = Math.max(note.start, trimStartQ);
+    const end = Math.min(note.start + note.length, endQ);
+    if (end <= start) {
+      return [];
+    }
+    return [
+      {
+        left: (start - trimStartQ) / lengthQ,
+        width: (end - start) / lengthQ,
+        top: (high - note.pitch) / rows,
+        height: 1 / rows,
+      },
+    ];
+  });
+}
