@@ -344,6 +344,7 @@ describe("addableEffectsFor", () => {
         "DigitalGlitch",
         "Bloom",
         "GaussianBlur",
+        "MotionBlur",
         "Order",
       ]),
     );
@@ -374,6 +375,7 @@ describe("addableEffectsFor", () => {
         "DigitalGlitch",
         "Bloom",
         "GaussianBlur",
+        "MotionBlur",
         "Transform",
         "Shape",
         "Move",
@@ -496,7 +498,10 @@ describe("knobColumnCount", () => {
 
     assert.deepEqual(
       controls.map((control) => [control.label, control.stringValue]),
-      [["Motion", "Ease In Out"]],
+      [
+        ["Motion", "Ease In Out"],
+        ["Waypoints", "0"],
+      ],
     );
     assert.deepEqual(
       splitKnobRows(knobs, move.knobRows)?.map((row) => [
@@ -510,6 +515,36 @@ describe("knobColumnCount", () => {
     );
     assert.equal(knobs[0].key, "StartPositionX");
     assert.equal(knobs[7].key, "EndPositionX");
+  });
+
+  it("adds a labeled row and the Path for each of a Move's waypoints", () => {
+    const [move] = mapSessionEffectsToDevices(
+      [
+        {
+          ...effect("fx-move", "3", "Move"),
+          parameters: [{ key: "Waypoints", value: "2" }],
+        },
+      ],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(move.parameters);
+
+    assert.deepEqual(
+      controls.map((control) => control.label),
+      ["Motion", "Waypoints", "Path"],
+    );
+    assert.deepEqual(
+      splitKnobRows(knobs, move.knobRows)?.map((row) => [
+        row.label,
+        row.knobs[0].key,
+      ]),
+      [
+        ["Start", "StartPositionX"],
+        ["Point 1", "Point1PositionX"],
+        ["Point 2", "Point2PositionX"],
+        ["End", "EndPositionX"],
+      ],
+    );
   });
 });
 

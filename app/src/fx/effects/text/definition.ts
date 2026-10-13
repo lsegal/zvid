@@ -7,17 +7,21 @@ import { formatEms, formatMultiple, formatPixels } from "../../params.ts";
 import type { FxEffectDefinition } from "../../types.ts";
 import {
   DEFAULT_FONT_SIZE,
+  DEFAULT_PATH_RADIUS,
   DEFAULT_SHADOW_COLOR,
   DEFAULT_STROKE_COLOR,
   DEFAULT_TEXT,
   DEFAULT_TEXT_COLOR,
   DEFAULT_TEXT_GRADIENT,
   MAX_FONT_SIZE,
+  MAX_PATH_RADIUS,
   MIN_FONT_SIZE,
+  MIN_PATH_RADIUS,
   OFF_ON,
   TEXT_ALIGNS,
   TEXT_EFFECT_NAME,
   TEXT_FILL_MODES,
+  TEXT_PATHS,
   TEXT_STYLE_FLAGS,
   TEXT_VERTICAL_ALIGNS,
 } from "./text-style.ts";
@@ -79,6 +83,13 @@ export const definition: FxEffectDefinition = {
       label: "Resize to fit",
       options: OFF_ON,
       defaultValue: "Off",
+    },
+    {
+      kind: "enum",
+      key: "Path",
+      label: "Path",
+      options: TEXT_PATHS,
+      defaultValue: "None",
     },
     {
       kind: "enum",
@@ -170,6 +181,17 @@ export const definition: FxEffectDefinition = {
       defaultValue: 0,
       step: 1,
       format: formatPixels,
+    },
+    {
+      kind: "number",
+      key: "PathRadius",
+      label: "Radius",
+      min: MIN_PATH_RADIUS,
+      max: MAX_PATH_RADIUS,
+      defaultValue: DEFAULT_PATH_RADIUS,
+      step: 1,
+      format: formatPixels,
+      visibleWhen: { key: "Path", values: ["Circle"] },
     },
     {
       kind: "number",

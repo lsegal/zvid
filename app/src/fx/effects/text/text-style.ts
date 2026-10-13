@@ -37,6 +37,13 @@ export const TEXT_ALIGNS = ["Left", "Center", "Right", "Justify"] as const;
 export const TEXT_VERTICAL_ALIGNS = ["Top", "Middle", "Bottom"] as const;
 export const TEXT_FILL_MODES = ["Solid", "Gradient"] as const;
 export const OFF_ON = ["Off", "On"] as const;
+// What the text is laid along: its box's lines, or a circle centered in the
+// box.
+export const TEXT_PATHS = ["None", "Circle"] as const;
+// A circle's radius, in pixels at 1080p, to the baseline.
+export const MIN_PATH_RADIUS = 10;
+export const MAX_PATH_RADIUS = 2000;
+export const DEFAULT_PATH_RADIUS = 300;
 
 // Style toggles, stored comma-separated in the FontStyle parameter.
 export const TEXT_STYLE_FLAGS = [
@@ -51,6 +58,7 @@ export type TextStyleFlag = (typeof TEXT_STYLE_FLAGS)[number]["value"];
 
 export type TextAlign = "left" | "center" | "right" | "justify";
 export type TextVerticalAlign = "top" | "middle" | "bottom";
+export type TextPath = "none" | "circle";
 
 export type TextPaint = { kind: "solid"; color: Rgba } | ParsedGradient;
 
@@ -75,6 +83,8 @@ export type TextStyle = {
   stroke?: { color: Rgba; width: number };
   shadow?: { color: Rgba; blur: number; offsetX: number; offsetY: number };
   padding: number;
+  path: TextPath;
+  pathRadius: number;
 };
 
 export function isTextEffectName(effectName: string) {
@@ -216,6 +226,13 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
         }
       : undefined,
     padding: read.number("Padding", 0, 0, 200),
+    path: read.option("Path", TEXT_PATHS, "None").toLowerCase() as TextPath,
+    pathRadius: read.number(
+      "PathRadius",
+      DEFAULT_PATH_RADIUS,
+      MIN_PATH_RADIUS,
+      MAX_PATH_RADIUS,
+    ),
   };
 }
 

@@ -58,6 +58,19 @@ describe("readTextStyle", () => {
     assert.equal(style.padding, 0);
   });
 
+  it("reads the path and clamps its radius", () => {
+    assert.equal(readTextStyle(undefined).path, "none");
+    assert.equal(readTextStyle(undefined).pathRadius, 300);
+    const style = readTextStyle(
+      textEffect([
+        { key: "Path", value: "circle" },
+        { key: "PathRadius", value: "5" },
+      ]),
+    );
+    assert.equal(style.path, "circle");
+    assert.equal(style.pathRadius, 10);
+  });
+
   it("makes Bold a shortcut for weight 700", () => {
     const style = readTextStyle(
       textEffect([

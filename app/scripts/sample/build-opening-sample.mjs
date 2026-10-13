@@ -324,6 +324,8 @@ const refraction = (type, parameters) => [
 const PANEL_EFFECTS = new Map([
   // A focus pull: the panel blurs in and out of focus over its cut.
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
+  // A whip: the panel smears sideways and settles back sharp.
+  ["ribbon 7.5", ["MotionBlur", { _Angle: 0, _Distance: 120 }]],
   // The panel's tones punch out from the pivot gray and settle back.
   ["orbit 4.5", ["Contrast", { _Contrast: 1.6 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
@@ -741,25 +743,58 @@ move(
   { y: 0.31 },
 );
 
-// 12–15 s: "edit" in the lower left, clean beside the Pixelate window.
+// 12.75–15 s: "edit" in the lower left, clean beside the Pixelate window.
+// On bar 5's second beat, once the Glitch transition has cleared, it slams
+// in from off the left edge on a short clip of its own, a Gaussian Blur
+// smearing it until it lands, then holds there on a second clip.
+const EDIT_STYLE = {
+  Text: "edit",
+  FontWeight: "Bold",
+  FontSize: 96,
+  Align: "Left",
+  Padding: 140,
+};
+const editSlam = text("text-edit-slam", "title-words", 12.75, 0.45, EDIT_STYLE);
+move(editSlam, "Ease Out", { x: -0.3, y: 0.35 }, { y: 0.35 });
 addEffect(
-  text(
-    "text-edit",
-    "title-words",
-    12,
-    3,
-    {
-      Text: "edit",
-      FontWeight: "Bold",
-      FontSize: 96,
-      Align: "Left",
-      Padding: 140,
-    },
-    { animation: fadeIn() },
-  ),
+  editSlam,
+  "GaussianBlur",
+  { _Radius: 28 },
+  {
+    animation: animation("clip", {
+      motionIn: "None",
+      motionOut: "Ease Out",
+      timing: "Full",
+    }),
+  },
+);
+addEffect(
+  text("text-edit", "title-words", 13.2, 1.8, EDIT_STYLE),
   "Transform",
   transformValues("", { y: 0.35 }),
 );
+
+// 21–24 s: "repeat" glides right to left across the reactive three-ups at a
+// steady speed, riding a half-note LFO wave on its Transform's Y.
+const repeatWord = text("text-repeat", "title-words", 21, 3, {
+  Text: "repeat",
+  FontWeight: "Bold",
+  FontSize: 140,
+  Shadow: "On",
+  ShadowColor: "rgba(12,40,56,0.55)",
+  ShadowBlur: 24,
+  ShadowOffsetX: 0,
+  ShadowOffsetY: 6,
+});
+move(repeatWord, "Linear", { x: 0.6 }, { x: -0.6 });
+addEffect(repeatWord, "Transform", transformValues("", {}), {
+  animation: animation(
+    "lfo",
+    {},
+    {},
+    { syncRate: "1/2", depth: 0.08, parameters: ["PositionY"] },
+  ),
+});
 
 // 24–27 s: the wordmark returns above the alternating three-ups.
 const montageWordmark = text(

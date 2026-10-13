@@ -1,3 +1,4 @@
+import { polygonOutline } from "./outline.ts";
 import { glslFloat, type ShapeDefinition } from "./types.ts";
 
 // A five-pointed star, point up, stretched so its points touch every edge
@@ -36,17 +37,25 @@ function starDistance(px: number, py: number) {
   return Math.hypot(x - bax * h, y - bay * h) * Math.sign(y * bax - x * bay);
 }
 
-function previewPath() {
-  const points: string[] = [];
+// The star's points and inner corners in box coordinates, clockwise from
+// its top point.
+function corners() {
+  const points: [number, number][] = [];
   for (let index = 0; index < 10; index += 1) {
     const radius = index % 2 ? INNER_RADIUS : 1;
-    const angle = Math.PI / 2 + (index * Math.PI) / 5;
+    const angle = Math.PI / 2 - (index * Math.PI) / 5;
     const sx = radius * Math.cos(angle);
     const sy = radius * Math.sin(angle);
-    const x = (sx / HALF_WIDTH + 1) * 50;
-    const y = ((1 - sy) / (1 + BOTTOM)) * 100;
-    points.push(`${index ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`);
+    points.push([(sx / HALF_WIDTH + 1) / 2, (1 - sy) / (1 + BOTTOM)]);
   }
+  return points;
+}
+
+function previewPath() {
+  const points = corners().map(
+    ([x, y], index) =>
+      `${index ? "L" : "M"}${(x * 100).toFixed(2)} ${(y * 100).toFixed(2)}`,
+  );
   return `${points.join("")}Z`;
 }
 
@@ -68,5 +77,6 @@ export const star: ShapeDefinition = {
   distance(x, y) {
     return starDistance(...toStar(x, y));
   },
+  outline: polygonOutline(corners()),
   previewPath: previewPath(),
 };
