@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
 } from "react";
+import { createWindowClip as createWindowClipFor } from "../app/clip-ops.ts";
 import {
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
@@ -16,7 +17,6 @@ import {
   chooseSourceSpanForWindow,
   getClipDurationQ,
   getClipEndQ,
-  quartersToSeconds,
 } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -42,7 +42,6 @@ import type { ProjectHistoryAction } from "../project-history";
 import { buildRandomArrangement } from "../random-arrangement.ts";
 import { placeClips } from "../range-edit.ts";
 import { dropClipOnFreeLane } from "../source-clip-drop.ts";
-import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import { addTextClip } from "../text-clip.ts";
 
 export type ClipInsertionInputs = {
@@ -93,41 +92,13 @@ export function useClipInsertion({
   sourceSpans,
   sourceTracks,
 }: ClipInsertionInputs) {
-  // A window on `sourceTrack` over the selection's time, showing whatever
-  // the track holds there. `sourceSpan`, a source clip of the track, is the
-  // first it shows (see source-track-content.ts).
   const createWindowClip = useCallback(
     (
       selection: TimelineSelection,
       sourceTrack: SourceTrack,
       sourceSpan: SourceSpan,
-    ): ArrangementClip => {
-      const sourceOffsetSeconds =
-        sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
-      const clip: ArrangementClip = {
-        id: `window-${crypto.randomUUID()}`,
-        sourceSpanId: sourceSpan.id,
-        sourceTrackId: sourceTrack.id,
-        laneId: selection.laneId,
-        label: sourceTrack.name,
-        mediaPath: sourceSpan.mediaPath,
-        mediaId: sourceSpan.mediaId,
-        startQ: selection.startQ,
-        durationSeconds: quartersToSeconds(selection.durationQ, bpm),
-        trimStartSeconds:
-          quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
-        sourceOffsetSeconds,
-        sourceSpanOffsetSeconds: sourceOffsetSeconds,
-        sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-        sourceWindowEndSeconds:
-          sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
-        warp: sourceSpan.warp,
-        tint: sourceSpan.tint,
-        accent: sourceSpan.accent,
-      };
-      // Its media fields describe the first source clip it shows.
-      return syncClipsToSourceSpans([clip], sourceSpans, sourceSpans, bpm)[0];
-    },
+    ): ArrangementClip =>
+      createWindowClipFor(selection, sourceTrack, sourceSpan, sourceSpans, bpm),
     [bpm, sourceSpans],
   );
 

@@ -1,9 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod chatgpt;
+
 use serde::Serialize;
 use sha1::{Digest, Sha1};
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::Manager;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -204,6 +207,11 @@ fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_opener::init())
+    .setup(|app| {
+      let dir = app.path().app_config_dir()?;
+      app.manage(chatgpt::ChatGpt::new(dir));
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       open_session,
       list_media_files,
@@ -211,7 +219,13 @@ fn main() {
       read_file_bytes,
       read_file_prefix,
       files_exist,
-      write_file_bytes
+      write_file_bytes,
+      chatgpt::chatgpt_status,
+      chatgpt::chatgpt_sign_in,
+      chatgpt::chatgpt_cancel_sign_in,
+      chatgpt::chatgpt_sign_out,
+      chatgpt::chatgpt_open_usage,
+      chatgpt::chatgpt_respond
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

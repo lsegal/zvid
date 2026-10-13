@@ -15,6 +15,7 @@ import {
   getAnimationModes,
   getClipTimingFrames,
   getReactiveTimingFrames,
+  LFO_SYNC_RATES,
   normalizeEffectAnimation,
   type ReactiveAnimation,
   supportsAnimation,
@@ -70,7 +71,7 @@ function legacy(effect: SessionEffect): SessionEffect {
 
 describe("animation support", () => {
   // Layout, Mask and Shape have no knobs to animate.
-  it("is on every known effect except Layout, Mask, Shape, Scopes and the audio effects", () => {
+  it("is on every known effect except Layout, Mask, Scopes and the audio effects", () => {
     assert.ok(KNOWN_EFFECTS.length > 1);
     assert.ok(KNOWN_EFFECTS.some(isAudioEffectName));
     for (const effectName of KNOWN_EFFECTS) {
@@ -78,7 +79,6 @@ describe("animation support", () => {
         supportsAnimation(effectName),
         effectName !== "Layout" &&
           effectName !== "Mask" &&
-          effectName !== "Shape" &&
           effectName !== "Scopes" &&
           !isAudioEffectName(effectName),
         effectName,
@@ -91,7 +91,7 @@ describe("animation support", () => {
     assert.equal(createDefaultAnimation("Mystery"), undefined);
   });
 
-  it("shows the Animation toggle on every video device but Layout, Mask, Shape and Scopes", () => {
+  it("shows the Animation toggle on every video device but Layout, Mask and Scopes", () => {
     const effects = KNOWN_EFFECTS.map((effectName) =>
       createEffect("6", effectName, effectName),
     );
@@ -102,7 +102,6 @@ describe("animation support", () => {
         device.supportsAnimation,
         device.effectName !== "Layout" &&
           device.effectName !== "Mask" &&
-          device.effectName !== "Shape" &&
           device.effectName !== "Scopes" &&
           device.domain === "video",
         device.effectName,
@@ -196,6 +195,16 @@ describe("animation defaults", () => {
     });
   });
 
+  it("starts every LFO synced at 1/8", () => {
+    for (const effectName of KNOWN_EFFECTS.filter((effectName) =>
+      supportsAnimationMode(effectName, "lfo"),
+    )) {
+      const lfo = createDefaultAnimation(effectName)?.lfo;
+      assert.equal(lfo?.sync, true, effectName);
+      assert.equal(lfo?.syncRate, "1/8", effectName);
+    }
+  });
+
   it("starts in Clip mode, on, with the effect's defaults", () => {
     assert.deepEqual(createDefaultAnimation("Pixelate"), {
       enabled: true,
@@ -211,7 +220,7 @@ describe("animation defaults", () => {
         shape: "Sine",
         sync: true,
         rate: 1,
-        syncRate: "1 Bar",
+        syncRate: "1/8",
         depth: 0.5,
         phase: 0,
         parameters: ["_NumPixels"],
@@ -266,6 +275,8 @@ describe("getAnimatableParameters", () => {
     for (const key of ["Text", "FontFamily", "Align", "Color", "Gradient"]) {
       assert.ok(!text.includes(key), key);
     }
+    // Modulating a dashed stroke's Offset marches its dashes.
+    assert.ok(text.includes("StrokeOffset"));
     assert.deepEqual(getAnimatableParameters("Color"), [
       { key: "Opacity", label: "Opacity" },
     ]);
@@ -512,6 +523,21 @@ describe("normalizeEffectAnimation", () => {
     );
   });
 
+  it("keeps a saved synced rate, from 4 Bars down to 1/32", () => {
+    for (const syncRate of LFO_SYNC_RATES) {
+      assert.equal(
+        normalizeEffectAnimation({ lfo: { syncRate } }, "Colorize")?.lfo
+          ?.syncRate,
+        syncRate,
+      );
+    }
+    assert.equal(
+      normalizeEffectAnimation({ lfo: { syncRate: "1/64" } }, "Colorize")?.lfo
+        ?.syncRate,
+      "1/8",
+    );
+  });
+
   it("loads a session saved before LFO mode with the LFO defaults", () => {
     const saved = {
       enabled: true,
@@ -587,7 +613,7 @@ describe("normalizeEffectAnimation", () => {
 });
 
 // The static grading tools, whose new devices come with Animation off.
-const ADDED_OFF = ["Levels", "Contrast", "Exposure", "LUT"];
+const ADDED_OFF = ["Levels", "Contrast", "Exposure", "LUT", "Shape"];
 
 describe("animation on new devices", () => {
   it("is on, at the effect's defaults, for every other effect that supports it", () => {

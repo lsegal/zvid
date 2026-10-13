@@ -58,6 +58,19 @@ describe("readTextStyle", () => {
     assert.equal(style.padding, 0);
   });
 
+  it("reads the path and clamps its radius", () => {
+    assert.equal(readTextStyle(undefined).path, "none");
+    assert.equal(readTextStyle(undefined).pathRadius, 300);
+    const style = readTextStyle(
+      textEffect([
+        { key: "Path", value: "circle" },
+        { key: "PathRadius", value: "5" },
+      ]),
+    );
+    assert.equal(style.path, "circle");
+    assert.equal(style.pathRadius, 10);
+  });
+
   it("makes Bold a shortcut for weight 700", () => {
     const style = readTextStyle(
       textEffect([
@@ -95,6 +108,34 @@ describe("readTextStyle", () => {
   it("only strokes with a width", () => {
     assert.equal(
       readTextStyle(textEffect([{ key: "Stroke", value: "#000" }])).stroke,
+      undefined,
+    );
+  });
+
+  it("dashes the stroke only with a dash and a gap", () => {
+    const stroke = (parameters: Array<{ key: string; value: string }>) =>
+      readTextStyle(
+        textEffect([{ key: "StrokeWidth", value: "4" }, ...parameters]),
+      ).stroke;
+    assert.equal(stroke([])?.dash, undefined);
+    assert.deepEqual(stroke([{ key: "StrokeDash", value: "30" }])?.dash, {
+      length: 30,
+      gap: 20,
+      offset: 0,
+    });
+    assert.deepEqual(
+      stroke([
+        { key: "StrokeDash", value: "12" },
+        { key: "StrokeGap", value: "6" },
+        { key: "StrokeOffset", value: "-5000" },
+      ])?.dash,
+      { length: 12, gap: 6, offset: -1000 },
+    );
+    assert.equal(
+      stroke([
+        { key: "StrokeDash", value: "12" },
+        { key: "StrokeGap", value: "0" },
+      ])?.dash,
       undefined,
     );
   });

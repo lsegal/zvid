@@ -16,6 +16,10 @@ import type { TextStyle } from "./text-style.ts";
 // filter smooths gradients when the band is larger.
 const MAX_FILL_TEXTURE_SIZE = 512;
 
+// Gradient fills drawn recently, by paint and size, so many clips filled
+// alike, such as a grid of dots, draw their gradient once.
+const FILL_RASTERS_KEPT = 16;
+
 // A source's texture is deleted once this many compositions have been drawn
 // without it, so hiding a clip for a moment doesn't redraw its texture.
 export const TEXTURE_GRACE_DRAWS = 120;
@@ -54,6 +58,8 @@ export type SourceTextures = {
   // The canvas text is drawn into before it is uploaded, reused across
   // redraws and resized only when the box changes.
   textCanvas: TextCanvas | undefined;
+  // Recently drawn gradient pixels, by paint and size, least recent first.
+  fillPixels: Map<string, ReturnType<typeof rasterizeFillPaint>>;
 };
 
 export function createSourceTextures(gl: WebGLRenderingContext) {
@@ -67,6 +73,7 @@ export function createSourceTextures(gl: WebGLRenderingContext) {
     videoUploads: new Map<string, VideoUpload>(),
     textStorage: new Map<string, { width: number; height: number }>(),
     textCanvas: undefined as TextCanvas | undefined,
+    fillPixels: new Map<string, ReturnType<typeof rasterizeFillPaint>>(),
   };
 }
 
@@ -117,6 +124,7 @@ export function releaseAllTextures(textures: SourceTextures) {
   textures.videoUploads.clear();
   textures.textStorage.clear();
   textures.textCanvas = undefined;
+  textures.fillPixels.clear();
 }
 
 // Starts drawing a composition: deletes the textures of videos no longer in
@@ -356,13 +364,8 @@ export function uploadFillTexture(
     { width: bandWidth, height: bandHeight },
     Boolean(preview),
     (textureId) => {
-      renderStats.fillRasterizations++;
       textures.textStorage.delete(textureId);
-      const raster = rasterizeFillPaint(
-        { ...fill, opacity: 1 },
-        size.width,
-        size.height,
-      );
+      const raster = fillPixels(textures, fill, size);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.texImage2D(
@@ -379,6 +382,34 @@ export function uploadFillTexture(
       return true;
     },
   );
+}
+
+// The pixels of `fill` at `size`, drawn unless clips filled alike drew them
+// recently.
+function fillPixels(
+  textures: SourceTextures,
+  fill: FillPaint,
+  size: { width: number; height: number },
+) {
+  const paint = { ...fill, opacity: 1 };
+  if (fill.kind === "solid") {
+    renderStats.fillRasterizations++;
+    return rasterizeFillPaint(paint, size.width, size.height);
+  }
+  const key = `${size.width}x${size.height} ${JSON.stringify(paint)}`;
+  const kept = textures.fillPixels;
+  let raster = kept.get(key);
+  if (raster) {
+    kept.delete(key);
+  } else {
+    renderStats.fillRasterizations++;
+    raster = rasterizeFillPaint(paint, size.width, size.height);
+    if (kept.size >= FILL_RASTERS_KEPT) {
+      kept.delete(kept.keys().next().value as string);
+    }
+  }
+  kept.set(key, raster);
+  return raster;
 }
 
 // Each context's largest texture size, read once: getParameter is a

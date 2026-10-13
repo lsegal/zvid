@@ -2,7 +2,7 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CONTEXT, uniformValues } from "../../pass-test-utils.ts";
+import { CONTEXT, params, uniformValues } from "../../pass-test-utils.ts";
 import { pass } from "./pass.ts";
 import { SHAPES } from "./shapes/index.ts";
 
@@ -50,9 +50,77 @@ describe("Shape pass", () => {
     assert.equal(pass.isIdentity?.(shape("Oval")), false);
   });
 
+  it("fills the shape until it has a Stroke", () => {
+    const values = uniformValues(pass, shape("Oval"));
+    assert.deepEqual(values.uStroke, [0]);
+    assert.deepEqual(values.uDrawn, [1]);
+    assert.deepEqual(values.uDisplay, [1, 1]);
+  });
+
+  it("feeds the outline in pixels as the shape is shown", () => {
+    const outline = params({
+      Shape: "Oval",
+      StrokeWidth: 10,
+      DashLength: 30,
+      DashGap: 20,
+      DashOffset: -5,
+      StrokeDrawn: 0.25,
+    });
+    // A 1080 by 1920 picture is at the 1080p reference size.
+    const values = uniformValues(pass, outline, {
+      ...CONTEXT,
+      displayScale: [0.5, 0.25],
+    });
+    assert.deepEqual(values.uStroke, [10]);
+    assert.deepEqual(values.uDash, [30, 20, -5]);
+    assert.deepEqual(values.uDrawn, [0.25]);
+    assert.deepEqual(values.uDisplay, [0.5, 0.25]);
+    // Half the output's size, half the pixels.
+    const half = uniformValues(pass, outline, {
+      ...CONTEXT,
+      resolution: [540, 960],
+    });
+    assert.deepEqual(half.uStroke, [5]);
+    assert.deepEqual(half.uDash, [15, 10, -2.5]);
+    // A quarter-size frame of the same output, shown four times larger.
+    const shrunk = uniformValues(pass, outline, {
+      ...CONTEXT,
+      resolution: [270, 480],
+      pixelScale: 0.25,
+      frameScale: 0.25,
+      displayScale: [2, 1],
+    });
+    assert.deepEqual(shrunk.uStroke, [10]);
+    assert.deepEqual(shrunk.uDash, [30, 20, -5]);
+    assert.deepEqual(shrunk.uDisplay, [2, 1]);
+  });
+
+  it("never outlines a Custom shape", () => {
+    const values = uniformValues(
+      pass,
+      params({ Shape: "Custom:missing.svg", StrokeWidth: 10 }),
+    );
+    assert.deepEqual(values.uStroke, [0]);
+  });
+
+  it("outlines a Rectangle, so it no longer leaves the layer as it is", () => {
+    assert.equal(
+      pass.isIdentity?.(params({ Shape: "Rectangle", StrokeWidth: 4 })),
+      false,
+    );
+    assert.equal(
+      pass.isIdentity?.(params({ Shape: "Rectangle", StrokeWidth: 0 })),
+      true,
+    );
+  });
+
   it("compiles every shape's function into the shader", () => {
     for (const [index] of SHAPES.entries()) {
       assert.match(pass.fragmentSource, new RegExp(`float shape${index}\\(`));
+      assert.match(
+        pass.fragmentSource,
+        new RegExp(`vec2 shapeOutline${index}\\(`),
+      );
     }
   });
 });

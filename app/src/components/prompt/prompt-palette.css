@@ -1,0 +1,166 @@
+/* The prompt box: a Spotlight-style field near the top of the window, with
+   the run's result and the ChatGPT connection under it. */
+.dialog-content.prompt-palette {
+  top: 18vh;
+  display: grid;
+  gap: 12px;
+  width: min(92vw, 640px);
+  padding: 14px;
+  border-radius: 18px;
+  transform: translate(-50%, 0);
+}
+
+.prompt-palette__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.prompt-palette__form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: rgba(10, 12, 20, 0.36);
+}
+
+/* The field's focus ring goes around the whole box, icon included. */
+.prompt-palette__form:focus-within {
+  box-shadow: 0 0 0 2px rgba(246, 183, 60, 0.45);
+}
+
+.prompt-palette__input:focus-visible {
+  box-shadow: none;
+}
+
+.prompt-palette__icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--amber);
+}
+
+.prompt-palette__input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+.prompt-palette__input::placeholder {
+  color: var(--muted);
+}
+
+.prompt-palette__result {
+  display: grid;
+  gap: 8px;
+  padding: 0 4px;
+  color: var(--ink);
+}
+
+.prompt-palette__result p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.prompt-palette__result--running p {
+  color: var(--muted);
+}
+
+.prompt-palette__result--failed p {
+  color: var(--pink);
+}
+
+.prompt-palette__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prompt-palette__steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.prompt-palette__steps svg {
+  width: 14px;
+  height: 14px;
+  color: var(--mint);
+}
+
+.prompt-palette__steps .prompt-palette__step--failed svg {
+  color: var(--pink);
+}
+
+.prompt-palette__account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 4px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.prompt-palette__account > span {
+  flex: 1 1 auto;
+}
+
+.prompt-palette__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  cursor: pointer;
+}
+
+.prompt-palette__link:hover {
+  text-decoration: underline;
+}
+
+.prompt-palette__link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Sign in with ChatGPT's dark button. */
+.prompt-palette__chatgpt {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prompt-palette__notice {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--pink);
+  font-size: 13px;
+}

@@ -147,7 +147,6 @@ export class EffectChainRenderer {
     clipProgress: 0,
     resolution: [0, 0],
     bottomUp: false,
-    pixelScale: undefined,
   };
   private surfaceKey = "";
   private readonly maxTextureSize: number;
@@ -413,7 +412,8 @@ export class EffectChainRenderer {
     stepContext.resolution[1] = height;
     stepContext.bottomUp = ctx.bottomUp;
     stepContext.pixelScale = ctx.pixelScale;
-
+    stepContext.displayScale = ctx.displayScale;
+    stepContext.frameScale = ctx.frameScale;
     let input = source;
     for (const [index, step] of steps.entries()) {
       const toScreen = index === steps.length - 1 && output === "screen";

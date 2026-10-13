@@ -68,12 +68,27 @@ describe("Shape", { timeout: 60_000 }, () => {
         )
         .toHaveAttribute("aria-valuetext", text);
     }
-    // Shape has no knobs, so it has no Animation.
-    expect(
-      shapeDevice()
-        .getByRole("button", { name: /Animation/ })
-        .elements(),
-    ).toHaveLength(0);
+    // Its outline's knobs, which can be animated, start as a fill.
+    for (const [label, text] of [
+      ["Stroke", "0 px"],
+      ["Dash", "0 px"],
+      ["Gap", "20 px"],
+      ["Offset", "0 px"],
+      ["Drawn", "100%"],
+    ]) {
+      await expect
+        .element(
+          shapeDevice().getByRole("slider", { name: label, exact: true }),
+        )
+        .toHaveAttribute("aria-valuetext", text);
+    }
+    await expect
+      .element(
+        shapeDevice().getByRole("button", {
+          name: "Turn Animation On for Shape",
+        }),
+      )
+      .toBeVisible();
 
     const trigger = () =>
       shapeDevice().getByRole("button", { name: /^Shape: / });
@@ -119,6 +134,7 @@ async function renderPoints(
   shape: string,
   points: Array<[number, number]>,
   transform?: Record<string, number>,
+  outline: Record<string, number> = {},
 ) {
   const effects: SessionEffect[] = [
     colorEffect("1", "rgba(255,255,255,1)"),
@@ -127,7 +143,14 @@ async function renderPoints(
       trackId: "1",
       effectName: SHAPE_EFFECT_NAME,
       enabled: true,
-      parameters: [{ key: "Shape", value: shape }],
+      parameters: [
+        { key: "Shape", value: shape },
+        ...Object.entries(outline).map(([key, value]) => ({
+          key,
+          value: String(value),
+          numericValue: value,
+        })),
+      ],
     },
   ];
   if (transform) {
@@ -247,5 +270,83 @@ describe("Shape rendering", { timeout: 60_000 }, () => {
       Array.from({ length: WIDTH }, (_, index) => [(index + 0.5) / WIDTH, 0.2]),
     );
     expect(row.some((pixel) => pixel[0] > 25 && pixel[0] < 230)).toBe(true);
+  });
+});
+
+// A circle 100 px across in the frame's right half: an Oval whose 200×100
+// box its Transform squeezes to a square. Its outline's lengths are in
+// output pixels at 1080p, so 108 is 10 px on this 100 px tall frame.
+const CIRCLE = { ScaleX: 0.5, PositionX: 0.25 };
+const px = (pixels: number) => (pixels * 1080) / HEIGHT;
+const CIRCLE_TOP: [number, number] = [0.75, 0.04];
+const CIRCLE_RIGHT: [number, number] = [0.98, 0.5];
+const CIRCLE_BOTTOM: [number, number] = [0.75, 0.96];
+const CIRCLE_LEFT: [number, number] = [0.52, 0.5];
+const CIRCLE_CENTER: [number, number] = [0.75, 0.5];
+
+describe("Shape outlines", { timeout: 60_000 }, () => {
+  test("draws a Stroke wide band inside the edge, evenly once transformed", async () => {
+    const [top, right, bottom, left, center, nearTop] = await renderPoints(
+      "Oval",
+      [
+        CIRCLE_TOP,
+        CIRCLE_RIGHT,
+        CIRCLE_BOTTOM,
+        CIRCLE_LEFT,
+        CIRCLE_CENTER,
+        [0.75, 0.2],
+      ],
+      CIRCLE,
+      { StrokeWidth: px(10) },
+    );
+    for (const pixel of [top, right, bottom, left]) {
+      expect(isWhite(pixel)).toBe(true);
+    }
+    expect(isDark(center)).toBe(true);
+    expect(isDark(nearTop)).toBe(true);
+  });
+
+  test("dashes the outline, and its Offset marches the dashes", async () => {
+    // Dashes and gaps 30 px long, measured on the circle's 50 px radius,
+    // start at its top: 15 px along is mid-dash and 45 px mid-gap. Points
+    // 45 px from the center sit in the band.
+    const at = (along: number): [number, number] => {
+      const angle = along / 50;
+      return [
+        0.75 + (45 * Math.sin(angle)) / WIDTH,
+        0.5 - (45 * Math.cos(angle)) / HEIGHT,
+      ];
+    };
+    const dashed = { StrokeWidth: px(10), DashLength: px(30), DashGap: px(30) };
+    const points = [at(15), at(45), at(75), at(105)];
+    const [dash, gap, nextDash, nextGap] = await renderPoints(
+      "Oval",
+      points,
+      CIRCLE,
+      dashed,
+    );
+    expect(isWhite(dash)).toBe(true);
+    expect(isDark(gap)).toBe(true);
+    expect(isWhite(nextDash)).toBe(true);
+    expect(isDark(nextGap)).toBe(true);
+    // Moved 30 px along, the dashes sit where the gaps were.
+    const marched = await renderPoints("Oval", points, CIRCLE, {
+      ...dashed,
+      DashOffset: px(30),
+    });
+    expect(marched.map(isWhite)).toEqual([false, true, false, true]);
+    expect(isDark(marched[0])).toBe(true);
+  });
+
+  test("draws only Drawn of the outline, clockwise from the top", async () => {
+    const [top, right, left] = await renderPoints(
+      "Oval",
+      [[0.77, 0.04], CIRCLE_RIGHT, CIRCLE_LEFT],
+      CIRCLE,
+      { StrokeWidth: px(10), StrokeDrawn: 0.5 },
+    );
+    expect(isWhite(top)).toBe(true);
+    expect(isWhite(right)).toBe(true);
+    expect(isDark(left)).toBe(true);
   });
 });

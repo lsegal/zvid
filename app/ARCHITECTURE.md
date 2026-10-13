@@ -144,3 +144,49 @@ or `e2e/fixtures` selects every spec.
 
 Both pass without running anything when no spec is selected. A manual run
 with `full-suite` set runs every spec in both, unsharded; it is slow.
+
+## Preview performance
+
+### Many small animated clips
+
+A clip whose Transform shrinks it is framed and rasterized at the size it is
+drawn, not its whole slot (`composition-framing.ts`). A transformed clip
+with no effects of its own, whose source fills its slot, such as a fill, is
+drawn straight onto the canvas with no offscreen pass, and gradient fills
+painted alike are drawn once for every clip that uses them.
+
+What sets the cost of hundreds of clips is then the GPU's render passes,
+not pixels or JavaScript. Every clip that runs a shader effect of its
+own, such as a Shape or a blur (Color, Layout, Transform and Move are not
+shader effects), is framed offscreen and filtered there, and each such pass
+costs a roughly fixed amount however small the clip.
+
+`composition-stress.html` measures it: start the dev server and open
+`/composition-stress.html?autorun&dots=300`, with `dot=shape` (a solid fill
+cut to an Oval Shape), `dot=gradient` (a hard-edged radial gradient, no
+effect) or `dot=square` (no effect), and `ratio` for the preview's pixel
+ratio. Each dot is a fill clip on its own layer with an LFO on its
+Transform's Position Y. On an Apple M1 in headed Chromium, at 1920×1080:
+
+| Dots | Each dot | Frame time, median |
+| --- | --- | --- |
+| 300 | gradient, no effect | 6.5 ms |
+| 600 | gradient, no effect | 9.9 ms |
+| 300 | solid, no effect | 5.3 ms |
+| 150 | solid, cut to a Shape | 28 ms |
+| 300 | solid, cut to a Shape | 51 ms |
+
+Before the framing change, 300 Shape dots took 192 ms a frame and 600
+gradient dots took 6.9 s to draw for the first time.
+
+The budget, for the opening sample and any generated project, at 30 fps:
+
+- Effect-free transformed clips cost about 0.01 ms each: hundreds at once
+  play at full frame rate. Make dots round with a radial-gradient fill, not
+  a Shape.
+- A clip running its own shader effects costs about 0.17 ms a frame at any
+  size.
+  Keep at most about 100 of them on screen at once, half a 30 fps frame,
+  leaving the rest for video, text and the Global chain.
+- Put an effect that should apply to many clips on an FX clip above them,
+  which runs once, rather than on every clip.

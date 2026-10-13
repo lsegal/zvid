@@ -230,6 +230,7 @@ describe("Text effect parameters", () => {
         ["Align", "enum"],
         ["VerticalAlign", "enum"],
         ["ResizeToFit", "enum"],
+        ["Path", "enum"],
         ["FillMode", "enum"],
         ["Color", "color"],
         ["Stroke", "color"],
@@ -238,6 +239,9 @@ describe("Text effect parameters", () => {
         ["LineHeight", "number"],
         ["LetterSpacing", "number"],
         ["StrokeWidth", "number"],
+        ["StrokeDash", "number"],
+        ["StrokeGap", "number"],
+        ["StrokeOffset", "number"],
         ["Padding", "number"],
       ],
     );
@@ -261,6 +265,14 @@ describe("Text effect parameters", () => {
     ]) {
       assert.ok(keys.includes(key), key);
     }
+  });
+
+  it("shows the radius only for a circular path", () => {
+    const keys = (stack: SessionEffect[]) =>
+      textDevice(stack).parameters.map((parameter) => parameter.key);
+    assert.ok(!keys(effects).includes("PathRadius"));
+    const circle = setEffectParameter(effects, "text-effect", "Path", "Circle");
+    assert.ok(keys(circle).includes("PathRadius"));
   });
 
   it("offers only the weights the font has", () => {

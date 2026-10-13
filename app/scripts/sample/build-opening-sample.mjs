@@ -16,6 +16,12 @@
 // It is also a tour of the effects: every video effect sits on a clip of
 // its own, and the music plays from the Audio layer as two-beat selections,
 // each through a different audio effect.
+//
+// Hundreds of animated clips, such as a dot grid, must stay within the
+// preview's per-clip budget in app/ARCHITECTURE.md ("Many small animated
+// clips"): effect-free fills animated by a Transform cost almost nothing,
+// but every clip running shader effects of its own costs render passes a
+// frame.
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -69,14 +75,16 @@ const LUT = { key: "warm-film", file: "warm-film.cube" };
 // Layers, top first. The Transitions layer is layer 1, so each transition
 // renders above every other layer, titles and FX regions included. The
 // titles sit above the other FX and Order layers, so no other effect or
-// arrangement touches them. The hidden icon layer is never drawn itself: it
-// is the Mask Target that cuts the 1.5 s shot to the zvid logo. The Audio layer
-// holds only the music.
+// arrangement touches them. The hidden layers are never drawn themselves:
+// the icon layer is the Mask Target that cuts the 1.5 s shot to the zvid
+// logo, and the star layer limits bar 7's Analog Glitch to a star. The
+// Audio layer holds only the music.
 const LAYERS = [
   { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
-  { id: "fx-regions", name: "FX regions (Transform + Move)" },
+  { id: "fx-regions", name: "FX regions" },
+  { id: "star-mask", name: "Mask · star", hidden: true },
   { id: "icon-mask", name: "Mask · zvid logo", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
@@ -322,6 +330,8 @@ const refraction = (type, parameters) => [
 const PANEL_EFFECTS = new Map([
   // A focus pull: the panel blurs in and out of focus over its cut.
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
+  // A whip: the panel smears sideways and settles back sharp.
+  ["ribbon 7.5", ["MotionBlur", { _Angle: 0, _Distance: 120 }]],
   // The panel's tones punch out from the pivot gray and settle back.
   ["orbit 4.5", ["Contrast", { _Contrast: 1.6 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
@@ -593,33 +603,82 @@ addEffect(
   transformValues("", ICON_FULL),
 );
 
-// Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
-// canvas) and a Move before it sweeps the box left to right, widening it
-// and turning it from -16° to +16° over the clip.
-const REGIONS = [
-  [12, "Pixelate", { _NumPixels: 0.75 }],
-  [15, "NegativeSplit", { _LowIntensity: 1, _HighIntensity: 1 }],
-  [18, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 }],
-];
-for (const [start, effectName, parameters] of REGIONS) {
-  const id = layerClip(
-    "fxClips",
-    `region-${effectName.toLowerCase()}`,
-    "fx-regions",
-    start,
-    3,
+// Localized FX, one box per bar. Pixelate's FX clip Transform sizes its box
+// (30% × 56% of the canvas) and a Move before it sweeps the box left to
+// right, widening it and turning it from -16° to +16° over the clip.
+const regionClip = (effectName, start) =>
+  clipTrack(
+    layerClip(
+      "fxClips",
+      `region-${effectName.toLowerCase()}`,
+      "fx-regions",
+      start,
+      3,
+    ),
   );
-  addEffect(clipTrack(id), effectName, parameters);
-  move(
-    clipTrack(id),
-    "Ease In Out",
-    { x: -0.22, y: 0.03, scaleX: 0.93, rotation: -16 },
-    { x: 0.22, y: -0.03, scaleX: 1.3, rotation: 16 },
-  );
-  addEffect(clipTrack(id), "Transform", {
-    ...transformValues("", { scaleX: 0.3, scaleY: 0.56 }),
-  });
-}
+const pixelate = regionClip("Pixelate", 12);
+addEffect(pixelate, "Pixelate", { _NumPixels: 0.75 });
+move(
+  pixelate,
+  "Ease In Out",
+  { x: -0.22, y: 0.03, scaleX: 0.93, rotation: -16 },
+  { x: 0.22, y: -0.03, scaleX: 1.3, rotation: 16 },
+);
+addEffect(pixelate, "Transform", {
+  ...transformValues("", { scaleX: 0.3, scaleY: 0.56 }),
+});
+
+// Negative Split's box is a wide band that drops from the top of the frame
+// to the bottom, tilting as it falls, and a quarter-note LFO on its Height
+// makes it breathe on every beat.
+const negativeSplit = regionClip("NegativeSplit", 15);
+addEffect(negativeSplit, "NegativeSplit", {
+  _LowIntensity: 1,
+  _HighIntensity: 1,
+});
+move(
+  negativeSplit,
+  "Ease Out",
+  { y: -0.36, scaleX: 0.8, rotation: 6 },
+  { y: 0.36, scaleX: 1.1, rotation: -6 },
+);
+addEffect(
+  negativeSplit,
+  "Transform",
+  transformValues("", { scaleX: 0.9, scaleY: 0.2 }),
+  {
+    animation: animation(
+      "lfo",
+      {},
+      {},
+      { syncRate: "1/4", depth: 0.05, parameters: ["ScaleY"] },
+    ),
+  },
+);
+
+// Analog Glitch applies only inside a star on the hidden star-mask layer,
+// which turns 144° at a steady rate, two of its points' turns, as it grows
+// from the top left toward the bottom right.
+const starBox = (height) => ({
+  scaleX: (height * HEIGHT) / WIDTH,
+  scaleY: height,
+});
+const star = layerClip("fills", "fill-star-mask", "star-mask", 18, 3);
+addEffect(clipTrack(star), "Color", {
+  Mode: "Solid",
+  Color: LIGHT,
+  Opacity: 1,
+});
+addEffect(clipTrack(star), "Shape", { Shape: "Star" });
+move(
+  clipTrack(star),
+  "Linear",
+  { x: -0.3, y: -0.25, ...starBox(0.3), rotation: -72 },
+  { x: 0.25, y: 0.15, ...starBox(1.1), rotation: 72 },
+);
+const analogGlitch = regionClip("AnalogGlitch", 18);
+addEffect(analogGlitch, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 });
+addEffect(analogGlitch, "Mask", { Target: "star-mask", Mode: "Additive" });
 
 function text(id, layerId, start, duration, style, extra = {}) {
   layerClip("texts", id, layerId, start, duration);
@@ -690,25 +749,58 @@ move(
   { y: 0.31 },
 );
 
-// 12–15 s: "edit" in the lower left, clean beside the Pixelate window.
+// 12.75–15 s: "edit" in the lower left, clean beside the Pixelate window.
+// On bar 5's second beat, once the Glitch transition has cleared, it slams
+// in from off the left edge on a short clip of its own, a Gaussian Blur
+// smearing it until it lands, then holds there on a second clip.
+const EDIT_STYLE = {
+  Text: "edit",
+  FontWeight: "Bold",
+  FontSize: 96,
+  Align: "Left",
+  Padding: 140,
+};
+const editSlam = text("text-edit-slam", "title-words", 12.75, 0.45, EDIT_STYLE);
+move(editSlam, "Ease Out", { x: -0.3, y: 0.35 }, { y: 0.35 });
 addEffect(
-  text(
-    "text-edit",
-    "title-words",
-    12,
-    3,
-    {
-      Text: "edit",
-      FontWeight: "Bold",
-      FontSize: 96,
-      Align: "Left",
-      Padding: 140,
-    },
-    { animation: fadeIn() },
-  ),
+  editSlam,
+  "GaussianBlur",
+  { _Radius: 28 },
+  {
+    animation: animation("clip", {
+      motionIn: "None",
+      motionOut: "Ease Out",
+      timing: "Full",
+    }),
+  },
+);
+addEffect(
+  text("text-edit", "title-words", 13.2, 1.8, EDIT_STYLE),
   "Transform",
   transformValues("", { y: 0.35 }),
 );
+
+// 21–24 s: "repeat" glides right to left across the reactive three-ups at a
+// steady speed, riding a half-note LFO wave on its Transform's Y.
+const repeatWord = text("text-repeat", "title-words", 21, 3, {
+  Text: "repeat",
+  FontWeight: "Bold",
+  FontSize: 140,
+  Shadow: "On",
+  ShadowColor: "rgba(12,40,56,0.55)",
+  ShadowBlur: 24,
+  ShadowOffsetX: 0,
+  ShadowOffsetY: 6,
+});
+move(repeatWord, "Linear", { x: 0.6 }, { x: -0.6 });
+addEffect(repeatWord, "Transform", transformValues("", {}), {
+  animation: animation(
+    "lfo",
+    {},
+    {},
+    { syncRate: "1/2", depth: 0.08, parameters: ["PositionY"] },
+  ),
+});
 
 // 24–27 s: the wordmark returns above the alternating three-ups.
 const montageWordmark = text(

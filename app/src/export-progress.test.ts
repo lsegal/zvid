@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  createExportTimeEstimator,
   describeExportActivity,
   describeExportTimeLeft,
-  estimateExportSecondsLeft,
   formatSecondsLeft,
   formatSnapshotTime,
 } from "./export-progress.ts";
@@ -14,36 +14,67 @@ const rendering = (progress: number | null) => ({
   detail: "",
 });
 
-describe("estimateExportSecondsLeft", () => {
+describe("createExportTimeEstimator", () => {
   it("extrapolates the rest of the render from the time so far", () => {
+    const estimate = createExportTimeEstimator();
+    assert.equal(estimate(rendering(0), 1_000), undefined);
     // 25% in 10 s leaves 30 s.
-    assert.equal(estimateExportSecondsLeft(rendering(25), 1_000, 11_000), 30);
+    assert.equal(estimate(rendering(25), 11_000), 30);
   });
 
   it("has no estimate before rendering progress", () => {
-    assert.equal(estimateExportSecondsLeft(null, 0, 1_000), undefined);
-    assert.equal(estimateExportSecondsLeft(rendering(0), 0, 1_000), undefined);
+    assert.equal(createExportTimeEstimator()(null, 1_000), undefined);
     assert.equal(
-      estimateExportSecondsLeft(rendering(null), 0, 1_000),
+      createExportTimeEstimator()(rendering(null), 1_000),
       undefined,
     );
-    assert.equal(
-      estimateExportSecondsLeft(rendering(50), null, 1_000),
-      undefined,
-    );
+    const estimate = createExportTimeEstimator();
+    assert.equal(estimate(rendering(0), 0), undefined);
+    assert.equal(estimate(rendering(0), 2_000), undefined);
     // The first frames are too few to extrapolate from.
+    const early = createExportTimeEstimator();
+    assert.equal(early(rendering(0), 1_000), undefined);
+    assert.equal(early(rendering(1), 1_050), undefined);
     assert.equal(
-      estimateExportSecondsLeft(rendering(1), 1_000, 1_050),
+      early({ phase: "muxing", progress: null, detail: "" }, 3_000),
       undefined,
     );
-    assert.equal(
-      estimateExportSecondsLeft(
-        { phase: "muxing", progress: null, detail: "" },
-        0,
-        1_000,
-      ),
-      undefined,
-    );
+  });
+
+  it("follows the recent render rate", () => {
+    const estimate = createExportTimeEstimator();
+    estimate(rendering(0), 0);
+    // 1% a second for 20 s, then 4% a second: 60% left takes 15 s.
+    for (let second = 1; second <= 20; second++) {
+      estimate(rendering(second), second * 1_000);
+    }
+    let left: number | undefined;
+    for (let second = 1; second <= 5; second++) {
+      left = estimate(rendering(20 + second * 4), (20 + second) * 1_000);
+    }
+    assert.equal(left, 15);
+  });
+
+  it("never counts up when the render slows down", () => {
+    const estimate = createExportTimeEstimator();
+    estimate(rendering(0), 0);
+    // 2% a second for 20 s, then 0.5% a second.
+    const shown: number[] = [];
+    for (let second = 1; second <= 20; second++) {
+      shown.push(estimate(rendering(second * 2), second * 1_000) ?? NaN);
+    }
+    for (let second = 1; second <= 100; second++) {
+      const percent = 40 + Math.floor(second / 2);
+      shown.push(estimate(rendering(percent), (20 + second) * 1_000) ?? NaN);
+    }
+    for (let i = 1; i < shown.length; i++) {
+      assert.ok(shown[i] <= shown[i - 1], `${shown[i]} > ${shown[i - 1]}`);
+    }
+    // It holds at 30 s left until the slower rate catches up, then follows
+    // it: 10% left at 0.5% a second.
+    assert.equal(shown[20 + 30], 30);
+    assert.equal(shown.at(-1), 20);
+    assert.equal(estimate(rendering(100), 140_000), 0);
   });
 });
 
