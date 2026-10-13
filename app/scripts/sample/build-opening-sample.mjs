@@ -324,6 +324,8 @@ const refraction = (type, parameters) => [
 const PANEL_EFFECTS = new Map([
   // A focus pull: the panel blurs in and out of focus over its cut.
   ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
+  // A whip: the panel smears sideways and settles back sharp.
+  ["ribbon 7.5", ["MotionBlur", { _Angle: 0, _Distance: 120 }]],
   // The panel's tones punch out from the pivot gray and settle back.
   ["orbit 4.5", ["Contrast", { _Contrast: 1.6 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],

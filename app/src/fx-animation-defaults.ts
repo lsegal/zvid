@@ -344,6 +344,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Radius"]),
   ],
   [
+    "MotionBlur",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Distance"]),
+  ],
+  [
     LEVELS_EFFECT_NAME,
     offWhenAdded(
       defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["GainY"]),
@@ -694,6 +698,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   ["Bloom", { _Intensity: { neutral: 0 } }],
   // Radius 0 leaves the picture sharp.
   ["GaussianBlur", { _Radius: { neutral: 0 } }],
+  // Distance 0 leaves the picture sharp.
+  ["MotionBlur", { _Distance: { neutral: 0 } }],
   // Each wheel at its default leaves the levels as they are; the curves
   // aren't numbers, so they stay.
   [
