@@ -551,17 +551,17 @@ describe("zvid opening sample", () => {
       );
       assert.ok(clip, id);
       return {
-        span: [clip.frameStart / FPS, clip.frameEnd / FPS],
+        span: [clip.frameStart, clip.frameEnd],
         effects: effectsOn(`clip:${id}`),
       };
     };
 
-    // "edit" flies in from off the left edge, blurred until it lands, then
-    // holds where it landed.
+    // On bar 5's second beat, after the Glitch transition, "edit" flies in
+    // from off the left edge, blurred until it lands, then holds there.
     const slam = textClip("text-edit-slam");
     const hold = textClip("text-edit");
-    assert.deepEqual(slam.span, [12, 12.4]);
-    assert.deepEqual(hold.span, [12.4, 15]);
+    assert.deepEqual(slam.span, [383, 396]);
+    assert.deepEqual(hold.span, [396, 450]);
     assert.deepEqual(
       slam.effects.map((effect) => effect.effectName),
       ["Text", "Move", "GaussianBlur"],
@@ -582,7 +582,7 @@ describe("zvid opening sample", () => {
     // "repeat" crosses right to left at a steady speed while a synced LFO
     // swings its Y.
     const glide = textClip("text-repeat");
-    assert.deepEqual(glide.span, [21, 24]);
+    assert.deepEqual(glide.span, [630, 720]);
     assert.deepEqual(
       glide.effects.map((effect) => effect.effectName),
       ["Text", "Move", "Transform"],

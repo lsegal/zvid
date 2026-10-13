@@ -735,13 +735,13 @@
     {
       "id": "text-edit-slam",
       "mainTrackId": "title-words",
-      "frameStart": 360,
-      "frameEnd": 372
+      "frameStart": 383,
+      "frameEnd": 396
     },
     {
       "id": "text-edit",
       "mainTrackId": "title-words",
-      "frameStart": 372,
+      "frameStart": 396,
       "frameEnd": 450
     },
     {

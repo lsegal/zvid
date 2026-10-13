@@ -741,9 +741,10 @@ move(
   { y: 0.31 },
 );
 
-// 12–15 s: "edit" in the lower left, clean beside the Pixelate window. It
-// slams in from off the left edge on a short clip of its own, a Gaussian
-// Blur smearing it until it lands, then holds there on a second clip.
+// 12.75–15 s: "edit" in the lower left, clean beside the Pixelate window.
+// On bar 5's second beat, once the Glitch transition has cleared, it slams
+// in from off the left edge on a short clip of its own, a Gaussian Blur
+// smearing it until it lands, then holds there on a second clip.
 const EDIT_STYLE = {
   Text: "edit",
   FontWeight: "Bold",
@@ -751,7 +752,7 @@ const EDIT_STYLE = {
   Align: "Left",
   Padding: 140,
 };
-const editSlam = text("text-edit-slam", "title-words", 12, 0.4, EDIT_STYLE);
+const editSlam = text("text-edit-slam", "title-words", 12.75, 0.45, EDIT_STYLE);
 move(editSlam, "Ease Out", { x: -1, y: 0.35 }, { y: 0.35 });
 addEffect(
   editSlam,
@@ -766,7 +767,7 @@ addEffect(
   },
 );
 addEffect(
-  text("text-edit", "title-words", 12.4, 2.6, EDIT_STYLE),
+  text("text-edit", "title-words", 13.2, 1.8, EDIT_STYLE),
   "Transform",
   transformValues("", { y: 0.35 }),
 );
