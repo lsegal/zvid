@@ -72,7 +72,8 @@ export function animationFrameIndex(
   if (!(duration > 0)) {
     return 0;
   }
-  const time = ((seconds % duration) + duration) % duration;
+  const looped = seconds % duration;
+  const time = looped < 0 ? looped + duration : looped;
   let low = 0;
   let high = frameEnds.length - 1;
   while (low < high) {
@@ -112,7 +113,9 @@ async function openAnimation(
     let height = 0;
     for (let index = 0; index < track.frameCount; index++) {
       const { image } = await decoder.decode({ frameIndex: index });
-      frameEnds.push((frameEnds[index - 1] ?? 0) + frameSeconds(image.duration));
+      frameEnds.push(
+        (frameEnds[index - 1] ?? 0) + frameSeconds(image.duration),
+      );
       width = image.displayWidth;
       height = image.displayHeight;
       image.close();
@@ -213,7 +216,11 @@ function decodeFrame(animation: Animation, index: number) {
 function show(animation: Animation, frame: VideoFrame): ImageFrame {
   const previous = animation.shown;
   animation.shown = frame;
-  if (previous && previous !== frame && ![...animation.frames.values()].includes(previous)) {
+  if (
+    previous &&
+    previous !== frame &&
+    ![...animation.frames.values()].includes(previous)
+  ) {
     previous.close();
   }
   return { image: frame, width: animation.width, height: animation.height };

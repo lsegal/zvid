@@ -222,8 +222,7 @@ export function useMediaLibrary({
       );
       const blob = withMediaType(
         adoptedBlob,
-        existing?.name ??
-          (adoptedBlob instanceof File ? adoptedBlob.name : ""),
+        existing?.name ?? (adoptedBlob instanceof File ? adoptedBlob.name : ""),
       );
 
       let warning: string | undefined;
