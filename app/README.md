@@ -98,6 +98,10 @@ To check playable browser and Tauri exports, follow [the MP4 export smoke test](
 
 The editor only supplies canvas frames and timeline state. Media analysis uses the shared reader, while export encodes platform-supported tracks and writes the final MP4 or WebM through zvidlib.
 
+## Control surface
+
+Agents and scripts drive the editor through `window.zvid`, which App installs in the web and desktop apps alike: every editing operation (sessions, layers, clips, effects and their parameters, media import, playhead, transport, loop, selection, undo and export) as a command with a JSON Schema input that resolves to a structured result. `window.zvid.tools()` lists the commands as tools in the shape MCP and model tool-calling APIs take. [`src/control/SKILL.md`](src/control/SKILL.md) is the skill document for agents; the commands live in `src/control/commands`.
+
 ## Collaboration signaling
 
 Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.

@@ -55,9 +55,16 @@ export type SaveTarget =
       kind: "native-path";
       filename: string;
       path: string;
+    }
+  // Hands the file to `receive` instead of writing it anywhere, for callers
+  // such as the control surface that want the bytes themselves.
+  | {
+      kind: "blob";
+      filename: string;
+      receive: (blob: Blob) => void;
     };
 
-export type SaveMethod = "picker" | "download" | "native-path";
+export type SaveMethod = "picker" | "download" | "native-path" | "blob";
 
 export type SaveOptions = {
   mimeType?: string;
