@@ -310,12 +310,12 @@ describe("zvid opening sample", () => {
       (layer) => layer.id === "icon-mask",
     );
     assert.equal(iconLayer?.hidden, true);
-    // Only the icon layer is hidden.
+    // Only the icon and star mask layers are hidden.
     assert.deepEqual(
       (session.mainTracks ?? [])
         .filter((layer) => layer.hidden)
         .map((layer) => layer.id),
-      ["icon-mask"],
+      ["star-mask", "icon-mask"],
     );
     // A one-beat reveal, then a one-beat hold, so the mask has a Target for
     // the whole shot. A beat is 22.5 frames, so the cut rounds to frame 68.
@@ -464,7 +464,7 @@ describe("zvid opening sample", () => {
     );
   });
 
-  it("limits Pixelate, Negative Split and Analog Glitch to moving, turning boxes", () => {
+  it("limits Pixelate, Negative Split and Analog Glitch to boxes that move differently", () => {
     const regions = (session.fxClips ?? []).filter(
       (clip) => clip.mainTrackId === "fx-regions",
     );
@@ -476,20 +476,72 @@ describe("zvid opening sample", () => {
       [
         [12, ["Pixelate", "Move", "Transform"]],
         [15, ["NegativeSplit", "Move", "Transform"]],
-        [18, ["AnalogGlitch", "Move", "Transform"]],
+        [18, ["AnalogGlitch", "Mask"]],
       ],
     );
-    for (const clip of regions) {
-      const [, move, transform] = effectsOn(`clip:${clip.id}`);
-      assert.equal(numberParameter(transform, "ScaleX"), 0.3);
-      assert.equal(numberParameter(transform, "ScaleY"), 0.56);
-      assert.equal(numberParameter(move, "StartRotation"), -16);
-      assert.equal(numberParameter(move, "EndRotation"), 16);
-      assert.ok(
-        (numberParameter(move, "StartPositionX") ?? 0) <
-          (numberParameter(move, "EndPositionX") ?? 0),
-      );
-    }
+    const [pixelate, negativeSplit, analogGlitch] = regions.map((clip) =>
+      effectsOn(`clip:${clip.id}`),
+    );
+
+    // Pixelate's box sweeps left to right, turning from -16° to +16°.
+    const [, sweep, box] = pixelate;
+    assert.equal(numberParameter(box, "ScaleX"), 0.3);
+    assert.equal(numberParameter(box, "ScaleY"), 0.56);
+    assert.equal(numberParameter(sweep, "StartRotation"), -16);
+    assert.equal(numberParameter(sweep, "EndRotation"), 16);
+    assert.ok(
+      (numberParameter(sweep, "StartPositionX") ?? 0) <
+        (numberParameter(sweep, "EndPositionX") ?? 0),
+    );
+
+    // Negative Split's wide band drops down the frame, breathing on each
+    // beat with a quarter-note LFO on its Height.
+    const [, drop, band] = negativeSplit;
+    assert.equal(stringParameter(drop, "Motion"), "Ease Out");
+    assert.equal(numberParameter(drop, "StartPositionX"), 0);
+    assert.equal(numberParameter(drop, "EndPositionX"), 0);
+    assert.ok(
+      (numberParameter(drop, "StartPositionY") ?? 0) >
+        (numberParameter(drop, "EndPositionY") ?? 0),
+    );
+    assert.ok(
+      (numberParameter(band, "ScaleX") ?? 0) >
+        (numberParameter(band, "ScaleY") ?? 0),
+    );
+    assert.equal(band.animation?.enabled, true);
+    assert.equal(band.animation?.mode, "lfo");
+    assert.equal(band.animation?.lfo?.sync, true);
+    assert.equal(band.animation?.lfo?.syncRate, "1/4");
+    assert.deepEqual(band.animation?.lfo?.parameters, ["ScaleY"]);
+
+    // Analog Glitch applies inside a spinning, growing star on a hidden
+    // layer, nothing but that star's clip drawn there.
+    const mask = analogGlitch[1];
+    assert.equal(stringParameter(mask, "Target"), "star-mask");
+    assert.equal(stringParameter(mask, "Mode"), "Additive");
+    const stars = (session.fills ?? []).filter(
+      (clip) => clip.mainTrackId === "star-mask",
+    );
+    assert.deepEqual(
+      stars.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
+      [[18, 21]],
+    );
+    const starEffects = effectsOn(`clip:${stars[0].id}`);
+    assert.deepEqual(
+      starEffects.map((effect) => effect.effectName),
+      ["Color", "Shape", "Move"],
+    );
+    assert.equal(stringParameter(starEffects[1], "Shape"), "Star");
+    const spin = starEffects[2];
+    assert.equal(stringParameter(spin, "Motion"), "Linear");
+    assert.ok(
+      (numberParameter(spin, "StartRotation") ?? 0) <
+        (numberParameter(spin, "EndRotation") ?? 0),
+    );
+    assert.ok(
+      (numberParameter(spin, "StartScaleY") ?? 0) <
+        (numberParameter(spin, "EndScaleY") ?? 0),
+    );
   });
 
   it("colors the reactive passages with audio-driven Colorize", () => {

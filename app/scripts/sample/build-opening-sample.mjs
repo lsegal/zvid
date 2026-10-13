@@ -651,9 +651,16 @@ addEffect(
 // Analog Glitch applies only inside a star on the hidden star-mask layer,
 // which spins a full turn of its points as it grows across the frame on
 // the diagonal.
-const starBox = (height) => ({ scaleX: (height * HEIGHT) / WIDTH, scaleY: height });
+const starBox = (height) => ({
+  scaleX: (height * HEIGHT) / WIDTH,
+  scaleY: height,
+});
 const star = layerClip("fills", "fill-star-mask", "star-mask", 18, 3);
-addEffect(clipTrack(star), "Color", { Mode: "Solid", Color: LIGHT, Opacity: 1 });
+addEffect(clipTrack(star), "Color", {
+  Mode: "Solid",
+  Color: LIGHT,
+  Opacity: 1,
+});
 addEffect(clipTrack(star), "Shape", { Shape: "Star" });
 move(
   clipTrack(star),
