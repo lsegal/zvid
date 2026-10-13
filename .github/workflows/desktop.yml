@@ -12,6 +12,13 @@ name: Desktop app
 # silicon (arm64) only, and Developer ID signed and notarized when the Apple
 # secrets below are configured, and unsigned otherwise.
 #
+# Every run builds a release version, app/package.json's major.minor with
+# the run number as the patch, and signs the updater artifacts with the
+# TAURI_SIGNING_PRIVATE_KEY secret (and its TAURI_SIGNING_PRIVATE_KEY_PASSWORD).
+# A run on main also publishes the updater manifest, desktop/latest.json,
+# which installed apps check on launch and from Help → Check for Updates;
+# its public key is in app/src-tauri/tauri.conf.json (plugins.updater).
+#
 # Publishing uses the same CLOUDFLARE_API_TOKEN secret and
 # CLOUDFLARE_ACCOUNT_ID variable as the Deploy workflow. The token needs
 # Account > Workers R2 Storage > Edit on the account that owns the
@@ -41,11 +48,16 @@ jobs:
             desktop-platform: macos
             installer: zvid-macos.dmg
             content-type: application/x-apple-diskimage
+            update-target: darwin-aarch64
+            update-file: zvid-macos.app.tar.gz
           - os: windows-latest
             platform: windows-x64
             desktop-platform: windows
             installer: zvid-windows-setup.exe
             content-type: application/vnd.microsoft.portable-executable
+            # The NSIS installer is its own update.
+            update-target: windows-x86_64
+            update-file: zvid-windows-setup.exe
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -99,7 +111,9 @@ jobs:
       # the App Store Connect API key when APPLE_API_KEY and
       # APPLE_API_KEY_PATH are too. Unset secrets are removed from the
       # environment rather than left empty: an empty APPLE_CERTIFICATE would
-      # fail the build.
+      # fail the build. Tauri signs the updater artifacts (a .sig beside
+      # each) with TAURI_SIGNING_PRIVATE_KEY: the .app.tar.gz of the app
+      # bundle on macOS, and the NSIS installer itself on Windows.
       - name: Build desktop app installer
         id: build
         env:
@@ -109,10 +123,20 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           INSTALLER: ${{ matrix.installer }}
+          UPDATE_FILE: ${{ matrix.update-file }}
         run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::the TAURI_SIGNING_PRIVATE_KEY secret is not set, so the update can't be signed"
+            exit 1
+          fi
           pnpm install --frozen-lockfile
-          active='{"bundle":{"active":true}}'
+          version=$(node scripts/desktop-update.mjs version "$GITHUB_RUN_NUMBER")
+          npm pkg set version="$version"
+          echo "Building zvid $version"
+          active='{"bundle":{"active":true,"createUpdaterArtifacts":true}}'
           apple=(APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY)
           if [ "$RUNNER_OS" != macOS ] || [ -z "$APPLE_CERTIFICATE" ]; then
             unset "${apple[@]}"
@@ -131,15 +155,27 @@ jobs:
             else
               echo "::notice::Apple signing secrets are not set; building an unsigned desktop app"
             fi
-            pnpm tauri build --target aarch64-apple-darwin --bundles dmg --config "$active"
-            built=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+            # The app bundle is built for its updater archive.
+            pnpm tauri build --target aarch64-apple-darwin --bundles app,dmg --config "$active"
+            bundle=src-tauri/target/aarch64-apple-darwin/release/bundle
+            built=$(ls "$bundle"/dmg/*.dmg)
+            update=$(ls "$bundle"/macos/*.app.tar.gz)
           else
             pnpm tauri build --bundles nsis --config "$active"
             built=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
+            update=$built
           fi
           mkdir -p target/desktop
+          if [ "$update" != "$built" ]; then
+            mv "$update" "target/desktop/$UPDATE_FILE"
+          fi
+          mv "$update.sig" "target/desktop/$UPDATE_FILE.sig"
           mv "$built" "target/desktop/$INSTALLER"
-          ls -l "target/desktop/$INSTALLER"
+          ls -l target/desktop
+          if [ ! -s "target/desktop/$UPDATE_FILE" ] || [ ! -s "target/desktop/$UPDATE_FILE.sig" ]; then
+            echo "::error::the signed update $UPDATE_FILE was not built"
+            exit 1
+          fi
 
       # Mounts the .dmg and checks the app in it is arm64 only and, when
       # signed, has a valid signature Gatekeeper accepts and a stapled
@@ -197,8 +233,9 @@ jobs:
           if (Test-Path $app.FullName) { throw "uninstalling left $($app.FullName) behind" }
 
       # main only, like the DAW bundles workflow's plugin upload: overwrites
-      # the installer in R2 under its fixed name and records its size and hash
-      # for the manifest the publish-desktop job writes once both platforms
+      # the installer and the signed update in R2 under their fixed names and
+      # records the installer's size and hash, and the update's signature,
+      # for the manifests the publish-desktop job writes once both platforms
       # have uploaded.
       - name: Upload the installer to R2
         if: github.ref == 'refs/heads/main'
@@ -209,6 +246,8 @@ jobs:
           INSTALLER: ${{ matrix.installer }}
           CONTENT_TYPE: ${{ matrix.content-type }}
           PLATFORM: ${{ matrix.desktop-platform }}
+          UPDATE_TARGET: ${{ matrix.update-target }}
+          UPDATE_FILE: ${{ matrix.update-file }}
         run: |
           npx --yes wrangler@4 r2 object put "zvid-downloads/desktop/$INSTALLER" --remote \
             --file "$INSTALLER" --content-type "$CONTENT_TYPE" \
@@ -220,22 +259,35 @@ jobs:
           else
             sha256=$(shasum -a 256 "$INSTALLER" | cut -d ' ' -f 1)
           fi
-          mkdir -p ../published
+          if [ "$UPDATE_FILE" != "$INSTALLER" ]; then
+            npx --yes wrangler@4 r2 object put "zvid-downloads/desktop/$UPDATE_FILE" --remote \
+              --file "$UPDATE_FILE" --content-type application/gzip --cache-control no-cache
+          fi
+          npx --yes wrangler@4 r2 object put "zvid-downloads/desktop/$UPDATE_FILE.sig" --remote \
+            --file "$UPDATE_FILE.sig" --content-type text/plain --cache-control no-cache
+          mkdir -p ../published/installers ../published/updates
           printf '{"platform":"%s","file":"%s","size":%s,"sha256":"%s"}\n' \
-            "$PLATFORM" "$INSTALLER" "$size" "$sha256" | tee "../published/$PLATFORM.json"
+            "$PLATFORM" "$INSTALLER" "$size" "$sha256" | tee "../published/installers/$PLATFORM.json"
+          jq -n --arg target "$UPDATE_TARGET" --arg file "$UPDATE_FILE" \
+            --rawfile signature "$UPDATE_FILE.sig" \
+            '{target: $target, file: $file, signature: $signature}' \
+            | tee "../published/updates/$PLATFORM.json"
 
-      # The published installer's manifest entry, not the installer itself.
+      # The published installer's and update's manifest entries, not the
+      # files themselves.
       - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main'
         with:
           name: desktop-installer-${{ matrix.desktop-platform }}
-          path: app/target/published/${{ matrix.desktop-platform }}.json
+          path: app/target/published/
           if-no-files-found: error
           retention-days: 1
 
   # Writes desktop/manifest.json, which the app's Download Desktop App dialog
-  # reads, only after every platform's installer uploaded. Same format as
-  # capture/manifest.json; the version is app/package.json's.
+  # reads, and then desktop/latest.json, which installed apps' updaters read,
+  # only after every platform's installer and update uploaded. manifest.json
+  # has the same format as capture/manifest.json; both carry the release
+  # version the desktop job built.
   publish-desktop:
     name: publish desktop manifest
     needs: desktop
@@ -251,16 +303,17 @@ jobs:
           path: published
           merge-multiple: true
 
-      - name: Upload the manifest to R2
+      - name: Upload the manifests to R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          DOWNLOADS_URL: https://zvid.lsegal.workers.dev/downloads/desktop/
         run: |
-          version=$(jq -r .version app/package.json)
+          version=$(node app/scripts/desktop-update.mjs version "$GITHUB_RUN_NUMBER")
           jq -s --arg version "$version+${GITHUB_SHA::7}" --arg sha "$GITHUB_SHA" \
             --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{version: $version, sha: $sha, builtAt: $builtAt, installers: sort_by(.platform)}' \
-            published/*.json | tee manifest.json
+            published/installers/*.json | tee manifest.json
           count=$(jq '.installers | length' manifest.json)
           if [ "$count" != 2 ]; then
             echo "::error::expected 2 installers, got $count"
@@ -268,3 +321,7 @@ jobs:
           fi
           npx --yes wrangler@4 r2 object put zvid-downloads/desktop/manifest.json --remote \
             --file manifest.json --content-type application/json --cache-control no-cache
+          node app/scripts/desktop-update.mjs manifest published/updates "$DOWNLOADS_URL" "$version" \
+            | tee latest.json
+          npx --yes wrangler@4 r2 object put zvid-downloads/desktop/latest.json --remote \
+            --file latest.json --content-type application/json --cache-control no-cache

@@ -35,7 +35,9 @@ export function buildUpdateManifest({ version, pubDate, baseUrl, entries }) {
     if (!UPDATE_TARGETS.includes(target)) {
       throw new Error(`unknown update target: ${target}`);
     }
-    if (platforms[target]) throw new Error(`duplicate update target: ${target}`);
+    if (platforms[target]) {
+      throw new Error(`duplicate update target: ${target}`);
+    }
     if (!file || !signature?.trim()) {
       throw new Error(`${target} has no signed update file`);
     }

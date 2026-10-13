@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import type { Harness } from "../harness";
 import { TopBarHarness } from "./top-bar-test-harness.tsx";
 import "./TopBar";
 
@@ -176,6 +177,29 @@ describe("TopBar menubar", () => {
         page.getByRole("dialog", { name: "Download the zvid desktop app" }),
       )
       .toBeVisible();
+    expect(
+      menu.getByRole("menuitem", { name: "Check for Updates…" }).elements(),
+    ).toHaveLength(0);
+  });
+
+  test("Help offers Check for Updates instead of downloads in the desktop app", async () => {
+    const previous = window.harness;
+    window.harness = {
+      capabilities: { "native-dialogs": true },
+    } as unknown as Harness;
+    try {
+      await renderTopBar();
+      await trigger("Help").click();
+      const menu = page.getByRole("menu");
+      await expect
+        .element(menu.getByRole("menuitem", { name: "Check for Updates…" }))
+        .toBeVisible();
+      expect(
+        menu.getByRole("menuitem", { name: "Download Desktop App" }).elements(),
+      ).toHaveLength(0);
+    } finally {
+      window.harness = previous;
+    }
   });
 
   test("submenus keep their own Left/Right keys", async () => {

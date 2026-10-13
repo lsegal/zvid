@@ -4,6 +4,7 @@ import "./index.css";
 import "./text-fonts.css";
 import AppRoot from "./AppRoot.tsx";
 import { startAgentRelay } from "./agent-relay";
+import { checkForDesktopUpdate } from "./desktop-updater";
 import { installHarness } from "./harness";
 import { markInstalledApp } from "./installed-app.ts";
 import { ZVID_VERSION } from "./version";
@@ -18,6 +19,7 @@ async function bootstrap() {
   startAgentRelay().catch((error) =>
     console.warn("zvid: the agent relay could not start", error),
   );
+  void checkForDesktopUpdate({ interactive: false });
 
   const rootElement = document.getElementById("root");
   if (!rootElement) {

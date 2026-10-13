@@ -57,8 +57,16 @@ describe("buildUpdateManifest", () => {
 
   it("fails when a target is missing, unsigned, duplicated or unknown", () => {
     const build = (entries) =>
-      buildUpdateManifest({ version: "0.0.1", pubDate: "", baseUrl: BASE_URL, entries });
-    assert.throws(() => build(ENTRIES.slice(1)), /missing update targets: windows-x86_64/);
+      buildUpdateManifest({
+        version: "0.0.1",
+        pubDate: "",
+        baseUrl: BASE_URL,
+        entries,
+      });
+    assert.throws(
+      () => build(ENTRIES.slice(1)),
+      /missing update targets: windows-x86_64/,
+    );
     assert.throws(
       () => build([{ ...ENTRIES[0], signature: " " }, ENTRIES[1]]),
       /windows-x86_64 has no signed update file/,
