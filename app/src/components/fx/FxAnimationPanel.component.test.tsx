@@ -364,6 +364,11 @@ describe("FX Animation", { timeout: 60_000 }, () => {
       .poll(() => textOf(animation().getByRole("combobox", { name: "Rate" })))
       .toBe("1/32");
     expect(labels()).toEqual(["Depth", "Phase"]);
+    // Depth reaches 10x either way; below 0 it inverts the LFO.
+    const depth = animation().getByRole("slider", { name: "Depth" });
+    await expect.element(depth).toHaveAttribute("aria-valuemin", "-10");
+    await expect.element(depth).toHaveAttribute("aria-valuemax", "10");
+    await expect.element(depth).toHaveAttribute("aria-valuetext", "0.5x");
     await expect
       .element(animation().getByRole("button", { name: "Parameters: 1 of 1" }))
       .toBeVisible();

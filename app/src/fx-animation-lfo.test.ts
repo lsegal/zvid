@@ -213,6 +213,21 @@ describe("resolveLfoParameters", () => {
     );
   });
 
+  it("scales the swing past 1x with Depth and inverts it below 0", () => {
+    const effect = negativeSplit();
+    const options = { time: 0.25, bpm: 120 };
+    const swing = (depth: number) =>
+      readValue(
+        resolveLfoParameters(effect, lfo({ depth }), options),
+        "_LowIntensity",
+      ) - 0.5;
+    const once = swing(0.8);
+    assert.ok(once > 0);
+    assert.ok(Math.abs(swing(1.6) - 2 * once) < 1e-9);
+    assert.ok(Math.abs(swing(-0.8) + once) < 1e-9);
+    assert.ok(Math.abs(swing(-1.6) + 2 * once) < 1e-9);
+  });
+
   it("scales the swing with the range scale and clamps to the knob's limits", () => {
     const effect = negativeSplit(0.5, 0.5);
     const definition = getEffectDefinition("NegativeSplit").parameters.find(

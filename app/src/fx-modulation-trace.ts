@@ -42,7 +42,8 @@ export function lfoTraceSeconds(
 }
 
 // `count` samples of the LFO over the `seconds` up to `at.time`, oldest
-// first and ending at `at.time`: its waveform, -1..1, scaled by Depth.
+// first and ending at `at.time`: its waveform scaled by Depth, inverted
+// when Depth is negative, and clamped to -1..1 as the graph draws it.
 // Random draws from `seed`, as the audio chain does.
 export function sampleLfoTrace(
   lfo: LfoTraceSettings,
@@ -52,12 +53,13 @@ export function sampleLfoTrace(
   seconds: number,
   into: Float32Array = new Float32Array(count),
 ) {
-  const depth = Math.max(0, Math.min(1, lfo.depth));
+  const depth = lfo.depth;
   const step = count > 1 ? seconds / (count - 1) : 0;
   for (let index = 0; index < count; index++) {
     const time = at.time - (count - 1 - index) * step;
     const cycles = evaluateLfoCycles(lfo, { ...at, time });
-    into[index] = lfoWaveform(lfo.shape, cycles, seed) * depth;
+    const value = lfoWaveform(lfo.shape, cycles, seed) * depth;
+    into[index] = Math.max(-1, Math.min(1, value));
   }
   return into;
 }

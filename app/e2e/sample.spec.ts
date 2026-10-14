@@ -452,7 +452,7 @@ test("the logo reveal glitches under a 1 Hz LFO", async ({ page }) => {
   ).toHaveAttribute("aria-pressed", "true");
   for (const [label, text] of [
     ["Rate", "1.00 Hz"],
-    ["Depth", "0.6"],
+    ["Depth", "0.6x"],
     ["Phase", "0°"],
   ]) {
     await expect(

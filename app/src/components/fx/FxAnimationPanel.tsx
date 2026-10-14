@@ -22,6 +22,7 @@ import {
   LFO_SHAPES,
   LFO_SYNC_RATES,
   type LfoAnimation,
+  MAX_LFO_DEPTH,
   MAX_REACTIVE_AMPLITUDE,
   ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
@@ -236,10 +237,6 @@ export function FxAnimationPanel({
   );
 }
 
-export function formatReactivity(value: number) {
-  return value.toFixed(1);
-}
-
 // Reactivity is the weakest hit that triggers a swing.
 function formatThreshold(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -371,10 +368,11 @@ export function FxLfoControls({
         <Knob
           accent={device.accent}
           defaultValue={defaults?.depth ?? 0.5}
-          format={formatReactivity}
+          bipolar
+          format={formatAmplitude}
           label="Depth"
-          max={1}
-          min={0}
+          max={MAX_LFO_DEPTH}
+          min={-MAX_LFO_DEPTH}
           onChange={(depth) => onChange({ depth }, "transient")}
           onCommit={(depth) => onChange({ depth })}
           step={LFO_DEPTH_STEP}

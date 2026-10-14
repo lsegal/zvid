@@ -171,6 +171,9 @@ export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
 export const REACTIVITY_STEP = 0.1;
 export const AMPLITUDE_STEP = 0.1;
 export const MAX_REACTIVE_AMPLITUDE = 10;
+// LFO Depth scales the swing up to 10x either way; below 0 it inverts the
+// waveform, so knobs move against the LFO.
+export const MAX_LFO_DEPTH = 10;
 export const LFO_DEPTH_STEP = 0.1;
 
 // Defaults for an effect that only animates on its clip's enter and exit.
@@ -622,7 +625,7 @@ export function normalizeLfo(
     sync: typeof lfo.sync === "boolean" ? lfo.sync : fallback.sync,
     rate: readNumber(lfo.rate, LFO_MIN_RATE, LFO_MAX_RATE, fallback.rate),
     syncRate: readOption(lfo.syncRate, LFO_SYNC_RATES, fallback.syncRate),
-    depth: readNumber(lfo.depth, 0, 1, fallback.depth),
+    depth: readNumber(lfo.depth, -MAX_LFO_DEPTH, MAX_LFO_DEPTH, fallback.depth),
     phase: readNumber(lfo.phase, 0, LFO_MAX_PHASE, fallback.phase),
     parameters: readParameters(lfo.parameters, fallback.parameters),
   };

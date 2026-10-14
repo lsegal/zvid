@@ -135,6 +135,30 @@ describe("live knob values", () => {
     assert.notEqual(value, stored(live, "_LowIntensity"));
   });
 
+  it("follows an inverted LFO at negative Depth", () => {
+    const base = split({ mode: "lfo" });
+    const animation = base.animation;
+    assert.ok(animation?.lfo);
+    const live = {
+      ...base,
+      animation: {
+        ...animation,
+        lfo: { ...animation.lfo, sync: false, rate: 1, depth: -1.5 },
+      },
+    };
+    const driver = liveDriver(live);
+    assert.equal(driver?.kind, "lfo");
+    const key = live.animation.lfo.parameters[0];
+    assert.ok(key);
+    const expected = resolveLfoParameters(asEffect(live), live.animation.lfo, {
+      time: AT.time,
+      bpm: AT.bpm,
+    }).find((parameter) => parameter.key === key)?.numericValue;
+    const value = liveKnobValue(live, driver, key, AT);
+    assert.equal(value, expected);
+    assert.notEqual(value, stored(live, key));
+  });
+
   it("eases Clip mode in over the clip and is still outside it", () => {
     const live = split({ mode: "clip" });
     const driver = liveDriver(live);
