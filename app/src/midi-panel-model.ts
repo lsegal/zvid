@@ -6,15 +6,15 @@ import type { SourceSpan } from "./app/types.ts";
 import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
 import {
-  DEFAULT_SYNTH_PARAMS,
+  DEFAULT_INSTRUMENT,
+  type MidiInstrument,
   type MidiNote,
-  type SynthParams,
 } from "./midi-clip.ts";
 import {
   defaultMidiTimeline,
   type MidiClipTimeline,
 } from "./midi-clip-timeline.ts";
-import { auditionSynthOf } from "./midi-effects.ts";
+import { auditionInstrumentOf } from "./midi-effects.ts";
 
 export type MidiClipModel = {
   spanId: string;
@@ -29,9 +29,9 @@ export type MidiClipModel = {
   // Its Length, loop brace and Start marker, or the default for a clip
   // that has never set them (see midi-clip-timeline.ts).
   timeline: MidiClipTimeline;
-  // Its Synth's settings, which audition its notes: the default synth's
-  // when it has none.
-  synth: SynthParams;
+  // Its instrument, which auditions its notes: the default Synth when it
+  // has none.
+  instrument: MidiInstrument;
 };
 
 export function getMidiPanelModel(
@@ -57,10 +57,10 @@ export function getMidiPanelModel(
       trimStartQ: secondsToQuarters(span.trimStartSeconds, bpm),
       lengthQ: getClipDurationQ(span, bpm),
       timeline: midiTimelineOf(span, bpm),
-      synth:
-        auditionSynthOf(
+      instrument:
+        auditionInstrumentOf(
           effects.filter((effect) => effect.trackId === stackId),
-        ) ?? DEFAULT_SYNTH_PARAMS,
+        ) ?? DEFAULT_INSTRUMENT,
     },
   };
 }

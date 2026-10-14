@@ -1,18 +1,20 @@
-// Plays a MIDI clip's notes through its Synth effect. Each note is a voice:
+// Plays a MIDI clip's notes through its instrument: its Synth, here, or its
+// Granular (see granular.ts). Each note through a Synth is a voice:
 // an oscillator through a lowpass filter into a gain shaped by the synth's
 // ADSR envelope. The voices render in an OfflineAudioContext into the
 // clip's audio, from its content start to its source window's end, which
 // the mix then reads like decoded media: the preview plays it from the
 // clip's position under the playhead, through seeks and loops, and export
 // renders it into the mix, so both hear the same performance.
-import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { MidiInstrument, MidiNote, SynthParams } from "../midi-clip.ts";
+import { renderGranularClip } from "./granular.ts";
 import type { DecodedAudio } from "./mix.ts";
 
-// What a MIDI clip in the mix plays: its notes through its Synth,
+// What a MIDI clip in the mix plays: its notes through its instrument,
 // rendered `durationSeconds` long from its content start.
 export type SynthClip = {
   notes: readonly MidiNote[];
-  params: SynthParams;
+  instrument: MidiInstrument;
   durationSeconds: number;
 };
 
@@ -128,17 +130,27 @@ export function synthMediaId(spanId: string, synth: SynthClip, bpm: number) {
 }
 
 /**
- * `synth`'s voices rendered at `bpm` and `sampleRate`, from its content
- * start to its end, as decoded media.
+ * `synth`'s notes played through its instrument at `bpm` and `sampleRate`,
+ * from its content start to its end, as decoded media.
  */
 export async function renderSynthClip(
   synth: SynthClip,
   bpm: number,
   sampleRate: number,
 ): Promise<DecodedAudio> {
+  const { instrument } = synth;
+  if (instrument.kind === "granular") {
+    return renderGranularClip(
+      synth.notes,
+      instrument.params,
+      synth.durationSeconds,
+      bpm,
+      sampleRate,
+    );
+  }
   const length = Math.max(1, Math.ceil(synth.durationSeconds * sampleRate));
   const context = new OfflineAudioContext(1, length, sampleRate);
-  const { params } = synth;
+  const { params } = instrument;
   for (const voice of synthVoices(
     synth.notes,
     params,
