@@ -320,9 +320,7 @@ describe("FX Animation", { timeout: 60_000 }, () => {
     const depth = animation().getByRole("slider", { name: "Depth" });
     await expect.element(depth).toHaveAttribute("aria-valuemin", "-10");
     await expect.element(depth).toHaveAttribute("aria-valuemax", "10");
-    await expect
-      .element(depth)
-      .toHaveAttribute("aria-valuetext", /^-?\d+\.\dx$/);
+    await expect.element(depth).toHaveAttribute("aria-valuetext", "0.5x");
     await expect
       .element(animation().getByRole("button", { name: "Parameters: 1 of 1" }))
       .toBeVisible();
