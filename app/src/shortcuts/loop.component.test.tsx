@@ -2,9 +2,17 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import {
   EDITOR_TEST_TIMEOUT,
+  type EditorState,
   renderEditor,
 } from "../component-test/editor.tsx";
-import { down, move, pressMod, up } from "../component-test/input.ts";
+import {
+  down,
+  move,
+  pressMod,
+  redo,
+  undo,
+  up,
+} from "../component-test/input.ts";
 import { setViewport } from "../component-test/viewport.ts";
 
 // Ctrl/Cmd+L loops the timeline selection, or clears the loop when nothing
@@ -12,6 +20,13 @@ import { setViewport } from "../component-test/viewport.ts";
 
 const loopRegion = () =>
   document.querySelector(".ruler-loop-region") as HTMLElement | null;
+
+const loopEnds = () => {
+  const region = loopRegion();
+  return region
+    ? { startQ: region.dataset.startQ, endQ: region.dataset.endQ }
+    : null;
+};
 
 // Drags from `fromX` to `toX`, client x, across the middle of `element`.
 async function dragAcross(element: Element, fromX: number, toX: number) {
@@ -73,5 +88,46 @@ describe("loop shortcuts", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await pressMod("l");
     await expect.poll(loopRegion).not.toBeNull();
     expect(document.querySelector(".ruler-playback-selection")).toBeNull();
+  });
+
+  // Each loop edit is one undo entry (#1391).
+  test("undo and redo step through Ctrl/Cmd+L's loop edits", async () => {
+    let state: EditorState | undefined;
+    await renderEditor({
+      onState: (next) => {
+        state = next;
+      },
+    });
+    const lane = document.querySelector(
+      '[data-timeline-lane-id="1"]',
+    ) as HTMLElement;
+    const laneBox = lane.getBoundingClientRect();
+    await dragAcross(lane, laneBox.x + 40, laneBox.x + 240);
+    await expect
+      .poll(() => lane.querySelector(".timeline-selection"))
+      .not.toBeNull();
+    expect(state?.canUndo).toBe(false);
+
+    await pressMod("l");
+    await expect.poll(loopRegion).not.toBeNull();
+    const looped = loopEnds();
+    await userEvent.keyboard("{Escape}");
+    await pressMod("l");
+    await expect.poll(loopRegion).toBeNull();
+
+    await undo();
+    await expect.poll(loopEnds).toEqual(looped);
+    expect(state?.status).toBe("Undid: Clear loop.");
+
+    await undo();
+    await expect.poll(loopRegion).toBeNull();
+    expect(state?.status).toBe("Undid: Set loop.");
+    expect(state?.canUndo).toBe(false);
+
+    await redo();
+    await expect.poll(loopEnds).toEqual(looped);
+    expect(state?.status).toBe("Redid: Set loop.");
+    await redo();
+    await expect.poll(loopRegion).toBeNull();
   });
 });
