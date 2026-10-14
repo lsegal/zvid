@@ -3,6 +3,7 @@
 // runs one AudioChain: a clip's, a bus's or the master's.
 import type { AudioChainSettings } from "./chain.ts";
 import type { AudioTempo } from "./processor.ts";
+import { loopedSeconds, type PlaybackLoop } from "./voice-window.ts";
 
 export const CHAIN_PROCESSOR_NAME = "zvid-audio-chain";
 
@@ -32,21 +33,26 @@ export function timelineAt(transport: ChainTransport, contextTime: number) {
 // The transport to tell the chains, at context time `contextTime`, of a
 // playhead at `now`, `playing` or not, when `previous` no longer says
 // where it is, and whether that is a seek that resets them; null while it
-// still does.
+// still does. Playback wrapping at `loop`'s out marker is no seek: the
+// chains play on into the next pass, as they play into the loop the first
+// time, with their tails.
 export function nextTransport(
   previous: ChainTransport | null,
   contextTime: number,
   now: number,
   playing: boolean,
+  loop?: PlaybackLoop,
 ): { transport: ChainTransport; reset: boolean } | null {
   const rate = playing ? 1 : 0;
-  const gap = previous ? Math.abs(timelineAt(previous, contextTime) - now) : 0;
+  const expected = previous ? timelineAt(previous, contextTime) : now;
+  const gap = Math.abs(expected - now);
   if (previous && previous.rate === rate && gap <= TRANSPORT_DRIFT_SECONDS) {
     return null;
   }
+  const wrapGap = Math.abs(loopedSeconds(now, expected, loop) - now);
   return {
     transport: { contextTime, timelineSeconds: now, rate },
-    reset: Boolean(previous) && gap > SEEK_SECONDS,
+    reset: Boolean(previous) && Math.min(gap, wrapGap) > SEEK_SECONDS,
   };
 }
 

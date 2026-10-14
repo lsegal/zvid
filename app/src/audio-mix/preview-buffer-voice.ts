@@ -10,6 +10,7 @@ import { clipReadSeconds, type DecodedAudio } from "./mix.ts";
 import { AUDIO_PROCESSORS } from "./processors.ts";
 import type { AudioMixClip } from "./resolve.ts";
 import { renderSynthClip } from "./synth.ts";
+import type { PlaybackLoop } from "./voice-window.ts";
 
 // The longest media, and clip, WebKit plays from a decoded buffer rather
 // than a media element, bounding the memory decoding takes: a minute of
@@ -90,6 +91,44 @@ export function decodedClipSeconds(
     return at >= start - SCHEDULE_AHEAD_SECONDS ? at - start : undefined;
   }
   return at >= start && at < end ? at - start : undefined;
+}
+
+// How a decoded voice plays on into a loop's next pass (see
+// DecodedClipVoice.sync): its out marker, `atSeconds` on the timeline, plays
+// `untilSeconds` from now, and from there the clip plays from `clipSeconds`
+// into it, or when that is negative, from its start that much later; when
+// undefined, it is silent there.
+export type DecodedLoopWrap = {
+  atSeconds: number;
+  untilSeconds: number;
+  clipSeconds: number | undefined;
+};
+
+// How a clip from `start` to `end` on the timeline plays on into `loop`'s
+// next pass once `at` reaches the out marker, as DecodedClipVoice.sync takes
+// it: only within SCHEDULE_AHEAD_SECONDS of the out marker, so the next
+// pass starts on the audio clock just as the wrap does, rather than once the
+// playhead has wrapped and the voice has drifted off for a few syncs.
+export function decodedLoopWrap(
+  at: number,
+  start: number,
+  end: number,
+  loop: PlaybackLoop | null | undefined,
+): DecodedLoopWrap | undefined {
+  const untilSeconds = loop ? loop.endSeconds - at : 0;
+  if (!loop || untilSeconds <= 0 || untilSeconds > SCHEDULE_AHEAD_SECONDS) {
+    return undefined;
+  }
+  const clipSeconds = loop.startSeconds - start;
+  const plays =
+    start < loop.endSeconds &&
+    end > loop.startSeconds &&
+    clipSeconds >= -SCHEDULE_AHEAD_SECONDS;
+  return {
+    atSeconds: loop.endSeconds,
+    untilSeconds,
+    clipSeconds: plays ? clipSeconds : undefined,
+  };
 }
 
 // A buffer plays on the audio clock, which the playhead, on the display's
@@ -189,6 +228,14 @@ export class DecodedClipVoice {
   private disposed = false;
   // How many steady syncs in a row it has been off for.
   private drifting = 0;
+  // The loop's next pass, started ahead on the audio clock: its source,
+  // if it plays there, takes over at `switchAt`, where the one playing now
+  // is stopped.
+  private next: {
+    source: AudioBufferSourceNode | null;
+    switchAt: number;
+    clipSeconds: number | undefined;
+  } | null = null;
   private readonly context: AudioContext;
   private readonly output: AudioNode;
   private readonly lenient: boolean;
@@ -268,6 +315,8 @@ export class DecodedClipVoice {
   // Plays `buffer`, rendered from `clip`, in place of the old one, from
   // where the old one has reached in the media, if playing.
   private swap(clip: AudioMixClip, buffer: AudioBuffer) {
+    // A next pass already started plays the old buffer, so it starts again.
+    this.dropWrap();
     const playing = this.source !== null && this.buffer !== null;
     const now = this.context.currentTime;
     const from = this.clip;
@@ -292,26 +341,47 @@ export class DecodedClipVoice {
   // restart to meet the playhead counts as a re-sync, `steady` in plain
   // playback, which waits for drift to last. In steady playback its clip,
   // starting at `startSeconds` on the timeline, starts where the shared
-  // clock puts it.
+  // clock puts it, and with `wrap`, its next pass of the loop starts ahead,
+  // just as the loop wraps.
   sync(
     clipSeconds: number | undefined,
     tolerance: number,
     steady = false,
     startSeconds = 0,
+    wrap?: DecodedLoopWrap,
+  ) {
+    this.takeWrap();
+    if (!steady || !wrap) {
+      this.cancelWrap(!steady, tolerance);
+    }
+    this.follow(clipSeconds, tolerance, steady, startSeconds);
+    if (steady && wrap) {
+      this.startWrap(wrap, this.limit(tolerance, steady));
+    }
+  }
+
+  private limit(tolerance: number, steady: boolean) {
+    return steady && this.lenient
+      ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
+      : tolerance;
+  }
+
+  private follow(
+    clipSeconds: number | undefined,
+    tolerance: number,
+    steady: boolean,
+    startSeconds: number,
   ) {
     if (clipSeconds === undefined || !this.buffer) {
       this.shift = 0;
-      this.stop();
+      this.stopSource();
       return;
     }
     if (!steady) {
       this.shift = 0;
     }
     const now = this.context.currentTime;
-    const limit =
-      steady && this.lenient
-        ? Math.max(tolerance, LENIENT_DRIFT_SECONDS)
-        : tolerance;
+    const limit = this.limit(tolerance, steady);
     if (this.source) {
       const drift = now - this.startsAt - clipSeconds - this.shift;
       if (steady) {
@@ -322,7 +392,7 @@ export class DecodedClipVoice {
         return;
       }
       audioDiagnostics.recordResync(steady);
-      this.stop();
+      this.stopSource();
     }
     // The audio clock time the clip's start plays at, and the soonest it
     // can start.
@@ -344,21 +414,102 @@ export class DecodedClipVoice {
     this.startsAt = startsAt;
   }
 
-  stop() {
-    if (!this.source) {
+  // Starts the loop's next pass `wrap.untilSeconds` from now, where the
+  // shared clock puts the out marker, and stops the buffer playing now
+  // there, unless the same pass has already started.
+  private startWrap(wrap: DecodedLoopWrap, limit: number) {
+    if (!this.buffer) {
       return;
     }
-    try {
-      this.source.stop();
-    } catch {
-      // Already ended.
+    const estimate = this.context.currentTime + wrap.untilSeconds;
+    const switchAt = this.clock
+      ? this.clock.contextTimeOf(wrap.atSeconds, estimate, limit)
+      : estimate;
+    // A pass about to start is left to, as when this one is the pass after
+    // it, which a short loop asks for before the playhead has wrapped.
+    const { next } = this;
+    if (
+      next &&
+      ((next.clipSeconds === wrap.clipSeconds &&
+        Math.abs(next.switchAt - switchAt) <= limit) ||
+        this.context.currentTime >= next.switchAt - limit)
+    ) {
+      return;
     }
-    this.source.disconnect();
+    this.cancelWrap(true);
+    let source: AudioBufferSourceNode | null = null;
+    if (wrap.clipSeconds !== undefined) {
+      source = this.context.createBufferSource();
+      source.buffer = this.buffer;
+      source.connect(this.output);
+      source.start(
+        switchAt + Math.max(0, -wrap.clipSeconds),
+        Math.max(0, wrap.clipSeconds),
+      );
+    }
+    this.source?.stop(switchAt);
+    this.next = { source, switchAt, clipSeconds: wrap.clipSeconds };
+  }
+
+  // Plays on from the loop's next pass once the audio clock reaches it.
+  private takeWrap() {
+    const { next } = this;
+    if (!next || this.context.currentTime < next.switchAt) {
+      return;
+    }
+    this.next = null;
+    this.source?.disconnect();
+    this.source = next.source;
+    this.startsAt = next.switchAt - (next.clipSeconds ?? 0);
+    this.shift = 0;
+    this.drifting = 0;
+  }
+
+  // Drops the loop's next pass, unless, without `force`, it is due within
+  // `tolerance`, as when the playhead wraps a moment before the audio clock.
+  // The buffer playing now, stopped where the pass started, starts again.
+  private cancelWrap(force: boolean, tolerance = 0) {
+    const { next } = this;
+    if (
+      !next ||
+      (!force && this.context.currentTime >= next.switchAt - tolerance)
+    ) {
+      return;
+    }
+    this.dropWrap();
+    this.stopSource();
+  }
+
+  // Drops the loop's next pass, leaving the buffer playing now as it is.
+  private dropWrap() {
+    stopSource(this.next?.source ?? null);
+    this.next = null;
+  }
+
+  private stopSource() {
+    stopSource(this.source);
     this.source = null;
+  }
+
+  stop() {
+    this.cancelWrap(true);
+    this.stopSource();
   }
 
   dispose() {
     this.disposed = true;
     this.stop();
   }
+}
+
+function stopSource(source: AudioBufferSourceNode | null) {
+  if (!source) {
+    return;
+  }
+  try {
+    source.stop();
+  } catch {
+    // Already ended.
+  }
+  source.disconnect();
 }

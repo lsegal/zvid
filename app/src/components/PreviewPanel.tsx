@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
+import type { LoopRegion } from "../app/loop-region.ts";
 import {
   readAudioAnalysisOpen,
   writeAudioAnalysisOpen,
@@ -91,6 +92,8 @@ export type PreviewPanelProps = Pick<
     mediaRange: MediaRangeActions;
     mediaTimeFormat: TimeValueFormat;
     playheadSignal: PlayheadSignal;
+    // The loop playback wraps at, if any.
+    loopRegion?: LoopRegion | null;
     previewClip: ArrangementClip | undefined;
     previewLaneId: string | undefined;
     previewLayers: ReturnType<typeof usePreview>["previewLayers"];
@@ -196,6 +199,7 @@ export function PreviewPanel({
   isPlaying,
   isTimelineAudibleScrubbing,
   audioMix,
+  loopRegion,
   mediaItems,
   mediaPreview,
   mediaRange,
@@ -356,6 +360,7 @@ export function PreviewPanel({
             audioMix={audioMix}
             mediaItems={mediaItems}
             playheadSignal={playheadSignal}
+            loopRegion={loopRegion}
             projectDurationFrames={projectDurationFrames}
             hiddenTextClipId={textEdit?.clipId}
             frameAnalysis={previewFrameAnalysis}
