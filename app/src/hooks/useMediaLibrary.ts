@@ -455,7 +455,8 @@ export type MediaLibraryCommandsInputs = {
 
 export type MediaImportResult = { imported: MediaItem[]; error?: string };
 
-// Importing dropped media into source tracks and relinking offline media.
+// Importing dropped media into source tracks or the Media drawer and
+// relinking offline media.
 // They use the offline media state useMediaStatus derives after
 // useMediaLibrary, so useMediaImport calls this hook after it.
 export function useMediaLibraryCommands({
@@ -576,6 +577,59 @@ export function useMediaLibraryCommands({
     ],
   );
 
+  // Files dropped on the Media drawer only link their media; they make no
+  // clips.
+  const importMediaIntoBin = useCallback(
+    async (files: File[]) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
+      try {
+        setStatus(
+          `Analyzing ${pluralize(files.length, "dropped media file")}...`,
+        );
+        const { accepted: analyzed, message: rejected } = rejectMalformedLuts(
+          await getHarness().analyzeMedia(
+            { kind: "files", files },
+            PALETTE,
+            projectMediaItems.length,
+          ),
+        );
+        if (!analyzed.length) {
+          setStatus(rejected ?? "No media imported.");
+          return;
+        }
+        const sharedAnalyzed = analyzed.map((item) =>
+          toShareableMediaItem(item),
+        );
+        commitProjectChange("Drop media into the Media drawer", (current) =>
+          patchProjectState(current, {
+            mediaItems: [...current.mediaItems, ...sharedAnalyzed],
+          }),
+        );
+        seedLocalMediaItems(analyzed);
+        void cacheLocalMediaItems(analyzed);
+        setStatus(
+          [`Imported ${pluralize(analyzed.length, "media file")}.`, rejected]
+            .filter(Boolean)
+            .join(" "),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Dropped media import failed: ${message}`);
+      }
+    },
+    [
+      cacheLocalMediaItems,
+      commitProjectChange,
+      projectMediaItems.length,
+      refuseReadOnlyEdit,
+      seedLocalMediaItems,
+      setStatus,
+    ],
+  );
+
   // Media dragged from the Media drawer is already in the project, so its
   // clips reuse the media items, pre-trimmed to their In/Out points.
   const placeMediaInSourceTrack = useCallback(
@@ -679,6 +733,7 @@ export function useMediaLibraryCommands({
 
   return {
     importMediaIntoSourceTrack,
+    importMediaIntoBin,
     placeMediaInSourceTrack,
     relinkingMediaIds,
     relinkOfflineMedia,

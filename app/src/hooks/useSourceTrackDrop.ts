@@ -27,10 +27,15 @@ import { getHarness } from "../harness";
 import type { MediaItem } from "../media";
 import { endMediaDrag, getDraggedMediaIds, isMediaDrag } from "../media-drag";
 import {
+  isMediaBinDropTarget,
+  isMediaDrawerSpringTarget,
+} from "../media-drawer-drop.ts";
+import {
   getSourceDropPreviewItems,
   getSourceDropPreviewThumbnailRequests,
 } from "../source-drop-preview.ts";
 import { useThumbnailCache } from "../use-thumbnail-cache";
+import type { MediaDrawerState } from "./useMediaDrawer.ts";
 
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
@@ -50,6 +55,10 @@ export type SourceTrackDropInputs = {
     mediaIds: string[],
     target: SourceTrackDropTarget,
   ) => void;
+  // Media files dropped on the Media drawer go into the session without
+  // clips.
+  importMediaIntoBin: (files: File[]) => Promise<unknown>;
+  mediaDrawer: Pick<MediaDrawerState, "showMediaView" | "setIsDropTarget">;
   setStatus: (status: string) => void;
 };
 
@@ -78,7 +87,8 @@ const releasePreviewThumbnail = (
 // tracks: the track under the pointer, the snapped timeline position under it
 // where the media will start, the preview card of the dragged media, and
 // importing or placing it on drop. One window-level listener serves every
-// source track drop target.
+// source track drop target, and the Media drawer, which a drag left of the
+// timeline springs open and which takes media files without making clips.
 export function useSourceTrackDrop({
   mediaItems,
   bpm,
@@ -90,8 +100,12 @@ export function useSourceTrackDrop({
   snapEnabled,
   importMediaIntoSourceTrack,
   placeMediaInSourceTrack,
+  importMediaIntoBin,
+  mediaDrawer,
   setStatus,
 }: SourceTrackDropInputs) {
+  const { showMediaView, setIsDropTarget: setIsMediaBinDropTarget } =
+    mediaDrawer;
   // Media is dragged over the app, whether or not over a drop target.
   const [isSourceTrackFileDragActive, setIsSourceTrackFileDragActive] =
     useState(false);
@@ -140,11 +154,12 @@ export function useSourceTrackDrop({
     sourceTrackDragPreviewRequestRef.current += 1;
     setSourceTrackDragTarget(null);
     setIsSourceTrackFileDragActive(false);
+    setIsMediaBinDropTarget(false);
     setSourceTrackDragPreview((current) => {
       releasePreviewThumbnail(current);
       return null;
     });
-  }, []);
+  }, [setIsMediaBinDropTarget]);
 
   const scheduleSourceTrackDragClear = useCallback(() => {
     if (sourceTrackDragHideTimeoutRef.current !== null) {
@@ -371,8 +386,27 @@ export function useSourceTrackDrop({
       event.preventDefault();
       event.stopPropagation();
       const target = getPointerDropTarget(event);
+      const dragState = mediaDrag
+        ? null
+        : getSourceTrackDragState(event.dataTransfer);
+      const accepted = mediaDrag || dragState?.kind === "accept";
+      if (
+        accepted &&
+        isMediaDrawerSpringTarget(
+          event.target,
+          event.clientX,
+          event.clientY,
+          timelineScrollRef.current?.getBoundingClientRect(),
+        )
+      ) {
+        showMediaView();
+      }
+      // Media from the drawer is already in it.
+      const binTarget =
+        !mediaDrag && accepted && isMediaBinDropTarget(event.target);
+      setIsMediaBinDropTarget(binTarget);
       if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = target ? "copy" : "none";
+        event.dataTransfer.dropEffect = target || binTarget ? "copy" : "none";
       }
 
       if (sourceTrackDragHideTimeoutRef.current !== null) {
@@ -389,8 +423,7 @@ export function useSourceTrackDrop({
         return;
       }
 
-      const dragState = getSourceTrackDragState(event.dataTransfer);
-      if (dragState.kind !== "accept") {
+      if (dragState?.kind !== "accept") {
         setSourceTrackDragTarget(null);
         setIsSourceTrackFileDragActive(false);
         return;
@@ -422,6 +455,18 @@ export function useSourceTrackDrop({
       event.preventDefault();
       event.stopPropagation();
       clearSourceTrackDragState();
+      if (!mediaDrag && isMediaBinDropTarget(event.target)) {
+        const files = getDraggedMediaFiles(event.dataTransfer);
+        if (files.length) {
+          void importMediaIntoBin(files);
+        } else {
+          setStatus(
+            "Only audio, video and image files can be dropped on the Media drawer.",
+          );
+        }
+        return;
+      }
+
       const target = getPointerDropTarget(event);
       if (!target) {
         return;
@@ -492,13 +537,16 @@ export function useSourceTrackDrop({
     appShellRef,
     clearSourceTrackDragState,
     ensureSourceTrackDragPreview,
+    importMediaIntoBin,
     importMediaIntoSourceTrack,
     labelWidth,
     placeMediaInSourceTrack,
     quarterPx,
     scheduleSourceTrackDragClear,
+    setIsMediaBinDropTarget,
     setStatus,
     showMediaDragPreview,
+    showMediaView,
     showPendingSourceTrackDragPreview,
     snapEnabled,
     snapUnit,

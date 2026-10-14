@@ -315,6 +315,8 @@ export function Editor({
     snapEnabled: project.snapEnabled,
     importMediaIntoSourceTrack: async () => {},
     placeMediaInSourceTrack: noop,
+    importMediaIntoBin: async () => {},
+    mediaDrawer: { showMediaView: noop, setIsDropTarget: noop },
     setStatus,
   });
   const editing = useTimelineEditing({

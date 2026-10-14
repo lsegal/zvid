@@ -43,6 +43,8 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   const [query, setQuery] = useState("");
   const [selectedMediaId, setSelectedMediaId] = useState<string>();
   const [isResizing, setIsResizing] = useState(false);
+  // Files that can be imported are dragged over the Media tab.
+  const [isDropTarget, setIsDropTarget] = useState(false);
   // Opening the Record tab asks for camera and mic access, so a Record tab
   // restored on load waits until the user opens it again or picks a device.
   const [recordRequested, setRecordRequested] = useState(false);
@@ -75,6 +77,14 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
       setRecordRequested(true);
     }
     setPrefs((current) => selectMediaDrawerTab(current, tab));
+  }, []);
+  // A drag toward the drawer springs it open on the Media tab.
+  const showMediaView = useCallback(() => {
+    setPrefs((current) =>
+      current.open && current.tab === "media"
+        ? current
+        : { ...current, open: true, tab: "media" },
+    );
   }, []);
   const setView = useCallback((view: MediaDrawerView) => {
     setPrefs((current) => ({ ...current, view }));
@@ -161,6 +171,9 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
     setOpen,
     tab: prefs.tab,
     selectTab,
+    showMediaView,
+    isDropTarget,
+    setIsDropTarget,
     recordRequested,
     requestRecordInputs: () => setRecordRequested(true),
     view: prefs.view,
