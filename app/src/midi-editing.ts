@@ -29,6 +29,7 @@ export const midiHistoryLabels = {
   synthParam: (key: SynthParamKey) => `Change Synth ${SYNTH_PARAM_LABELS[key]}`,
   addNote: "Add Note",
   moveNote: "Move Note",
+  resizeNote: "Resize Note",
   deleteNote: "Delete Note",
   addArpeggiator: "Add Arpeggiator",
   removeArpeggiator: "Remove Arpeggiator",

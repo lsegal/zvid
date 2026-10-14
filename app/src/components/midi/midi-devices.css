@@ -239,6 +239,29 @@
   opacity: 0.85;
 }
 
+/* A note's resize handles: its edges, narrower on short notes so the
+   middle still moves it. */
+.piano-roll__note-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: min(6px, 30%);
+  cursor: ew-resize;
+}
+
+.piano-roll__note-edge--start {
+  left: 0;
+}
+
+.piano-roll__note-edge--end {
+  right: 0;
+}
+
+.piano-roll__grid--resizing,
+.piano-roll__grid--resizing .piano-roll__note {
+  cursor: ew-resize;
+}
+
 /* The Arpeggiator's settings stack, one segmented choice per row. */
 .arp-device__body {
   grid-template-columns: auto;

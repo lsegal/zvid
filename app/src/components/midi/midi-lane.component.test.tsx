@@ -319,6 +319,64 @@ test(
 );
 
 test(
+  "dragging a note's edges resizes it on the grid as one undo step each",
+  async () => {
+    const { notes, status } = await openPianoRoll();
+    const note = noteButton("C4");
+    if (!note) {
+      throw new Error("missing C4 note");
+    }
+    const end = note.querySelector<HTMLElement>("[data-note-edge='end']");
+    if (!end) {
+      throw new Error("missing the C4 note's end edge");
+    }
+    expect(getComputedStyle(end).cursor).toBe("ew-resize");
+    // Out a quarter and a bit, which snaps to a quarter longer.
+    const from = center(end);
+    await drag(from, {
+      x: from.x + 1.1 * PIANO_ROLL_QUARTER_PX,
+      y: from.y + 3 * PIANO_ROLL_ROW_PX,
+    });
+    await expect
+      .poll(() => notes()?.[2])
+      .toEqual({ pitch: 60, start: 4, length: 3, velocity: 100 });
+
+    // Way in, which stops at a sixteenth.
+    const shorter = center(end);
+    await drag(shorter, {
+      x: shorter.x - 6 * PIANO_ROLL_QUARTER_PX,
+      y: shorter.y,
+    });
+    await expect.poll(() => notes()?.[2]?.length).toBe(0.25);
+
+    await undo();
+    await expect.poll(() => notes()?.[2]?.length).toBe(3);
+    expect(status()).toBe("Undid: Resize Note.");
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+
+    // The start edge moves the note's start and keeps its end.
+    const start = noteButton("C4")?.querySelector<HTMLElement>(
+      "[data-note-edge='start']",
+    );
+    if (!start) {
+      throw new Error("missing the C4 note's start edge");
+    }
+    const startFrom = center(start);
+    await drag(startFrom, {
+      x: startFrom.x - PIANO_ROLL_QUARTER_PX,
+      y: startFrom.y,
+    });
+    await expect
+      .poll(() => notes()?.[2])
+      .toEqual({ pitch: 60, start: 3, length: 3, velocity: 100 });
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
   "right-clicking a note deletes it, and undo restores it",
   async () => {
     const { notes } = await openPianoRoll();
