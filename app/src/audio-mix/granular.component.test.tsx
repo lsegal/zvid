@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
-import { DEFAULT_GRANULAR_PARAMS, GRANULAR_PARAM_RANGES } from "../midi-clip.ts";
+import {
+  DEFAULT_GRANULAR_PARAMS,
+  GRANULAR_PARAM_RANGES,
+} from "../midi-clip.ts";
 import {
   granularGrains,
   mixGrains,
@@ -29,13 +32,7 @@ test("a Granular clip at its longest, densest grains renders without stalling th
     lastTick = now;
   }, 5);
   try {
-    const rendered = await renderGranularClip(
-      CHORDS,
-      DENSEST,
-      8,
-      120,
-      48_000,
-    );
+    const rendered = await renderGranularClip(CHORDS, DENSEST, 8, 120, 48_000);
     expect(rendered.channels[0].length).toBe(8 * 48_000);
     expect(rendered.channels[0].some((sample) => sample !== 0)).toBe(true);
   } finally {
