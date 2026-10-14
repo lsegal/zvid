@@ -64,15 +64,16 @@ export type ChainMessage =
   // The stages whose Transient levels the main thread wants reported.
   | { type: "watch"; ids: readonly string[] };
 
-// What a chain node posts back: each watched Transient stage's level (see
-// StageModulator), about TRANSIENT_REPORT_RATE times a second.
+// What a chain node posts back: each watched Transient stage's level and
+// the seed of its hit (see StageModulator), about TRANSIENT_REPORT_RATE
+// times a second.
 export type ChainReport = {
   type: "transients";
-  levels: [id: string, level: number][];
+  levels: [id: string, level: number, hit?: number][];
 };
 
 // How often a chain node reports its watched Transient levels: about the
-// display's frame rate, for the Modulation section's graph.
+// display's frame rate, for the Modulation section's graph and knobs.
 export const TRANSIENT_REPORT_RATE = 60;
 
 // What a chain node starts with, so it never plays a block unconfigured.

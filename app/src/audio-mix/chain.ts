@@ -369,6 +369,11 @@ class ChainStage implements AudioParameterBlock {
       : undefined;
   }
 
+  // The seed of the hit behind `transientLevel` (see StageModulator).
+  get transientHit() {
+    return this.modulator?.hitSeed ?? 0;
+  }
+
   // Processes `input` into this stage's output buffers and returns them.
   process(
     input: readonly Float32Array[],
@@ -660,13 +665,14 @@ export class AudioChain {
     return this.drain;
   }
 
-  // Calls `visit` with the id of each stage Transient modulates and its
-  // level at the end of the last block, 0 while the chain idles.
-  forEachTransient(visit: (id: string, level: number) => void) {
+  // Calls `visit` with the id of each stage Transient modulates, its level
+  // at the end of the last block, 0 while the chain idles, and its hit's
+  // seed.
+  forEachTransient(visit: (id: string, level: number, hit: number) => void) {
     for (const stage of this.stages) {
       const level = stage.transientLevel;
       if (level !== undefined) {
-        visit(stage.config.id, this.idle ? 0 : level);
+        visit(stage.config.id, this.idle ? 0 : level, stage.transientHit);
       }
     }
   }

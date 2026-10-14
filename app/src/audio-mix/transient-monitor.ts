@@ -1,11 +1,13 @@
 // The main thread's view of the chain worklet's Transient levels (see
-// StageModulator), for the Modulation section's graph. A graph watches its
-// stage while it shows; the preview mixer tells its chain nodes which
-// stages are watched and feeds their reports in here.
+// StageModulator), for the Modulation section's graph and the knobs it
+// moves. A graph or knob watches its stage while it shows; the preview
+// mixer tells its chain nodes which stages are watched and feeds their
+// reports in here.
 import type { ChainReport } from "./chain-node.ts";
 
 const levels = new Map<string, number>();
-// How many graphs watch each stage.
+const hits = new Map<string, number>();
+// How many graphs and knobs watch each stage.
 const watchers = new Map<string, number>();
 const listeners = new Set<() => void>();
 
@@ -36,6 +38,7 @@ export function watchTransient(id: string) {
     }
     watchers.delete(id);
     levels.delete(id);
+    hits.delete(id);
     notify();
   };
 }
@@ -55,9 +58,10 @@ export function subscribeWatchedTransients(listener: () => void) {
 
 // Takes a chain node's report.
 export function receiveTransientReport(report: ChainReport) {
-  for (const [id, level] of report.levels) {
+  for (const [id, level, hit = 0] of report.levels) {
     if (watchers.has(id)) {
       levels.set(id, level);
+      hits.set(id, hit);
     }
   }
 }
@@ -65,4 +69,10 @@ export function receiveTransientReport(report: ChainReport) {
 // The stage's latest reported Transient level, 0 before its first report.
 export function transientLevel(id: string) {
   return levels.get(id) ?? 0;
+}
+
+// The seed of the hit behind the stage's latest level, 0 before its first
+// report.
+export function transientHit(id: string) {
+  return hits.get(id) ?? 0;
 }
