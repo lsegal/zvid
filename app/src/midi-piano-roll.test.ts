@@ -3,16 +3,22 @@ import { describe, it } from "node:test";
 import type { MidiNote } from "./midi-clip.ts";
 import {
   addNote,
+  copyNotes,
   deleteNote,
   deleteNotes,
+  duplicateNotes,
   isBlackKey,
   moveNote,
   noteKey,
   PIANO_ROLL_HIGH_PITCH,
+  PIANO_ROLL_LOW_PITCH,
+  pasteNotes,
   pitchName,
   placeNote,
+  placeNotes,
   resizeNote,
   sameNotes,
+  shiftNotes,
   snapQ,
   sortNotes,
   thumbnailNotes,
@@ -178,5 +184,102 @@ describe("deleting selected notes", () => {
   it("removes the notes whose keys are selected", () => {
     assert.deepEqual(deleteNotes([C4, E4], new Set([noteKey(E4)])), [C4]);
     assert.deepEqual(deleteNotes([C4, E4], new Set()), [C4, E4]);
+  });
+});
+
+describe("editing selected notes", () => {
+  const note = (pitch: number, start: number, length: number): MidiNote => ({
+    pitch,
+    start,
+    length,
+    velocity: 100,
+  });
+  const keysOf = (...notes: MidiNote[]) => new Set(notes.map(noteKey));
+
+  it("nudges the selection together and selects the moved notes", () => {
+    const a = note(60, 1, 1);
+    const b = note(64, 2, 0.5);
+    const other = note(67, 0, 1);
+    const edit = shiftNotes([other, a, b], keysOf(a, b), 0.25, 0);
+    assert.deepEqual(edit?.notes, [
+      other,
+      note(60, 1.25, 1),
+      note(64, 2.25, 0.5),
+    ]);
+    assert.deepEqual(
+      edit?.keys,
+      keysOf(note(60, 1.25, 1), note(64, 2.25, 0.5)),
+    );
+    // Half a snap moves off the grid.
+    assert.deepEqual(shiftNotes([a], keysOf(a), -0.125, 0)?.notes, [
+      note(60, 0.875, 1),
+    ]);
+  });
+
+  it("stops at the content start and the roll's keys, keeping spacing", () => {
+    const a = note(60, 0.125, 1);
+    const b = note(62, 1, 1);
+    assert.deepEqual(shiftNotes([a, b], keysOf(a, b), -0.25, 0)?.notes, [
+      note(60, 0, 1),
+      note(62, 0.875, 1),
+    ]);
+    const first = note(60, 0, 1);
+    assert.equal(shiftNotes([first], keysOf(first), -0.25, 0), undefined);
+    const top = note(PIANO_ROLL_HIGH_PITCH, 0, 1);
+    assert.equal(shiftNotes([top], keysOf(top), 0, 1), undefined);
+    const bottom = note(PIANO_ROLL_LOW_PITCH, 0, 1);
+    assert.deepEqual(shiftNotes([bottom], keysOf(bottom), 0, 1)?.notes, [
+      note(PIANO_ROLL_LOW_PITCH + 1, 0, 1),
+    ]);
+    assert.equal(shiftNotes([a], new Set(), 0, 1), undefined);
+  });
+
+  it("transposes onto a same-pitch note, trimming it", () => {
+    const moving = note(60, 0, 1);
+    const under = note(61, 0, 4);
+    assert.deepEqual(shiftNotes([moving, under], keysOf(moving), 0, 1)?.notes, [
+      note(61, 0, 1),
+      note(61, 1, 3),
+    ]);
+  });
+
+  it("places several notes without them trimming each other", () => {
+    const notes = [note(60, 0, 4), note(60, 0, 1), note(60, 1, 1)];
+    assert.deepEqual(placeNotes(notes, new Set([1, 2])), [
+      note(60, 0, 1),
+      note(60, 1, 1),
+      note(60, 2, 2),
+    ]);
+  });
+
+  it("duplicates the selection right after its span", () => {
+    const a = note(60, 1, 1);
+    const b = note(64, 1.5, 1);
+    const edit = duplicateNotes([a, b], keysOf(a, b));
+    assert.deepEqual(edit?.notes, [a, b, note(60, 2.5, 1), note(64, 3, 1)]);
+    assert.deepEqual(edit?.keys, keysOf(note(60, 2.5, 1), note(64, 3, 1)));
+    assert.equal(duplicateNotes([a], new Set()), undefined);
+  });
+
+  it("copies notes relative to the first and pastes them at a quarter", () => {
+    const a = note(60, 2, 1);
+    const b = note(67, 2.5, 2);
+    const clipboard = copyNotes([a, b, note(72, 0, 1)], keysOf(a, b));
+    assert.deepEqual(clipboard, {
+      notes: [note(60, 0, 1), note(67, 0.5, 2)],
+      lengthQ: 2.5,
+    });
+    assert.equal(copyNotes([a], new Set()), undefined);
+    if (!clipboard) {
+      return;
+    }
+    const existing = note(60, 8, 4);
+    const edit = pasteNotes([existing], clipboard, 8);
+    assert.deepEqual(edit.notes, [
+      note(60, 8, 1),
+      note(67, 8.5, 2),
+      note(60, 9, 3),
+    ]);
+    assert.deepEqual(edit.keys, keysOf(note(60, 8, 1), note(67, 8.5, 2)));
   });
 });
