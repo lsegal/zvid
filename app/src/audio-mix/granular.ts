@@ -3,10 +3,11 @@
 // played back faster or slower for the note's pitch and started `density`
 // times a second from the note's start through its release. The source and
 // the grains' random strays are seeded, so a clip renders the same samples
-// every time, in the preview and in export alike. The grains are mixed here
-// and the mix goes through the lowpass filter the Synth's voices do (see
+// every time, in the preview and in export alike. The grains are mixed here,
+// in a worker where one can start, and the mix goes through the lowpass filter the Synth's voices do (see
 // synth.ts).
 import type { GranularParams, MidiNote } from "../midi-clip.ts";
+import type { GranularWorkerMessage } from "./granular.worker.ts";
 import type { DecodedAudio } from "./mix.ts";
 
 // A cloud's peak level at full velocity, leaving headroom for chords.
@@ -166,9 +167,27 @@ export function granularGrains(
   });
 }
 
+// The Hann window over `count` samples, kept for the last count asked for,
+// since every grain of a clip lasts as long.
+let hann = new Float64Array(0);
+
+function hannWindow(count: number) {
+  if (hann.length !== count) {
+    hann = new Float64Array(count);
+    for (let step = 0; step < count; step++) {
+      hann[step] = 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (count - 1));
+    }
+  }
+  return hann;
+}
+
 /**
  * `grains` mixed into `length` samples at `sampleRate`, each a
  * Hann-windowed read of `source`, reading back the other way past its end.
+ * Long, dense grains overlap by the dozen, so this does as little per
+ * sample as it can: the window is looked up, and each grain reads one way
+ * at a time between the source's ends rather than folding every read back
+ * with mirror.
  */
 export function mixGrains(
   grains: readonly Grain[],
@@ -178,22 +197,77 @@ export function mixGrains(
 ): Float32Array<ArrayBuffer> {
   const out = new Float32Array(length);
   const last = source.length - 1;
+  // A read past the end comes back by the start, so it repeats this often.
+  const period = 2 * last;
   for (const grain of grains) {
     const first = Math.round(grain.startSeconds * sampleRate);
     const count = Math.max(2, Math.round(grain.durationSeconds * sampleRate));
+    const window = hannWindow(count);
     const end = Math.min(length, first + count);
-    for (let index = Math.max(0, first); index < end; index++) {
+    const { level, rate } = grain;
+    const from = Math.abs(grain.offset * last);
+    let index = Math.max(0, first);
+    // Each pass reads one way through the source until it reaches an end.
+    while (index < end) {
       const step = index - first;
-      const read = mirror(grain.offset * last + step * grain.rate, last);
-      const whole = Math.min(last - 1, Math.floor(read));
-      const fraction = read - whole;
-      const sample =
-        source[whole] + (source[whole + 1] - source[whole]) * fraction;
-      const window = 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (count - 1));
-      out[index] += grain.level * window * sample;
+      const at = (from + step * rate) % period;
+      const forward = at <= last;
+      // Where this pass's read reaches the end it is heading to.
+      const turn = forward ? last : period;
+      const steps = Math.max(1, Math.ceil((turn - at) / rate));
+      const stop = Math.min(end, index + steps);
+      const sign = forward ? rate : -rate;
+      let read = forward ? at : period - at;
+      for (; index < stop; index++, read += sign) {
+        const clamped = read < 0 ? 0 : read;
+        const whole = clamped < last ? clamped | 0 : last - 1;
+        const before = source[whole];
+        const sample =
+          before + (source[whole + 1] - before) * (clamped - whole);
+        out[index] += level * window[index - first] * sample;
+      }
     }
   }
   return out;
+}
+
+/**
+ * `grains` mixed as mixGrains does, in a worker of their own, so the main
+ * thread stays free however long they take, or here, where workers are
+ * unavailable or the worker fails. Each mix gets its own worker, so a mix
+ * started while another is still running, as when a knob is turned, does
+ * not wait for it.
+ */
+export function mixGrainsOffThread(
+  grains: Grain[],
+  sampleRate: number,
+  length: number,
+): Promise<Float32Array<ArrayBuffer>> {
+  const inline = () => mixGrains(grains, sampleRate, length);
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./granular.worker.ts", import.meta.url), {
+      type: "module",
+    });
+  } catch {
+    return Promise.resolve(inline());
+  }
+  return new Promise((resolve) => {
+    worker.onmessage = (event: MessageEvent<Float32Array<ArrayBuffer>>) => {
+      worker.terminate();
+      resolve(event.data);
+    };
+    worker.onerror = (event) => {
+      event.preventDefault();
+      worker.terminate();
+      resolve(inline());
+    };
+    worker.postMessage({
+      grains,
+      sampleRate,
+      length,
+    } satisfies GranularWorkerMessage);
+  });
 }
 
 /** `samples` at `sampleRate` through `params`' lowpass filter. */
@@ -230,7 +304,7 @@ export async function renderGranularClip(
 ): Promise<DecodedAudio> {
   const length = Math.max(1, Math.ceil(durationSeconds * sampleRate));
   const grains = granularGrains(notes, params, bpm, durationSeconds);
-  const mixed = mixGrains(grains, sampleRate, length);
+  const mixed = await mixGrainsOffThread(grains, sampleRate, length);
   return {
     sampleRate,
     channels: [await filterGranular(mixed, params, sampleRate)],
