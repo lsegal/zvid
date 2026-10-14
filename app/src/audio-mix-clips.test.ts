@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { type AudioMixInputs, resolveAudioClips } from "./audio-mix/resolve.ts";
-import { audioMixPeaksKey } from "./audio-mix-clips.ts";
+import {
+  audioMixPeaksKey,
+  getAudioMixContributions,
+} from "./audio-mix-clips.ts";
+import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import type { MediaItem } from "./media.ts";
+import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "./midi-clip.ts";
+import { createSynthEffect } from "./midi-effects.ts";
 
 const MEDIA = new Map([
   ["tone", { hasAudio: true, durationSeconds: 8 }],
@@ -22,13 +28,13 @@ const MEDIA_ITEMS = new Map(
   [...MEDIA.keys()].map((id) => [id, mediaItem(id)] as const),
 );
 
-function gain(trackId: string) {
+function gain(trackId: string, db = 0) {
   return {
     id: `gain-${trackId}`,
     trackId,
     effectName: "Gain",
     parameters: [
-      { key: "Gain", value: "0", numericValue: 0 },
+      { key: "Gain", value: String(db), numericValue: db },
       { key: "Mute", value: "0", numericValue: 0 },
     ],
   };
@@ -213,5 +219,78 @@ describe("audioMixPeaksKey", () => {
       availability: "hydrating",
     } as MediaItem);
     assert.notEqual(key({}, media), key());
+  });
+});
+
+describe("the Audio row's waveform with MIDI clips", () => {
+  const notes = [{ pitch: 60, start: 0, length: 1, velocity: 100 }];
+  const stack = sourceClipEffectTrackId("m");
+  // An audio clip and a MIDI clip on its own track, played by a Synth at
+  // `params` through a Gain at `db`.
+  function withMidi({
+    params = DEFAULT_SYNTH_PARAMS,
+    db = 0,
+    startQ = 0,
+    pitch = 60,
+  }: {
+    params?: SynthParams;
+    db?: number;
+    startQ?: number;
+    pitch?: number;
+  } = {}): Partial<AudioMixInputs> {
+    return {
+      sourceTracks: [{ id: "track-1" }, { id: "keys" }],
+      sourceSpans: [
+        span("audio", "tone"),
+        {
+          id: "m",
+          sourceTrackId: "keys",
+          startQ,
+          durationSeconds: 2,
+          trimStartSeconds: 0,
+          notes: notes.map((note) => ({ ...note, pitch })),
+        },
+      ],
+      effects: [
+        gain("source-track:track-1"),
+        gain("lane-1"),
+        createSynthEffect(stack, params),
+        gain(stack, db),
+      ],
+    };
+  }
+
+  it("ignores edits to MIDI clips, their Synth and their Gain", () => {
+    const before = key(withMidi());
+    assert.equal(
+      key(withMidi({ params: { ...DEFAULT_SYNTH_PARAMS, cutoff: 800 } })),
+      before,
+    );
+    assert.equal(key(withMidi({ db: -12 })), before);
+    assert.equal(key(withMidi({ pitch: 64 })), before);
+    assert.equal(key(withMidi({ startQ: 8 })), before);
+    // The audio clip's own edits still rebuild it.
+    assert.notEqual(
+      key({
+        ...withMidi(),
+        effects: [
+          gain("source-track:track-1", -6),
+          ...(withMidi().effects ?? []).slice(1),
+        ],
+      }),
+      before,
+    );
+  });
+
+  it("draws only the clips that play media, as plain data", () => {
+    const mix = resolveAudioClips(inputs(withMidi()));
+    assert.ok(mix.clips.some((clip) => clip.synth));
+    const contributions = getAudioMixContributions(mix);
+    assert.deepEqual(
+      contributions.map((contribution) => contribution.mediaId),
+      ["tone"],
+    );
+    // They are posted to the mixing worker as they are.
+    assert.deepEqual(structuredClone(contributions), contributions);
   });
 });
