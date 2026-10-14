@@ -373,6 +373,19 @@ function noteButton(pitch: string) {
 }
 
 test(
+  "the piano roll's header carries no gesture hint bar (#1405)",
+  async () => {
+    await openPianoRoll();
+    const header = page
+      .getByRole("region", { name: "Bassline notes" })
+      .element()
+      .querySelector("header");
+    expect(header?.textContent?.trim()).toBe("Notes");
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
   "clicking the piano roll adds a note, and undo removes it",
   async () => {
     const { grid, notes } = await openPianoRoll();
