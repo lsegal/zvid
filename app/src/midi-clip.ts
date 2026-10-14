@@ -1,6 +1,7 @@
 // A MIDI clip is a source clip that carries notes instead of media. It
-// plays them through the Synth effect on its own stack (see midi-effects.ts
-// and audio-mix/synth.ts), in preview and export alike. A clip without `notes` is not a MIDI clip: MIDI
+// plays them through the instrument on its own stack, a Synth or a
+// Granular (see midi-effects.ts and audio-mix/synth.ts), in preview and
+// export alike. A clip without `notes` is not a MIDI clip: MIDI
 // clips imported from a Live set stay media-less placeholders that video can
 // be linked to, since the import does not read their notes.
 
@@ -65,6 +66,67 @@ export const SYNTH_PARAM_RANGES: Record<
   decay: { min: 0, max: 10 },
   sustain: { min: 0, max: 1 },
   release: { min: 0, max: 10 },
+};
+
+/**
+ * A Granular effect's settings: each note plays a cloud of short grains of
+ * a built-in source sound (see audio-mix/granular.ts). `grainSize` is each
+ * grain's length in seconds and `density` how many start each second;
+ * `transpose` shifts every note by semitones; `position` is where in the
+ * source the grains read, from 0 to 1, and `spray` how far from it, and
+ * from their even spacing, they stray, from 0 to 1. `attack` and `release`
+ * shape the cloud in seconds; `cutoff` and `resonance` are the lowpass
+ * filter's, as the Synth's.
+ */
+export type GranularParams = {
+  grainSize: number;
+  density: number;
+  transpose: number;
+  position: number;
+  spray: number;
+  attack: number;
+  release: number;
+  cutoff: number;
+  resonance: number;
+};
+
+export const DEFAULT_GRANULAR_PARAMS: GranularParams = {
+  grainSize: 0.08,
+  density: 30,
+  transpose: 0,
+  position: 0.3,
+  spray: 0.2,
+  attack: 0.02,
+  release: 0.3,
+  cutoff: 6000,
+  resonance: 1,
+};
+
+// The range each Granular parameter is held to.
+export const GRANULAR_PARAM_RANGES: Record<
+  keyof GranularParams,
+  { min: number; max: number }
+> = {
+  grainSize: { min: 0.01, max: 0.5 },
+  density: { min: 1, max: 100 },
+  transpose: { min: -24, max: 24 },
+  position: { min: 0, max: 1 },
+  spray: { min: 0, max: 1 },
+  attack: { min: 0, max: 10 },
+  release: { min: 0, max: 10 },
+  cutoff: { min: 20, max: 20_000 },
+  resonance: { min: 0.0001, max: 30 },
+};
+
+/** The instrument a MIDI clip plays its notes through. */
+export type MidiInstrument =
+  | { kind: "synth"; params: SynthParams }
+  | { kind: "granular"; params: GranularParams };
+
+/** The instrument a MIDI clip without one auditions its notes with. */
+export const DEFAULT_INSTRUMENT: MidiInstrument = {
+  kind: "synth",
+  params: DEFAULT_SYNTH_PARAMS,
 };
 
 function isFiniteNumber(value: unknown): value is number {

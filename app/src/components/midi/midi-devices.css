@@ -339,3 +339,7 @@
   outline: 1px solid var(--ink);
   outline-offset: 2px;
 }
+
+.piano-roll__menu {
+  display: contents;
+}

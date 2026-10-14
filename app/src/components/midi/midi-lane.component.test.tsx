@@ -15,12 +15,19 @@ import {
   drag,
   menuItem,
   nextFrames,
+  pressMod,
   rightClick,
   undo,
 } from "../../component-test/input.ts";
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
-import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
+import {
+  DEFAULT_GRANULAR_PARAMS,
+  DEFAULT_INSTRUMENT,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiInstrument,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import {
   defaultMidiTimeline,
   type MidiClipTimeline,
@@ -28,6 +35,7 @@ import {
 import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
+import { setNoteClipboard } from "../../piano-roll-actions.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
 import { FxModulationClockContext } from "../fx/modulation-clock";
@@ -171,6 +179,10 @@ test(
   "a MIDI clip's Synth is an effect on its own stack, whose edits are undoable",
   async () => {
     const { chain } = await open();
+    const synthOf = () => {
+      const instrument = chain()?.instrument;
+      return instrument?.kind === "synth" ? instrument.params : undefined;
+    };
     await selectBassline();
     const device = page.getByRole("region", { name: "Synth", exact: true });
     await expect.element(device).toBeVisible();
@@ -180,7 +192,7 @@ test(
 
     const wave = device.getByRole("group", { name: "Wave" });
     await userEvent.click(wave.getByRole("button", { name: "Square" }));
-    await expect.poll(() => chain()?.synth.wave).toBe("square");
+    await expect.poll(() => synthOf()?.wave).toBe("square");
     await expect
       .element(wave.getByRole("button", { name: "Square" }))
       .toHaveAttribute("aria-pressed", "true");
@@ -189,16 +201,16 @@ test(
     (cutoff.element() as HTMLElement).focus();
     await userEvent.keyboard("{ArrowUp}");
     await expect
-      .poll(() => chain()?.synth.cutoff)
+      .poll(() => synthOf()?.cutoff)
       .toBeGreaterThan(DEFAULT_SYNTH_PARAMS.cutoff);
-    expect(chain()?.synth.wave).toBe("square");
+    expect(synthOf()?.wave).toBe("square");
 
     await undo();
     await expect
-      .poll(() => chain()?.synth.cutoff)
+      .poll(() => synthOf()?.cutoff)
       .toBe(DEFAULT_SYNTH_PARAMS.cutoff);
     await undo();
-    await expect.poll(() => chain()?.synth.wave).toBe("sawtooth");
+    await expect.poll(() => synthOf()?.wave).toBe("sawtooth");
 
     // Bypassing its only Synth leaves the clip nothing to play through.
     await userEvent.click(device.getByRole("button", { name: "Bypass Synth" }));
@@ -272,6 +284,39 @@ test(
     await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
     await undo();
     await expect.poll(() => stackNames()).toEqual(["Synth"]);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "a MIDI clip plays through its first enabled instrument, a Synth or a Granular",
+  async () => {
+    const { chain, stackNames } = await open();
+    await selectBassline();
+    await addFromMenu("Add device to this clip", "MIDI", /^Granular/, "MIDI");
+    await expect.poll(() => stackNames()).toEqual(["Synth", "Granular"]);
+    const granular = page.getByRole("region", {
+      name: "Granular",
+      exact: true,
+    });
+    await expect
+      .element(granular.getByRole("slider", { name: "Grain Size" }))
+      .toBeVisible();
+    // The Synth comes first, so it still plays.
+    expect(chain()?.instrument.kind).toBe("synth");
+
+    // Bypassed, it leaves the Granular to play, whose edits it hears.
+    await userEvent.click(page.getByRole("button", { name: "Bypass Synth" }));
+    await expect.poll(() => chain()?.instrument.kind).toBe("granular");
+    const density = granular.getByRole("slider", { name: "Density" });
+    (density.element() as HTMLElement).focus();
+    await userEvent.keyboard("{ArrowUp}");
+    await expect
+      .poll(() => {
+        const instrument = chain()?.instrument;
+        return instrument?.kind === "granular" ? instrument.params.density : 0;
+      })
+      .toBeGreaterThan(DEFAULT_GRANULAR_PARAMS.density);
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -436,21 +481,216 @@ test(
   EDITOR_TEST_TIMEOUT,
 );
 
-test(
-  "right-clicking a note deletes it, and undo restores it",
-  async () => {
-    const { notes } = await openPianoRoll();
-    const note = noteButton("C3");
-    if (!note) {
-      throw new Error("missing C3 note");
-    }
-    await rightClick(note);
-    await expect.poll(() => notes()).toEqual(NOTES.slice(1));
-    // Deleting opens no menu.
-    expect(document.querySelector("[role='menu']")).toBeNull();
+// The notes the piano roll shows selected, by label.
+function selectedNotes() {
+  return [
+    ...document.querySelectorAll<HTMLElement>(".piano-roll__note--selected"),
+  ].map((note) => note.getAttribute("aria-label"));
+}
 
+function requireNote(pitch: string) {
+  const note = noteButton(pitch);
+  if (!note) {
+    throw new Error(`missing ${pitch} note`);
+  }
+  return note;
+}
+
+// An item of the open note menu, whose name ends with its shortcut; the
+// app's own menus have items of the same names.
+const noteMenuItem = (name: string) =>
+  page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: new RegExp(`^${name}(\\s|$)`) });
+
+const clickNote = async (pitch: string, modifiers?: ["Shift"]) => {
+  const point = center(requireNote(pitch));
+  await click(point.x, point.y, modifiers ? { modifiers } : undefined);
+};
+
+test(
+  "right-clicking a note opens its action menu, with inapplicable items disabled (#1397)",
+  async () => {
+    setNoteClipboard(undefined);
+    const { grid, notes, status } = await openPianoRoll();
+    await rightClick(requireNote("C3"));
+    await expect.element(page.getByRole("menu")).toBeVisible();
+    // It selects the note instead of deleting it.
+    expect(notes()).toEqual(NOTES);
+    expect(selectedNotes()).toEqual(["C3 at beat 1"]);
+    const disabled = () =>
+      page
+        .getByRole("menu")
+        .getByRole("menuitem")
+        .elements()
+        .filter((item) => item.getAttribute("aria-disabled") === "true")
+        .map((item) => item.textContent);
+    expect(
+      page
+        .getByRole("menu")
+        .getByRole("menuitem")
+        .elements()
+        .map((item) => item.querySelector(".context-menu__label")?.textContent),
+    ).toEqual([
+      "Nudge Left",
+      "Nudge Right",
+      "Nudge Fine Left",
+      "Nudge Fine Right",
+      "Pitch Up",
+      "Pitch Down",
+      "Duplicate",
+      "Cut",
+      "Copy",
+      "Paste",
+      "Delete",
+    ]);
+    // The clipboard is empty.
+    expect(disabled()).toHaveLength(1);
+    await expect
+      .element(noteMenuItem("Paste"))
+      .toHaveAttribute("aria-disabled", "true");
+
+    await noteMenuItem("Pitch Up").click();
+    await expect
+      .poll(() => notes()?.[0])
+      .toEqual({ pitch: 49, start: 0, length: 1, velocity: 100 });
+    expect(document.querySelector("[role='menu']")).toBeNull();
     await undo();
     await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Transpose Notes.");
+
+    // Copy, then right-click empty grid with nothing selected: only Paste.
+    await rightClick(requireNote("G3"));
+    await noteMenuItem("Copy").click();
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(selectedNotes).toEqual([]);
+    const empty = cell(grid, 6, 52);
+    await click(empty.x, empty.y, { button: "right" });
+    await expect.element(page.getByRole("menu")).toBeVisible();
+    expect(disabled()).toHaveLength(10);
+    await expect
+      .element(noteMenuItem("Paste"))
+      .not.toHaveAttribute("aria-disabled", "true");
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
+    expect(notes()).toEqual(NOTES);
+
+    await rightClick(requireNote("C4"));
+    await noteMenuItem("Delete").click();
+    await expect.poll(() => notes()).toEqual(NOTES.slice(0, 2));
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "the arrows nudge and transpose the selected notes, one undo step each (#1397)",
+  async () => {
+    const { notes, status } = await openPianoRoll();
+    await clickNote("C3");
+    await clickNote("G3", ["Shift"]);
+    // A snap right, then half a snap more.
+    await userEvent.keyboard("{ArrowRight}");
+    await expect.poll(() => notes()?.[0]?.start).toBe(0.25);
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    await expect
+      .poll(() => notes()?.slice(0, 2))
+      .toEqual([
+        { pitch: 48, start: 0.375, length: 1, velocity: 100 },
+        { pitch: 55, start: 2.375, length: 1, velocity: 100 },
+      ]);
+    // The moved notes stay selected.
+    expect(selectedNotes()).toEqual(["C3 at beat 1.38", "G3 at beat 3.38"]);
+    // Left stops at the clip's start, keeping the notes' spacing.
+    await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
+    await expect.poll(() => notes()?.[0]?.start).toBe(0);
+    expect(notes()?.[1]?.start).toBe(2);
+    await userEvent.keyboard("{ArrowUp}{ArrowUp}{ArrowDown}");
+    await expect
+      .poll(() =>
+        notes()
+          ?.slice(0, 2)
+          .map((note) => note.pitch),
+      )
+      .toEqual([49, 56]);
+
+    await undo();
+    await expect.poll(() => notes()?.[0]?.pitch).toBe(50);
+    expect(status()).toBe("Undid: Transpose Notes.");
+    await undo();
+    await undo();
+    await undo();
+    await expect.poll(() => notes()?.[0]?.start).toBe(0.125);
+    expect(status()).toBe("Undid: Nudge Notes.");
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "Cmd/Ctrl+D duplicates the selection right after itself, selecting the copies (#1397)",
+  async () => {
+    const { notes, status } = await openPianoRoll();
+    await clickNote("C3");
+    await clickNote("G3", ["Shift"]);
+    await pressMod("d");
+    // The selection spans quarters 0 to 3, so the copies start at 3.
+    await expect
+      .poll(() => notes())
+      .toEqual([
+        NOTES[0],
+        NOTES[1],
+        { pitch: 48, start: 3, length: 1, velocity: 100 },
+        NOTES[2],
+        { pitch: 55, start: 5, length: 1, velocity: 100 },
+      ]);
+    expect(selectedNotes()).toEqual(["C3 at beat 4", "G3 at beat 6"]);
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Duplicate Notes.");
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "Cmd/Ctrl+X, C and V cut, copy and paste notes at the playhead (#1397)",
+  async () => {
+    setNoteClipboard(undefined);
+    const { notes, status } = await openPianoRoll();
+    // With the playhead at the clip's start, the copy lands at quarter 0.
+    await clickNote("G3");
+    await pressMod("c");
+    expect(notes()).toEqual(NOTES);
+    await pressMod("v");
+    await expect
+      .poll(() => notes())
+      .toEqual([
+        NOTES[0],
+        { pitch: 55, start: 0, length: 1, velocity: 100 },
+        NOTES[1],
+        NOTES[2],
+      ]);
+    expect(selectedNotes()).toEqual(["G3 at beat 1"]);
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Paste Notes.");
+
+    await clickNote("C4");
+    await pressMod("x");
+    await expect.poll(() => notes()).toEqual(NOTES.slice(0, 2));
+    await pressMod("v");
+    await expect
+      .poll(() => notes())
+      .toEqual([
+        NOTES[0],
+        { pitch: 60, start: 0, length: 2, velocity: 100 },
+        NOTES[1],
+      ]);
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES.slice(0, 2));
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Cut Notes.");
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -553,7 +793,10 @@ test("clicking a note or a key auditions it through the track's synth", async ()
   await installHarness();
   const onAudition = vi.fn();
   const onSetNotes = vi.fn();
-  const synth = { ...DEFAULT_SYNTH_PARAMS, wave: "square" as const };
+  const synth: MidiInstrument = {
+    kind: "synth",
+    params: { ...DEFAULT_SYNTH_PARAMS, wave: "square" },
+  };
   await render(
     <PianoRoll
       collapsed={false}
@@ -566,7 +809,7 @@ test("clicking a note or a key auditions it through the track's synth", async ()
         trimStartQ: 0,
         lengthQ: 8,
         timeline: defaultMidiTimeline(8),
-        synth,
+        instrument: synth,
       }}
       onAudition={onAudition}
       onSetNotes={onSetNotes}
@@ -619,7 +862,7 @@ test("the piano roll's read-only playhead follows the note the clip sounds", asy
           trimStartQ: 1,
           lengthQ: 8,
           timeline,
-          synth: DEFAULT_SYNTH_PARAMS,
+          instrument: DEFAULT_INSTRUMENT,
         }}
         onAudition={() => {}}
         onSetNotes={onSetNotes}
@@ -773,3 +1016,69 @@ test(
   },
   EDITOR_TEST_TIMEOUT,
 );
+
+test("Paste puts the first note at the note the playhead sounds, snapped (#1397)", async () => {
+  await installHarness();
+  const signal = createPlayheadSignal(0);
+  const onSetNotes = vi.fn();
+  await render(
+    <FxModulationClockContext.Provider
+      value={{
+        signal,
+        bpm: 120,
+        signature: { numerator: 4, denominator: 4 },
+        isPlaying: false,
+      }}
+    >
+      <PianoRoll
+        collapsed={false}
+        model={{
+          spanId: "clip",
+          label: "Bassline",
+          accent: "#7ca1ff",
+          notes: [],
+          startQ: 10,
+          trimStartQ: 0,
+          lengthQ: 8,
+          timeline: { ...defaultMidiTimeline(8), start: 2 },
+          instrument: DEFAULT_INSTRUMENT,
+        }}
+        onAudition={() => {}}
+        onSetNotes={onSetNotes}
+        onSetTimeline={() => {}}
+        onToggleCollapsed={() => {}}
+      />
+    </FxModulationClockContext.Provider>,
+  );
+  setNoteClipboard({
+    notes: [
+      { pitch: 48, start: 0, length: 1, velocity: 100 },
+      { pitch: 55, start: 0.5, length: 1, velocity: 100 },
+    ],
+    lengthQ: 1.5,
+  });
+  document.querySelector<HTMLElement>("[data-piano-roll-grid]")?.focus();
+  // 1.6 quarters into the clip sounds quarter 3.6 from its Start at 2,
+  // which snaps down to 3.5.
+  signal.set(11.6);
+  await pressMod("v");
+  expect(onSetNotes).toHaveBeenLastCalledWith(
+    "clip",
+    [
+      { pitch: 48, start: 3.5, length: 1, velocity: 100 },
+      { pitch: 55, start: 4, length: 1, velocity: 100 },
+    ],
+    "Paste Notes",
+  );
+  // Outside the clip, it pastes at the Start marker.
+  signal.set(0);
+  await pressMod("v");
+  expect(onSetNotes).toHaveBeenLastCalledWith(
+    "clip",
+    [
+      { pitch: 48, start: 2, length: 1, velocity: 100 },
+      { pitch: 55, start: 2.5, length: 1, velocity: 100 },
+    ],
+    "Paste Notes",
+  );
+});

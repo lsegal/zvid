@@ -16,6 +16,11 @@ export const midiHistoryLabels = {
   deleteNotes: "Delete Notes",
   duplicateNote: "Duplicate Note",
   setVelocity: "Set Note Velocity",
+  duplicateNotes: "Duplicate Notes",
+  nudgeNotes: "Nudge Notes",
+  transposeNotes: "Transpose Notes",
+  cutNotes: "Cut Notes",
+  pasteNotes: "Paste Notes",
   timeline: {
     length: "Set MIDI Clip Length",
     start: "Move Start Marker",

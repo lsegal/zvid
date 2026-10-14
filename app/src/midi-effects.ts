@@ -1,8 +1,9 @@
-// A MIDI clip's MIDI effects: the Arpeggiators and Synth on its own stack,
-// which turn its notes into the performance the mix plays (see
-// audio-mix/resolve.ts). Its enabled Arpeggiators transform its notes in
-// stack order and its first enabled Synth plays them; without an enabled
-// Synth it makes no sound. A new MIDI clip gets a Synth and no
+// A MIDI clip's MIDI effects: the Arpeggiators and instruments (Synths and
+// Granulars) on its own stack, which turn its notes into the performance
+// the mix plays (see audio-mix/resolve.ts). Its enabled Arpeggiators
+// transform its notes in stack order and its first enabled instrument,
+// whichever kind it is, plays them; the instruments after it stay silent.
+// Without an enabled instrument it makes no sound. A new MIDI clip gets a Synth and no
 // Arpeggiator. Sessions from before MIDI effects kept one synth and
 // arpeggiator per source track; opening one moves them onto each of the
 // track's MIDI clips.
@@ -17,6 +18,10 @@ import {
   readArpeggiatorEffect,
 } from "./fx/effects/arpeggiator/arpeggiator.ts";
 import {
+  isGranularEffectName,
+  readGranularEffect,
+} from "./fx/effects/granular/granular.ts";
+import {
   isSynthEffectName,
   readSynthEffect,
   SYNTH_EFFECT_NAME,
@@ -28,7 +33,11 @@ import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
 import { isMidiEffectName } from "./fx-registry.ts";
-import { readSynthParams, type SynthParams } from "./midi-clip.ts";
+import {
+  type MidiInstrument,
+  readSynthParams,
+  type SynthParams,
+} from "./midi-clip.ts";
 import {
   type Arpeggiator,
   type NoteGenerator,
@@ -41,25 +50,37 @@ type MidiChainEffect = {
   parameters: readonly { key: string; value: string; numericValue?: number }[];
 };
 
-/** What a MIDI clip plays: its notes through `generators`, then `synth`. */
+/** What a MIDI clip plays: its notes through `generators`, then `instrument`. */
 export type MidiChain = {
   generators: NoteGenerator[];
-  synth: SynthParams;
+  instrument: MidiInstrument;
 };
+
+function isInstrumentEffectName(effectName: string) {
+  return isSynthEffectName(effectName) || isGranularEffectName(effectName);
+}
+
+// The instrument a Synth or Granular `effect` plays.
+function readInstrument(effect: MidiChainEffect): MidiInstrument {
+  return isGranularEffectName(effect.effectName)
+    ? { kind: "granular", params: readGranularEffect(effect.parameters) }
+    : { kind: "synth", params: readSynthEffect(effect.parameters) };
+}
 
 /**
  * The MIDI chain of a MIDI clip's own `stack`: its Arpeggiators in stack
- * order, bypassed ones passing notes through, and its first enabled Synth.
- * Undefined without an enabled Synth, when the clip makes no sound.
+ * order, bypassed ones passing notes through, and its first enabled
+ * instrument, a Synth or a Granular. Undefined without an enabled
+ * instrument, when the clip makes no sound.
  */
 export function midiChainOf(
   stack: readonly MidiChainEffect[],
 ): MidiChain | undefined {
-  const synth = stack.find(
+  const instrument = stack.find(
     (effect) =>
-      effect.enabled !== false && isSynthEffectName(effect.effectName),
+      effect.enabled !== false && isInstrumentEffectName(effect.effectName),
   );
-  if (!synth) {
+  if (!instrument) {
     return undefined;
   }
   return {
@@ -68,21 +89,24 @@ export function midiChainOf(
       .map((effect) =>
         readArpeggiatorEffect(effect.parameters, effect.enabled !== false),
       ),
-    synth: readSynthEffect(synth.parameters),
+    instrument: readInstrument(instrument),
   };
 }
 
 /**
- * The synth a MIDI clip's own `stack` auditions its notes with in the
- * piano roll: its first enabled Synth's, else its first Synth's, else
- * undefined.
+ * The instrument a MIDI clip's own `stack` auditions its notes with in the
+ * piano roll: its first enabled instrument, else its first instrument,
+ * else undefined.
  */
-export function auditionSynthOf(
+export function auditionInstrumentOf(
   stack: readonly MidiChainEffect[],
-): SynthParams | undefined {
-  const synths = stack.filter((effect) => isSynthEffectName(effect.effectName));
-  const synth = synths.find((effect) => effect.enabled !== false) ?? synths[0];
-  return synth ? readSynthEffect(synth.parameters) : undefined;
+): MidiInstrument | undefined {
+  const instruments = stack.filter((effect) =>
+    isInstrumentEffectName(effect.effectName),
+  );
+  const instrument =
+    instruments.find((effect) => effect.enabled !== false) ?? instruments[0];
+  return instrument ? readInstrument(instrument) : undefined;
 }
 
 function withParameters(

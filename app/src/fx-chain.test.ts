@@ -268,7 +268,7 @@ describe("groupAddableEffects", () => {
         category.label,
         category.effects.map((definition) => definition.displayName),
       ]),
-      [["MIDI", ["Arpeggiator", "Synth"]]],
+      [["MIDI", ["Arpeggiator", "Synth", "Granular"]]],
     );
   });
 

@@ -31,6 +31,7 @@ import { pass as exposurePass } from "./exposure/pass.ts";
 import * as gain from "./gain/definition.ts";
 import * as gaussianBlur from "./gaussian-blur/definition.ts";
 import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
+import * as granular from "./granular/definition.ts";
 import * as highCut from "./high-cut/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as levels from "./levels/definition.ts";
@@ -92,6 +93,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   exposure,
   gain,
   gaussianBlur,
+  granular,
   highCut,
   layout,
   levels,

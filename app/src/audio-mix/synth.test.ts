@@ -109,7 +109,11 @@ describe("synthMediaId", () => {
     clipNotes: MidiNote[],
     params = DEFAULT_SYNTH_PARAMS,
     durationSeconds = 4,
-  ) => ({ notes: clipNotes, params, durationSeconds });
+  ) => ({
+    notes: clipNotes,
+    instrument: { kind: "synth" as const, params },
+    durationSeconds,
+  });
   const synth = synthClipOf(notes);
 
   it("changes with what the clip renders", () => {

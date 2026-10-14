@@ -11,7 +11,7 @@ import {
 } from "../../component-test/editor.tsx";
 import { center, click, drag, undo } from "../../component-test/input.ts";
 import { installHarness } from "../../harness";
-import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
+import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { addDefaultSynth } from "../../midi-effects.ts";
@@ -50,7 +50,7 @@ async function renderRoll(notes = NOTES) {
           trimStartQ: 0,
           lengthQ: 8,
           timeline: defaultMidiTimeline(8),
-          synth: DEFAULT_SYNTH_PARAMS,
+          instrument: DEFAULT_INSTRUMENT,
         }}
         onAudition={() => {}}
         onSetNotes={(_, next, label) => {

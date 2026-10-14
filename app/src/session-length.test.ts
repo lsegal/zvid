@@ -93,9 +93,9 @@ describe("MIDI clips and session length", () => {
 
   it("cut a held note's release tail at the clip's end", () => {
     const { synth } = sessionOf([], [midiSpan]).audio.clips[0];
-    assert.ok(synth);
+    assert.equal(synth?.instrument.kind, "synth");
     // The release would sound 2 seconds past the clip's end...
-    const [voice] = synthVoices(synth.notes, synth.params, BPM);
+    const [voice] = synthVoices(synth.notes, synth.instrument.params, BPM);
     assert.equal(voice.stopSeconds, 4);
     // ...but the synth renders only the clip's window, so nothing sounds
     // past the end the session length already covers.

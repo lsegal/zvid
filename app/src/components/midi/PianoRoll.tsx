@@ -2,39 +2,57 @@ import { ChevronLeftIcon } from "@heroicons/react/24/solid";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
-import { isContextMenuPress } from "../../context-menu.ts";
+import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
 import { auditionNote } from "../../midi-audition.ts";
-import type { MidiNote, SynthParams } from "../../midi-clip.ts";
+import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
   addNote,
+  copyNotes,
   deleteNote,
   deleteNotes,
+  duplicateNotes,
   isBlackKey,
   moveNote,
   type NoteEdge,
+  type NoteSelectionEdit,
   noteKey,
   PIANO_ROLL_DEFAULT_PITCH,
   PIANO_ROLL_HIGH_PITCH,
   PIANO_ROLL_LOW_PITCH,
+  pasteNotes,
   pitchName,
   placeNote,
   resizeNote,
   sameNotes,
+  shiftNotes,
+  snapQ,
   sortNotes,
 } from "../../midi-piano-roll.ts";
+import {
+  getNoteClipboard,
+  NOTE_SHIFTS,
+  type NoteAction,
+  noteActionForKey,
+  noteMenuEntries,
+  setNoteClipboard,
+} from "../../piano-roll-actions.ts";
+import { ContextMenu } from "../ContextMenu";
+import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
 import "./midi-devices.css";
-import { PianoRollPlayhead } from "./PianoRollPlayhead";
+import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
 
@@ -59,7 +77,7 @@ type PianoRollProps = {
   onSetNotes: SetMidiClipNotes;
   onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's Synth; tests listen instead.
-  onAudition?: (pitch: number, synth: SynthParams) => void;
+  onAudition?: (pitch: number, instrument: MidiInstrument) => void;
 };
 
 // A key row's height and a quarter note's width on the roll's grid.
@@ -112,11 +130,14 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // PianoRollRuler). Clicking empty grid inside the clip's Length adds a note
 // there, dragging a note moves it in time and pitch, Ctrl/Cmd-dragging drops
 // a copy instead, dragging either of its edges resizes it, and right-clicking
-// a note deletes it; each edit is one undo step. A moved or copied note trims
-// the notes of its pitch it lands on, the way clips do. Clicking a note
-// selects it (Shift-click adds to the selection), Delete or Backspace
-// deletes the selected notes and Escape clears them. Clicking a note or a key
-// auditions it through the clip's Synth. A read-only line follows the
+// a note opens its menu of note actions; each edit is one undo step. A moved
+// or copied note trims the notes of its pitch it lands on, the way clips do.
+// Clicking a note selects it (Shift-click adds to the selection) and Escape
+// clears the selection. The keys act on the selected notes (see
+// piano-roll-actions.ts): the arrows nudge them a snap (Shift for half) or a
+// semitone, Delete or Backspace deletes them, and Cmd/Ctrl+D, X, C and V
+// duplicate, cut, copy and paste, pasting at the playhead. Clicking a note or a key
+// auditions it through the clip's instrument. A read-only line follows the
 // transport playhead to the note sounding (see PianoRollPlayhead), and a
 // resizable velocity lane along the bottom edits the notes' velocities (see
 // PianoRollVelocity).
@@ -128,11 +149,13 @@ export function PianoRoll({
   onSetTimeline,
   onAudition = auditionNote,
 }: PianoRollProps) {
-  const { spanId, label, accent, notes, timeline, synth } = model;
+  const { spanId, label, accent, notes, timeline, instrument } = model;
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const clock = useContext(FxModulationClockContext);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
   const velocityLane = useVelocityLaneHeight();
+  const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
   // The selected notes' keys, for the clip they were selected in.
   const [selection, setSelection] = useState({
     spanId,
@@ -172,7 +195,7 @@ export function PianoRoll({
     }
   }, [spanId, collapsed]);
 
-  const audition = (pitch: number) => onAudition(pitch, synth);
+  const audition = (pitch: number) => onAudition(pitch, instrument);
 
   // The pitch and quarter (from the clip's content start) under a point of
   // the grid.
@@ -190,7 +213,7 @@ export function PianoRoll({
 
   function handleGridPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // Right-clicks, and Ctrl-clicks, which macOS treats as right-clicks,
-    // are for deleting notes.
+    // open the note menu.
     if (event.button !== 0 || isContextMenuPress(event, mac)) {
       return;
     }
@@ -303,32 +326,122 @@ export function PianoRoll({
     onSetNotes(spanId, deleteNote(notes, index), midiHistoryLabels.deleteNote);
   }
 
-  // Delete and Backspace delete the selected notes, and Escape clears the
+  // Where Paste puts the clipboard's first note: at the note the playhead
+  // sounds, snapped to the grid, or at the clip's Start marker while the
+  // playhead is outside the clip.
+  function pasteQ() {
+    const soundingQ = pianoRollPlayheadQ(
+      model,
+      clock?.signal.get() ?? Number.NaN,
+    );
+    return soundingQ === undefined ? timeline.start : snapQ(soundingQ);
+  }
+
+  function applyEdit(edit: NoteSelectionEdit | undefined, label: string) {
+    if (!edit) {
+      return;
+    }
+    select(edit.keys);
+    onSetNotes(spanId, edit.notes, label);
+  }
+
+  // Runs a note action on the selected notes, each edit one undo step.
+  // Returns whether the action applies: Paste needs the clipboard and the
+  // rest a selection.
+  function runNoteAction(action: NoteAction) {
+    const selectedCount = notes.filter((note) =>
+      selectedKeys.has(noteKey(note)),
+    ).length;
+    if (action === "paste") {
+      const clipboard = getNoteClipboard();
+      if (!clipboard) {
+        return false;
+      }
+      applyEdit(
+        pasteNotes(notes, clipboard, pasteQ()),
+        midiHistoryLabels.pasteNotes,
+      );
+      return true;
+    }
+    if (!selectedCount) {
+      return false;
+    }
+    switch (action) {
+      case "delete":
+        select([]);
+        onSetNotes(
+          spanId,
+          deleteNotes(notes, selectedKeys),
+          selectedCount > 1
+            ? midiHistoryLabels.deleteNotes
+            : midiHistoryLabels.deleteNote,
+        );
+        break;
+      case "duplicate":
+        applyEdit(
+          duplicateNotes(notes, selectedKeys),
+          midiHistoryLabels.duplicateNotes,
+        );
+        break;
+      case "copy":
+        setNoteClipboard(copyNotes(notes, selectedKeys));
+        break;
+      case "cut":
+        setNoteClipboard(copyNotes(notes, selectedKeys));
+        select([]);
+        onSetNotes(
+          spanId,
+          deleteNotes(notes, selectedKeys),
+          midiHistoryLabels.cutNotes,
+        );
+        break;
+      default: {
+        const { deltaQ, deltaPitch } = NOTE_SHIFTS[action];
+        applyEdit(
+          shiftNotes(notes, selectedKeys, deltaQ, deltaPitch),
+          deltaPitch
+            ? midiHistoryLabels.transposeNotes
+            : midiHistoryLabels.nudgeNotes,
+        );
+      }
+    }
+    return true;
+  }
+
+  // The note action keys act on the selected notes, and Escape clears the
   // selection, unless a note's own button handled the key.
   function handlePanelKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.defaultPrevented || drag) {
       return;
     }
-    const selectedCount = notes.filter((note) =>
-      selectedKeys.has(noteKey(note)),
-    ).length;
-    if (!selectedCount) {
+    const action = noteActionForKey(event, mac);
+    if (action) {
+      if (runNoteAction(action)) {
+        event.preventDefault();
+      }
+    } else if (event.key === "Escape" && selectedKeys.size) {
+      event.preventDefault();
+      select([]);
+    }
+  }
+
+  // Right-clicking a note outside the selection selects it, then the menu
+  // opens on the selection; right-clicking empty grid keeps the selection.
+  function handleGridContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (drag) {
       return;
     }
-    if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      select([]);
-      onSetNotes(
-        spanId,
-        deleteNotes(notes, selectedKeys),
-        selectedCount > 1
-          ? midiHistoryLabels.deleteNotes
-          : midiHistoryLabels.deleteNote,
-      );
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      select([]);
+    const noteElement = (event.target as Element).closest<HTMLElement>(
+      "[data-note-index]",
+    );
+    const note = noteElement && notes[Number(noteElement.dataset.noteIndex)];
+    if (note && !selectedKeys.has(noteKey(note))) {
+      select([noteKey(note)]);
     }
+    gridRef.current?.focus({ preventScroll: true });
+    setMenuAnchor({ x: event.clientX, y: event.clientY });
   }
 
   const name = `${label} notes`;
@@ -373,8 +486,8 @@ export function PianoRoll({
         <span className="fx-device-panel__name">Notes</span>
         <span className="piano-roll__hint">
           click: add/select · drag: move · {mac ? "Cmd" : "Ctrl"}+drag:
-          duplicate · drag edge: resize · Delete or right-click: delete · drag
-          stems: velocity
+          duplicate · drag edge: resize · arrows: nudge/pitch · right-click:
+          menu · drag stems: velocity
         </span>
         <button
           aria-expanded
@@ -415,16 +528,7 @@ export function PianoRoll({
         <div
           className={`piano-roll__grid${drag?.edge ? " piano-roll__grid--resizing" : ""}`}
           data-piano-roll-grid
-          onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const noteElement = (event.target as Element).closest<HTMLElement>(
-              "[data-note-index]",
-            );
-            if (noteElement && !drag) {
-              removeNote(Number(noteElement.dataset.noteIndex));
-            }
-          }}
+          onContextMenu={handleGridContextMenu}
           onLostPointerCapture={(event) => endDrag(event, true)}
           onPointerCancel={(event) => endDrag(event, false)}
           onPointerDown={handleGridPointerDown}
@@ -470,7 +574,7 @@ export function PianoRoll({
                   width,
                   top: rowOf(note.pitch) * PIANO_ROLL_ROW_PX,
                 }}
-                title={`${pitchName(note.pitch)}: Delete or right-click to remove`}
+                title={`${pitchName(note.pitch)}: Delete to remove, right-click for actions`}
                 type="button"
               >
                 <span
@@ -497,6 +601,37 @@ export function PianoRoll({
           width={gridWidth}
         />
       </div>
+      {/* The menu is portaled out of the panel, but React still bubbles its
+          events here; stop them before the panel acts on its keys. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops the menu's events from reaching the panel */}
+      <div
+        className="piano-roll__menu"
+        onContextMenu={stopMenuEvent}
+        onKeyDown={stopMenuEvent}
+        onPointerDown={stopMenuEvent}
+      >
+        <ContextMenu
+          anchor={menuAnchor}
+          entries={
+            menuAnchor
+              ? noteMenuEntries({
+                  mac,
+                  hasSelection: notes.some((note) =>
+                    selectedKeys.has(noteKey(note)),
+                  ),
+                  canPaste: getNoteClipboard() !== undefined,
+                  run: runNoteAction,
+                })
+              : []
+          }
+          label="Note actions"
+          onClose={() => setMenuAnchor(null)}
+        />
+      </div>
     </section>
   );
+}
+
+function stopMenuEvent(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
 }
