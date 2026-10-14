@@ -22,11 +22,11 @@ import {
   LFO_SHAPES,
   LFO_SYNC_RATES,
   type LfoAnimation,
-  ORDER_TRANSITIONS,
   MAX_REACTIVE_AMPLITUDE,
+  ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
-  type ReactiveAnimation,
   REACTIVITY_STEP,
+  type ReactiveAnimation,
   toggleAnimatedParameter,
 } from "../../fx-animation-defaults";
 import type { FxDevice } from "../../fx-stack";

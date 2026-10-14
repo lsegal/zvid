@@ -77,7 +77,14 @@ export function findReactiveImpulse(
       low = middle + 1;
     }
   }
-  let index = previousTrigger(onsets, low - 1, threshold, time, fps, lengthFrames);
+  let index = previousTrigger(
+    onsets,
+    low - 1,
+    threshold,
+    time,
+    fps,
+    lengthFrames,
+  );
   if (index < 0) {
     return undefined;
   }

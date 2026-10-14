@@ -137,7 +137,7 @@ describe("animation defaults", () => {
     assert.equal(getAnimationDefaults("Move")?.clip.motionIn, "Linear");
     assert.equal(getAnimationDefaults("Move")?.reactive?.motion, "Wobble");
     assert.equal(
-      getAnimationDefaults("AnalogGlitch")?.reactive?.reactivity,
+      getAnimationDefaults("AnalogGlitch")?.reactive?.amplitude,
       0.6,
     );
     assert.deepEqual(getAnimationDefaults("Transform")?.reactive?.parameters, [
@@ -219,7 +219,8 @@ describe("animation defaults", () => {
       reactive: {
         motion: "Bounce",
         timing: "Normal",
-        reactivity: 0.5,
+        reactivity: 0,
+        amplitude: 0.5,
         parameters: ["_NumPixels"],
       },
       lfo: {
@@ -407,10 +408,12 @@ describe("setEffectAnimation", () => {
       reactive: {
         ...(animation.reactive as ReactiveAnimation),
         reactivity: 4,
+        amplitude: 40,
         parameters: ["ScaleX", "ScaleX", "Rotation"],
       },
     });
     assert.equal(next.animation?.reactive?.reactivity, 1);
+    assert.equal(next.animation?.reactive?.amplitude, 10);
     assert.deepEqual(next.animation?.reactive?.parameters, [
       "ScaleX",
       "Rotation",
@@ -426,7 +429,8 @@ describe("setEffectAnimation", () => {
       reactive: {
         motion: "Bounce",
         timing: "Normal",
-        reactivity: 1,
+        reactivity: 0,
+        amplitude: 1,
         parameters: ["Spacing"],
       },
     });
@@ -490,7 +494,8 @@ describe("normalizeEffectAnimation", () => {
         reactive: {
           motion: "Wobble",
           timing: "Normal",
-          reactivity: 0.5,
+          reactivity: 0,
+          amplitude: 0.5,
           parameters: ["_HueOffset"],
         },
         lfo: createDefaultAnimation("Colorize")?.lfo,
@@ -553,6 +558,7 @@ describe("normalizeEffectAnimation", () => {
         motion: "Bounce",
         timing: "Normal",
         reactivity: 0.3,
+        amplitude: 2.5,
         parameters: ["_HueOffset"],
       },
     };
@@ -560,6 +566,25 @@ describe("normalizeEffectAnimation", () => {
     assert.equal(loaded?.mode, "reactive");
     assert.deepEqual(loaded?.reactive, saved.reactive);
     assert.deepEqual(loaded?.lfo, createDefaultAnimation("Colorize")?.lfo);
+  });
+
+  // Reactivity used to scale the swing, with every hit triggering.
+  it("loads a session saved before Amplitude with threshold 0 and its Reactivity as Amplitude", () => {
+    const loaded = normalizeEffectAnimation(
+      {
+        enabled: true,
+        mode: "reactive",
+        reactive: {
+          motion: "Bounce",
+          timing: "Normal",
+          reactivity: 0.3,
+          parameters: ["_HueOffset"],
+        },
+      },
+      "Colorize",
+    );
+    assert.equal(loaded?.reactive?.reactivity, 0);
+    assert.equal(loaded?.reactive?.amplitude, 0.3);
   });
 
   it("loads a saved LFO Order in Clip mode", () => {

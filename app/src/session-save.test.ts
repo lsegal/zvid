@@ -448,6 +448,7 @@ describe("projectToSession", () => {
         motion: "Wobble",
         timing: "Slow",
         reactivity: 0.7,
+        amplitude: 3.5,
         parameters: ["_LowIntensity"],
       },
       lfo: {
@@ -554,6 +555,7 @@ describe("projectToSession", () => {
         motion: "Wobble",
         timing: "Fast",
         reactivity: 0.4,
+        amplitude: 6,
         parameters: ["Frequency"],
       },
       lfo: {
