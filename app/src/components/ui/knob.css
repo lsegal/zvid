@@ -83,6 +83,26 @@
   stroke-width: 2;
 }
 
+/* Where Animation or Modulation has moved the knob, beside where it is set. */
+.knob__live-arc {
+  fill: none;
+  opacity: 0.55;
+  stroke: var(--knob-automation);
+  stroke-linecap: round;
+  stroke-width: 3.5;
+}
+
+.knob__live-pointer {
+  opacity: 0.75;
+  stroke: var(--knob-automation);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.knob--automated .knob__value-text {
+  color: var(--knob-automation);
+}
+
 .knob__value-text,
 .knob__input {
   width: 64px;

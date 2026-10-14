@@ -10,6 +10,7 @@ import {
 } from "react";
 import { taperPosition, taperValue } from "../../fx/taper.ts";
 import type { FxNumberTaper } from "../../fx/types.ts";
+import { automationAccent } from "./automation-accent.ts";
 import "./knob.css";
 
 export type KnobProps = {
@@ -31,6 +32,11 @@ export type KnobProps = {
   onCommit?: (value: number) => void;
   disabled?: boolean;
   className?: string;
+  /**
+   * Where Animation or Modulation has moved the value to, drawn beside the
+   * set value and read out in its place; undefined while nothing moves it.
+   */
+  live?: number;
 };
 
 const SIZE = 44;
@@ -98,6 +104,7 @@ export function Knob({
   onCommit,
   disabled = false,
   className,
+  live,
 }: KnobProps) {
   const labelId = useId();
   const dialRef = useRef<HTMLDivElement>(null);
@@ -329,6 +336,16 @@ export function Knob({
   const pointerInner = polar(valueAngle, 5);
   const pointerOuter = polar(valueAngle, RADIUS - 5);
   const valueText = format(value);
+  // Where automation has moved the knob: an arc from the set value and a
+  // second pointer. A drag reads out the value being set.
+  const automated = live !== undefined;
+  const liveAngle = automated
+    ? START_ANGLE + positionOf(live) * SWEEP_DEGREES
+    : valueAngle;
+  const liveInner = polar(liveAngle, 5);
+  const liveOuter = polar(liveAngle, RADIUS - 5);
+  const readout =
+    automated && !dragging ? format(live) : valueText;
 
   return (
     <div
@@ -336,9 +353,15 @@ export function Knob({
         "knob",
         dragging && "knob--dragging",
         disabled && "knob--disabled",
+        automated && "knob--automated",
         className,
       )}
-      style={{ "--knob-accent": accent } as CSSProperties}
+      style={
+        {
+          "--knob-accent": accent,
+          "--knob-automation": automationAccent(accent),
+        } as CSSProperties
+      }
     >
       <span className="knob__label" id={labelId} title={label}>
         {label}
@@ -390,6 +413,27 @@ export function Knob({
             x2={pointerOuter.x}
             y2={pointerOuter.y}
           />
+          {automated ? (
+            <>
+              {Math.abs(liveAngle - valueAngle) > 0.01 ? (
+                <path
+                  className="knob__live-arc"
+                  d={arcPath(
+                    Math.min(valueAngle, liveAngle),
+                    Math.max(valueAngle, liveAngle),
+                    RADIUS,
+                  )}
+                />
+              ) : null}
+              <line
+                className="knob__live-pointer"
+                x1={liveInner.x}
+                y1={liveInner.y}
+                x2={liveOuter.x}
+                y2={liveOuter.y}
+              />
+            </>
+          ) : null}
         </svg>
       </div>
       {editing ? (
@@ -429,7 +473,7 @@ export function Knob({
             }
           }}
         >
-          {valueText}
+          {readout}
         </button>
       )}
     </div>
