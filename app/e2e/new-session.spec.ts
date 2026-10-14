@@ -24,7 +24,8 @@ async function openSample(page: Page) {
   await expect(page.getByText("No source media yet")).toBeVisible();
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
   await expect(page.locator(".source-span").first()).toBeVisible({
     timeout: 60_000,
   });

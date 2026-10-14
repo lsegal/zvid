@@ -3254,13 +3254,13 @@
           "floatValue": 0
         },
         "PositionY": {
-          "floatValue": -0.1
+          "floatValue": -0.22
         },
         "ScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "ScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "OriginX": {
           "floatValue": 0
@@ -3285,13 +3285,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3306,13 +3306,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3337,13 +3337,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3358,13 +3358,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3389,13 +3389,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3410,13 +3410,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3441,13 +3441,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3462,13 +3462,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3493,13 +3493,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3514,13 +3514,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3545,13 +3545,13 @@
           "floatValue": 0
         },
         "StartPositionY": {
-          "floatValue": 0.75
+          "floatValue": 0.8
         },
         "StartScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "StartOriginX": {
           "floatValue": 0
@@ -3566,13 +3566,13 @@
           "floatValue": 0
         },
         "EndPositionY": {
-          "floatValue": 0.22
+          "floatValue": 0.24
         },
         "EndScaleX": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndScaleY": {
-          "floatValue": 0.78
+          "floatValue": 0.55
         },
         "EndOriginX": {
           "floatValue": 0
@@ -3804,7 +3804,7 @@
           "floatValue": 0
         },
         "PositionY": {
-          "floatValue": -0.12
+          "floatValue": -0.15
         },
         "ScaleX": {
           "floatValue": 0.20536556603773587
@@ -3905,7 +3905,7 @@
           "floatValue": 0
         },
         "PositionY": {
-          "floatValue": 0.18
+          "floatValue": 0.2
         },
         "ScaleX": {
           "floatValue": 1

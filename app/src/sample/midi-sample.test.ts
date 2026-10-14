@@ -187,7 +187,10 @@ describe("MIDI sample", () => {
 
   it("credits every asset with its license in CREDITS.md", () => {
     const credits = readFileSync(
-      new URL(`../../public${MIDI_SAMPLE_MANIFEST.creditsUrl}`, import.meta.url),
+      new URL(
+        `../../public${MIDI_SAMPLE_MANIFEST.creditsUrl}`,
+        import.meta.url,
+      ),
       "utf8",
     );
     for (const asset of MIDI_SAMPLE_MANIFEST.assets) {

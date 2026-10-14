@@ -164,9 +164,9 @@ function drumNotes() {
     const fill = bar === 7;
     notes.push(note(CLAP, at + 1, 0.5, 112));
     if (fill) {
-      TOMS.forEach((tom, index) =>
-        notes.push(note(tom, at + 3 + index / 4, 0.25, 96 + index * 8)),
-      );
+      for (const [index, tom] of TOMS.entries()) {
+        notes.push(note(tom, at + 3 + index / 4, 0.25, 96 + index * 8));
+      }
     } else {
       notes.push(note(CLAP, at + 3, 0.5, 112));
     }
@@ -290,7 +290,10 @@ midiTrack({
   notes: drumNotes(),
   gainDb: -2,
   instrument: [
-    ["Drum Rack", { Pads: JSON.stringify({ bank: "builtin:tr-808", pads: {} }) }],
+    [
+      "Drum Rack",
+      { Pads: JSON.stringify({ bank: "builtin:tr-808", pads: {} }) },
+    ],
   ],
   chain: [
     [
@@ -305,7 +308,10 @@ midiTrack({
         Mix: 1,
       },
     ],
-    ["Saturation", { Drive: 6, Type: "Tape", Tone: 9000, Output: -3, Mix: 0.6 }],
+    [
+      "Saturation",
+      { Drive: 6, Type: "Tape", Tone: 9000, Output: -3, Mix: 0.6 },
+    ],
   ],
 });
 
@@ -392,7 +398,14 @@ midiTrack({
     ],
     [
       "Phaser",
-      { Rate: 0.25, Depth: 70, Stages: "8", Center: 900, Feedback: 40, Mix: 35 },
+      {
+        Rate: 0.25,
+        Depth: 70,
+        Stages: "8",
+        Center: 900,
+        Feedback: 40,
+        Mix: 35,
+      },
     ],
     [
       "Reverb",
@@ -488,8 +501,10 @@ function place(layerId, picture, start, length, lag = 0) {
   return clipTrack(`selection-${id}`);
 }
 
-const FOREST_PLACE = { y: -0.1, scale: 0.78 };
-const ECHO_PLACE = { y: 0.22, scale: 0.78 };
+// Forest Morning fills the top half of the frame and its echo the bottom,
+// just under it, so the echo's tree line shows below the first one's.
+const FOREST_PLACE = { y: -0.22, scale: 0.55 };
+const ECHO_PLACE = { y: 0.24, scale: 0.55 };
 
 place("dots", DOTS, 0, LENGTH);
 addEffect(place("forest", FOREST, 0, LENGTH), "Transform", {
@@ -506,7 +521,7 @@ for (let phrase = 0; phrase < BARS / 2; phrase += 1) {
     "Move",
     {
       Motion: "Ease Out",
-      ...transformValues("Start", { ...ECHO_PLACE, y: 0.75 }),
+      ...transformValues("Start", { ...ECHO_PLACE, y: 0.8 }),
       ...transformValues("End", ECHO_PLACE),
     },
   );
@@ -558,7 +573,12 @@ text(
   "text-generated",
   BAR,
   BAR,
-  { Text: "every sound generated", FontWeight: "Regular", FontSize: 56, Color: LEAF },
+  {
+    Text: "every sound generated",
+    FontWeight: "Regular",
+    FontSize: 56,
+    Color: LEAF,
+  },
   0.12,
 );
 
@@ -572,13 +592,13 @@ addEffect(
   logo,
   "Transform",
   transformValues("", {
-    y: -0.12,
+    y: -0.15,
     scaleX: (LOGO_HEIGHT * ICON_ASPECT * HEIGHT) / WIDTH,
     scaleY: LOGO_HEIGHT,
   }),
   { animation: fadeIn() },
 );
-text("text-zvid", 10 * BAR, 2 * BAR, { Text: "zvid", FontSize: 160 }, 0.18);
+text("text-zvid", 10 * BAR, 2 * BAR, { Text: "zvid", FontSize: 160 }, 0.2);
 
 // ---- session -------------------------------------------------------------
 
