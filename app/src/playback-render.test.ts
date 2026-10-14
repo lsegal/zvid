@@ -27,6 +27,10 @@ const playerTsx = readFileSync(
   new URL("./CompositionPlayer.tsx", import.meta.url),
   "utf8",
 );
+const playbackStateTs = readFileSync(
+  new URL("./use-playback-state.ts", import.meta.url),
+  "utf8",
+);
 const livePlayheadTsx = readFileSync(
   new URL("./components/LivePlayhead.tsx", import.meta.url),
   "utf8",
@@ -92,7 +96,8 @@ describe("playback rendering", () => {
 
   it("renders the preview from the live playhead while playing", () => {
     assert.match(appTsx, /playheadSignal=\{playheadSignal\}/);
-    assert.match(playerTsx, /const playheadQ = playheadSignal\.get\(\);/);
+    assert.match(playerTsx, /usePlaybackState\(/);
+    assert.match(playbackStateTs, /const playheadQ = playheadSignal\.get\(\);/);
     // The same frame's active clips sync the media and draw it (#948).
     assert.match(
       playerTsx,
