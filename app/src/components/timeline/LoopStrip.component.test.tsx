@@ -3,6 +3,7 @@ import { userEvent } from "vitest/browser";
 import type { RenderResult } from "vitest-browser-react";
 import {
   EDITOR_TEST_TIMEOUT,
+  type EditorState,
   renderEditor,
 } from "../../component-test/editor.tsx";
 import {
@@ -11,7 +12,9 @@ import {
   dblclick,
   drag,
   move,
+  redo,
   touch,
+  undo,
 } from "../../component-test/input.ts";
 import { LoopStrip } from "./LoopStrip";
 
@@ -225,6 +228,78 @@ describe(LoopStrip, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       await dblclick(movedBody.x, movedBody.y);
       await expect.poll(() => count(".ruler-loop-region")).toBe(0);
       expect(selectionEnds()).toEqual(moved);
+    });
+
+    // A drag is one undo entry, not one per pointer move (#1391).
+    test("undo puts a dragged loop back in one step", async () => {
+      let state: EditorState | undefined;
+      await renderEditor({
+        reducedMotion: true,
+        onState: (next) => {
+          state = next;
+        },
+      });
+      const { view, y } = geometry();
+      await dragX(view.x + view.width * 0.3, view.x + view.width * 0.5, y);
+      await expect.poll(() => count(".ruler-loop-strip__selection")).toBe(1);
+      await userEvent.keyboard("l");
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      const locked = loopEnds();
+
+      const end = center(query(".ruler-loop-region__handle--end"));
+      await drag(end, { x: end.x + view.width * 0.1, y: end.y });
+      const resized = loopEnds();
+      expect(resized.endQ).toBeGreaterThan(locked.endQ);
+      const body = center(query(".ruler-loop-region__body"));
+      await drag(body, { x: body.x - view.width * 0.1, y: body.y });
+      const moved = loopEnds();
+      expect(moved.startQ).toBeLessThan(resized.startQ);
+
+      await undo();
+      await expect.poll(loopEnds).toEqual(resized);
+      expect(state?.status).toBe("Undid: Move loop.");
+      await undo();
+      await expect.poll(loopEnds).toEqual(locked);
+      expect(state?.status).toBe("Undid: Resize loop.");
+      await undo();
+      await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+      expect(state?.canUndo).toBe(false);
+
+      await redo();
+      await redo();
+      await expect.poll(loopEnds).toEqual(resized);
+      await redo();
+      await expect.poll(loopEnds).toEqual(moved);
+    });
+
+    test("loop strip menu edits are undoable", async () => {
+      let state: EditorState | undefined;
+      const screen = await renderEditor({
+        reducedMotion: true,
+        onState: (next) => {
+          state = next;
+        },
+      });
+      const { strip, y } = geometry();
+      await chooseFromMenu(screen, strip.x + 400, y, "Create loop out marker");
+      await expect.poll(() => count(".ruler-loop-region")).toBe(1);
+      const placed = loopEnds();
+      await chooseFromMenu(screen, strip.x + 120, y, "Create loop in marker");
+      await expect.poll(loopEnds).not.toEqual(placed);
+      const narrowed = loopEnds();
+      await chooseFromMenu(screen, strip.x + 250, y, "Delete loop");
+      await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+
+      await undo();
+      await expect.poll(loopEnds).toEqual(narrowed);
+      expect(state?.status).toBe("Undid: Clear loop.");
+      await undo();
+      await expect.poll(loopEnds).toEqual(placed);
+      expect(state?.status).toBe("Undid: Set loop in marker.");
+      await undo();
+      await expect.poll(() => count(".ruler-loop-region")).toBe(0);
+      expect(state?.status).toBe("Undid: Set loop out marker.");
+      expect(state?.canUndo).toBe(false);
     });
 
     test("a double-click on the selection locks it, and on the loop turns it back", async () => {

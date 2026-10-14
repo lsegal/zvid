@@ -54,7 +54,8 @@ type LoopStripProps = {
   playbackSelection: PlaybackSelection | null;
   setPlaybackSelection: (selection: PlaybackSelection | null) => void;
   loopRegion: LoopRegion | null;
-  setLoopRegion: (region: LoopRegion | null) => void;
+  setLoopRegion: (region: LoopRegion | null, label?: string) => void;
+  previewLoopRegion: (region: LoopRegion | null) => void;
   lockPlaybackSelection: () => void;
   lockLoopShortcut: string;
   timelineContentEndQ: number;
@@ -82,6 +83,7 @@ export function LoopStrip({
   setPlaybackSelection,
   loopRegion,
   setLoopRegion,
+  previewLoopRegion,
   lockPlaybackSelection,
   lockLoopShortcut,
   timelineContentEndQ,
@@ -248,6 +250,7 @@ export function LoopStrip({
         minimumQ: snapUnit,
         totalQuarters,
       }),
+      marker === "in" ? "Set loop in marker" : "Set loop out marker",
     );
 
   const menuEntries = (atQ: number): ContextMenuEntry[] => [
@@ -331,6 +334,7 @@ export function LoopStrip({
             snapEnabled={snapEnabled}
             loopRegion={loopRegion}
             setLoopRegion={setLoopRegion}
+            previewLoopRegion={previewLoopRegion}
             setPlaybackSelection={setPlaybackSelection}
           />
         ) : null}

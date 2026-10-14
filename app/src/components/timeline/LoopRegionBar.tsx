@@ -17,7 +17,8 @@ type LoopRegionBarProps = {
   snapUnit: number;
   snapEnabled: boolean;
   loopRegion: LoopRegion;
-  setLoopRegion: (region: LoopRegion | null) => void;
+  setLoopRegion: (region: LoopRegion | null, label?: string) => void;
+  previewLoopRegion: (region: LoopRegion | null) => void;
   setPlaybackSelection: (selection: PlaybackSelection | null) => void;
 };
 
@@ -33,6 +34,7 @@ export function LoopRegionBar({
   snapEnabled,
   loopRegion,
   setLoopRegion,
+  previewLoopRegion,
   setPlaybackSelection,
 }: LoopRegionBarProps) {
   const dragRef = useRef<{
@@ -40,7 +42,8 @@ export function LoopRegionBar({
     startX: number;
     origin: LoopRegion;
     kind: SelectionEditKind;
-    moved: boolean;
+    // The loop the drag has made so far, if it has moved.
+    region: LoopRegion | null;
   } | null>(null);
   const [dragKind, setDragKind] = useState<SelectionEditKind | null>(null);
   const lastTapRef = useRef<TouchTap | null>(null);
@@ -84,7 +87,7 @@ export function LoopRegionBar({
         startX: event.clientX,
         origin: loopRegion,
         kind,
-        moved: false,
+        region: null,
       };
       setDragKind(kind);
     };
@@ -96,32 +99,38 @@ export function LoopRegionBar({
     }
 
     if (
-      !drag.moved &&
+      !drag.region &&
       Math.abs(event.clientX - drag.startX) < LOOP_REGION_DRAG_THRESHOLD_PX
     ) {
       return;
     }
 
-    drag.moved = true;
     const snap = snapEnabled && !event.shiftKey;
-    setLoopRegion(
-      editLoopRegion(
-        drag.origin,
-        drag.kind,
-        (event.clientX - drag.startX) / quarterPx,
-        (valueQ) => snapQuarterValue(valueQ, snapUnit, snap),
-        { minimumQ: snapUnit, totalQuarters },
-      ),
+    drag.region = editLoopRegion(
+      drag.origin,
+      drag.kind,
+      (event.clientX - drag.startX) / quarterPx,
+      (valueQ) => snapQuarterValue(valueQ, snapUnit, snap),
+      { minimumQ: snapUnit, totalQuarters },
     );
+    previewLoopRegion(drag.region);
   };
 
+  // The whole drag is one undo entry.
   const endDrag = (event: PointerEvent<HTMLElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) {
+    const drag = dragRef.current;
+    if (drag?.pointerId !== event.pointerId) {
       return;
     }
 
     dragRef.current = null;
     setDragKind(null);
+    if (drag.region) {
+      setLoopRegion(
+        drag.region,
+        drag.kind === "move" ? "Move loop" : "Resize loop",
+      );
+    }
   };
 
   const dragHandlers = {
