@@ -29,7 +29,7 @@ type PreviewLayersInputs = {
   canvasHeight: number;
 };
 
-// The video layers at `playheadQ`, placed as the compositor draws them.
+// The video and image layers at `playheadQ`, placed as the compositor draws them.
 export function resolvePreviewLayersAt(
   {
     clips,
@@ -59,8 +59,13 @@ export function resolvePreviewLayersAt(
     signature,
   );
   return resolvePreviewLayers(
-    // Clips a Transition holds aren't at the playhead to edit.
-    activeClips.filter((entry) => entry.media.kind === "video" && !entry.held),
+    // Image clips (stills, GIFs and Lotties) are drawn and edited like
+    // video. Clips a Transition holds aren't at the playhead to edit.
+    activeClips.filter(
+      (entry) =>
+        (entry.media.kind === "video" || entry.media.kind === "image") &&
+        !entry.held,
+    ),
     { width: canvasWidth, height: canvasHeight },
     // Animated with the topmost clip, as the compositor draws it.
     resolveAnimatedOrder(
@@ -71,7 +76,7 @@ export function resolvePreviewLayersAt(
   );
 }
 
-// The video layers the preview's transform overlay outlines at the
+// The video and image layers the preview's transform overlay outlines at the
 // playhead, placed as the compositor draws them, and the same layers resolved
 // at any other playhead, for the overlay to follow the live playhead between
 // commits.

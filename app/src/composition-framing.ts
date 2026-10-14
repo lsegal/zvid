@@ -4,7 +4,12 @@
 // rather than a full frame's.
 import type { CompositeVisual, WebGlResources } from "./composition-draw.ts";
 import { bindCompositeState, drawQuad } from "./composition-draw-gl.ts";
-import type { FrameBounds, LayerPlacement } from "./composition-layout.ts";
+import type {
+  FrameBounds,
+  LayerPlacement,
+  ScissorBox,
+} from "./composition-layout.ts";
+import { fitTextureSize } from "./composition-textures.ts";
 import {
   type CanvasSize,
   frameBoxInCanvas,
@@ -128,6 +133,26 @@ export function frameWholeSource(
     },
     grow,
   };
+}
+
+// The size a layer is framed at, and its pixels per output pixel: its
+// slot's `scissor`, grown by `grow` to hold its whole source, at the size
+// its Transform draws it (`shrink`), and no larger than a texture can be.
+export function wholeSourceFrameSize(
+  gl: WebGLRenderingContext,
+  scissor: ScissorBox,
+  grow: { x: number; y: number },
+  shrink: number,
+) {
+  if (grow.x === 1 && grow.y === 1) {
+    return { size: shrunkSize(scissor, shrink), scale: shrink };
+  }
+  const fitted = fitTextureSize(
+    gl,
+    scissor.width * grow.x * shrink,
+    scissor.height * grow.y * shrink,
+  );
+  return { size: fitted, scale: fitted.factor * shrink };
 }
 
 // Draws the layer's source into a `size` region exactly as it would appear

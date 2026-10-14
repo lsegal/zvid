@@ -10,10 +10,10 @@ import {
 import {
   frameWholeSource,
   renderLayerFrame,
-  shrunkSize,
   sourceBounds,
   transformShrink,
   visualShrink,
+  wholeSourceFrameSize,
 } from "./composition-framing.ts";
 import {
   applyFxClip,
@@ -407,12 +407,7 @@ function drawLayer(
     : undefined;
   // The clip's own chain steps come first, then its layer's.
   const layerSteps = effectChain.prepare(entry.effectChain);
-  if (
-    matrix &&
-    !textBox &&
-    !layerSteps.length &&
-    !entry.visual.rotationDeg
-  ) {
+  if (matrix && !textBox && !layerSteps.length && !entry.visual.rotationDeg) {
     // An unrotated source with no effects to run is drawn transformed
     // directly, whole, sparing a framing pass.
     uniforms = layerUniforms(
@@ -438,18 +433,12 @@ function drawLayer(
     // A Transform that shrinks the slot frames it at the size it is drawn
     // at, keeping its aspect.
     const shrink = matrix && !textBox ? transformShrink(matrix) : 1;
-    const grown = bled.grow.x !== 1 || bled.grow.y !== 1;
-    const fitted = textBox
-      ? fitTextureSize(gl, sourceWidth * bled.grow.x, sourceHeight * bled.grow.y)
-      : grown
-        ? fitTextureSize(
-            gl,
-            scissor.width * bled.grow.x * shrink,
-            scissor.height * bled.grow.y * shrink,
-          )
-        : undefined;
-    const frameSize = fitted || shrunkSize(scissor, shrink);
-    const frameScale = fitted ? fitted.factor * shrink : shrink;
+    const fitted =
+      textBox &&
+      fitTextureSize(gl, sourceWidth * bled.grow.x, sourceHeight * bled.grow.y);
+    const { size: frameSize, scale: frameScale } = fitted
+      ? { size: fitted, scale: fitted.factor }
+      : wholeSourceFrameSize(gl, scissor, bled.grow, shrink);
     const framed = renderLayerFrame(
       resources,
       texture,

@@ -10,16 +10,16 @@ import {
   type WebGlResources,
 } from "./composition-draw.ts";
 import {
+  frameWholeSource,
+  sourceBounds,
+  transformShrink,
+} from "./composition-framing.ts";
+import {
   resolveBandScissor,
   resolveCanvasBounds,
   resolveLayerPlacement,
   resolveSlotScissor,
 } from "./composition-layout.ts";
-import {
-  frameWholeSource,
-  sourceBounds,
-  transformShrink,
-} from "./composition-framing.ts";
 import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
@@ -533,7 +533,9 @@ describe("drawComposition Transform", () => {
       assertCompositeState(top, resources, 0, 2, null);
 
       const band = resolveBandScissor(1, 2, WIDTH, HEIGHT);
-      const rawSource = resources.textureMap.get("media-1") as unknown as Handle;
+      const rawSource = resources.textureMap.get(
+        "media-1",
+      ) as unknown as Handle;
       if (effects.length) {
         // Framed whole, at the size its Transform draws it, before its
         // effects run.
@@ -546,7 +548,11 @@ describe("drawComposition Transform", () => {
             draw.viewport?.[3] === Math.round(band.height * grow.y * shrink),
         );
         assert.ok(framing.length >= 2, "framed whole, then filtered");
-        assert.notEqual(bottom.texture, rawSource, "the framed source is drawn");
+        assert.notEqual(
+          bottom.texture,
+          rawSource,
+          "the framed source is drawn",
+        );
       } else {
         assert.equal(bottom.texture, rawSource, "the source is drawn directly");
       }

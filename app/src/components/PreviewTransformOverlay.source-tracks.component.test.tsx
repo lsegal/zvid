@@ -92,9 +92,7 @@ test("selects a source clip in the preview and moves it with its own Transform",
   await up();
   const trackId = `source-clip:${spanId}`;
   await expect
-    .poll(
-      () => readLayerTransformPosition(project?.effects ?? [], trackId).y,
-    )
+    .poll(() => readLayerTransformPosition(project?.effects ?? [], trackId).y)
     .toBeGreaterThan(0.1);
   await expect
     .poll(() => (outline()?.getBoundingClientRect().y ?? 0) - (before?.y ?? 0))
