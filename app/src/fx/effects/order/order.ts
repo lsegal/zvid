@@ -6,7 +6,10 @@
 // covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
 import { parseCssColor, type Rgba } from "../../../fill-paint.ts";
-import type { OrderTransition } from "../../../fx-animation-defaults.ts";
+import type {
+  ClipMotion,
+  OrderTransition,
+} from "../../../fx-animation-defaults.ts";
 
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
@@ -36,7 +39,9 @@ export type CompositionOrder = {
   slide?: OrderSlide;
 };
 
-// An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`.
+// An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`,
+// eased by `motionIn` as a clip enters and `motionOut` as it exits; None
+// snaps it in or out with no slide.
 // `transition` is how a clip enters and exits, from the side of the
 // arrangement its slot is on: Push, when absent, slides it in from that
 // canvas edge, or fades it in between others; Squish grows it from zero
@@ -46,6 +51,8 @@ export type CompositionOrder = {
 export type OrderSlide = {
   frames: number;
   fps: number;
+  motionIn: ClipMotion;
+  motionOut: ClipMotion;
   transition?: OrderTransition;
   window?: { elapsedSeconds: number; remainingSeconds: number };
 };

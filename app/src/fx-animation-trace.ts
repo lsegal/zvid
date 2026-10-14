@@ -9,7 +9,6 @@ import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   clipAnimationWeight,
   clipSessionEdges,
-  ORDER_SLIDE_MOTION,
   type SessionEdges,
 } from "./fx-animation-clip.ts";
 import type {
@@ -48,10 +47,9 @@ function sampleTimes(
 
 // `count` samples of Clip mode's weight over the `seconds` up to `time`,
 // oldest first: 0..1 mapped onto -1..1, so the ease in, hold and ease out
-// fill the trace. Flat at -1 outside `span`, or with none. An Order slides
-// its clips with its own easing rather than Motion In and Out.
+// fill the trace. Flat at -1 outside `span`, or with none.
 export function sampleClipTrace(
-  clip: Pick<ClipAnimation, "motionIn" | "motionOut" | "transition">,
+  clip: Pick<ClipAnimation, "motionIn" | "motionOut">,
   frames: number,
   fps: number,
   span: AnimationClipSpan | undefined,
@@ -60,7 +58,6 @@ export function sampleClipTrace(
   seconds: number,
   into: Float32Array = new Float32Array(count),
 ) {
-  const motion = clip.transition ? ORDER_SLIDE_MOTION : clip;
   return sampleTimes(
     count,
     seconds,
@@ -71,7 +68,7 @@ export function sampleClipTrace(
         return -1;
       }
       const weight = clipAnimationWeight(
-        motion,
+        clip,
         frames,
         fps,
         elapsed,

@@ -28,12 +28,18 @@ import { easeMotion } from "./motion-easing.ts";
 const WIDTH = 1080;
 const HEIGHT = 1920;
 const FPS = 30;
-// Order's Normal timing, pushed in.
-const SLIDE: OrderSlide = { frames: 5, fps: FPS, transition: "Push" };
+// Order's Normal timing, pushed in, easing in and out.
+const SLIDE: OrderSlide = {
+  frames: 5,
+  fps: FPS,
+  motionIn: "Ease In Out",
+  motionOut: "Ease In Out",
+  transition: "Push",
+};
 
 // How far a clip `progress` of the way through its slide has slid in, or
-// how far one with `progress` of its slide left still is: an Order's slides
-// always ease in and out.
+// how far one with `progress` of its slide left still is, with `SLIDE`'s
+// motions.
 function ease(progress: number) {
   return easeMotion("Ease In Out", progress);
 }
@@ -551,22 +557,31 @@ describe("resolveOrderSlide", () => {
       const base = animation();
       assert.deepEqual(
         resolveOrderSlide({ ...base, clip: { ...base.clip, timing } }, 24),
-        { frames, fps: 24, transition: "Squish" },
+        {
+          frames,
+          fps: 24,
+          motionIn: "Ease Out",
+          motionOut: "Ease In",
+          transition: "Squish",
+        },
       );
     }
   });
 
-  it("ignores Motion In and Out, which an Order no longer has", () => {
+  it("eases its slides by Motion In and Out", () => {
     const base = animation();
-    for (const motion of ["None", "Linear", "Ease In"] as const) {
-      const saved = {
-        ...base,
-        clip: { ...base.clip, motionIn: motion, motionOut: motion },
-      };
-      assert.deepEqual(
-        resolveOrderSlide(saved, FPS),
-        resolveOrderSlide(base, FPS),
-      );
+    for (const [motionIn, motionOut] of [
+      ["None", "Linear"],
+      ["Ease In", "Ease In Out"],
+    ] as const) {
+      const saved = { ...base, clip: { ...base.clip, motionIn, motionOut } };
+      assert.deepEqual(resolveOrderSlide(saved, FPS), {
+        frames: 5,
+        fps: FPS,
+        motionIn,
+        motionOut,
+        transition: "Squish",
+      });
     }
   });
 
@@ -603,6 +618,8 @@ describe("resolveOrderSlide", () => {
     ];
     assert.deepEqual(findAnimatedOrder(effects, "global", FPS)?.slide, {
       ...SLIDE,
+      motionIn: "Ease Out",
+      motionOut: "Ease In",
       transition: "Squish",
     });
     assert.equal(
@@ -630,6 +647,30 @@ describe("resolveOrderSlide", () => {
     assert.equal(orderSlideWeight(SLIDE, 2, 4), 1);
     assert.equal(orderSlideWeight(SLIDE, 4, 4), 0);
     assert.equal(orderSlideWeight(SLIDE, 2 / FPS, 4), ease(2 / 5));
+  });
+
+  it("eases a clip in by Motion In and out by Motion Out", () => {
+    const slide: OrderSlide = {
+      ...SLIDE,
+      motionIn: "Ease Out",
+      motionOut: "Linear",
+    };
+    assert.equal(
+      orderSlideWeight(slide, 2 / FPS, 4),
+      easeMotion("Ease Out", 2 / 5),
+    );
+    assert.ok(Math.abs(orderSlideWeight(slide, 4 - 2 / FPS, 4) - 2 / 5) < 1e-9);
+  });
+
+  it("snaps a clip in or out with None", () => {
+    const snapIn: OrderSlide = { ...SLIDE, motionIn: "None" };
+    // Fully in from its first frame, but still slides out.
+    assert.equal(orderSlideWeight(snapIn, 0, 4), 1);
+    assert.equal(orderSlideWeight(snapIn, 2 / FPS, 4), 1);
+    assert.equal(orderSlideWeight(snapIn, 4 - 2 / FPS, 4), ease(2 / 5));
+    const snapOut: OrderSlide = { ...SLIDE, motionOut: "None" };
+    assert.equal(orderSlideWeight(snapOut, 4 - 2 / FPS, 4), 1);
+    assert.equal(orderSlideWeight(snapOut, 2 / FPS, 4), ease(2 / 5));
   });
 
   it("only slides at the ends of a clip the Order's clip is active for", () => {
@@ -709,7 +750,7 @@ describe("Order's own clip", () => {
 describe("Order Squish transition", () => {
   // 4 frames, so a slide is `ease(t)` of the way in 4t frames in, which is
   // `t` at each of `T`.
-  const SQUISH: OrderSlide = { frames: 4, fps: FPS, transition: "Squish" };
+  const SQUISH: OrderSlide = { ...SLIDE, frames: 4, transition: "Squish" };
   const T = [0, 0.5, 1];
   // Clips on layers 1 to 3 that play throughout, but for `moving`, which
   // enters at 2 s (or exits at 6 s), `t` of the way in.

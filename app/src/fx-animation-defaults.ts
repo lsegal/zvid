@@ -98,14 +98,22 @@ export type OrderTransition = (typeof ORDER_TRANSITIONS)[number];
 // Order sessions saved before Transition existed keep sliding.
 const LEGACY_ORDER_TRANSITION: OrderTransition = "Push";
 
-// An Order's slides ease the same way whatever `motionIn` and `motionOut`
-// say, and it has no Full timing.
+// How Order sessions saved before their slides followed Motion In and Out
+// eased them: the same both ways, so leaving was entering played backwards.
+const LEGACY_ORDER_SLIDE_MOTION: ClipMotion = "Ease In Out";
+
+// An Order's `motionIn` and `motionOut` ease its clips' slides into and out
+// of its arrangement, and it has no Full timing.
 export type ClipAnimation = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
   timing: ClipTiming;
   // Order only.
   transition?: OrderTransition;
+  // Order only: its slides follow `motionIn` and `motionOut`. An Order
+  // saved without it slid Ease In Out both ways whatever they said, and
+  // loads with those motions so it renders the same.
+  slideMotions?: true;
 };
 
 export type ReactiveAnimation = {
@@ -222,7 +230,7 @@ function withTransition(
 ): FxAnimationDefaults {
   return {
     ...effectDefaults,
-    clip: { ...effectDefaults.clip, transition },
+    clip: { ...effectDefaults.clip, transition, slideMotions: true },
   };
 }
 
@@ -536,16 +544,20 @@ export function normalizeEffectAnimation(
   }
 
   const clip = isRecord(raw.clip) ? raw.clip : {};
+  // An Order saved before its slides followed Motion In and Out keeps
+  // easing them the way it did.
+  const legacySlides =
+    fallback.clip.slideMotions === true && clip.slideMotions !== true;
   return {
     enabled: raw.enabled === true,
     mode: readOption(raw.mode, getAnimationModes(effectName), fallback.mode),
     clip: {
-      motionIn: readOption(clip.motionIn, CLIP_MOTIONS, fallback.clip.motionIn),
-      motionOut: readOption(
-        clip.motionOut,
-        CLIP_MOTIONS,
-        fallback.clip.motionOut,
-      ),
+      motionIn: legacySlides
+        ? LEGACY_ORDER_SLIDE_MOTION
+        : readOption(clip.motionIn, CLIP_MOTIONS, fallback.clip.motionIn),
+      motionOut: legacySlides
+        ? LEGACY_ORDER_SLIDE_MOTION
+        : readOption(clip.motionOut, CLIP_MOTIONS, fallback.clip.motionOut),
       timing: readOption(
         clip.timing,
         getClipTimings(effectName),
@@ -558,6 +570,7 @@ export function normalizeEffectAnimation(
               ORDER_TRANSITIONS,
               LEGACY_ORDER_TRANSITION,
             ),
+            slideMotions: true as const,
           }
         : {}),
     },
