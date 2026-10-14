@@ -953,12 +953,15 @@ describe("a session with a MIDI clip", () => {
     );
     assert.deepEqual(midiChainOf(keys), {
       generators: [{ ...DEFAULT_ARPEGGIATOR, pattern: "up-down" }],
-      synth: { ...DEFAULT_SYNTH_PARAMS, wave: "square", cutoff: 800 },
+      instrument: {
+        kind: "synth",
+        params: { ...DEFAULT_SYNTH_PARAMS, wave: "square", cutoff: 800 },
+      },
     });
     // A track that never set its synth played the default one.
     assert.deepEqual(midiChainOf(midiStack(project, "3")), {
       generators: [],
-      synth: DEFAULT_SYNTH_PARAMS,
+      instrument: { kind: "synth", params: DEFAULT_SYNTH_PARAMS },
     });
     // A placeholder has no notes to play.
     assert.deepEqual(midiStack(project, "2"), []);

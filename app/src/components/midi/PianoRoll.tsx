@@ -12,7 +12,7 @@ import {
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
 import { auditionNote } from "../../midi-audition.ts";
-import type { MidiNote, SynthParams } from "../../midi-clip.ts";
+import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
@@ -76,7 +76,7 @@ type PianoRollProps = {
   onSetNotes: SetMidiClipNotes;
   onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's Synth; tests listen instead.
-  onAudition?: (pitch: number, synth: SynthParams) => void;
+  onAudition?: (pitch: number, instrument: MidiInstrument) => void;
 };
 
 // A key row's height and a quarter note's width on the roll's grid.
@@ -136,7 +136,7 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // piano-roll-actions.ts): the arrows nudge them a snap (Shift for half) or a
 // semitone, Delete or Backspace deletes them, and Cmd/Ctrl+D, X, C and V
 // duplicate, cut, copy and paste, pasting at the playhead. Clicking a note or a key
-// auditions it through the clip's Synth. A read-only line follows the
+// auditions it through the clip's instrument. A read-only line follows the
 // transport playhead to the note sounding (see PianoRollPlayhead).
 export function PianoRoll({
   model,
@@ -146,7 +146,7 @@ export function PianoRoll({
   onSetTimeline,
   onAudition = auditionNote,
 }: PianoRollProps) {
-  const { spanId, label, accent, notes, timeline, synth } = model;
+  const { spanId, label, accent, notes, timeline, instrument } = model;
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const clock = useContext(FxModulationClockContext);
@@ -190,7 +190,7 @@ export function PianoRoll({
     }
   }, [spanId, collapsed]);
 
-  const audition = (pitch: number) => onAudition(pitch, synth);
+  const audition = (pitch: number) => onAudition(pitch, instrument);
 
   // The pitch and quarter (from the clip's content start) under a point of
   // the grid.

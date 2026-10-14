@@ -13,7 +13,8 @@
 //
 // A source clip with MIDI notes sounds like one with audio: it plays its
 // notes through the MIDI effects on its own stack, its Arpeggiators and
-// then its Synth (see midi-effects.ts and synth.ts).
+// then its instrument, a Synth or a Granular (see midi-effects.ts and
+// synth.ts).
 import { quartersToSeconds, secondsToQuarters } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
@@ -252,7 +253,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
-  // What each MIDI clip with notes and an enabled Synth plays, and the media
+  // What each MIDI clip with notes and an enabled instrument plays, and the media
   // id it plays as. A bypassed track's clips play no MIDI effects.
   const synthById = new Map(
     sourceSpans.flatMap((span) => {
@@ -278,7 +279,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
       );
       const synth: SynthClip = {
         notes,
-        params: chain.synth,
+        instrument: chain.instrument,
         durationSeconds,
       };
       const mediaId = synthMediaId(span.id, synth, bpm);
