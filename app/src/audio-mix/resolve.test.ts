@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { gainToAmplitude as dbToAmplitude } from "../fx/effects/gain/gain.ts";
+import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
 import {
   clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
-import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
 import { createEffect } from "../fx/stack/ops.ts";
 import {
   DEFAULT_GRANULAR_PARAMS,

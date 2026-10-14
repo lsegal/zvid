@@ -94,7 +94,10 @@ describe("granularSource", () => {
   it("is the same every time, a peak-normalized tone", () => {
     const source = granularSource(SAMPLE_RATE);
     assert.equal(granularSource(SAMPLE_RATE), source);
-    const peak = source.reduce((loudest, s) => Math.max(loudest, Math.abs(s)), 0);
+    const peak = source.reduce(
+      (loudest, s) => Math.max(loudest, Math.abs(s)),
+      0,
+    );
     assert.ok(Math.abs(peak - 1) < 1e-6);
     assert.equal(source.length, 2 * SAMPLE_RATE);
   });
@@ -128,7 +131,8 @@ describe("mixGrains", () => {
       rate: 1,
       level: 1,
     };
-    const window = (step: number) => 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / 9);
+    const window = (step: number) =>
+      0.5 - 0.5 * Math.cos((2 * Math.PI * step) / 9);
     const out = mixGrains([grain], 10, 10, source);
     const reads = [2, 3, 4, 3, 2, 1, 0, 1, 2, 3];
     for (const [step, read] of reads.entries()) {

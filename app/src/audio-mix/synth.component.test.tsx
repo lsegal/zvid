@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
-import { createEffect } from "../fx/stack/ops.ts";
+import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
+import { createEffect, setEffectParameter } from "../fx/stack/ops.ts";
+import type { SessionEffect } from "../fx/stack/types.ts";
 import { sourceClipEffectTrackId } from "../fx-stack.ts";
 import {
   DEFAULT_SYNTH_PARAMS,
@@ -33,6 +35,7 @@ function midiMix(
   notes = NOTES,
   synth?: SynthParams,
   noteGenerators?: NoteGenerator[],
+  instrument: SessionEffect = createSynthEffect(stackId, synth),
 ) {
   return resolveAudioClips({
     clips: [],
@@ -49,12 +52,12 @@ function midiMix(
       },
     ],
     mediaById: new Map(),
-    // The clip's own stack: its Arpeggiators, its Synth, then its Gain.
+    // The clip's own stack: its Arpeggiators, its instrument, then its Gain.
     effects: [
       ...(noteGenerators ?? []).map((arp) =>
         createArpeggiatorEffect(stackId, arp),
       ),
-      createSynthEffect(stackId, synth),
+      instrument,
       createEffect(stackId, "Gain", "gain"),
     ],
     bpm: BPM,
@@ -65,9 +68,10 @@ async function render(
   notes = NOTES,
   synth?: SynthParams,
   noteGenerators?: NoteGenerator[],
+  instrument?: SessionEffect,
 ) {
   const channels = await renderAudioMixOffline(
-    midiMix(notes, synth, noteGenerators),
+    midiMix(notes, synth, noteGenerators, instrument),
     [],
     {
       sampleRate: SAMPLE_RATE,
@@ -191,6 +195,46 @@ test("export renders an arpeggiated performance at the arpeggiator's rate", asyn
     expect(crossings).toBeGreaterThan(85);
     expect(crossings).toBeLessThan(115);
   }
+});
+
+test("export plays a MIDI clip through its Granular as grain clouds, the same every time", async () => {
+  const granular = createEffect(stackId, GRANULAR_EFFECT_NAME);
+  const held: MidiNote[] = [
+    { pitch: 60, start: 0, length: 2, velocity: 127 },
+    { pitch: 72, start: 4, length: 2, velocity: 127 },
+  ];
+  const samples = await render(held, undefined, undefined, granular);
+  expect(peak(samples, 0, 0.99)).toBe(0);
+  // Each note sounds while held, and the cloud is gone once it is released.
+  expect(peak(samples, 1.05, 1.95)).toBeGreaterThan(0.02);
+  expect(peak(samples, 3.05, 3.95)).toBeGreaterThan(0.02);
+  expect(peak(samples, 2.6, 2.99)).toBeLessThan(1e-4);
+  expect(peak(samples, 4.6, 6)).toBeLessThan(1e-4);
+  // The octave above reads the source twice as fast.
+  const low = zeroCrossings(samples, 1.2, 1.8);
+  const high = zeroCrossings(samples, 3.2, 3.8);
+  expect(high / low).toBeGreaterThan(1.6);
+  expect(high / low).toBeLessThan(2.4);
+  // The same notes render the same samples again.
+  const again = await render(held, undefined, undefined, granular);
+  expect(again).toEqual(samples);
+  // A sparser cloud of longer grains sounds different.
+  const sparse = await render(
+    held,
+    undefined,
+    undefined,
+    setEffectParameter(
+      setEffectParameter([granular], granular.id, "Density", 4),
+      granular.id,
+      "Grain Size",
+      0.3,
+    )[0],
+  );
+  let difference = 0;
+  for (let index = 0; index < samples.length; index++) {
+    difference = Math.max(difference, Math.abs(samples[index] - sparse[index]));
+  }
+  expect(difference).toBeGreaterThan(0.01);
 });
 
 // Hears the mix: the loudest sample since it was last asked.

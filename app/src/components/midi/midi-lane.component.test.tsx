@@ -21,6 +21,7 @@ import {
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
 import {
+  DEFAULT_GRANULAR_PARAMS,
   DEFAULT_INSTRUMENT,
   DEFAULT_SYNTH_PARAMS,
   type MidiInstrument,
@@ -281,6 +282,39 @@ test(
     await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
     await undo();
     await expect.poll(() => stackNames()).toEqual(["Synth"]);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "a MIDI clip plays through its first enabled instrument, a Synth or a Granular",
+  async () => {
+    const { chain, stackNames } = await open();
+    await selectBassline();
+    await addFromMenu("Add device to this clip", "MIDI", /^Granular/, "MIDI");
+    await expect.poll(() => stackNames()).toEqual(["Synth", "Granular"]);
+    const granular = page.getByRole("region", {
+      name: "Granular",
+      exact: true,
+    });
+    await expect
+      .element(granular.getByRole("slider", { name: "Grain Size" }))
+      .toBeVisible();
+    // The Synth comes first, so it still plays.
+    expect(chain()?.instrument.kind).toBe("synth");
+
+    // Bypassed, it leaves the Granular to play, whose edits it hears.
+    await userEvent.click(page.getByRole("button", { name: "Bypass Synth" }));
+    await expect.poll(() => chain()?.instrument.kind).toBe("granular");
+    const density = granular.getByRole("slider", { name: "Density" });
+    (density.element() as HTMLElement).focus();
+    await userEvent.keyboard("{ArrowUp}");
+    await expect
+      .poll(() => {
+        const instrument = chain()?.instrument;
+        return instrument?.kind === "granular" ? instrument.params.density : 0;
+      })
+      .toBeGreaterThan(DEFAULT_GRANULAR_PARAMS.density);
   },
   EDITOR_TEST_TIMEOUT,
 );

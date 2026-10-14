@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
-import type { SessionEffect } from "./fx/stack/types.ts";
 import { GRANULAR_EFFECT_NAME } from "./fx/effects/granular/granular.ts";
+import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
+import type { SessionEffect } from "./fx/stack/types.ts";
 import {
   DEFAULT_GRANULAR_PARAMS,
   DEFAULT_SYNTH_PARAMS,
@@ -87,7 +87,8 @@ describe("midiChainOf", () => {
 
   it("reads missing or invalid settings as their defaults", () => {
     const synth = createSynthEffect(STACK, undefined);
-    assert.deepEqual(midiChainOf([synth])?.instrument,
+    assert.deepEqual(
+      midiChainOf([synth])?.instrument,
       asSynth(DEFAULT_SYNTH_PARAMS),
     );
     assert.deepEqual(
@@ -116,13 +117,11 @@ describe("midiChainOf with a Granular", () => {
 
   it("plays through the first enabled instrument, Synth or Granular", () => {
     assert.deepEqual(
-      midiChainOf([granular(12), createSynthEffect(STACK, SQUARE)])
-        ?.instrument,
+      midiChainOf([granular(12), createSynthEffect(STACK, SQUARE)])?.instrument,
       { kind: "granular", params: { ...DEFAULT_GRANULAR_PARAMS, density: 12 } },
     );
     assert.deepEqual(
-      midiChainOf([createSynthEffect(STACK, SQUARE), granular(12)])
-        ?.instrument,
+      midiChainOf([createSynthEffect(STACK, SQUARE), granular(12)])?.instrument,
       asSynth(SQUARE),
     );
     // A bypassed instrument leaves the next one to play.
@@ -175,7 +174,8 @@ describe("addDefaultSynth", () => {
         ["own", STACK],
       ],
     );
-    assert.deepEqual(midiChainOf(next.slice(1))?.instrument,
+    assert.deepEqual(
+      midiChainOf(next.slice(1))?.instrument,
       asSynth(DEFAULT_SYNTH_PARAMS),
     );
   });
