@@ -255,3 +255,7 @@
   pointer-events: none;
   z-index: 1;
 }
+
+.piano-roll__menu {
+  display: contents;
+}

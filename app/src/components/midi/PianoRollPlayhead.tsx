@@ -12,20 +12,20 @@ export function PianoRollPlayhead({
   model,
   quarterPx,
 }: {
-  model: Pick<MidiClipModel, "startQ" | "trimStartQ" | "lengthQ" | "timeline">;
+  model: PlayheadModel;
   quarterPx: number;
 }) {
   const clock = useContext(FxModulationClockContext);
-  const { startQ, trimStartQ, lengthQ, timeline } = model;
   const left = useSyncExternalStore(
     clock?.signal.subscribe ?? noSubscription,
     () => {
-      const intoClipQ = (clock?.signal.get() ?? Number.NaN) - startQ;
-      return intoClipQ >= 0 && intoClipQ < lengthQ
-        ? Math.round(
-            midiSoundingQ(timeline, trimStartQ + intoClipQ) * quarterPx,
-          )
-        : undefined;
+      const soundingQ = pianoRollPlayheadQ(
+        model,
+        clock?.signal.get() ?? Number.NaN,
+      );
+      return soundingQ === undefined
+        ? undefined
+        : Math.round(soundingQ * quarterPx);
     },
   );
   return left === undefined ? null : (
@@ -36,6 +36,25 @@ export function PianoRollPlayhead({
       style={{ transform: `translateX(${left}px) translateX(-50%)` }}
     />
   );
+}
+
+type PlayheadModel = Pick<
+  MidiClipModel,
+  "startQ" | "trimStartQ" | "lengthQ" | "timeline"
+>;
+
+/**
+ * The note quarter (from the clip's content start) the clip sounds at
+ * timeline quarter `playheadQ`, or undefined outside the clip.
+ */
+export function pianoRollPlayheadQ(
+  { startQ, trimStartQ, lengthQ, timeline }: PlayheadModel,
+  playheadQ: number,
+) {
+  const intoClipQ = playheadQ - startQ;
+  return intoClipQ >= 0 && intoClipQ < lengthQ
+    ? midiSoundingQ(timeline, trimStartQ + intoClipQ)
+    : undefined;
 }
 
 function noSubscription() {
