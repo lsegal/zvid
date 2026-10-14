@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
+import { DRUM_RACK_EFFECT_NAME } from "../fx/effects/drum-rack/drum-rack.ts";
 import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
 import { createEffect, setEffectParameter } from "../fx/stack/ops.ts";
 import type { SessionEffect } from "../fx/stack/types.ts";
@@ -235,6 +236,41 @@ test("export plays a MIDI clip through its Granular as grain clouds, the same ev
     difference = Math.max(difference, Math.abs(samples[index] - sparse[index]));
   }
   expect(difference).toBeGreaterThan(0.01);
+});
+
+test("export plays a MIDI clip through its Drum Rack, fetching only the pads it hits", async () => {
+  const fetched: string[] = [];
+  const fetchBefore = window.fetch;
+  window.fetch = (input, init) => {
+    fetched.push(String(input instanceof Request ? input.url : input));
+    return fetchBefore(input, init);
+  };
+  try {
+    const rack = createEffect(stackId, DRUM_RACK_EFFECT_NAME);
+    // A kick (pad 1) at 1 s and a clap (pad 4) at 3 s, the second off the
+    // pads (note 60) at 2 s.
+    const hits: MidiNote[] = [
+      { pitch: 36, start: 0, length: 0.25, velocity: 127 },
+      { pitch: 60, start: 2, length: 0.25, velocity: 127 },
+      { pitch: 39, start: 4, length: 0.25, velocity: 64 },
+    ];
+    const samples = await render(hits, undefined, undefined, rack);
+    expect(peak(samples, 0, 0.99)).toBe(0);
+    expect(peak(samples, 1, 1.2)).toBeGreaterThan(0.1);
+    // The kick has died away before the note off the pads, which is silent.
+    expect(peak(samples, 2.6, 2.99)).toBeLessThan(1e-3);
+    expect(peak(samples, 3, 3.2)).toBeGreaterThan(0.02);
+    // Only the two pads it plays were fetched, from the 808 bank.
+    const banks = fetched.filter((url) => url.includes("/drum-banks/"));
+    expect(
+      banks.map((url) => url.replace(/^.*\/drum-banks\//, "")).sort(),
+    ).toEqual(["tr-808/01-kick.wav", "tr-808/04-clap.wav"]);
+    // The same notes render the same samples again.
+    const again = await render(hits, undefined, undefined, rack);
+    expect(again).toEqual(samples);
+  } finally {
+    window.fetch = fetchBefore;
+  }
 });
 
 // Hears the mix: the loudest sample since it was last asked.

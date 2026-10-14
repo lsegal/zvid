@@ -1,6 +1,6 @@
 // A MIDI clip is a source clip that carries notes instead of media. It
-// plays them through the instrument on its own stack, a Synth or a
-// Granular (see midi-effects.ts and audio-mix/synth.ts), in preview and
+// plays them through the instrument on its own stack, a Synth, a Granular
+// or a Drum Rack (see midi-effects.ts and audio-mix/synth.ts), in preview and
 // export alike. A clip without `notes` is not a MIDI clip: MIDI
 // clips imported from a Live set stay media-less placeholders that video can
 // be linked to, since the import does not read their notes.
@@ -118,10 +118,20 @@ export const GRANULAR_PARAM_RANGES: Record<
   resonance: { min: 0.0001, max: 30 },
 };
 
+/**
+ * What a Drum Rack plays: for each of its pads, pad 1 first, the URL of the
+ * one-shot sample it plays, or null for a pad that stays silent because its
+ * sample's media is offline (see fx/effects/drum-rack/drum-media.ts).
+ */
+export type DrumRackParams = {
+  samples: readonly (string | null)[];
+};
+
 /** The instrument a MIDI clip plays its notes through. */
 export type MidiInstrument =
   | { kind: "synth"; params: SynthParams }
-  | { kind: "granular"; params: GranularParams };
+  | { kind: "granular"; params: GranularParams }
+  | { kind: "drums"; params: DrumRackParams };
 
 /** The instrument a MIDI clip without one auditions its notes with. */
 export const DEFAULT_INSTRUMENT: MidiInstrument = {

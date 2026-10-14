@@ -1,6 +1,6 @@
-// A MIDI clip's MIDI effects: the Arpeggiators and instruments (Synths and
-// Granulars) on its own stack, which turn its notes into the performance
-// the mix plays (see audio-mix/resolve.ts). Its enabled Arpeggiators
+// A MIDI clip's MIDI effects: the Arpeggiators and instruments (Synths,
+// Granulars and Drum Racks) on its own stack, which turn its notes into
+// the performance the mix plays (see audio-mix/resolve.ts). Its enabled Arpeggiators
 // transform its notes in stack order and its first enabled instrument,
 // whichever kind it is, plays them; the instruments after it stay silent.
 // Without an enabled instrument it makes no sound. A new MIDI clip gets a Synth and no
@@ -17,6 +17,11 @@ import {
   rateOption,
   readArpeggiatorEffect,
 } from "./fx/effects/arpeggiator/arpeggiator.ts";
+import { drumRackParams } from "./fx/effects/drum-rack/drum-media.ts";
+import {
+  isDrumRackEffectName,
+  readDrumRackEffect,
+} from "./fx/effects/drum-rack/drum-rack.ts";
 import {
   isGranularEffectName,
   readGranularEffect,
@@ -57,20 +62,31 @@ export type MidiChain = {
 };
 
 function isInstrumentEffectName(effectName: string) {
-  return isSynthEffectName(effectName) || isGranularEffectName(effectName);
+  return (
+    isSynthEffectName(effectName) ||
+    isGranularEffectName(effectName) ||
+    isDrumRackEffectName(effectName)
+  );
 }
 
-// The instrument a Synth or Granular `effect` plays.
+// The instrument a Synth, Granular or Drum Rack `effect` plays.
 function readInstrument(effect: MidiChainEffect): MidiInstrument {
-  return isGranularEffectName(effect.effectName)
-    ? { kind: "granular", params: readGranularEffect(effect.parameters) }
-    : { kind: "synth", params: readSynthEffect(effect.parameters) };
+  if (isGranularEffectName(effect.effectName)) {
+    return { kind: "granular", params: readGranularEffect(effect.parameters) };
+  }
+  if (isDrumRackEffectName(effect.effectName)) {
+    return {
+      kind: "drums",
+      params: drumRackParams(readDrumRackEffect(effect.parameters)),
+    };
+  }
+  return { kind: "synth", params: readSynthEffect(effect.parameters) };
 }
 
 /**
  * The MIDI chain of a MIDI clip's own `stack`: its Arpeggiators in stack
  * order, bypassed ones passing notes through, and its first enabled
- * instrument, a Synth or a Granular. Undefined without an enabled
+ * instrument, a Synth, a Granular or a Drum Rack. Undefined without an enabled
  * instrument, when the clip makes no sound.
  */
 export function midiChainOf(

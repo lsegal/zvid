@@ -1,0 +1,138 @@
+/* The Drum Rack's bank menu over its 4x4 grid of pads, each a press area
+   with a corner menu for its sample. */
+.fx-drum-rack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fx-drum-rack__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fx-drum-rack__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-drum-rack__bank {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fx-drum-rack__pads {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  grid-template-columns: repeat(4, 72px);
+  gap: 4px;
+}
+
+.fx-drum-pad {
+  position: relative;
+  height: 52px;
+}
+
+.fx-drum-pad__hit {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 4px 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(11, 13, 19, 0.55);
+  color: var(--ink);
+  text-align: left;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+  touch-action: manipulation;
+}
+
+.fx-drum-pad__hit:hover,
+.fx-drum-pad__hit:focus-visible {
+  border-color: var(--fx-accent);
+  outline: none;
+}
+
+.fx-drum-pad.is-custom .fx-drum-pad__hit {
+  border-style: dashed;
+}
+
+.fx-drum-pad.is-offline .fx-drum-pad__hit {
+  border-color: var(--amber);
+  color: var(--muted);
+}
+
+.fx-drum-pad__hit:active,
+.fx-drum-pad.is-hit .fx-drum-pad__hit {
+  border-color: var(--fx-accent);
+  background: color-mix(in srgb, var(--fx-accent) 55%, transparent);
+  transition: none;
+}
+
+.fx-drum-pad.is-drop-target .fx-drum-pad__hit {
+  border-color: var(--fx-accent);
+  border-style: solid;
+}
+
+.fx-drum-pad__name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.fx-drum-pad__note {
+  color: var(--muted);
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.fx-drum-pad__menu {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.fx-drum-pad__menu svg {
+  width: 12px;
+  height: 12px;
+}
+
+.fx-drum-pad__menu:hover,
+.fx-drum-pad__menu:focus-visible,
+.fx-drum-pad__menu[data-state="open"] {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  outline: none;
+}
+
+.dropdown-menu-content.fx-layers-menu .fx-drum-rack__menu-action {
+  padding-left: 28px;
+}
