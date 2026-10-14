@@ -7,6 +7,7 @@ import {
   granularGrains,
   granularSource,
   mixGrains,
+  mixGrainsOffThread,
   seededRandom,
 } from "./granular.ts";
 
@@ -138,6 +139,49 @@ describe("mixGrains", () => {
     for (const [step, read] of reads.entries()) {
       assert.ok(Math.abs(out[step] - read * window(step)) < 1e-6);
     }
+  });
+
+  it("reads to and fro between the source's ends at any rate", () => {
+    const source = Float32Array.from({ length: 7 }, (_, at) => at * at);
+    const grain = {
+      startSeconds: 0.002,
+      durationSeconds: 0.05,
+      offset: 0.7,
+      rate: 2.3,
+      level: 0.8,
+    };
+    const out = mixGrains([grain], 1000, 60, source);
+    const last = source.length - 1;
+    const count = 50;
+    for (let index = 0; index < out.length; index++) {
+      const step = index - 2;
+      let expected = 0;
+      if (step >= 0 && step < count) {
+        const folded = (grain.offset * last + step * grain.rate) % (2 * last);
+        const read = folded > last ? 2 * last - folded : folded;
+        const whole = Math.min(last - 1, Math.floor(read));
+        const sample =
+          source[whole] + (source[whole + 1] - source[whole]) * (read - whole);
+        const window = 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (count - 1));
+        expected = grain.level * window * sample;
+      }
+      assert.ok(Math.abs(out[index] - expected) < 1e-5, `sample ${index}`);
+    }
+  });
+});
+
+describe("mixGrainsOffThread", () => {
+  it("mixes as mixGrains does where no worker can start", async () => {
+    const grains = granularGrains(
+      [NOTE],
+      { ...DEFAULT_GRANULAR_PARAMS, grainSize: 0.5, density: 100 },
+      BPM,
+      1,
+    );
+    assert.deepEqual(
+      await mixGrainsOffThread(grains, 8000, 8000),
+      mixGrains(grains, 8000, 8000),
+    );
   });
 });
 
