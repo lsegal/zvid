@@ -119,6 +119,8 @@ export type MediaItem = {
   durationSeconds: number;
   width?: number;
   height?: number;
+  // A video's frame rate, when its analysis read one.
+  fps?: number;
   hasAudio: boolean;
   hasVideo: boolean;
   previewUrl: string;

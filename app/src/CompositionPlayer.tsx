@@ -56,7 +56,11 @@ import type {
 } from "./composition-renderer-state.ts";
 import { findClipRetimes } from "./composition-retime.ts";
 import { findTransitionClips } from "./composition-transition.ts";
-import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
+import {
+  loadBlendedImages,
+  loadFrameAssets,
+  subscribeFrameAssets,
+} from "./frame-assets.ts";
 import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
@@ -275,6 +279,7 @@ export class CompositionRenderer {
     );
 
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
+    await loadBlendedImages(this.state.clips, this.mediaById, this.retimes);
     // Exact frames draw only from the compositor's own elements.
     const nextActiveClips = this.computeActiveClips(playheadQ, audio, false);
     this.syncMediaWindow(playheadQ);

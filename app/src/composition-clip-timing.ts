@@ -32,7 +32,7 @@ export type ActiveClipTiming = Pick<
 >;
 
 // The clips Retime plays at another speed, by clip id, and the frame rate
-// Blend counts a video's frames at.
+// Blend counts a video's frames at when its own isn't known.
 export type ClipRetimes = {
   byClip: ReadonlyMap<string, RetimeSettings>;
   frameRate: number;
@@ -199,9 +199,10 @@ function liveClipTimings(
 // Where a clip `retime` plays at another speed is drawn, given where it
 // would be (`warpedTime`, at `rate`): its media time scaled around the time
 // its start is drawn at and looped through its media. With Blend, it is
-// drawn at the middle of the source frame that time falls in, crossfaded
-// toward the next one. A video plays at the retimed rate; one that runs
-// backwards, stands still or blends is seeked to each frame instead.
+// drawn at the middle of the source frame that time falls in, a video's
+// counted at its own frame rate, crossfaded toward the next one. A video
+// plays at the retimed rate; one that runs backwards, stands still or
+// blends is seeked to each frame instead.
 function retimedTiming(
   clip: ArrangementClip,
   media: MediaItem,
@@ -226,7 +227,7 @@ function retimedTiming(
     retime.interpolation !== "Blend"
       ? undefined
       : media.kind === "video"
-        ? gridFrameSpans(seconds, frameRate)
+        ? gridFrameSpans(seconds, media.fps || frameRate)
         : imageFrameSpans(media, seconds);
   if (!spans) {
     return {

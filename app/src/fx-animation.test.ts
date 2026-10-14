@@ -71,8 +71,9 @@ function legacy(effect: SessionEffect): SessionEffect {
 }
 
 describe("animation support", () => {
-  // Layout, Mask and Shape have no knobs to animate.
-  it("is on every known effect except Layout, Mask, Scopes and the audio and MIDI effects", () => {
+  // Layout, Mask and Shape have no knobs to animate, and Retime's speed
+  // sets which frame is drawn before any animation applies.
+  it("is on every known effect except Layout, Mask, Scopes, Retime and the audio and MIDI effects", () => {
     assert.ok(KNOWN_EFFECTS.length > 1);
     assert.ok(KNOWN_EFFECTS.some(isAudioEffectName));
     for (const effectName of KNOWN_EFFECTS) {
@@ -81,6 +82,7 @@ describe("animation support", () => {
         effectName !== "Layout" &&
           effectName !== "Mask" &&
           effectName !== "Scopes" &&
+          effectName !== "Retime" &&
           !isAudioEffectName(effectName) &&
           !isMidiEffectName(effectName),
         effectName,
@@ -93,7 +95,7 @@ describe("animation support", () => {
     assert.equal(createDefaultAnimation("Mystery"), undefined);
   });
 
-  it("shows the Animation toggle on every video device but Layout, Mask and Scopes", () => {
+  it("shows the Animation toggle on every video device but Layout, Mask, Scopes and Retime", () => {
     const effects = KNOWN_EFFECTS.map((effectName) =>
       createEffect("6", effectName, effectName),
     );
@@ -105,6 +107,7 @@ describe("animation support", () => {
         device.effectName !== "Layout" &&
           device.effectName !== "Mask" &&
           device.effectName !== "Scopes" &&
+          device.effectName !== "Retime" &&
           device.domain === "video",
         device.effectName,
       );

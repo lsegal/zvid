@@ -22,8 +22,8 @@ const retimesCache = new WeakMap<
   }
 >();
 
-// The Retimes of `clips`, with Blend counting a video's frames at the
-// session's `frameRate`.
+// The Retimes of `clips`. Blend counts a video's frames at the session's
+// `frameRate` when the video's own isn't known.
 export function findClipRetimes(
   clips: readonly ArrangementClip[],
   effects: EffectIndex<SessionEffect>,
