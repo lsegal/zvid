@@ -28,7 +28,6 @@ export type FxPanelProps = Pick<
   | "fxPanelTitle"
   | "fxRecordTrack"
   | "fxSourceTrackId"
-  | "fxSynthTrack"
   | "fxMidiClip"
   | "orderLayerOptions"
 > &
@@ -53,8 +52,6 @@ export type FxPanelProps = Pick<
     | "setFxDeviceParameter"
     | "setLayerFxEnabled"
     | "setSourceTrackFxEnabled"
-    | "setSourceTrackSynth"
-    | "setSourceTrackArp"
     | "setMidiClipNotes"
     | "setMidiClipTimeline"
   > & {
@@ -69,8 +66,8 @@ export type FxPanelProps = Pick<
 // The collapsible FX panel under the editor: its header toggle, the title
 // for the selected layer or clip, and the FX chain. A source track's Record
 // device leads the chain, ahead of the selected source clip's properties,
-// even though it belongs to the track. A source track with MIDI clips adds
-// its Synth device, and a selected MIDI clip its piano roll, after those.
+// even though it belongs to the track. A selected MIDI clip adds its piano
+// roll after those; its Synth and Arpeggiator are effects on its own stack.
 export function FxPanel({
   addFxDevice,
   clearFxDevices,
@@ -91,7 +88,6 @@ export function FxPanel({
   fxPanelTitle,
   fxRecordTrack,
   fxSourceTrackId,
-  fxSynthTrack,
   fxMidiClip,
   isInspectorCollapsed,
   moveFxDevice,
@@ -108,8 +104,6 @@ export function FxPanel({
   setFxDeviceParameter,
   setLayerFxEnabled,
   setSourceTrackFxEnabled,
-  setSourceTrackSynth,
-  setSourceTrackArp,
   setMidiClipNotes,
   setMidiClipTimeline,
   sheetHeader,
@@ -165,11 +159,8 @@ export function FxPanel({
               <MidiDevices
                 {...collapse}
                 midiClip={fxMidiClip}
-                setArpeggiator={setSourceTrackArp}
                 setNotes={setMidiClipNotes}
                 setTimeline={setMidiClipTimeline}
-                setSynthParam={setSourceTrackSynth}
-                synthTrack={fxSynthTrack}
               />
             </>
           )}

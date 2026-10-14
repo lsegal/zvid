@@ -11,7 +11,9 @@ import { audioMixEndSeconds } from "./audio-mix/mix.ts";
 import { resolveAudioClips } from "./audio-mix/resolve.ts";
 import { synthVoices } from "./audio-mix/synth.ts";
 import { defaultExportRange } from "./export-options.ts";
+import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import { DEFAULT_SYNTH_PARAMS } from "./midi-clip.ts";
+import { createSynthEffect } from "./midi-effects.ts";
 import { resolveRenderClips } from "./render-clips.ts";
 import { projectToSession } from "./session-save.ts";
 import {
@@ -24,8 +26,8 @@ import {
 const BPM = 120;
 const BAR = 4;
 
-// A MIDI clip from quarter 8 to 12, its last note held to its end, on a
-// track whose synth releases over 2 seconds.
+// A MIDI clip from quarter 8 to 12, its last note held to its end, through
+// a Synth that releases over 2 seconds.
 const midiSpan: SourceSpan = {
   id: "m",
   sourceTrackId: "keys",
@@ -38,7 +40,11 @@ const midiSpan: SourceSpan = {
   trimStartSeconds: 0,
   notes: [{ pitch: 60, start: 0, length: 4, velocity: 100 }],
 };
-const keys = { id: "keys", synth: { ...DEFAULT_SYNTH_PARAMS, release: 2 } };
+const keys = { id: "keys" };
+const synth = createSynthEffect(sourceClipEffectTrackId("m"), {
+  ...DEFAULT_SYNTH_PARAMS,
+  release: 2,
+});
 
 function sessionOf(clips: ArrangementClip[], sourceSpans: SourceSpan[]) {
   const sourceTracks = [keys];
@@ -61,7 +67,7 @@ function sessionOf(clips: ArrangementClip[], sourceSpans: SourceSpan[]) {
     sourceTracks,
     sourceSpans,
     mediaById: new Map(),
-    effects: [],
+    effects: [synth],
     bpm: BPM,
   });
   return {

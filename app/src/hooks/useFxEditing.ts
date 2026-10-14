@@ -34,17 +34,12 @@ import {
   setEffectParameter,
   setLaneFxEnabled,
 } from "../fx-stack";
-import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { MidiNote } from "../midi-clip.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import {
-  midiHistoryLabels,
-  type SynthParamKey,
   setSourceSpanMidiTimeline,
   setSourceSpanNotes,
-  setSourceTrackArpeggiator,
-  setSourceTrackSynthParam,
 } from "../midi-editing.ts";
-import type { Arpeggiator } from "../note-generators.ts";
 import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
 import {
@@ -174,44 +169,6 @@ export function useFxEditing({
       );
     },
     [commitProjectChange, sourceTracks],
-  );
-
-  // The Synth device's edits to a source track's synth. Like a device
-  // parameter, a knob drag sends `transient` updates and its `commit`
-  // records the drag as one history entry.
-  const setSourceTrackSynth = useCallback(
-    <Key extends SynthParamKey>(
-      trackId: string,
-      key: Key,
-      value: SynthParams[Key],
-      mode: FxEditMode = "commit",
-    ) => {
-      const updater = (current: ProjectState) =>
-        setSourceTrackSynthParam(current, trackId, key, value);
-      dispatchProject(
-        mode === "transient"
-          ? { type: "transient", updater }
-          : {
-              type: "commit",
-              label: midiHistoryLabels.synthParam(key),
-              updater,
-            },
-      );
-    },
-    [dispatchProject],
-  );
-
-  // The Arpeggiator device's edits: `arp` replaces the track's arpeggiator,
-  // or removes it when undefined, as one history entry labeled `label`.
-  const setSourceTrackArp = useCallback(
-    (trackId: string, arp: Arpeggiator | undefined, label: string) =>
-      dispatchProject({
-        type: "commit",
-        label,
-        updater: (current: ProjectState) =>
-          setSourceTrackArpeggiator(current, trackId, arp),
-      }),
-    [dispatchProject],
   );
 
   // The piano roll's edits to a MIDI clip's notes: a note drag sends
@@ -462,8 +419,6 @@ export function useFxEditing({
     setSourceTrackFxEnabled,
     setLayerHidden,
     setSourceTrackHidden,
-    setSourceTrackSynth,
-    setSourceTrackArp,
     setMidiClipNotes,
     setMidiClipTimeline,
     setFxDeviceEnabled,

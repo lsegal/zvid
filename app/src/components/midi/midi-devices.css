@@ -1,38 +1,7 @@
-/* The Synth device and the piano roll reuse the FX device frame
-   (fx-chain.css). */
-.synth-device .fx-device-panel__title,
-.synth-device .fx-device-panel__name,
-.arp-device .fx-device-panel__title,
-.arp-device .fx-device-panel__name,
+/* The piano roll reuses the FX device frame (fx-chain.css). */
 .piano-roll .fx-device-panel__title,
 .piano-roll .fx-device-panel__name {
   cursor: default;
-}
-
-/* The Synth title's note glyph, in the slot an effect's power button
-   takes. */
-.synth-device__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  color: var(--fx-accent);
-}
-
-.synth-device__icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* The wave choice spans the top; each knob row is led by its label. */
-.synth-device__body {
-  grid-template-columns: auto repeat(4, auto);
-}
-
-/* Each row starts under the last, however few knobs the one before has. */
-.synth-device__body .fx-device-panel__row-label {
-  grid-column: 1;
 }
 
 /* The piano roll: keys down the left, the clip's window across, scrolling
@@ -260,16 +229,4 @@
 .piano-roll__grid--resizing,
 .piano-roll__grid--resizing .piano-roll__note {
   cursor: ew-resize;
-}
-
-/* The Arpeggiator's settings stack, one segmented choice per row. */
-.arp-device__body {
-  grid-template-columns: auto;
-}
-
-/* The add strip's plus sits above its label. */
-.arp-device__add-icon {
-  width: 14px;
-  height: 14px;
-  color: var(--fx-accent);
 }

@@ -1,4 +1,4 @@
-// Auditions a note through a track's synth when the piano roll's note or key
+// Auditions a note through a MIDI clip's Synth when the piano roll's note or key
 // is clicked: one voice like the ones the mix renders (see
 // audio-mix/synth.ts), played straight away on a context of its own,
 // suspended again once nothing is sounding.

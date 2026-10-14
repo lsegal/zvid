@@ -5,6 +5,7 @@ import type { EffectPass } from "../../fx-shaders/types.ts";
 import type { FxEffectDefinitionModule } from "../types.ts";
 import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
+import * as arpeggiator from "./arpeggiator/definition.ts";
 import * as autoPan from "./auto-pan/definition.ts";
 import * as bitcrush from "./bitcrush/definition.ts";
 import * as bloom from "./bloom/definition.ts";
@@ -61,6 +62,7 @@ import { pass as scopesPass } from "./scopes/pass.ts";
 import * as shape from "./shape/definition.ts";
 import { pass as shapePass } from "./shape/pass.ts";
 import * as stereo from "./stereo/definition.ts";
+import * as synth from "./synth/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as transientShaper from "./transient-shaper/definition.ts";
@@ -72,6 +74,7 @@ import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 // Every effect folder's definition.ts, in folder order.
 export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
+  arpeggiator,
   autoPan,
   bitcrush,
   bloom,
@@ -112,6 +115,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   scopes,
   shape,
   stereo,
+  synth,
   text,
   transform,
   transientShaper,

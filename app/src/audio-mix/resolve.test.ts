@@ -7,8 +7,9 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
-import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
-import { DEFAULT_ARPEGGIATOR, type NoteGenerator } from "../note-generators.ts";
+import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "../midi-clip.ts";
+import { createArpeggiatorEffect, createSynthEffect } from "../midi-effects.ts";
+import { type Arpeggiator, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
 
@@ -389,19 +390,24 @@ describe("resolveAudioClips with MIDI clips", () => {
       notes,
     };
   }
+  // A Synth, or an Arpeggiator, on the MIDI clip `spanId`'s own stack.
+  const synthOn = (spanId: string, params?: SynthParams) =>
+    createSynthEffect(sourceClipEffectTrackId(spanId), params);
+  const arpOn = (spanId: string, arp: Arpeggiator) =>
+    createArpeggiatorEffect(sourceClipEffectTrackId(spanId), arp);
 
-  it("plays a MIDI clip's notes through its track's synth", () => {
+  it("plays a MIDI clip's notes through the Synth on its own stack", () => {
     const synth = { ...DEFAULT_SYNTH_PARAMS, wave: "sine" as const };
     const mix = resolveAudioClips(
       inputs({
-        sourceTracks: [{ id: "track-1" }, { id: "keys", synth }],
+        sourceTracks: [{ id: "track-1" }, { id: "keys" }],
         sourceSpans: [span("a", "track-1", "tone"), midiSpan("m", "keys", 4)],
-        effects: [gain(sourceClipEffectTrackId("m"))],
+        effects: [synthOn("m", synth), gain(sourceClipEffectTrackId("m"))],
       }),
     );
     const clip = mix.clips.find((item) => item.id === sourceRenderClipId("m"));
     assert.ok(clip?.synth);
-    assert.equal(clip.synth.params, synth);
+    assert.deepEqual(clip.synth.params, synth);
     assert.equal(clip.synth.notes, notes);
     // It renders from its content start to the end of its window.
     assert.equal(clip.synth.durationSeconds, 2.5);
@@ -413,6 +419,42 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.equal(clip.busId, "keys");
     assert.equal(clip.amplitude, 1);
     assert.match(clip.mediaId, /^synth:m:/);
+    // The Synth is no audio stage of the clip's chain.
+    assert.deepEqual(
+      clip.effects.map((effect) => effect.effectName),
+      ["Gain"],
+    );
+  });
+
+  it("leaves a MIDI clip without an enabled Synth silent", () => {
+    const mixOf = (effects: AudioMixInputs["effects"]) =>
+      resolveAudioClips(
+        inputs({
+          sourceTracks: [{ id: "keys" }],
+          sourceSpans: [midiSpan("m", "keys")],
+          effects,
+        }),
+      ).clips;
+    assert.equal(mixOf([synthOn("m")]).length, 1);
+    assert.deepEqual(mixOf([]), []);
+    assert.deepEqual(mixOf([{ ...synthOn("m"), enabled: false }]), []);
+    // Another clip's or the track's Synth does not play it.
+    assert.deepEqual(mixOf([synthOn("other")]), []);
+    assert.deepEqual(
+      mixOf([{ ...synthOn("m"), trackId: sourceTrackEffectTrackId("keys") }]),
+      [],
+    );
+  });
+
+  it("bypasses a MIDI clip's Synth with its track's FX switch", () => {
+    const mix = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "keys", fxEnabled: false }],
+        sourceSpans: [midiSpan("m", "keys")],
+        effects: [synthOn("m")],
+      }),
+    );
+    assert.deepEqual(mix.clips, []);
   });
 
   it("plays a looped clip's Start pass, then its loop, to the clip's end", () => {
@@ -436,6 +478,7 @@ describe("resolveAudioClips with MIDI clips", () => {
             },
           },
         ],
+        effects: [synthOn("m")],
       }),
     );
     const synth = mix.clips[0].synth;
@@ -452,15 +495,13 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.equal(synth?.durationSeconds, 2.5);
   });
 
-  it("renders again when its notes or its track's synth change", () => {
-    const mixOf = (
-      spanNotes: typeof notes,
-      synth?: typeof DEFAULT_SYNTH_PARAMS,
-    ) =>
+  it("renders again when its notes or its Synth change", () => {
+    const mixOf = (spanNotes: typeof notes, synth?: SynthParams) =>
       resolveAudioClips(
         inputs({
-          sourceTracks: [{ id: "keys", ...(synth ? { synth } : {}) }],
+          sourceTracks: [{ id: "keys" }],
           sourceSpans: [{ ...midiSpan("m", "keys"), notes: spanNotes }],
+          effects: [synthOn("m", synth)],
         }),
       ).clips[0].mediaId;
     const id = mixOf(notes);
@@ -469,25 +510,25 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.equal(mixOf(notes, DEFAULT_SYNTH_PARAMS), id);
   });
 
-  it("plays a clip's notes through its track's arpeggiator, on the beat grid", () => {
+  it("plays a clip's notes through its Arpeggiators, on the beat grid", () => {
     const chord = [
       { pitch: 60, start: 0, length: 4, velocity: 100 },
       { pitch: 64, start: 0, length: 4, velocity: 100 },
     ];
-    const mixOf = (noteGenerators?: NoteGenerator[]) =>
+    const mixOf = (arps: Arpeggiator[], startQ = 3) =>
       resolveAudioClips(
         inputs({
-          sourceTracks: [
-            { id: "keys", ...(noteGenerators ? { noteGenerators } : {}) },
-          ],
-          // Its quarter 0 falls at track quarter 3 - 1 = 2, on the grid.
+          sourceTracks: [{ id: "keys" }],
+          // At startQ 3 its quarter 0 falls at track quarter 3 - 1 = 2, on
+          // the grid.
           sourceSpans: [
             {
-              ...midiSpan("m", "keys", 3),
+              ...midiSpan("m", "keys", startQ),
               notes: chord,
               durationSeconds: 1.5,
             },
           ],
+          effects: [...arps.map((arp) => arpOn("m", arp)), synthOn("m")],
         }),
       ).clips[0];
     const arp = { ...DEFAULT_ARPEGGIATOR, rate: 1 as const };
@@ -502,22 +543,14 @@ describe("resolveAudioClips with MIDI clips", () => {
       ],
     );
     // Bypassing or removing it plays the clip's own notes again.
-    const plain = mixOf();
+    const plain = mixOf([]);
     assert.equal(plain.synth?.notes, chord);
     assert.equal(mixOf([{ ...arp, enabled: false }]).mediaId, plain.mediaId);
     assert.notEqual(arpeggiated.mediaId, plain.mediaId);
 
     // A clip whose quarter 0 is off the grid steps on the grid lines.
-    const offGrid = resolveAudioClips(
-      inputs({
-        sourceTracks: [{ id: "keys", noteGenerators: [arp] }],
-        sourceSpans: [
-          { ...midiSpan("m", "keys", 3.5), notes: chord, durationSeconds: 1.5 },
-        ],
-      }),
-    ).clips[0];
     assert.deepEqual(
-      offGrid.synth?.notes.map((note) => note.start),
+      mixOf([arp], 3.5).synth?.notes.map((note) => note.start),
       [0.5, 1.5, 2.5, 3.5],
     );
   });
@@ -529,12 +562,13 @@ describe("resolveAudioClips with MIDI clips", () => {
           { ...midiSpan("empty", "track-1"), notes: [] },
           { ...midiSpan("placeholder", "track-2"), notes: undefined },
         ],
+        effects: [synthOn("empty"), synthOn("placeholder")],
       }),
     );
     assert.deepEqual(mix.clips, []);
   });
 
-  it("plays a layer clip's window over a MIDI clip through the synth", () => {
+  it("plays a layer clip's window over a MIDI clip through its Synth", () => {
     const clip = { ...layerClip("video", "lane-1", undefined), mediaPath: "" };
     const mix = resolveAudioClips(
       inputs({
@@ -547,6 +581,7 @@ describe("resolveAudioClips with MIDI clips", () => {
             trimStartSeconds: 1,
           },
         ],
+        effects: [synthOn(clip.sourceSpanId)],
       }),
     );
     assert.equal(mix.fromSourceTracks, false);

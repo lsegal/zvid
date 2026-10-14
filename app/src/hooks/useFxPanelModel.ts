@@ -73,10 +73,14 @@ export function useFxPanelModel({
     [effects, sourceStacks, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
+  // A MIDI clip's stack is "midi": it offers MIDI effects and, having no
+  // picture, no video ones.
   const fxKind = sourceStacks
-    ? sourceStacks.mediaId
-      ? mediaItemsById.get(sourceStacks.mediaId)?.kind
-      : undefined
+    ? sourceStacks.midi
+      ? "midi"
+      : sourceStacks.mediaId
+        ? mediaItemsById.get(sourceStacks.mediaId)?.kind
+        : undefined
     : getFxKind(selectedClip, mediaItemsById);
   const playheadVisualLaneIds = useMemo(
     () =>
@@ -151,9 +155,9 @@ export function useFxPanelModel({
     ],
   );
   const fxPanelTitle = getFxPanelTitle(fxLayerName, fxClipName);
-  const { fxSynthTrack, fxMidiClip } = useMemo(
-    () => getMidiPanelModel(sourceSelection, sourceTracks, sourceSpans, bpm),
-    [bpm, sourceSelection, sourceSpans, sourceTracks],
+  const { fxMidiClip } = useMemo(
+    () => getMidiPanelModel(sourceSelection, sourceSpans, effects, bpm),
+    [bpm, effects, sourceSelection, sourceSpans],
   );
 
   return {
@@ -179,9 +183,7 @@ export function useFxPanelModel({
       ? sourceStacks.trackFxEnabled
       : isLayerFxEnabled(fxLane),
     fxClipTrackId,
-    // The selected source track's synth, while it has MIDI clips, and the
-    // selected MIDI clip the piano roll edits.
-    fxSynthTrack,
+    // The selected MIDI clip the piano roll edits.
     fxMidiClip,
     orderLayerOptions,
     fxClipLayerOptions,

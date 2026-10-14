@@ -9,6 +9,8 @@ import {
 } from "./fx/effects/gain/gain.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import { sourceClipEffectTrackId } from "./fx-stack.ts";
+import { DEFAULT_SYNTH_PARAMS } from "./midi-clip.ts";
+import { midiChainOf } from "./midi-effects.ts";
 import {
   canPasteIntoSourceTrack,
   createMidiClip,
@@ -420,7 +422,7 @@ describe("createMidiClip", () => {
     ]);
   });
 
-  it("gives the clip a Gain at 0 dB so it sounds, keeping other stacks", () => {
+  it("leads the clip's stack with a Synth and a 0 dB Gain, keeping other stacks", () => {
     const other = effect("fx", sourceClipEffectTrackId("a"));
     const patch = createMidiClip(
       project([], { effects: [other] }),
@@ -433,10 +435,15 @@ describe("createMidiClip", () => {
       patch?.effects?.filter(
         (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
       ) ?? [];
+    // It sounds through a default Synth, with no Arpeggiator.
     assert.deepEqual(
       stack.map((effect) => effect.effectName),
-      [GAIN_EFFECT_NAME],
+      ["Synth", GAIN_EFFECT_NAME],
     );
+    assert.deepEqual(midiChainOf(stack), {
+      generators: [],
+      synth: DEFAULT_SYNTH_PARAMS,
+    });
     assert.equal(gainChainAmplitude(stack), 1);
     assert.equal(patch?.effects?.[0], other);
   });

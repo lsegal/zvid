@@ -96,6 +96,12 @@ export function isAudioEffectName(effectName: string) {
   return getEffectDomain(getEffectDefinition(effectName)) === "audio";
 }
 
+// Whether `effectName` is a MIDI effect, which only MIDI clips' stacks
+// offer (see midi-effects.ts).
+export function isMidiEffectName(effectName: string) {
+  return getEffectDomain(getEffectDefinition(effectName)) === "midi";
+}
+
 export function isHiddenParameterKey(key: string) {
   return key.startsWith(HIDDEN_PARAMETER_PREFIX);
 }

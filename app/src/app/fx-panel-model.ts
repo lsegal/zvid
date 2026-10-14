@@ -135,7 +135,10 @@ export function getFxClipScope(
 export function getSourceFxStacks(
   selection: SourceSelection | undefined,
   sourceTracks: readonly Pick<SourceTrack, "id" | "name" | "fxEnabled">[],
-  sourceSpans: readonly Pick<SourceSpan, "id" | "label" | "mediaId">[],
+  sourceSpans: readonly Pick<
+    SourceSpan,
+    "id" | "label" | "mediaId" | "notes"
+  >[],
 ) {
   if (!selection) {
     return undefined;
@@ -158,5 +161,7 @@ export function getSourceFxStacks(
     clipStackId: span ? sourceClipEffectTrackId(span.id) : undefined,
     clipName: span ? getFxClipName(span.label) : undefined,
     mediaId: span?.mediaId,
+    // A MIDI clip's stack is the only one offering MIDI effects.
+    midi: span?.notes !== undefined,
   };
 }

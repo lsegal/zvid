@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { warpSourceTime } from "../clip-warp.ts";
 import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
-import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
+import {
+  type SessionEffect,
+  setEffectParameter,
+  sourceClipEffectTrackId,
+} from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
+import { midiChainOf } from "../midi-effects.ts";
 import { DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import type { ProjectSession } from "../session.ts";
 import { projectToSession } from "../session-save.ts";
@@ -901,8 +906,31 @@ describe("a session with a MIDI clip", () => {
       { id: "2", trackId: "bass", frameStart: 0, frameCount: 60, filePath: "" },
     ],
   };
+  // With a MIDI clip on a Pad track that never set its synth.
+  const withPad: ProjectSession = {
+    ...session,
+    tracks: [...(session.tracks ?? []), { id: "pad", name: "Pad" }],
+    clips: [
+      ...(session.clips ?? []),
+      {
+        id: "3",
+        trackId: "pad",
+        frameStart: 0,
+        frameCount: 60,
+        filePath: "",
+        notes: [{ pitch: 67, start: 0, length: 2, velocity: 80 }],
+      },
+    ],
+  };
+  // The MIDI effects on the source clip `clipId`'s own stack, by name.
+  const midiStack = (project: { effects: SessionEffect[] }, clipId: string) =>
+    project.effects.filter(
+      (effect) =>
+        effect.trackId === sourceClipEffectTrackId(`source-${clipId}`) &&
+        effect.effectName !== "Gain",
+    );
 
-  it("opens its notes on the clip and its synth on the track", () => {
+  it("opens its notes on the clip", () => {
     const project = sessionToProject(session, []);
     const [midi, placeholder] = project.sourceSpans;
     assert.deepEqual(midi.notes, [
@@ -910,13 +938,30 @@ describe("a session with a MIDI clip", () => {
       { pitch: 64, start: 1, length: 0.5, velocity: 90 },
     ]);
     assert.equal("notes" in placeholder, false);
-    assert.equal(project.sourceTracks[0].synth?.wave, "square");
-    assert.equal(project.sourceTracks[0].synth?.cutoff, 800);
-    assert.equal("synth" in project.sourceTracks[1], false);
-    assert.deepEqual(project.sourceTracks[0].noteGenerators, [
-      { ...DEFAULT_ARPEGGIATOR, pattern: "up-down" },
-    ]);
-    assert.equal("noteGenerators" in project.sourceTracks[1], false);
+  });
+
+  it("moves its tracks' synths and arpeggiators onto their MIDI clips", () => {
+    const project = sessionToProject(withPad, []);
+    for (const track of project.sourceTracks) {
+      assert.equal("synth" in track, false);
+      assert.equal("noteGenerators" in track, false);
+    }
+    const keys = midiStack(project, "1");
+    assert.deepEqual(
+      keys.map((effect) => effect.effectName),
+      ["Arpeggiator", "Synth"],
+    );
+    assert.deepEqual(midiChainOf(keys), {
+      generators: [{ ...DEFAULT_ARPEGGIATOR, pattern: "up-down" }],
+      synth: { ...DEFAULT_SYNTH_PARAMS, wave: "square", cutoff: 800 },
+    });
+    // A track that never set its synth played the default one.
+    assert.deepEqual(midiChainOf(midiStack(project, "3")), {
+      generators: [],
+      synth: DEFAULT_SYNTH_PARAMS,
+    });
+    // A placeholder has no notes to play.
+    assert.deepEqual(midiStack(project, "2"), []);
   });
 
   it("saves them as it opened them", () => {
@@ -929,28 +974,48 @@ describe("a session with a MIDI clip", () => {
       saved.clips?.map((clip) => clip.notes),
       [project.sourceSpans[0].notes, undefined],
     );
-    assert.deepEqual(
-      saved.tracks?.map((track) => track.synth),
-      [project.sourceTracks[0].synth, undefined],
-    );
-    assert.deepEqual(
-      saved.tracks?.map((track) => track.noteGenerators),
-      [project.sourceTracks[0].noteGenerators, undefined],
-    );
+    assert.equal(saved.midiClipEffects, true);
+    for (const track of saved.tracks ?? []) {
+      assert.equal("synth" in track, false);
+      assert.equal("noteGenerators" in track, false);
+    }
     const reopened = sessionToProject(saved, []);
     assert.deepEqual(
       reopened.sourceSpans[0].notes,
       project.sourceSpans[0].notes,
     );
+    const names = (stack: SessionEffect[]) =>
+      stack.map((effect) => [effect.id, effect.effectName]);
     assert.deepEqual(
-      reopened.sourceTracks[0].synth,
-      project.sourceTracks[0].synth,
+      names(midiStack(reopened, "1")),
+      names(midiStack(project, "1")),
     );
     assert.deepEqual(
-      reopened.sourceTracks[0].noteGenerators,
-      project.sourceTracks[0].noteGenerators,
+      midiChainOf(midiStack(reopened, "1")),
+      midiChainOf(midiStack(project, "1")),
     );
   });
+
+  it("keeps a removed Synth removed once saved", () => {
+    const project = sessionToProject(withPad, []);
+    const saved = projectToSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        effects: project.effects.filter(
+          (effect) => effect.effectName !== "Synth",
+        ),
+      },
+      { playheadQ: 0 },
+    );
+    const reopened = sessionToProject(saved, []);
+    assert.deepEqual(
+      midiStack(reopened, "1").map((effect) => effect.effectName),
+      ["Arpeggiator"],
+    );
+    assert.deepEqual(midiStack(reopened, "3"), []);
+  });
+
   it("saves and reopens a clip's Length, loop and Start marker", () => {
     const project = sessionToProject(session, []);
     const midiTimeline = {

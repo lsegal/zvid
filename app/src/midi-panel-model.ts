@@ -1,23 +1,20 @@
-// What the FX panel's Synth device and piano roll show for the source
-// selection: the selected source track's synth, once the track has MIDI
-// clips, and the selected source clip when it is a MIDI clip.
+// What the FX panel's piano roll shows for the source selection: the
+// selected source clip when it is a MIDI clip.
 import type { SourceSelection } from "./app/source-selection.ts";
 import { getClipDurationQ, secondsToQuarters } from "./app/timeline-math.ts";
-import type { SourceSpan, SourceTrack } from "./app/types.ts";
-import { type MidiNote, type SynthParams, synthParamsOf } from "./midi-clip.ts";
+import type { SourceSpan } from "./app/types.ts";
+import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
+import type { SessionEffect } from "./fx/stack/types.ts";
+import {
+  DEFAULT_SYNTH_PARAMS,
+  type MidiNote,
+  type SynthParams,
+} from "./midi-clip.ts";
 import {
   defaultMidiTimeline,
   type MidiClipTimeline,
 } from "./midi-clip-timeline.ts";
-import { type Arpeggiator, arpeggiatorOf } from "./note-generators.ts";
-
-export type SynthTrackModel = {
-  trackId: string;
-  trackName: string;
-  synth: SynthParams;
-  // Its arpeggiator, when its chain has one.
-  arpeggiator?: Arpeggiator;
-};
+import { auditionSynthOf } from "./midi-effects.ts";
 
 export type MidiClipModel = {
   spanId: string;
@@ -30,41 +27,25 @@ export type MidiClipModel = {
   // Its Length, loop brace and Start marker, or the default for a clip
   // that has never set them (see midi-clip-timeline.ts).
   timeline: MidiClipTimeline;
-  // Its track's synth, which auditions its notes.
+  // Its Synth's settings, which audition its notes: the default synth's
+  // when it has none.
   synth: SynthParams;
 };
 
 export function getMidiPanelModel(
   selection: SourceSelection | undefined,
-  sourceTracks: readonly SourceTrack[],
   sourceSpans: readonly SourceSpan[],
+  effects: readonly SessionEffect[],
   bpm: number,
-): { fxSynthTrack?: SynthTrackModel; fxMidiClip?: MidiClipModel } {
-  const track = selection
-    ? sourceTracks.find((candidate) => candidate.id === selection.sourceTrackId)
+): { fxMidiClip?: MidiClipModel } {
+  const span = selection?.sourceSpanId
+    ? sourceSpans.find((candidate) => candidate.id === selection.sourceSpanId)
     : undefined;
-  if (
-    !track ||
-    !sourceSpans.some((span) => span.sourceTrackId === track.id && span.notes)
-  ) {
+  if (!span?.notes) {
     return {};
   }
-  const synth = synthParamsOf(track.synth);
-  const arpeggiator = arpeggiatorOf(track.noteGenerators);
-  const fxSynthTrack: SynthTrackModel = {
-    trackId: track.id,
-    trackName: track.name,
-    synth,
-    ...(arpeggiator ? { arpeggiator } : {}),
-  };
-  const span = sourceSpans.find(
-    (candidate) => candidate.id === selection?.sourceSpanId,
-  );
-  if (!span?.notes) {
-    return { fxSynthTrack };
-  }
+  const stackId = sourceClipEffectTrackId(span.id);
   return {
-    fxSynthTrack,
     fxMidiClip: {
       spanId: span.id,
       label: span.label,
@@ -73,7 +54,10 @@ export function getMidiPanelModel(
       trimStartQ: secondsToQuarters(span.trimStartSeconds, bpm),
       lengthQ: getClipDurationQ(span, bpm),
       timeline: midiTimelineOf(span, bpm),
-      synth,
+      synth:
+        auditionSynthOf(
+          effects.filter((effect) => effect.trackId === stackId),
+        ) ?? DEFAULT_SYNTH_PARAMS,
     },
   };
 }
@@ -97,8 +81,6 @@ export function midiTimelineOf(
   );
 }
 
-// The FX chain's fold keys for the Synth device and the piano roll, kept
-// with the devices' (see fx-chain.ts).
-export const SYNTH_COLLAPSE_KEY = "synth";
-export const ARPEGGIATOR_COLLAPSE_KEY = "arpeggiator";
+// The FX chain's fold key for the piano roll, kept with the devices' (see
+// fx-chain.ts).
 export const PIANO_ROLL_COLLAPSE_KEY = "midi-notes";

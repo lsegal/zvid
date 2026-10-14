@@ -116,7 +116,7 @@ describe("zvid opening sample", () => {
   it("uses every registered video effect", () => {
     const used = new Set((session.effects ?? []).map((e) => e.effectName));
     const missing = FX_EFFECT_DEFINITIONS.filter(
-      (definition) => definition.domain !== "audio",
+      (definition) => (definition.domain ?? "video") === "video",
     )
       .map((definition) => definition.effectName)
       .filter((name) => !used.has(name));

@@ -32,6 +32,7 @@ import {
   FX_EFFECT_DEFINITIONS,
   getEffectDefinition,
   isAudioEffectName,
+  isMidiEffectName,
 } from "./fx-registry.ts";
 import {
   addEffect,
@@ -71,7 +72,7 @@ function legacy(effect: SessionEffect): SessionEffect {
 
 describe("animation support", () => {
   // Layout, Mask and Shape have no knobs to animate.
-  it("is on every known effect except Layout, Mask, Scopes and the audio effects", () => {
+  it("is on every known effect except Layout, Mask, Scopes and the audio and MIDI effects", () => {
     assert.ok(KNOWN_EFFECTS.length > 1);
     assert.ok(KNOWN_EFFECTS.some(isAudioEffectName));
     for (const effectName of KNOWN_EFFECTS) {
@@ -80,7 +81,8 @@ describe("animation support", () => {
         effectName !== "Layout" &&
           effectName !== "Mask" &&
           effectName !== "Scopes" &&
-          !isAudioEffectName(effectName),
+          !isAudioEffectName(effectName) &&
+          !isMidiEffectName(effectName),
         effectName,
       );
     }

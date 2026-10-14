@@ -153,10 +153,13 @@ export const ALL_SCOPES: readonly FxEffectScope[] = [
   "fxClip",
 ];
 
-// What an effect processes: the picture (`video`) or the sound (`audio`).
-// Both kinds share a stack and its order; video passes skip audio effects
-// and the audio engine skips video ones.
-export type FxEffectDomain = "video" | "audio";
+// What an effect processes: the picture (`video`), the sound (`audio`) or a
+// MIDI clip's notes (`midi`), which MIDI effects turn into notes or play
+// as sound ahead of the clip's audio effects. All kinds share a stack and
+// its order; video passes skip audio and MIDI effects, and the audio engine
+// reads a MIDI clip's MIDI effects before its audio ones (see
+// midi-effects.ts).
+export type FxEffectDomain = "video" | "audio" | "midi";
 
 // The add menus' category submenus; FX_EFFECT_CATEGORIES in fx-chain.ts
 // gives their labels and order within each domain.
@@ -170,7 +173,8 @@ export type FxEffectCategory =
   | "dynamics"
   | "modulation"
   | "distortion"
-  | "utility";
+  | "utility"
+  | "midi";
 
 export type FxEffectDefinition = {
   effectName: string;

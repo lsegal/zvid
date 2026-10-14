@@ -7,12 +7,13 @@ import {
   type MidiNote,
   type SynthParams,
 } from "../midi-clip.ts";
+import { createArpeggiatorEffect, createSynthEffect } from "../midi-effects.ts";
 import { DEFAULT_ARPEGGIATOR, type NoteGenerator } from "../note-generators.ts";
 import { renderAudioMixOffline } from "./offline.ts";
 import { type AudioMixPlayback, PreviewAudioMixer } from "./preview-mixer.ts";
 import { resolveAudioClips } from "./resolve.ts";
 
-// A MIDI clip plays its notes through its track's synth, rendered by Web
+// A MIDI clip plays its notes through its Synth effect, rendered by Web
 // Audio voices in an OfflineAudioContext (see synth.ts): export mixes that
 // performance in, and the preview plays it in time with the transport.
 
@@ -26,6 +27,8 @@ const NOTES: MidiNote[] = [
   { pitch: 72, start: 4, length: 1, velocity: 127 },
 ];
 
+const stackId = sourceClipEffectTrackId("midi");
+
 function midiMix(
   notes = NOTES,
   synth?: SynthParams,
@@ -34,13 +37,7 @@ function midiMix(
   return resolveAudioClips({
     clips: [],
     lanes: [],
-    sourceTracks: [
-      {
-        id: "keys",
-        ...(synth ? { synth } : {}),
-        ...(noteGenerators ? { noteGenerators } : {}),
-      },
-    ],
+    sourceTracks: [{ id: "keys" }],
     sourceSpans: [
       {
         id: "midi",
@@ -52,7 +49,14 @@ function midiMix(
       },
     ],
     mediaById: new Map(),
-    effects: [createEffect(sourceClipEffectTrackId("midi"), "Gain", "gain")],
+    // The clip's own stack: its Arpeggiators, its Synth, then its Gain.
+    effects: [
+      ...(noteGenerators ?? []).map((arp) =>
+        createArpeggiatorEffect(stackId, arp),
+      ),
+      createSynthEffect(stackId, synth),
+      createEffect(stackId, "Gain", "gain"),
+    ],
     bpm: BPM,
   });
 }

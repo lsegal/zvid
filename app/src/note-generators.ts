@@ -1,8 +1,8 @@
-// Note generators: devices in a source track's chain ahead of its synth
-// that turn its MIDI clips' notes into the notes the synth plays. The mix
-// runs a clip's notes through them before rendering it (see
-// audio-mix/resolve.ts), so preview and export hear the same performance.
-// A disabled generator passes its notes through unchanged.
+// Note generators: MIDI effects, such as the Arpeggiator, on a MIDI clip's
+// stack that turn its notes into the notes its Synth plays. The mix runs a
+// clip's notes through them before rendering it (see audio-mix/resolve.ts
+// and midi-effects.ts), so preview and export hear the same performance. A
+// disabled generator passes its notes through unchanged.
 import type { MidiNote } from "./midi-clip.ts";
 
 export const ARP_RATES = [1, 0.5, 0.25, 0.125] as const;
@@ -42,8 +42,8 @@ export const DEFAULT_ARPEGGIATOR: Arpeggiator = {
 const GRID_EPSILON = 1e-6;
 
 /**
- * The note generators of a session track's `noteGenerators`, read from
- * parsed JSON: entries of an unknown kind are dropped and an arpeggiator's
+ * The note generators of an older session track's `noteGenerators`, read
+ * from parsed JSON: entries of an unknown kind are dropped and an arpeggiator's
  * invalid settings take their defaults. Undefined when `value` is not an
  * array or nothing in it is a generator.
  */
@@ -75,13 +75,6 @@ export function readNoteGenerators(
     ];
   });
   return generators.length ? generators : undefined;
-}
-
-/** A track's arpeggiator, if its chain has one. */
-export function arpeggiatorOf(
-  generators: readonly NoteGenerator[] | undefined,
-): Arpeggiator | undefined {
-  return generators?.find((generator) => generator.kind === "arpeggiator");
 }
 
 // A stable pseudo-random index below `count` for `step` (a 32-bit integer

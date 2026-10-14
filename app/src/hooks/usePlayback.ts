@@ -55,7 +55,7 @@ export type PlaybackInputs = {
   timelineClips: ArrangementClip[];
   timelineClipsRef: { current: ArrangementClip[] };
   projectMediaItems: MediaItem[];
-  // The source clips, whose MIDI clips play through their track's synth.
+  // The source clips, whose MIDI clips play through their Synth.
   sourceSpans?: SourceSpan[];
   bpm: number;
   barLength: number;

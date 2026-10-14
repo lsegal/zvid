@@ -4,7 +4,6 @@ import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../midi-clip.ts";
 import {
   noteFrequency,
   SYNTH_VOICE_LEVEL,
-  synthClipOf,
   synthEnvelope,
   synthMediaId,
   synthVoices,
@@ -106,32 +105,26 @@ describe("synthVoices", () => {
 
 describe("synthMediaId", () => {
   const notes: MidiNote[] = [{ pitch: 60, start: 0, length: 1, velocity: 100 }];
-  const synth = synthClipOf(notes, undefined, 4);
-
-  it("plays a track without a synth through the default one", () => {
-    assert.equal(synth.params, DEFAULT_SYNTH_PARAMS);
-  });
+  const synthClipOf = (
+    clipNotes: MidiNote[],
+    params = DEFAULT_SYNTH_PARAMS,
+    durationSeconds = 4,
+  ) => ({ notes: clipNotes, params, durationSeconds });
+  const synth = synthClipOf(notes);
 
   it("changes with what the clip renders", () => {
     const id = synthMediaId("span", synth, 120);
-    assert.equal(
-      synthMediaId("span", synthClipOf(notes, undefined, 4), 120),
-      id,
-    );
+    assert.equal(synthMediaId("span", synthClipOf(notes), 120), id);
     for (const other of [
       synthMediaId("other", synth, 120),
       synthMediaId("span", synth, 90),
+      synthMediaId("span", synthClipOf([{ ...notes[0], pitch: 62 }]), 120),
       synthMediaId(
         "span",
-        synthClipOf([{ ...notes[0], pitch: 62 }], undefined, 4),
+        synthClipOf(notes, { ...DEFAULT_SYNTH_PARAMS, cutoff: 300 }),
         120,
       ),
-      synthMediaId(
-        "span",
-        synthClipOf(notes, { ...DEFAULT_SYNTH_PARAMS, cutoff: 300 }, 4),
-        120,
-      ),
-      synthMediaId("span", synthClipOf(notes, undefined, 5), 120),
+      synthMediaId("span", synthClipOf(notes, DEFAULT_SYNTH_PARAMS, 5), 120),
     ]) {
       assert.notEqual(other, id);
     }

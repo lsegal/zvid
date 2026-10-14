@@ -37,13 +37,15 @@ export type ProjectSession = {
     /** zvid-only: `true` when the source track's video is hidden. */
     hidden?: boolean;
     /**
-     * zvid-only: the synth the track's MIDI clips play through. Without it
-     * they play through the default synth.
+     * zvid-only, written by builds before MIDI effects: the synth the
+     * track's MIDI clips played through, the default synth when unset. Read
+     * only to move it onto those clips' stacks (see midi-effects.ts).
      */
     synth?: SynthParams;
     /**
-     * zvid-only: the note generators, such as an arpeggiator, that turn the
-     * track's MIDI clips' notes into what its synth plays.
+     * zvid-only, written by builds before MIDI effects: the note
+     * generators, such as an arpeggiator, ahead of the track's synth. Read
+     * only to move them onto its MIDI clips' stacks.
      */
     noteGenerators?: NoteGenerator[];
     recordings?: Array<{
@@ -174,6 +176,10 @@ export type ProjectSession = {
   // without it the session is older and its clips with sound get a 0 dB
   // Gain on open.
   audioGainDefaulted?: boolean;
+  // Set on sessions saved since MIDI clips carried their own Synth and
+  // Arpeggiator effects; without it the session is older and its tracks'
+  // synths and arpeggiators are moved onto their MIDI clips on open.
+  midiClipEffects?: boolean;
 };
 
 export type ServerMediaRef = {

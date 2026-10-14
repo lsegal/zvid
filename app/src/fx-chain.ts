@@ -40,15 +40,15 @@ export const FX_CHAIN_SECTIONS: readonly FxDeviceGroup[] = [
 ];
 
 // Splits the devices for the selection into the Global stack, the layer's
-// own stack and the selected clip's own stack. An audio clip has no picture,
-// so it shows only the audio devices.
+// own stack and the selected clip's own stack. An audio or MIDI clip has no
+// picture, so it shows only the audio and MIDI devices.
 export function groupChainDevices(
   devices: FxDevice[],
   kind: string | undefined,
 ): FxChainGroups {
   const shown =
-    kind === "audio"
-      ? devices.filter((device) => device.domain === "audio")
+    kind === "audio" || kind === "midi"
+      ? devices.filter((device) => device.domain !== "video")
       : devices;
   return {
     global: shown.filter((device) => device.group === "global"),
@@ -80,7 +80,9 @@ export function getFxClipName(label: string, textPreview = "") {
 // Effects the `group` add menu offers: the known ones designed for that
 // stack, except on a layer those every layer is already given (Layout), and
 // a Layout once the stack (`stack`) has one. An FX clip's stack is the
-// "fxClip" scope. An audio clip's menus offer only audio effects.
+// "fxClip" scope. An audio clip's menus offer only audio effects, and a
+// MIDI clip's (`kind` "midi") audio and, on its own stack, MIDI effects,
+// which no other stack offers.
 export function addableEffectsFor(
   group: FxEffectScope,
   kind: string | undefined = undefined,
@@ -92,12 +94,23 @@ export function addableEffectsFor(
       !(definition.layerDefault && group === "layer") &&
       canPlaceDevice(definition.effectName, group, stack) &&
       definition.scopes.includes(group) &&
-      (kind !== "audio" || getEffectDomain(definition) === "audio"),
+      isOfferedFor(getEffectDomain(definition), group, kind),
   );
 }
 
-// The add menus' category submenus, in menu order: the video ones, then the
-// audio ones.
+function isOfferedFor(
+  domain: FxEffectDomain,
+  group: FxEffectScope,
+  kind: string | undefined,
+) {
+  if (domain === "midi") {
+    return kind === "midi" && group === "clip";
+  }
+  return (kind !== "audio" && kind !== "midi") || domain === "audio";
+}
+
+// The add menus' category submenus, in menu order: the video ones, the
+// audio ones, then the MIDI one.
 export const FX_EFFECT_CATEGORIES: readonly {
   category: FxEffectCategory;
   label: string;
@@ -112,6 +125,7 @@ export const FX_EFFECT_CATEGORIES: readonly {
   { category: "modulation", label: "Modulation & Delay" },
   { category: "distortion", label: "Distortion" },
   { category: "utility", label: "Utility" },
+  { category: "midi", label: "MIDI" },
 ];
 
 export type FxAddMenuCategory = {
@@ -120,8 +134,8 @@ export type FxAddMenuCategory = {
   effects: FxEffectDefinition[];
 };
 
-// The add menu's groups: the video effects, then the audio ones, each in
-// menu order and split into categories in FX_EFFECT_CATEGORIES order. Empty
+// The add menu's groups: the MIDI effects, the video ones, then the audio
+// ones, each in menu order and split into categories in FX_EFFECT_CATEGORIES order. Empty
 // groups and categories are left out.
 export function groupAddableEffects(
   definitions: readonly FxEffectDefinition[],
@@ -133,6 +147,7 @@ export function groupAddableEffects(
 }[] {
   return (
     [
+      { domain: "midi", label: "MIDI" },
       { domain: "video", label: "Video" },
       { domain: "audio", label: "Audio" },
     ] as const

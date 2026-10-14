@@ -10,9 +10,9 @@ import {
 } from "../fx-stack.ts";
 import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
-import { readMidiNotes, readSynthParams } from "../midi-clip.ts";
+import { readMidiNotes } from "../midi-clip.ts";
 import { readMidiTimeline } from "../midi-clip-timeline.ts";
-import { readNoteGenerators } from "../note-generators.ts";
+import { migrateMidiClipEffects } from "../midi-effects.ts";
 import {
   fitSourceSpansToMedia,
   migrateClipContentEffects,
@@ -208,22 +208,16 @@ export function sessionToProject(
     }),
   );
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
-    (track, index) => {
-      const synth = readSynthParams(track.synth);
-      const noteGenerators = readNoteGenerators(track.noteGenerators);
-      return {
-        id: track.id,
-        name: track.name,
-        colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
-        recordingPaths: (track.recordings ?? []).map(
-          (recording) => recording.filename,
-        ),
-        ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
-        ...(track.hidden === true ? { hidden: true } : {}),
-        ...(synth ? { synth } : {}),
-        ...(noteGenerators ? { noteGenerators } : {}),
-      };
-    },
+    (track, index) => ({
+      id: track.id,
+      name: track.name,
+      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
+      recordingPaths: (track.recordings ?? []).map(
+        (recording) => recording.filename,
+      ),
+      ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(track.hidden === true ? { hidden: true } : {}),
+    }),
   );
   const nameByTrack = new Map(
     sourceTracks.map((track) => [track.id, track.name]),
@@ -390,35 +384,41 @@ export function sessionToProject(
   // moved onto their text and fill clips, an old Colorize Reactivity
   // becomes Reactive animation, an old Order Margin toggle becomes its
   // Margin knob, a renamed effect takes its new name, and an older
-  // session's clips with sound get their Gain, as part of the load so none
-  // of it is a separate undo step. Stacks of clips, source tracks and source clips
+  // session's clips with sound get their Gain and its MIDI clips their
+  // tracks' Synth and Arpeggiator, as part of the load so none of it is a
+  // separate undo step. Stacks of clips, source tracks and source clips
   // that could not be loaded are dropped with them.
-  const effects = migrateDefaultGain(
-    migrateClipContentEffects(
-      pruneSourceEffects(
-        pruneClipEffects(
-          migrateDefaultOrder(
-            ensureLayerLayouts(
-              migrateOrderOuterMargin(
-                migrateColorizeReactivity(
-                  migrateRenamedEffects(mapEffects(session.effects)),
+  const effects = migrateMidiClipEffects(
+    migrateDefaultGain(
+      migrateClipContentEffects(
+        pruneSourceEffects(
+          pruneClipEffects(
+            migrateDefaultOrder(
+              ensureLayerLayouts(
+                migrateOrderOuterMargin(
+                  migrateColorizeReactivity(
+                    migrateRenamedEffects(mapEffects(session.effects)),
+                  ),
                 ),
+                (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
               ),
-              (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+              session.orderDefaulted,
             ),
-            session.orderDefaulted,
+            arrangementClips,
           ),
-          arrangementClips,
+          sourceTracks,
+          sourceSpans,
         ),
-        sourceTracks,
-        sourceSpans,
+        arrangementClips,
+        session.clipContentEffects,
       ),
-      arrangementClips,
-      session.clipContentEffects,
+      { clips: arrangementClips, sourceSpans },
+      mediaItems,
+      session.audioGainDefaulted,
     ),
-    { clips: arrangementClips, sourceSpans },
-    mediaItems,
-    session.audioGainDefaulted,
+    session.tracks ?? [],
+    sourceSpans,
+    session.midiClipEffects,
   );
 
   // An old session's main audio becomes a source track of its own, with

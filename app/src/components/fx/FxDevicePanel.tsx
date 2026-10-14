@@ -1,5 +1,6 @@
 import {
   ChevronLeftIcon,
+  MusicalNoteIcon,
   PowerIcon,
   SpeakerWaveIcon,
   XMarkIcon,
@@ -152,18 +153,28 @@ export function FxDevicePanel({
       <MotionIcon />
     </button>
   ) : null;
-  // Tells audio devices, such as Gain, from the video ones beside them.
-  const audioBadge =
-    device.domain === "audio" ? (
-      <span
-        aria-label="Audio effect"
-        className="fx-device-panel__audio"
-        role="img"
-        title="Audio effect"
-      >
+  // Tells audio devices, such as Gain, and MIDI ones, such as Synth, from
+  // the video ones beside them.
+  const domainLabel =
+    device.domain === "audio"
+      ? "Audio effect"
+      : device.domain === "midi"
+        ? "MIDI effect"
+        : undefined;
+  const audioBadge = domainLabel ? (
+    <span
+      aria-label={domainLabel}
+      className="fx-device-panel__audio"
+      role="img"
+      title={domainLabel}
+    >
+      {device.domain === "midi" ? (
+        <MusicalNoteIcon aria-hidden="true" />
+      ) : (
         <SpeakerWaveIcon aria-hidden="true" />
-      </span>
-    ) : null;
+      )}
+    </span>
+  ) : null;
   // While attached, the wrapper around the device and its Animation or
   // Modulation section is the stack's panel.
   const groupAttribute = attached ? {} : { "data-fx-group": device.group };

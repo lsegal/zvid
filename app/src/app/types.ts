@@ -6,9 +6,8 @@ import type {
   SelectionEditKind,
 } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
-import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import type { MidiNote } from "../midi-clip.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
-import type { NoteGenerator } from "../note-generators.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 
@@ -41,10 +40,6 @@ export type SourceTrack = {
   // Set when the track's video is hidden wherever its clips appear. Its
   // audio still plays.
   hidden?: boolean;
-  // The synth its MIDI clips play through; the default synth when unset.
-  synth?: SynthParams;
-  // The note generators ahead of its synth, such as an arpeggiator.
-  noteGenerators?: NoteGenerator[];
 };
 
 export type SourceSpan = {
@@ -61,8 +56,8 @@ export type SourceSpan = {
   // Set on a clip made from a session's old main audio before its file's
   // length was known; it takes that length once the media reports it.
   fitsMedia?: true;
-  // Set on a MIDI clip: its notes, which its track's synth plays (see
-  // midi-clip.ts).
+  // Set on a MIDI clip: its notes, which the MIDI effects on its own stack
+  // play (see midi-clip.ts and midi-effects.ts).
   notes?: MidiNote[];
   // Set on a MIDI clip whose Length, loop or Start was set (see
   // midi-clip-timeline.ts); without it the clip plays its notes once.
@@ -279,6 +274,11 @@ export type ProjectState = {
   // restored workspace saved without it is older and gets a 0 dB Gain on
   // each clip that may have sound.
   audioGainDefaulted?: boolean;
+  // Set on every state since MIDI clips carried their own Synth and
+  // Arpeggiator effects. A restored workspace saved without it is older and
+  // has its source tracks' synths and arpeggiators moved onto their MIDI
+  // clips.
+  midiClipEffects?: boolean;
 };
 
 export type LocalMediaOverride = {

@@ -13,6 +13,7 @@ import { canSplitAt } from "./clip-menu.ts";
 import { addDefaultGain } from "./default-gain.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import { newMidiTimeline } from "./midi-clip-timeline.ts";
+import { addDefaultSynth } from "./midi-effects.ts";
 import {
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
@@ -253,10 +254,10 @@ export function fitMidiClipDurationQ(
 /**
  * An empty MIDI clip `id`, up to `maxDurationQ` long, placed in source track
  * `trackId` at `startQ` and ending where the next clip there begins (see
- * fitMidiClipDurationQ). Its track's synth plays the notes the piano roll
- * adds to it, through the Gain at 0 dB it gets as a media clip does, since a
- * clip makes sound only through Gain. Undefined without the track or without
- * room at `startQ`.
+ * fitMidiClipDurationQ). A default Synth leads its own stack and plays
+ * the notes the piano roll adds to it, through the Gain at 0 dB it gets as
+ * a media clip does, since a clip makes sound only through Gain; it gets no
+ * Arpeggiator. Undefined without the track or without room at `startQ`.
  */
 export function createMidiClip(
   current: SourceClipProject,
@@ -299,12 +300,15 @@ export function createMidiClip(
   );
   return {
     ...patch,
-    effects: addDefaultGain(
-      patch.effects ?? current.effects,
-      {
-        sourceSpans: [{ id }],
-      },
-      [],
+    effects: addDefaultSynth(
+      addDefaultGain(
+        patch.effects ?? current.effects,
+        {
+          sourceSpans: [{ id }],
+        },
+        [],
+      ),
+      id,
     ),
   };
 }

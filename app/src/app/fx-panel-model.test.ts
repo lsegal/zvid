@@ -174,6 +174,7 @@ describe("getSourceFxStacks", () => {
         clipStackId: undefined,
         clipName: undefined,
         mediaId: undefined,
+        midi: false,
       },
     );
   });
@@ -193,7 +194,24 @@ describe("getSourceFxStacks", () => {
         clipStackId: "source-clip:s1",
         clipName: "Untitled",
         mediaId: "m1",
+        midi: false,
       },
+    );
+  });
+
+  it("marks a selected MIDI clip's stack, the only one offering MIDI effects", () => {
+    const midi = [{ id: "s1", label: "", notes: [] }];
+    assert.equal(
+      getSourceFxStacks(
+        { sourceTrackId: "t1", sourceSpanId: "s1" },
+        tracks,
+        midi,
+      )?.midi,
+      true,
+    );
+    assert.equal(
+      getSourceFxStacks({ sourceTrackId: "t1" }, tracks, midi)?.midi,
+      false,
     );
   });
 
