@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { isGeneratedClip } from "../clip-media-state.ts";
+import { resolveRenderClips } from "../render-clips.ts";
 import {
   chooseSourceSpanForWindow,
   findClipAtPlayhead,
@@ -196,6 +198,29 @@ describe("getPlaybackStopQ", () => {
     const media = [{ id: "media" }] as Parameters<typeof getPlaybackStopQ>[1];
     assert.equal(getPlaybackStopQ(clips, media, 1, 120), 4);
     assert.equal(getPlaybackStopQ(clips, media, 5, 120), 5);
+  });
+
+  it("plays MIDI clips with notes, which have no media", () => {
+    const notes = [{ pitch: 60, start: 0, length: 1, velocity: 100 }];
+    const sourceSpans = [
+      span({ id: "midi", mediaPath: "", startQ: 4, notes }),
+      span({ id: "empty", mediaPath: "", startQ: 12, notes: [] }),
+    ];
+    const { clips } = resolveRenderClips({
+      clips: [],
+      lanes: [],
+      sourceTracks: [],
+      sourceSpans,
+      bpm: 120,
+      effects: [],
+    });
+    assert.ok(!clips.some(isGeneratedClip));
+    assert.equal(getPlaybackStopQ(clips, [], 0, 120), 0);
+    assert.equal(getPlaybackStopQ(clips, [], 0, 120, sourceSpans), 8);
+    assert.deepEqual(getPlaybackRange(clips, [], 10, 120, sourceSpans), {
+      startQ: 0,
+      stopQ: 8,
+    });
   });
 });
 

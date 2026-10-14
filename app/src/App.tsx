@@ -232,10 +232,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const playback = usePlayback({
     playbackOriginRef,
-    clips: preview.renderClips,
     timelineClips: preview.renderClips,
     timelineClipsRef: selection.timelineClipsRef,
     projectMediaItems: project.mediaItems,
+    sourceSpans: project.sourceSpans,
     bpm,
     barLength: timeline.barLength,
     snap: { unit: timeline.snapUnit, enabled: project.snapEnabled },

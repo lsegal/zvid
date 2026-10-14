@@ -265,12 +265,13 @@ export function Editor({
     mediaItemsById,
     refresh: useCallback(() => setAudioMixRevision((value) => value + 1), []),
   });
+  // Playback runs over what the compositor draws, as in App.
   const playback = usePlayback({
     playbackOriginRef,
-    clips: timelineClips,
-    timelineClips,
+    timelineClips: preview.renderClips,
     timelineClipsRef: selection.timelineClipsRef,
     projectMediaItems: project.mediaItems,
+    sourceSpans: project.sourceSpans,
     bpm,
     barLength: timeline.barLength,
     snap: { unit: timeline.snapUnit, enabled: project.snapEnabled },

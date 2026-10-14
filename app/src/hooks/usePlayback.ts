@@ -34,6 +34,7 @@ import {
 } from "../app/transport-skip.ts";
 import type {
   ArrangementClip,
+  SourceSpan,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
@@ -51,10 +52,11 @@ export type PlaybackInputs = {
   playbackOriginRef: { current: number };
   // What the compositor draws (see resolveRenderClips): the layer clips, or
   // the source tracks when there are none.
-  clips: ArrangementClip[];
   timelineClips: ArrangementClip[];
   timelineClipsRef: { current: ArrangementClip[] };
   projectMediaItems: MediaItem[];
+  // The source clips, whose MIDI clips play through their track's synth.
+  sourceSpans?: SourceSpan[];
   bpm: number;
   barLength: number;
   // The half-bar jumps land on this grid while snapping is enabled.
@@ -82,10 +84,10 @@ export type PlaybackInputs = {
 // the playhead, and the audible scrub while the ruler is dragged.
 export function usePlayback({
   playbackOriginRef,
-  clips,
   timelineClips,
   timelineClipsRef,
   projectMediaItems,
+  sourceSpans,
   bpm,
   barLength,
   snap,
@@ -148,6 +150,7 @@ export function usePlayback({
         projectMediaItems,
         fromQ,
         bpm,
+        sourceSpans,
       );
       if (!range) {
         setStatus("No playable source clips on the timeline.");
@@ -164,6 +167,7 @@ export function usePlayback({
               projectMediaItems,
               fromQ,
               bpm,
+              sourceSpans,
             ),
           }
         : range;
@@ -183,6 +187,7 @@ export function usePlayback({
       setIsPlaying,
       setPlayheadQ,
       setStatus,
+      sourceSpans,
       timelineClips,
     ],
   );
@@ -468,7 +473,7 @@ export function usePlayback({
       setIsPlaying(false);
       return;
     }
-    if (!clips.length) {
+    if (!timelineClips.length) {
       return;
     }
 
@@ -479,7 +484,7 @@ export function usePlayback({
 
   // Ctrl/Cmd+Play: from the loop's in marker, or plain Play without a loop.
   function playTimelineFromLoopStart() {
-    if (!clips.length) {
+    if (!timelineClips.length) {
       handleTransportToggle();
       return;
     }
@@ -496,8 +501,9 @@ export function usePlayback({
   // Where playback from the start stops: the end the skip-forward button
   // jumps to.
   const playbackEndQ = useMemo(
-    () => getPlaybackStopQ(timelineClips, projectMediaItems, 0, bpm),
-    [bpm, projectMediaItems, timelineClips],
+    () =>
+      getPlaybackStopQ(timelineClips, projectMediaItems, 0, bpm, sourceSpans),
+    [bpm, projectMediaItems, sourceSpans, timelineClips],
   );
 
   // The outer skip buttons: to the loop's markers or the timeline's ends.
@@ -526,7 +532,7 @@ export function usePlayback({
 
   return {
     // How many clips playback can play; Space does nothing without any.
-    playableClipCount: clips.length,
+    playableClipCount: timelineClips.length,
     isTimelineAudibleScrubbing,
     startPlayback,
     cancelScrubPlaybackResume,
