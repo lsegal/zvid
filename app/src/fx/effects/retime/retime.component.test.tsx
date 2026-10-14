@@ -1,6 +1,14 @@
 import { afterAll, describe, expect, test } from "vitest";
+import { userEvent } from "vitest/browser";
+import { render } from "vitest-browser-react";
 import { secondsToQuarters } from "../../../app/timeline-math.ts";
 import type { ProjectState } from "../../../app/types.ts";
+import {
+  addFromMenu,
+  device,
+  typeValue,
+} from "../../../component-test/fx-actions.ts";
+import { FxEditor } from "../../../component-test/fx-editor.tsx";
 import {
   meanDifference,
   scaledRgb,
@@ -167,6 +175,40 @@ const near = (actual: number, expected: number) =>
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(3);
 
 describe("Retime", { timeout: 60_000 }, () => {
+  test("is added from a clip's Video → Transform menu and set to play backwards blended", async () => {
+    let { project, clip } = videoClip();
+    await render(
+      <FxEditor
+        project={project}
+        selection={{ clipId: clip.id }}
+        onChange={(history) => {
+          project = history.present;
+        }}
+      />,
+    );
+    await addFromMenu("Add device to this clip", "Transform", "Retime");
+    const retime = device("Retime");
+    const speed = retime.getByRole("slider", { name: "Speed" });
+    await expect.element(speed).toHaveAttribute("aria-valuetext", "1.0×");
+    // No Animation: the speed sets which frame is drawn.
+    expect(
+      retime.getByRole("button", { name: /Animation/ }).elements(),
+    ).toHaveLength(0);
+
+    await typeValue(retime, "Speed", "-1.5");
+    await expect.element(speed).toHaveAttribute("aria-valuetext", "-1.5×");
+    await userEvent.click(retime.getByRole("button", { name: "Blend" }));
+    await expect
+      .poll(() =>
+        project.effects
+          .find((effect) => effect.effectName === "Retime")
+          ?.parameters.map(
+            ({ key, value, numericValue }) => `${key}=${numericValue ?? value}`,
+          ),
+      )
+      .toEqual(["Speed=-1.5", "Interpolation=Blend"]);
+  });
+
   test("draws a Lottie's frames at its own speed without a Retime", async () => {
     const { project } = lottieClip();
     near(await grayAt(project, 0.05), level(0));
