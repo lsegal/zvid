@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { drumBankPadUrl, findDrumBank } from "./fx/effects/drum-rack/banks.ts";
+import {
+  DEFAULT_DRUM_RACK,
+  DRUM_RACK_EFFECT_NAME,
+  DRUM_RACK_KEY,
+  formatDrumRack,
+} from "./fx/effects/drum-rack/drum-rack.ts";
 import { GRANULAR_EFFECT_NAME } from "./fx/effects/granular/granular.ts";
 import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
@@ -133,6 +140,54 @@ describe("midiChainOf with a Granular", () => {
       { kind: "granular", params: { ...DEFAULT_GRANULAR_PARAMS, density: 12 } },
     );
     assert.equal(midiChainOf([{ ...granular(), enabled: false }]), undefined);
+  });
+});
+
+// A Drum Rack effect on the clip's stack, playing the bank `bankId`.
+function drumRack(bankId?: string): SessionEffect {
+  const effect = createEffect(STACK, DRUM_RACK_EFFECT_NAME);
+  return bankId === undefined
+    ? effect
+    : setEffectParameter(
+        [effect],
+        effect.id,
+        DRUM_RACK_KEY,
+        formatDrumRack({ ...DEFAULT_DRUM_RACK, bank: bankId }),
+      )[0];
+}
+
+describe("midiChainOf with a Drum Rack", () => {
+  it("plays its bank's samples on its pads", () => {
+    const bank = findDrumBank("builtin:cr-78");
+    assert.ok(bank);
+    const instrument = midiChainOf([drumRack(bank.id)])?.instrument;
+    assert.deepEqual(instrument, {
+      kind: "drums",
+      params: { samples: bank.pads.map((_, pad) => drumBankPadUrl(bank, pad)) },
+    });
+    const fresh = midiChainOf([drumRack()])?.instrument;
+    assert.equal(fresh?.kind, "drums");
+    assert.match(
+      fresh?.kind === "drums" ? String(fresh.params.samples[0]) : "",
+      /^\/drum-banks\/tr-808\//,
+    );
+  });
+
+  it("plays only as the first enabled instrument", () => {
+    assert.deepEqual(
+      midiChainOf([drumRack(), createSynthEffect(STACK, SQUARE)])?.instrument
+        .kind,
+      "drums",
+    );
+    assert.deepEqual(
+      midiChainOf([{ ...drumRack(), enabled: false }, granular()])?.instrument
+        .kind,
+      "granular",
+    );
+    assert.equal(
+      auditionInstrumentOf([{ ...drumRack(), enabled: false }])?.kind,
+      "drums",
+    );
   });
 });
 
