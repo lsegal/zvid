@@ -299,8 +299,12 @@ export function createMidiClip(
   );
   return {
     ...patch,
-    effects: addDefaultGain(patch.effects ?? current.effects, {
-      sourceSpans: [{ id }],
-    }, []),
+    effects: addDefaultGain(
+      patch.effects ?? current.effects,
+      {
+        sourceSpans: [{ id }],
+      },
+      [],
+    ),
   };
 }
