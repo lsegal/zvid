@@ -29,8 +29,8 @@ import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
-import { FxModulationClockContext } from "../fx/modulation-clock";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
+import { FxModulationClockContext } from "../fx/modulation-clock";
 import {
   PIANO_ROLL_QUARTER_PX,
   PIANO_ROLL_ROW_PX,
