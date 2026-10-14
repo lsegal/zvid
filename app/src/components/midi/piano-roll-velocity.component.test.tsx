@@ -333,6 +333,10 @@ test(
       { x: left + 1, y: velocityY(50) },
       { x: left + 4 * PIANO_ROLL_QUARTER_PX + 1, y: velocityY(50) },
     );
+    // DEBUG #1403
+    await new Promise((r) => setTimeout(r, 500));
+    const r = lane().getBoundingClientRect();
+    console.log("DEBUG1403", JSON.stringify({ r, y: velocityY(50), left, notes: notes(), status, stems: [...document.querySelectorAll("[data-stem-index]")].map((e) => [e.getAttribute("aria-valuenow"), JSON.stringify(e.getBoundingClientRect())]), hit: document.elementFromPoint(left + 1, velocityY(50))?.className }));
     await expect
       .poll(() => notes()?.every((note) => Math.abs(note.velocity - 50) <= 2))
       .toBe(true);
