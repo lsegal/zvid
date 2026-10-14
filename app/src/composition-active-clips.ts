@@ -83,6 +83,10 @@ import {
   isMaskEffectName,
   type LayerMask,
 } from "./fx/effects/mask/mask.ts";
+import {
+  isOpacityEffectName,
+  parseOpacity,
+} from "./fx/effects/opacity/opacity.ts";
 import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import {
   type AnimationClipContext,
@@ -356,6 +360,8 @@ export function resolveVisualState(
     move: LayerMove;
     transform: LayerTransform;
   }> = [];
+  // What the layer's and the clip's Opacity effects multiply the opacity by.
+  let faded = 1;
 
   for (const effect of withClipStackLast(effects, clipTrackId)) {
     if (
@@ -384,6 +390,14 @@ export function resolveVisualState(
       isOrderEffectName(effect.effectName) ||
       isMaskEffectName(effect.effectName)
     ) {
+      continue;
+    }
+
+    // Each Opacity on the layer's or the clip's stack fades it further.
+    if (isOpacityEffectName(effect.effectName)) {
+      if (effect.trackId !== GROUP_TRACK_ID) {
+        faded *= parseOpacity(effect.parameters);
+      }
       continue;
     }
 
@@ -498,6 +512,7 @@ export function resolveVisualState(
     }
   }
 
+  state.opacity *= faded;
   if (layerMotion.outer.length || layerMotion.inner.length) {
     state.motion = layerMotion;
   }

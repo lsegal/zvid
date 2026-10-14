@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  getAnimationDefaults,
-  getAnimationNeutralValues,
-} from "../../../fx-animation-defaults.ts";
+import { getAnimationDefaults } from "../../../fx-animation-defaults.ts";
+import { getAnimationNeutralValues } from "../../../fx-animation-neutrals.ts";
 import { definition as analogGlitch } from "../analog-glitch/definition.ts";
 import { EFFECT_DEFINITION_MODULES } from "../index.generated.ts";
 import { definition, menuOrder } from "./definition.ts";

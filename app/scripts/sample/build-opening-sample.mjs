@@ -360,6 +360,8 @@ const PANEL_EFFECTS = new Map([
   ["corridor 16.5", refraction("Frosted Glass", { _Amount: 0.6 })],
   ["orbit 19.5", refraction("Reeded Glass", { _Scale: 0.35 })],
   ["ribbon 24", refraction("Glass Blocks", { _Scale: 0.4 })],
+  // A ghost: the panel fades in to translucent and back out.
+  ["ribbon 25.5", ["Opacity", { Opacity: 0.6 }]],
   // A warm grade: cool blacks, warm whites and an S curve.
   [
     "corridor 18",

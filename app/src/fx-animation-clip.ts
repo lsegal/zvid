@@ -3,7 +3,7 @@
 // the clip exits, over its Motion Out curve. The animation is a weight, 0
 // (no visible effect) to 1 (the effect as set), that each effect maps onto
 // its parameters. By default every knob with a neutral value in
-// `fx-animation-defaults.ts` runs from that neutral value to its set value.
+// `fx-animation-neutrals.ts` runs from that neutral value to its set value.
 //
 // The weight is always the clip's being drawn: a clip effect follows its own
 // clip, and a layer or Global effect follows each clip it is drawn on, so
@@ -28,9 +28,9 @@ import {
   type ClipAnimation,
   type ClipMotion,
   type EffectAnimation,
-  getAnimationNeutralValues,
   getClipTimingFrames,
 } from "./fx-animation-defaults.ts";
+import { getAnimationNeutralValues } from "./fx-animation-neutrals.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import { easeMotion } from "./motion-easing.ts";
 import { TEXT_EFFECT_NAME } from "./text-style.ts";

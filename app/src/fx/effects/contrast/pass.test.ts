@@ -5,8 +5,8 @@ import { describe, it } from "node:test";
 import {
   getAnimatableParameters,
   getAnimationDefaults,
-  getAnimationNeutralValues,
 } from "../../../fx-animation-defaults.ts";
+import { getAnimationNeutralValues } from "../../../fx-animation-neutrals.ts";
 import { getEffectDefinition } from "../../../fx-registry.ts";
 import { params, uniformValues } from "../../pass-test-utils.ts";
 import { ALL_SCOPES } from "../../types.ts";

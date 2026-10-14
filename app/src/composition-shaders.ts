@@ -115,6 +115,7 @@ function fxMaskFragmentSource(masked: boolean) {
   uniform MASK_PRECISION vec2 uMaskUvScale;
   uniform MASK_PRECISION vec2 uMaskUvMax;
   uniform float uMaskInvert;
+  uniform float uOpacity;
   #endif
 
   void main() {
@@ -125,7 +126,7 @@ function fxMaskFragmentSource(masked: boolean) {
       uMask,
       min(maskUv * uMaskUvScale, uMaskUvMax)
     ).a;
-    color.a *= mix(coverage, 1.0 - coverage, uMaskInvert);
+    color.a *= mix(coverage, 1.0 - coverage, uMaskInvert) * uOpacity;
     #endif
     gl_FragColor = color;
   }
