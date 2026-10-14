@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { page } from "vitest/browser";
+import { secondsToQuarters } from "../app/timeline-math.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   type EditorState,
   renderEditor,
 } from "../component-test/editor.tsx";
 import { center, click } from "../component-test/input.ts";
-import { secondsToQuarters } from "../app/timeline-math.ts";
 import { usePlayback } from "./usePlayback.ts";
 
 // A MIDI clip has no media, only notes its track's synth plays, so a session
@@ -19,7 +19,12 @@ describe(usePlayback, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       project: {
         bpm: 120,
         sourceTracks: [
-          { id: "midi-track", name: "Synth", colorIndex: 0, recordingPaths: [] },
+          {
+            id: "midi-track",
+            name: "Synth",
+            colorIndex: 0,
+            recordingPaths: [],
+          },
         ],
         sourceSpans: [
           {

@@ -366,13 +366,7 @@ export function getPlaybackRange(
 ): { startQ: number; stopQ: number } | undefined {
   const epsilon = 0.0001;
   for (const startQ of fromQ > 0 ? [fromQ, 0] : [fromQ]) {
-    const stopQ = getPlaybackStopQ(
-      clips,
-      mediaItems,
-      startQ,
-      bpm,
-      sourceSpans,
-    );
+    const stopQ = getPlaybackStopQ(clips, mediaItems, startQ, bpm, sourceSpans);
     if (stopQ > startQ + epsilon) {
       return { startQ, stopQ };
     }
