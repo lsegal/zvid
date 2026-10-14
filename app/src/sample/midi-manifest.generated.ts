@@ -28,6 +28,26 @@ export const MIDI_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "\"Gradient Dots Background\" from LottieFiles (lottiefiles.com), free under the Lottie Simple License; supplied for this sample in issue #1415."
     },
     {
+      "id": "zvid-sample:midi-v1:sky",
+      "path": "zvid-sample://midi-v1/background-full-screen.lottie",
+      "url": "/samples/midi-v1/background-full-screen.lottie",
+      "name": "background-full-screen.lottie",
+      "mediaType": "application/zip",
+      "bytes": 6259,
+      "sha256": "3e613a8b9fd905f373e1827e3cb58ec4b815ca8b0cf2bf371503fb9653282bac",
+      "credit": "\"Background Full Screen\" from LottieFiles (lottiefiles.com), free under the Lottie Simple License; supplied for this sample in issue #1435."
+    },
+    {
+      "id": "zvid-sample:midi-v1:train",
+      "path": "zvid-sample://midi-v1/background-full-screen-train.lottie",
+      "url": "/samples/midi-v1/background-full-screen-train.lottie",
+      "name": "background-full-screen-train.lottie",
+      "mediaType": "application/zip",
+      "bytes": 21410,
+      "sha256": "cfd1bb542ea8c81df514714e3acae197e65b468f6cdd686c906f94cc85138e12",
+      "credit": "\"Background Full Screen (Train)\" from LottieFiles (lottiefiles.com), free under the Lottie Simple License; supplied for this sample in issue #1435."
+    },
+    {
       "id": "zvid-sample:midi-v1:zvid-logo",
       "path": "zvid-sample://midi-v1/zvid-logo.svg",
       "url": "/samples/midi-v1/zvid-logo.svg",

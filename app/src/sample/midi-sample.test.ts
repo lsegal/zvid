@@ -14,7 +14,7 @@ import { buildSampleOpenPayload } from "./sample-loader.ts";
 import { SAMPLE_CHOICES, SAMPLE_MANIFESTS } from "./samples.ts";
 
 // The MIDI sample (#1415): 12 bars of electro in D major whose every sound
-// is generated, over two Forest Morning Lotties.
+// is generated, under LottieFiles animations; #1435 replaced its session.
 
 const sessionText = readFileSync(
   new URL("./zvid-midi.project.json", import.meta.url),
@@ -24,7 +24,8 @@ const session = JSON.parse(sessionText) as ProjectSession;
 const FPS = 24;
 const BPM = 120;
 const QUARTER_FRAMES = (FPS * 60) / BPM;
-const FOREST = "zvid-sample://midi-v1/forest-morning.lottie";
+const SKY = "zvid-sample://midi-v1/background-full-screen.lottie";
+const TRAIN = "zvid-sample://midi-v1/background-full-screen-train.lottie";
 // D, E, F#, G, A, B and C#.
 const D_MAJOR = new Set([2, 4, 6, 7, 9, 11, 1]);
 
@@ -43,18 +44,6 @@ function stackOf(clipId: string) {
   return (session.effects ?? []).filter(
     (effect) => effect.trackId === sourceClipEffectTrackId(`source-${clipId}`),
   );
-}
-
-const forestClips = (layerId: string) =>
-  (session.selections ?? [])
-    .filter((selection) => selection.mainTrackId === layerId)
-    .sort((left, right) => left.frameStart - right.frameStart);
-
-function numberParameter(
-  effect: { parameters?: Record<string, { floatValue?: number }> },
-  key: string,
-) {
-  return effect.parameters?.[key]?.floatValue;
 }
 
 describe("MIDI sample", () => {
@@ -147,42 +136,36 @@ describe("MIDI sample", () => {
     assert.equal((lead?.notes?.at(-1)?.pitch ?? 0) % 12, 2);
   });
 
-  it("plays Forest Morning, and its echo half a beat behind, below it", () => {
-    const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
-    assert.ok(layerIds.indexOf("forest") < layerIds.indexOf("forest-echo"));
-
-    const [main] = forestClips("forest");
-    assert.equal(main.frameStart, 0);
-    assert.equal(main.frameEnd, 48 * QUARTER_FRAMES);
-    const halfBeat = QUARTER_FRAMES / 2;
-    const echoes = forestClips("forest-echo");
-    assert.equal(echoes.length, 6);
-    for (const [phrase, echo] of echoes.entries()) {
-      const phraseStart = phrase * 8 * QUARTER_FRAMES;
-      // In half a beat after each two-bar phrase starts, gone when it ends.
-      assert.equal(echo.frameStart, phraseStart + halfBeat);
-      assert.equal(echo.frameEnd, phraseStart + 8 * QUARTER_FRAMES);
-      // Showing what Forest Morning showed half a beat before.
-      assert.equal(echo.sourceOffsetSeconds, -halfBeat / FPS);
-      const span = (session.clips ?? []).find(
-        (clip) => clip.id === echo.sourceClipId,
+  it("places the background Lotties from bar 5", () => {
+    const layerIds = new Set((session.mainTracks ?? []).map((l) => l.id));
+    for (const path of [SKY, TRAIN]) {
+      const span = (session.clips ?? []).find((clip) => clip.filePath === path);
+      assert.ok(span, path);
+      assert.equal(span.frameStart, 16 * QUARTER_FRAMES, path);
+      const placed = (session.selections ?? []).filter(
+        (selection) => selection.trackId === span.trackId,
       );
-      assert.equal(span?.filePath, FOREST);
+      assert.ok(placed.length > 0, `${path} is on no layer`);
+      for (const selection of placed) {
+        assert.ok(layerIds.has(selection.mainTrackId), path);
+        assert.ok(
+          (session.effects ?? []).some(
+            (effect) =>
+              effect.trackId === `clip:selection-${selection.id}` &&
+              ["Layout", "Transform"].includes(effect.effectName),
+          ),
+          `${path} clip ${selection.id} is not placed`,
+        );
+      }
     }
-
-    const mainPlace = (session.effects ?? []).find(
-      (effect) => effect.trackId === `clip:selection-${main.id}`,
-    );
-    const echoMove = (session.effects ?? []).find(
-      (effect) => effect.trackId === `clip:selection-${echoes[0].id}`,
-    );
-    assert.equal(mainPlace?.effectName, "Transform");
-    assert.equal(echoMove?.effectName, "Move");
-    const mainY = numberParameter(mainPlace ?? {}, "PositionY") ?? 0;
-    const startY = numberParameter(echoMove ?? {}, "StartPositionY") ?? 0;
-    const endY = numberParameter(echoMove ?? {}, "EndPositionY") ?? 0;
-    // It rises in from lower down and settles below Forest Morning.
-    assert.ok(startY > endY && endY > mainY, `${startY} ${endY} ${mainY}`);
+    // Opening the sample resolves them to its cached media.
+    const { project } = openSample();
+    for (const path of [SKY, TRAIN]) {
+      const asset = MIDI_SAMPLE_MANIFEST.assets.find((a) => a.path === path);
+      const span = project.sourceSpans.find((s) => s.mediaPath === path);
+      assert.ok(asset && span, path);
+      assert.equal(span.mediaId, asset.id, path);
+    }
   });
 
   it("credits every asset with its license in CREDITS.md", () => {

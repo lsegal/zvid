@@ -1,6 +1,16 @@
 {
   "mainTracks": [
     {
+      "id": "4",
+      "name": "Layer 9",
+      "colorIndex": -1
+    },
+    {
+      "id": "3",
+      "name": "Transitions",
+      "colorIndex": -1
+    },
+    {
       "id": "titles",
       "name": "Titles",
       "colorIndex": 0
@@ -21,6 +31,16 @@
       "colorIndex": 3
     },
     {
+      "id": "1",
+      "name": "Forest Echo 2",
+      "colorIndex": -1
+    },
+    {
+      "id": "2",
+      "name": "Forest Echo 3",
+      "colorIndex": -1
+    },
+    {
       "id": "dots",
       "name": "Gradient Dots",
       "colorIndex": 4
@@ -30,27 +50,32 @@
     {
       "id": "source-drums",
       "name": "Drums",
-      "colorIndex": 0
+      "colorIndex": 0,
+      "recordings": []
     },
     {
       "id": "source-bass",
       "name": "Bass",
-      "colorIndex": 1
+      "colorIndex": 1,
+      "recordings": []
     },
     {
       "id": "source-arp",
       "name": "Arp",
-      "colorIndex": 2
+      "colorIndex": 2,
+      "recordings": []
     },
     {
       "id": "source-pad",
       "name": "Granular pad",
-      "colorIndex": 3
+      "colorIndex": 3,
+      "recordings": []
     },
     {
       "id": "source-lead",
       "name": "Lead",
-      "colorIndex": 4
+      "colorIndex": 4,
+      "recordings": []
     },
     {
       "id": "source-forest",
@@ -71,6 +96,26 @@
           "filename": "zvid-sample://midi-v1/gradient-dots.lottie"
         }
       ]
+    },
+    {
+      "id": "source-track-6f621191-36d0-4ca5-8c63-3eca990ceeff",
+      "name": "Sky",
+      "colorIndex": 2,
+      "recordings": [
+        {
+          "filename": "zvid-sample://midi-v1/background-full-screen.lottie"
+        }
+      ]
+    },
+    {
+      "id": "source-track-d5f2e4ae-fa29-4447-9a51-7e09bfc981e1",
+      "name": "Train",
+      "colorIndex": 3,
+      "recordings": [
+        {
+          "filename": "zvid-sample://midi-v1/background-full-screen-train.lottie"
+        }
+      ]
     }
   ],
   "clips": [
@@ -81,7 +126,6 @@
       "frameStart": 0,
       "frameCount": 576,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "",
       "notes": [
         {
@@ -94,19 +138,19 @@
           "pitch": 42,
           "start": 0.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 36
         },
         {
           "pitch": 42,
           "start": 0.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 36
         },
         {
           "pitch": 42,
           "start": 0.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
@@ -118,19 +162,19 @@
           "pitch": 42,
           "start": 1.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 34
         },
         {
           "pitch": 42,
           "start": 1.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 30
         },
         {
           "pitch": 42,
           "start": 1.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 30
         },
         {
           "pitch": 42,
@@ -142,19 +186,19 @@
           "pitch": 42,
           "start": 2.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 29
         },
         {
           "pitch": 42,
           "start": 2.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 29
         },
         {
           "pitch": 42,
           "start": 2.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 29
         },
         {
           "pitch": 42,
@@ -166,19 +210,19 @@
           "pitch": 42,
           "start": 3.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
           "start": 3.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
           "start": 3.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
@@ -190,19 +234,19 @@
           "pitch": 42,
           "start": 4.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
           "start": 4.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
         },
         {
           "pitch": 42,
           "start": 4.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
         },
         {
           "pitch": 42,
@@ -214,19 +258,19 @@
           "pitch": 42,
           "start": 5.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
           "start": 5.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
           "start": 5.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
           "pitch": 42,
@@ -238,19 +282,25 @@
           "pitch": 42,
           "start": 6.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 35
         },
         {
           "pitch": 42,
           "start": 6.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 35
         },
         {
           "pitch": 42,
           "start": 6.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 35
+        },
+        {
+          "pitch": 39,
+          "start": 7,
+          "length": 0.5,
+          "velocity": 90
         },
         {
           "pitch": 42,
@@ -262,31 +312,31 @@
           "pitch": 42,
           "start": 7.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 35
+        },
+        {
+          "pitch": 39,
+          "start": 7.5,
+          "length": 0.5,
+          "velocity": 34
         },
         {
           "pitch": 42,
           "start": 7.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 34
         },
         {
           "pitch": 42,
           "start": 7.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 32
         },
         {
-          "pitch": 39,
-          "start": 7,
+          "pitch": 36,
+          "start": 8,
           "length": 0.5,
-          "velocity": 90
-        },
-        {
-          "pitch": 39,
-          "start": 7.5,
-          "length": 0.5,
-          "velocity": 110
+          "velocity": 127
         },
         {
           "pitch": 42,
@@ -295,22 +345,34 @@
           "velocity": 96
         },
         {
+          "pitch": 49,
+          "start": 8,
+          "length": 1,
+          "velocity": 110
+        },
+        {
           "pitch": 42,
           "start": 8.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
         },
         {
           "pitch": 42,
           "start": 8.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
         },
         {
           "pitch": 42,
           "start": 8.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
+        },
+        {
+          "pitch": 39,
+          "start": 9,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -322,19 +384,25 @@
           "pitch": 42,
           "start": 9.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 34
         },
         {
           "pitch": 42,
           "start": 9.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 34
+        },
+        {
+          "pitch": 36,
+          "start": 9.75,
+          "length": 0.5,
+          "velocity": 34
         },
         {
           "pitch": 42,
           "start": 9.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 34
         },
         {
           "pitch": 42,
@@ -349,6 +417,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 10.5,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 10.5,
           "length": 0.25,
@@ -358,7 +432,13 @@
           "pitch": 42,
           "start": 10.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 37
+        },
+        {
+          "pitch": 39,
+          "start": 11,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -370,13 +450,7 @@
           "pitch": 42,
           "start": 11.25,
           "length": 0.25,
-          "velocity": 64
-        },
-        {
-          "pitch": 42,
-          "start": 11.75,
-          "length": 0.25,
-          "velocity": 64
+          "velocity": 30
         },
         {
           "pitch": 46,
@@ -385,40 +459,16 @@
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 11.75,
+          "length": 0.25,
+          "velocity": 33
+        },
+        {
           "pitch": 36,
-          "start": 8,
+          "start": 12,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 9.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 10.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 9,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 11,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 49,
-          "start": 8,
-          "length": 1,
-          "velocity": 110
         },
         {
           "pitch": 42,
@@ -430,19 +480,25 @@
           "pitch": 42,
           "start": 12.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 31
         },
         {
           "pitch": 42,
           "start": 12.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 28
         },
         {
           "pitch": 42,
           "start": 12.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 28
+        },
+        {
+          "pitch": 39,
+          "start": 13,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -454,19 +510,25 @@
           "pitch": 42,
           "start": 13.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 37
         },
         {
           "pitch": 42,
           "start": 13.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 38
+        },
+        {
+          "pitch": 36,
+          "start": 13.75,
+          "length": 0.5,
+          "velocity": 37
         },
         {
           "pitch": 42,
           "start": 13.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 37
         },
         {
           "pitch": 42,
@@ -478,7 +540,13 @@
           "pitch": 42,
           "start": 14.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 51
+        },
+        {
+          "pitch": 36,
+          "start": 14.5,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -490,7 +558,13 @@
           "pitch": 42,
           "start": 14.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 41
+        },
+        {
+          "pitch": 39,
+          "start": 15,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -502,13 +576,7 @@
           "pitch": 42,
           "start": 15.25,
           "length": 0.25,
-          "velocity": 64
-        },
-        {
-          "pitch": 42,
-          "start": 15.75,
-          "length": 0.25,
-          "velocity": 64
+          "velocity": 48
         },
         {
           "pitch": 46,
@@ -517,34 +585,16 @@
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 15.75,
+          "length": 0.25,
+          "velocity": 41
+        },
+        {
           "pitch": 36,
-          "start": 12,
+          "start": 16,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 13.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 14.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 13,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 15,
-          "length": 0.5,
-          "velocity": 112
         },
         {
           "pitch": 42,
@@ -556,7 +606,7 @@
           "pitch": 42,
           "start": 16.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 39
         },
         {
           "pitch": 42,
@@ -568,7 +618,13 @@
           "pitch": 42,
           "start": 16.75,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 40
+        },
+        {
+          "pitch": 39,
+          "start": 17,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -580,13 +636,19 @@
           "pitch": 42,
           "start": 17.25,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 41
         },
         {
           "pitch": 42,
           "start": 17.5,
           "length": 0.25,
-          "velocity": 64
+          "velocity": 38
+        },
+        {
+          "pitch": 36,
+          "start": 17.75,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -607,6 +669,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 18.5,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 18.5,
           "length": 0.25,
@@ -617,6 +685,12 @@
           "start": 18.75,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 39,
+          "start": 19,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -631,46 +705,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 19.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 19.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 19.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 16,
+          "start": 20,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 17.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 18.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 17,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 19,
-          "length": 0.5,
-          "velocity": 112
         },
         {
           "pitch": 42,
@@ -697,6 +747,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 21,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 21,
           "length": 0.25,
@@ -713,6 +769,12 @@
           "start": 21.5,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 21.75,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -733,6 +795,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 22.5,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 22.5,
           "length": 0.25,
@@ -743,6 +811,12 @@
           "start": 22.75,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 39,
+          "start": 23,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -757,46 +831,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 23.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 23.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 23.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 20,
+          "start": 24,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 21.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 22.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 21,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 23,
-          "length": 0.5,
-          "velocity": 112
         },
         {
           "pitch": 42,
@@ -823,6 +873,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 25,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 25,
           "length": 0.25,
@@ -839,6 +895,12 @@
           "start": 25.5,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 25.75,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -859,6 +921,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 26.5,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 26.5,
           "length": 0.25,
@@ -869,6 +937,12 @@
           "start": 26.75,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 39,
+          "start": 27,
+          "length": 0.5,
+          "velocity": 112
         },
         {
           "pitch": 42,
@@ -883,46 +957,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 27.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 27.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 27.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 24,
+          "start": 28,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 25.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 26.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 25,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 27,
-          "length": 0.5,
-          "velocity": 112
         },
         {
           "pitch": 42,
@@ -949,6 +999,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 29,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 29,
           "length": 0.25,
@@ -965,6 +1021,12 @@
           "start": 29.5,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 29.75,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -985,6 +1047,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 30.5,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 30.5,
           "length": 0.25,
@@ -1003,52 +1071,16 @@
           "velocity": 96
         },
         {
-          "pitch": 42,
-          "start": 31.25,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
-          "pitch": 42,
-          "start": 31.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
-          "pitch": 46,
-          "start": 31.5,
-          "length": 0.5,
-          "velocity": 80
-        },
-        {
-          "pitch": 36,
-          "start": 28,
-          "length": 0.5,
-          "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 29.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 30.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 29,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
           "pitch": 50,
           "start": 31,
           "length": 0.25,
           "velocity": 96
+        },
+        {
+          "pitch": 42,
+          "start": 31.25,
+          "length": 0.25,
+          "velocity": 64
         },
         {
           "pitch": 48,
@@ -1063,16 +1095,40 @@
           "velocity": 112
         },
         {
+          "pitch": 46,
+          "start": 31.5,
+          "length": 0.5,
+          "velocity": 80
+        },
+        {
+          "pitch": 42,
+          "start": 31.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 43,
           "start": 31.75,
           "length": 0.25,
           "velocity": 120
         },
         {
+          "pitch": 36,
+          "start": 32,
+          "length": 0.5,
+          "velocity": 127
+        },
+        {
           "pitch": 42,
           "start": 32,
           "length": 0.25,
           "velocity": 96
+        },
+        {
+          "pitch": 49,
+          "start": 32,
+          "length": 1,
+          "velocity": 110
         },
         {
           "pitch": 42,
@@ -1093,6 +1149,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 33,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 33,
           "length": 0.25,
@@ -1111,6 +1173,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 33.75,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 33.75,
           "length": 0.25,
@@ -1123,10 +1191,22 @@
           "velocity": 96
         },
         {
+          "pitch": 37,
+          "start": 34.25,
+          "length": 0.25,
+          "velocity": 84
+        },
+        {
           "pitch": 42,
           "start": 34.25,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 34.5,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -1141,6 +1221,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 35,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 35,
           "length": 0.25,
@@ -1153,58 +1239,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 35.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 35.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 35.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 32,
+          "start": 36,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 33.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 34.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 33,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 35,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 37,
-          "start": 34.25,
-          "length": 0.25,
-          "velocity": 84
-        },
-        {
-          "pitch": 49,
-          "start": 32,
-          "length": 1,
-          "velocity": 110
         },
         {
           "pitch": 42,
@@ -1231,6 +1281,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 37,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 37,
           "length": 0.25,
@@ -1249,6 +1305,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 37.75,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 37.75,
           "length": 0.25,
@@ -1261,10 +1323,22 @@
           "velocity": 96
         },
         {
+          "pitch": 37,
+          "start": 38.25,
+          "length": 0.25,
+          "velocity": 84
+        },
+        {
           "pitch": 42,
           "start": 38.25,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 38.5,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -1279,6 +1353,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 39,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 39,
           "length": 0.25,
@@ -1291,52 +1371,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 39.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 39.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 39.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 36,
+          "start": 40,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 37.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 38.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 37,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 39,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 37,
-          "start": 38.25,
-          "length": 0.25,
-          "velocity": 84
         },
         {
           "pitch": 42,
@@ -1363,6 +1413,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 41,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 41,
           "length": 0.25,
@@ -1381,6 +1437,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 41.75,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 41.75,
           "length": 0.25,
@@ -1393,10 +1455,22 @@
           "velocity": 96
         },
         {
+          "pitch": 37,
+          "start": 42.25,
+          "length": 0.25,
+          "velocity": 84
+        },
+        {
           "pitch": 42,
           "start": 42.25,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 42.5,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -1411,6 +1485,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 43,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 43,
           "length": 0.25,
@@ -1423,52 +1503,22 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 43.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 43.5,
           "length": 0.5,
           "velocity": 80
         },
         {
+          "pitch": 42,
+          "start": 43.75,
+          "length": 0.25,
+          "velocity": 64
+        },
+        {
           "pitch": 36,
-          "start": 40,
+          "start": 44,
           "length": 0.5,
           "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 41.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 42.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 41,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 43,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 37,
-          "start": 42.25,
-          "length": 0.25,
-          "velocity": 84
         },
         {
           "pitch": 42,
@@ -1495,6 +1545,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 45,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 45,
           "length": 0.25,
@@ -1513,6 +1569,12 @@
           "velocity": 64
         },
         {
+          "pitch": 36,
+          "start": 45.75,
+          "length": 0.5,
+          "velocity": 108
+        },
+        {
           "pitch": 42,
           "start": 45.75,
           "length": 0.25,
@@ -1525,10 +1587,22 @@
           "velocity": 96
         },
         {
+          "pitch": 37,
+          "start": 46.25,
+          "length": 0.25,
+          "velocity": 84
+        },
+        {
           "pitch": 42,
           "start": 46.25,
           "length": 0.25,
           "velocity": 64
+        },
+        {
+          "pitch": 36,
+          "start": 46.5,
+          "length": 0.5,
+          "velocity": 108
         },
         {
           "pitch": 42,
@@ -1543,6 +1617,12 @@
           "velocity": 64
         },
         {
+          "pitch": 39,
+          "start": 47,
+          "length": 0.5,
+          "velocity": 112
+        },
+        {
           "pitch": 42,
           "start": 47,
           "length": 0.25,
@@ -1555,52 +1635,16 @@
           "velocity": 64
         },
         {
-          "pitch": 42,
-          "start": 47.75,
-          "length": 0.25,
-          "velocity": 64
-        },
-        {
           "pitch": 46,
           "start": 47.5,
           "length": 0.5,
           "velocity": 80
         },
         {
-          "pitch": 36,
-          "start": 44,
-          "length": 0.5,
-          "velocity": 127
-        },
-        {
-          "pitch": 36,
-          "start": 45.75,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 36,
-          "start": 46.5,
-          "length": 0.5,
-          "velocity": 108
-        },
-        {
-          "pitch": 39,
-          "start": 45,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 39,
-          "start": 47,
-          "length": 0.5,
-          "velocity": 112
-        },
-        {
-          "pitch": 37,
-          "start": 46.25,
+          "pitch": 42,
+          "start": 47.75,
           "length": 0.25,
-          "velocity": 84
+          "velocity": 64
         }
       ]
     },
@@ -1611,7 +1655,6 @@
       "frameStart": 96,
       "frameCount": 480,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "",
       "notes": [
         {
@@ -2043,7 +2086,6 @@
       "frameStart": 0,
       "frameCount": 576,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "",
       "notes": [
         {
@@ -2271,7 +2313,6 @@
       "frameStart": 0,
       "frameCount": 576,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "",
       "notes": [
         {
@@ -2499,7 +2540,6 @@
       "frameStart": 384,
       "frameCount": 192,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "",
       "notes": [
         {
@@ -2629,9 +2669,8 @@
       "trackId": "source-forest",
       "name": "Forest Morning",
       "frameStart": 0,
-      "frameCount": 576,
+      "frameCount": 432,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "zvid-sample://midi-v1/forest-morning.lottie"
     },
     {
@@ -2641,8 +2680,34 @@
       "frameStart": 0,
       "frameCount": 576,
       "clipStart": 0,
-      "frameOffset": 0,
       "filePath": "zvid-sample://midi-v1/gradient-dots.lottie"
+    },
+    {
+      "id": "span-ee7b6663-88eb-4908-899c-aed2161ff254",
+      "trackId": "source-track-6f621191-36d0-4ca5-8c63-3eca990ceeff",
+      "name": "Sky",
+      "frameStart": 192,
+      "frameCount": 96,
+      "clipStart": 0,
+      "filePath": "zvid-sample://midi-v1/background-full-screen.lottie"
+    },
+    {
+      "id": "span-f87b5667-a551-4029-b45c-d2716d36a7ae",
+      "trackId": "source-track-d5f2e4ae-fa29-4447-9a51-7e09bfc981e1",
+      "name": "Train",
+      "frameStart": 192,
+      "frameCount": 144,
+      "clipStart": 0,
+      "filePath": "zvid-sample://midi-v1/background-full-screen-train.lottie"
+    },
+    {
+      "id": "span-16a69f96-77f9-44af-abdc-aa632cf4cc31",
+      "trackId": "source-forest",
+      "name": "forest-morning",
+      "frameStart": 432,
+      "frameCount": 48,
+      "clipStart": 0,
+      "filePath": "zvid-sample://midi-v1/forest-morning.lottie"
     }
   ],
   "selections": [
@@ -2651,27 +2716,29 @@
       "trackId": "source-dots",
       "mainTrackId": "dots",
       "frameStart": 0,
-      "frameEnd": 576,
-      "sourceClipId": "span-dots",
-      "sourceOffsetSeconds": 0
+      "frameEnd": 481
+    },
+    {
+      "id": 0,
+      "trackId": "source-dots",
+      "mainTrackId": "dots",
+      "frameStart": 481,
+      "frameEnd": 576
     },
     {
       "id": 2,
       "trackId": "source-forest",
       "mainTrackId": "forest",
       "frameStart": 0,
-      "frameEnd": 576,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": 0
+      "frameEnd": 72
     },
     {
       "id": 3,
       "trackId": "source-forest",
       "mainTrackId": "forest-echo",
       "frameStart": 6,
-      "frameEnd": 96,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
+      "frameEnd": 72,
+      "sourceTrackOffsetSeconds": -0.25
     },
     {
       "id": 4,
@@ -2679,44 +2746,60 @@
       "mainTrackId": "forest-echo",
       "frameStart": 102,
       "frameEnd": 192,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
-    },
-    {
-      "id": 5,
-      "trackId": "source-forest",
-      "mainTrackId": "forest-echo",
-      "frameStart": 198,
-      "frameEnd": 288,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
-    },
-    {
-      "id": 6,
-      "trackId": "source-forest",
-      "mainTrackId": "forest-echo",
-      "frameStart": 294,
-      "frameEnd": 384,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
+      "sourceTrackOffsetSeconds": -0.25
     },
     {
       "id": 7,
       "trackId": "source-forest",
       "mainTrackId": "forest-echo",
       "frameStart": 390,
+      "frameEnd": 432,
+      "sourceTrackOffsetSeconds": -0.25
+    },
+    {
+      "id": 5,
+      "trackId": "source-forest",
+      "mainTrackId": "forest-echo",
+      "frameStart": 432,
       "frameEnd": 480,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
+      "sourceTrackOffsetSeconds": -0.25
+    },
+    {
+      "id": 6,
+      "trackId": "source-forest",
+      "mainTrackId": "1",
+      "frameStart": 24,
+      "frameEnd": 72,
+      "sourceTrackOffsetSeconds": -0.5
     },
     {
       "id": 8,
       "trackId": "source-forest",
+      "mainTrackId": "2",
+      "frameStart": 36,
+      "frameEnd": 72,
+      "sourceTrackOffsetSeconds": -0.5
+    },
+    {
+      "id": 9,
+      "trackId": "source-track-6f621191-36d0-4ca5-8c63-3eca990ceeff",
       "mainTrackId": "forest-echo",
-      "frameStart": 486,
-      "frameEnd": 576,
-      "sourceClipId": "span-forest",
-      "sourceOffsetSeconds": -0.25
+      "frameStart": 192,
+      "frameEnd": 276
+    },
+    {
+      "id": 10,
+      "trackId": "source-track-d5f2e4ae-fa29-4447-9a51-7e09bfc981e1",
+      "mainTrackId": "1",
+      "frameStart": 192,
+      "frameEnd": 288
+    },
+    {
+      "id": 11,
+      "trackId": "source-track-d5f2e4ae-fa29-4447-9a51-7e09bfc981e1",
+      "mainTrackId": "1",
+      "frameStart": 288,
+      "frameEnd": 336
     }
   ],
   "fills": [
@@ -2725,26 +2808,112 @@
       "mainTrackId": "logo",
       "frameStart": 480,
       "frameEnd": 576
+    },
+    {
+      "id": "fill-e56679bc-590c-4bad-822d-611dbfaa8366",
+      "mainTrackId": "2",
+      "frameStart": 192,
+      "frameEnd": 288
     }
   ],
   "texts": [
     {
       "id": "text-midi",
       "mainTrackId": "titles",
-      "frameStart": 0,
-      "frameEnd": 96
-    },
-    {
-      "id": "text-generated",
-      "mainTrackId": "titles",
-      "frameStart": 48,
-      "frameEnd": 96
+      "frameStart": 72,
+      "frameEnd": 150
     },
     {
       "id": "text-zvid",
-      "mainTrackId": "titles",
+      "mainTrackId": "1",
       "frameStart": 480,
       "frameEnd": 576
+    },
+    {
+      "id": "text-cde58697-52c5-4f50-9b50-4eba34a1adbc",
+      "mainTrackId": "logo",
+      "frameStart": 84,
+      "frameEnd": 120
+    },
+    {
+      "id": "window-47f29230-82d2-4c5c-9d88-ad7acaf5ab97",
+      "mainTrackId": "forest",
+      "frameStart": 339,
+      "frameEnd": 417
+    },
+    {
+      "id": "window-89989981-a054-45fe-895b-b40fa668269f",
+      "mainTrackId": "2",
+      "frameStart": 480,
+      "frameEnd": 576
+    }
+  ],
+  "fxClips": [
+    {
+      "id": "fx-77082d53-a6c6-45b1-96a2-cf00e1291c21",
+      "mainTrackId": "3",
+      "frameStart": 66,
+      "frameEnd": 78
+    },
+    {
+      "id": "fx-aafd6694-d1c4-42e3-8623-2da1b13ea02d",
+      "mainTrackId": "titles",
+      "frameStart": 150,
+      "frameEnd": 192
+    },
+    {
+      "id": "window-f8c61a00-3f32-42bd-a137-edc37ae4b62f",
+      "mainTrackId": "3",
+      "frameStart": 144,
+      "frameEnd": 162
+    },
+    {
+      "id": "window-b5416537-6cf1-4880-b931-d396f9f1af87",
+      "mainTrackId": "4",
+      "frameStart": 0,
+      "frameEnd": 174
+    },
+    {
+      "id": "fx-1d9591f4-8826-4ed1-9f4b-68ad9aa8b6aa",
+      "mainTrackId": "forest",
+      "frameStart": 192,
+      "frameEnd": 282
+    },
+    {
+      "id": "fx-4ee292ec-2d52-4b9e-81de-a73ba351cdd0",
+      "mainTrackId": "3",
+      "frameStart": 186,
+      "frameEnd": 198
+    },
+    {
+      "id": "fx-1a8af057-3a05-48ea-872e-28ab88b27061",
+      "mainTrackId": "forest-echo",
+      "frameStart": 279,
+      "frameEnd": 290
+    },
+    {
+      "id": "fx-19c0bae7-e06c-4496-b72c-9e39d212050d",
+      "mainTrackId": "forest-echo",
+      "frameStart": 330,
+      "frameEnd": 339
+    },
+    {
+      "id": "fx-59522e4a-40a5-42fb-9631-2798efd3be8d",
+      "mainTrackId": "forest",
+      "frameStart": 423,
+      "frameEnd": 438
+    },
+    {
+      "id": "fx-0d1e70e8-f632-4784-a344-94f9a21d5e0d",
+      "mainTrackId": "logo",
+      "frameStart": 381,
+      "frameEnd": 399
+    },
+    {
+      "id": "window-e0b0a4d0-ed89-4642-bf1b-600261d0b173",
+      "mainTrackId": "forest",
+      "frameStart": 468,
+      "frameEnd": 486
     }
   ],
   "effects": [
@@ -2764,7 +2933,7 @@
       "effectName": "Gain",
       "parameters": {
         "Gain": {
-          "floatValue": -2
+          "floatValue": -10.8
         },
         "Mute": {
           "floatValue": 0
@@ -2861,7 +3030,7 @@
       "effectName": "Gain",
       "parameters": {
         "Gain": {
-          "floatValue": -6
+          "floatValue": -12.2
         },
         "Mute": {
           "floatValue": 0
@@ -2962,7 +3131,7 @@
       "effectName": "Gain",
       "parameters": {
         "Gain": {
-          "floatValue": -14
+          "floatValue": -6
         },
         "Mute": {
           "floatValue": 0
@@ -3053,7 +3222,7 @@
       "effectName": "Gain",
       "parameters": {
         "Gain": {
-          "floatValue": -12
+          "floatValue": 0
         },
         "Mute": {
           "floatValue": 0
@@ -3172,7 +3341,7 @@
       "effectName": "Gain",
       "parameters": {
         "Gain": {
-          "floatValue": -12
+          "floatValue": -7.1
         },
         "Mute": {
           "floatValue": 0
@@ -3246,346 +3415,6 @@
       }
     },
     {
-      "id": "midi-fx-024",
-      "trackId": "clip:selection-2",
-      "effectName": "Transform",
-      "parameters": {
-        "PositionX": {
-          "floatValue": 0
-        },
-        "PositionY": {
-          "floatValue": -0.22
-        },
-        "ScaleX": {
-          "floatValue": 0.55
-        },
-        "ScaleY": {
-          "floatValue": 0.55
-        },
-        "OriginX": {
-          "floatValue": 0
-        },
-        "OriginY": {
-          "floatValue": 0
-        },
-        "Rotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-025",
-      "trackId": "clip:selection-3",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-026",
-      "trackId": "clip:selection-4",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-027",
-      "trackId": "clip:selection-5",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-028",
-      "trackId": "clip:selection-6",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-029",
-      "trackId": "clip:selection-7",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-030",
-      "trackId": "clip:selection-8",
-      "effectName": "Move",
-      "parameters": {
-        "Motion": {
-          "stringValue": "Ease Out"
-        },
-        "StartPositionX": {
-          "floatValue": 0
-        },
-        "StartPositionY": {
-          "floatValue": 0.8
-        },
-        "StartScaleX": {
-          "floatValue": 0.55
-        },
-        "StartScaleY": {
-          "floatValue": 0.55
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": 0
-        },
-        "EndPositionX": {
-          "floatValue": 0
-        },
-        "EndPositionY": {
-          "floatValue": 0.24
-        },
-        "EndScaleX": {
-          "floatValue": 0.55
-        },
-        "EndScaleY": {
-          "floatValue": 0.55
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
       "id": "midi-fx-031",
       "trackId": "clip:text-midi",
       "effectName": "Text",
@@ -3646,126 +3475,74 @@
           "motionIn": "Ease Out",
           "motionOut": "None",
           "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
         }
       }
     },
     {
-      "id": "midi-fx-032",
+      "id": "e51b29f5-ec63-470a-bec5-32a3003f9fe3",
       "trackId": "clip:text-midi",
-      "effectName": "Transform",
+      "effectName": "Bloom",
       "parameters": {
-        "PositionX": {
-          "floatValue": 0
+        "_Threshold": {
+          "floatValue": 0.6
         },
-        "PositionY": {
-          "floatValue": -0.08
+        "_Intensity": {
+          "floatValue": 1.99
         },
-        "ScaleX": {
-          "floatValue": 1
+        "_Radius": {
+          "floatValue": 0.23
         },
-        "ScaleY": {
-          "floatValue": 1
-        },
-        "OriginX": {
-          "floatValue": 0
-        },
-        "OriginY": {
-          "floatValue": 0
-        },
-        "Rotation": {
-          "floatValue": 0
-        }
-      }
-    },
-    {
-      "id": "midi-fx-033",
-      "trackId": "clip:text-generated",
-      "effectName": "Text",
-      "parameters": {
-        "FontFamily": {
-          "stringValue": "Inter"
-        },
-        "FontWeight": {
-          "stringValue": "Regular"
-        },
-        "FontStyle": {
-          "stringValue": ""
-        },
-        "Align": {
-          "stringValue": "Center"
-        },
-        "VerticalAlign": {
-          "stringValue": "Middle"
-        },
-        "ResizeToFit": {
-          "stringValue": "Off"
-        },
-        "FillMode": {
-          "stringValue": "Solid"
-        },
-        "Color": {
-          "stringValue": "rgba(196,236,170,1)"
-        },
-        "Stroke": {
-          "stringValue": "rgba(0,0,0,0)"
-        },
-        "Shadow": {
-          "stringValue": "On"
-        },
-        "LineHeight": {
-          "floatValue": 1.1
-        },
-        "LetterSpacing": {
-          "floatValue": 0
-        },
-        "StrokeWidth": {
-          "floatValue": 0
-        },
-        "Padding": {
-          "floatValue": 0
-        },
-        "Text": {
-          "stringValue": "every sound generated"
-        },
-        "FontSize": {
-          "floatValue": 56
+        "_Tint": {
+          "stringValue": "rgb(255, 255, 255)"
         }
       },
       "animation": {
         "enabled": true,
-        "mode": "clip",
+        "mode": "lfo",
         "clip": {
           "motionIn": "Ease Out",
-          "motionOut": "None",
-          "timing": "Fast"
-        }
-      }
-    },
-    {
-      "id": "midi-fx-034",
-      "trackId": "clip:text-generated",
-      "effectName": "Transform",
-      "parameters": {
-        "PositionX": {
-          "floatValue": 0
+          "motionOut": "Ease In",
+          "timing": "Normal"
         },
-        "PositionY": {
-          "floatValue": 0.12
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Intensity"
+          ]
         },
-        "ScaleX": {
-          "floatValue": 1
-        },
-        "ScaleY": {
-          "floatValue": 1
-        },
-        "OriginX": {
-          "floatValue": 0
-        },
-        "OriginY": {
-          "floatValue": 0
-        },
-        "Rotation": {
-          "floatValue": 0
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "2 Bars",
+          "depth": 1,
+          "phase": 86,
+          "parameters": [
+            "_Intensity"
+          ]
         }
       }
     },
@@ -3826,9 +3603,121 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease Out",
+          "motionIn": "Ease In",
           "motionOut": "None",
           "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        }
+      }
+    },
+    {
+      "id": "59a74083-3164-47e8-b6f4-424edd2dfb17",
+      "trackId": "clip:fill-logo",
+      "effectName": "Pixelate",
+      "parameters": {
+        "_NumPixels": {
+          "floatValue": 0.46
+        },
+        "_LowIntensity": {
+          "floatValue": 0
+        },
+        "_HighIntensity": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_NumPixels"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_NumPixels"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ce44efc5-5f4a-427c-abd5-582caca9b535",
+      "trackId": "clip:fill-logo",
+      "effectName": "Bloom",
+      "parameters": {
+        "_Threshold": {
+          "floatValue": 0
+        },
+        "_Intensity": {
+          "floatValue": 0.64
+        },
+        "_Radius": {
+          "floatValue": 1
+        },
+        "_Tint": {
+          "stringValue": "rgba(255,255,0, 1)"
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Intensity"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_Intensity"
+          ]
         }
       }
     },
@@ -3893,6 +3782,27 @@
           "motionIn": "Ease Out",
           "motionOut": "None",
           "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
         }
       }
     },
@@ -3923,6 +3833,1733 @@
           "floatValue": 0
         }
       }
+    },
+    {
+      "id": "2f2721af-19c4-4818-81e2-aaf31d3e3ffa",
+      "trackId": "clip:text-zvid",
+      "effectName": "GaussianBlur",
+      "parameters": {
+        "_Radius": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "lfo",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Slow",
+          "reactivity": 1,
+          "parameters": [
+            "_Radius"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_Radius"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bc4ff6da-4fd7-4337-b33e-c533788df7fe",
+      "trackId": "clip:text-zvid",
+      "effectName": "Pixelate",
+      "parameters": {
+        "_NumPixels": {
+          "floatValue": 0.32
+        },
+        "_LowIntensity": {
+          "floatValue": 0
+        },
+        "_HighIntensity": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_NumPixels"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_NumPixels"
+          ]
+        }
+      }
+    },
+    {
+      "id": "layout-titles",
+      "trackId": "titles",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-logo",
+      "trackId": "logo",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-forest",
+      "trackId": "forest",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-forest-echo",
+      "trackId": "forest-echo",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-dots",
+      "trackId": "dots",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-1",
+      "trackId": "1",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "4533f9ac-8e99-4a08-92b3-a82b882705d7",
+      "trackId": "2",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "layout-3",
+      "trackId": "3",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "d88f153e-51f4-43f2-ab30-306a33dd24fa",
+      "trackId": "clip:fx-77082d53-a6c6-45b1-96a2-cf00e1291c21",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Clock Wipe"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Fast"
+        }
+      }
+    },
+    {
+      "id": "50f0b8f0-d1fc-46e0-af76-030c42cd3a8b",
+      "trackId": "clip:text-cde58697-52c5-4f50-9b50-4eba34a1adbc",
+      "effectName": "Text",
+      "parameters": {
+        "Text": {
+          "stringValue": "full instrument rack"
+        },
+        "FontFamily": {
+          "stringValue": "Inter"
+        },
+        "FontWeight": {
+          "stringValue": "Regular"
+        },
+        "FontStyle": {
+          "stringValue": "Italic"
+        },
+        "Align": {
+          "stringValue": "Center"
+        },
+        "VerticalAlign": {
+          "stringValue": "Middle"
+        },
+        "ResizeToFit": {
+          "stringValue": "Off"
+        },
+        "Path": {
+          "stringValue": "None"
+        },
+        "FillMode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(255,255,255,1)"
+        },
+        "Gradient": {
+          "stringValue": "linear-gradient(90deg, rgba(255,209,102,1) 0%, rgba(255,111,157,1) 100%)"
+        },
+        "Stroke": {
+          "stringValue": "rgba(0,0,0,1)"
+        },
+        "Shadow": {
+          "stringValue": "Off"
+        },
+        "ShadowColor": {
+          "stringValue": "rgba(0,0,0,0.6)"
+        },
+        "FontSize": {
+          "floatValue": 96
+        },
+        "LineHeight": {
+          "floatValue": 1.2
+        },
+        "LetterSpacing": {
+          "floatValue": 0
+        },
+        "StrokeWidth": {
+          "floatValue": 0
+        },
+        "StrokeDash": {
+          "floatValue": 0
+        },
+        "StrokeGap": {
+          "floatValue": 20
+        },
+        "StrokeOffset": {
+          "floatValue": 0
+        },
+        "Padding": {
+          "floatValue": 0
+        },
+        "PathRadius": {
+          "floatValue": 300
+        },
+        "ShadowBlur": {
+          "floatValue": 8
+        },
+        "ShadowOffsetX": {
+          "floatValue": 4
+        },
+        "ShadowOffsetY": {
+          "floatValue": 4
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        }
+      }
+    },
+    {
+      "id": "03588e1d-328b-491d-9b5a-a7624e9b1354",
+      "trackId": "clip:text-cde58697-52c5-4f50-9b50-4eba34a1adbc",
+      "effectName": "Transform",
+      "parameters": {
+        "PositionX": {
+          "floatValue": 0
+        },
+        "PositionY": {
+          "floatValue": 0.1704596920289855
+        },
+        "ScaleX": {
+          "floatValue": 1
+        },
+        "ScaleY": {
+          "floatValue": 1
+        },
+        "OriginX": {
+          "floatValue": 0
+        },
+        "OriginY": {
+          "floatValue": 0
+        },
+        "Rotation": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        }
+      }
+    },
+    {
+      "id": "54ca33cb-5b1e-4012-8e57-72bdfdbd82f7",
+      "trackId": "clip:fx-aafd6694-d1c4-42e3-8623-2da1b13ea02d",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Water"
+        },
+        "_Amount": {
+          "floatValue": 0.68
+        },
+        "_Scale": {
+          "floatValue": 0.73
+        },
+        "_Speed": {
+          "floatValue": 0.2
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "lfo",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Amount"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1 Bar",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_Scale"
+          ]
+        }
+      }
+    },
+    {
+      "id": "e0cc43fd-282a-4ada-ac3b-b449f3345024",
+      "trackId": "clip:fx-aafd6694-d1c4-42e3-8623-2da1b13ea02d",
+      "effectName": "AnalogGlitch",
+      "parameters": {
+        "_LowMod": {
+          "floatValue": 0
+        },
+        "_HighMod": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_LowMod",
+            "_HighMod"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.6,
+          "phase": 0,
+          "parameters": [
+            "_LowMod",
+            "_HighMod"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b97e2358-3b15-4652-9e6e-ce1b9bbffb6a",
+      "trackId": "clip:window-f8c61a00-3f32-42bd-a137-edc37ae4b62f",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Zoom Blur"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Normal"
+        }
+      }
+    },
+    {
+      "id": "layout-4",
+      "trackId": "4",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "6cef834b-5334-4481-9e03-a2f235c9d6d8",
+      "trackId": "clip:window-b5416537-6cf1-4880-b931-d396f9f1af87",
+      "effectName": "Order",
+      "parameters": {
+        "Arrangement": {
+          "stringValue": "Vertical"
+        },
+        "ExcludedLayers": {
+          "stringValue": "logo,titles,dots"
+        },
+        "GridSize": {
+          "floatValue": 2
+        },
+        "Spacing": {
+          "floatValue": 0
+        },
+        "Margin": {
+          "floatValue": 0
+        },
+        "BorderColor": {
+          "stringValue": "rgba(0,0,0,1)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "None",
+          "timing": "Fast",
+          "transition": "Squish",
+          "slideMotions": true
+        }
+      }
+    },
+    {
+      "id": "d6bfa0c0-a71c-47ef-8c49-1047ff7ebe96",
+      "trackId": "clip:fx-1d9591f4-8826-4ed1-9f4b-68ad9aa8b6aa",
+      "effectName": "Order",
+      "parameters": {
+        "Arrangement": {
+          "stringValue": "Horizontal"
+        },
+        "ExcludedLayers": {
+          "stringValue": "3,titles,logo,dots,2"
+        },
+        "GridSize": {
+          "floatValue": 2
+        },
+        "Spacing": {
+          "floatValue": 120
+        },
+        "Margin": {
+          "floatValue": 120
+        },
+        "BorderColor": {
+          "stringValue": "rgba(0,0,0,1)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal",
+          "transition": "Push",
+          "slideMotions": true
+        }
+      }
+    },
+    {
+      "id": "e61c36da-7117-4bf4-898d-50d46574503e",
+      "trackId": "clip:selection-9",
+      "effectName": "Transform",
+      "parameters": {
+        "PositionX": {
+          "floatValue": 0
+        },
+        "PositionY": {
+          "floatValue": 0
+        },
+        "ScaleX": {
+          "floatValue": 1
+        },
+        "ScaleY": {
+          "floatValue": 1
+        },
+        "OriginX": {
+          "floatValue": 0
+        },
+        "OriginY": {
+          "floatValue": 0
+        },
+        "Rotation": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "ScaleX",
+            "ScaleY"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b568cad6-5f82-4728-accd-985926f60389",
+      "trackId": "clip:selection-9",
+      "effectName": "DigitalGlitch",
+      "parameters": {
+        "_Amount": {
+          "floatValue": 0.3
+        },
+        "_BlockSize": {
+          "floatValue": 0.4
+        },
+        "_Displace": {
+          "floatValue": 0.5
+        },
+        "_ChannelShift": {
+          "floatValue": 0.3
+        },
+        "_ColorCrush": {
+          "floatValue": 0
+        },
+        "_Rate": {
+          "floatValue": 8
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_Amount",
+            "_Displace"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.6,
+          "phase": 0,
+          "parameters": [
+            "_Amount",
+            "_Displace"
+          ]
+        }
+      }
+    },
+    {
+      "id": "15755bc6-2839-4bb0-b875-554f3e040cf6",
+      "trackId": "clip:selection-9",
+      "effectName": "Move",
+      "parameters": {
+        "Motion": {
+          "stringValue": "Linear"
+        },
+        "Waypoints": {
+          "stringValue": "0"
+        },
+        "Path": {
+          "stringValue": "Curve"
+        },
+        "StartPositionX": {
+          "floatValue": 0
+        },
+        "StartPositionY": {
+          "floatValue": 0
+        },
+        "StartScaleX": {
+          "floatValue": 1
+        },
+        "StartScaleY": {
+          "floatValue": 1
+        },
+        "StartOriginX": {
+          "floatValue": 0
+        },
+        "StartOriginY": {
+          "floatValue": 0
+        },
+        "StartRotation": {
+          "floatValue": 0
+        },
+        "Point1PositionX": {
+          "floatValue": 0
+        },
+        "Point1PositionY": {
+          "floatValue": -0.46
+        },
+        "Point1ScaleX": {
+          "floatValue": 1
+        },
+        "Point1ScaleY": {
+          "floatValue": 1
+        },
+        "Point1OriginX": {
+          "floatValue": 0
+        },
+        "Point1OriginY": {
+          "floatValue": 0
+        },
+        "Point1Rotation": {
+          "floatValue": 0
+        },
+        "Point2PositionX": {
+          "floatValue": 0
+        },
+        "Point2PositionY": {
+          "floatValue": 0
+        },
+        "Point2ScaleX": {
+          "floatValue": 1
+        },
+        "Point2ScaleY": {
+          "floatValue": 1
+        },
+        "Point2OriginX": {
+          "floatValue": 0
+        },
+        "Point2OriginY": {
+          "floatValue": 0
+        },
+        "Point2Rotation": {
+          "floatValue": 0
+        },
+        "Point3PositionX": {
+          "floatValue": 0
+        },
+        "Point3PositionY": {
+          "floatValue": 0
+        },
+        "Point3ScaleX": {
+          "floatValue": 1
+        },
+        "Point3ScaleY": {
+          "floatValue": 1
+        },
+        "Point3OriginX": {
+          "floatValue": 0
+        },
+        "Point3OriginY": {
+          "floatValue": 0
+        },
+        "Point3Rotation": {
+          "floatValue": 0
+        },
+        "Point4PositionX": {
+          "floatValue": 0
+        },
+        "Point4PositionY": {
+          "floatValue": 0
+        },
+        "Point4ScaleX": {
+          "floatValue": 1
+        },
+        "Point4ScaleY": {
+          "floatValue": 1
+        },
+        "Point4OriginX": {
+          "floatValue": 0
+        },
+        "Point4OriginY": {
+          "floatValue": 0
+        },
+        "Point4Rotation": {
+          "floatValue": 0
+        },
+        "EndPositionX": {
+          "floatValue": 0
+        },
+        "EndPositionY": {
+          "floatValue": -0.46
+        },
+        "EndScaleX": {
+          "floatValue": 1
+        },
+        "EndScaleY": {
+          "floatValue": 1
+        },
+        "EndOriginX": {
+          "floatValue": 0
+        },
+        "EndOriginY": {
+          "floatValue": 0
+        },
+        "EndRotation": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Linear",
+          "motionOut": "Linear",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.2,
+          "parameters": [
+            "StartRotation",
+            "EndRotation"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.2,
+          "phase": 0,
+          "parameters": [
+            "StartRotation",
+            "EndRotation"
+          ]
+        }
+      }
+    },
+    {
+      "id": "17bc34c8-8f9b-4b8b-b5eb-af38a27ad036",
+      "trackId": "clip:selection-9",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Top"
+        }
+      }
+    },
+    {
+      "id": "5fc55616-9b42-4a72-90eb-54328dcf9d50",
+      "trackId": "clip:selection-9",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.15
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_HueOffset"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "5f92df1d-d558-4cf3-ac22-5883b3280e40",
+      "trackId": "clip:fx-4ee292ec-2d52-4b9e-81de-a73ba351cdd0",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Morph"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0.2
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Full"
+        }
+      }
+    },
+    {
+      "id": "9fc22b77-b74e-422c-bdcd-485d27bc97ae",
+      "trackId": "clip:fill-e56679bc-590c-4bad-822d-611dbfaa8366",
+      "effectName": "Color",
+      "parameters": {
+        "Mode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(255, 1, 1, 0.49)"
+        },
+        "Gradient": {
+          "stringValue": "linear-gradient(90deg, rgba(124,161,255,1) 0%, rgba(255,111,157,1) 100%)"
+        },
+        "Opacity": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "Opacity"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "Opacity"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ecef618a-81b1-4d31-8208-87f6726d9167",
+      "trackId": "clip:fill-e56679bc-590c-4bad-822d-611dbfaa8366",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Fast",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.5,
+          "phase": 0,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "19e51659-2776-4493-adb5-d7e509c94218",
+      "trackId": "clip:selection-10",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Bottom"
+        }
+      }
+    },
+    {
+      "id": "b16e6150-0642-4ef0-acdf-6fb7277caca8",
+      "trackId": "clip:selection-11",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Bottom"
+        }
+      }
+    },
+    {
+      "id": "7495e0d4-3662-40a6-a0ee-47b39d628022",
+      "trackId": "clip:selection-11",
+      "effectName": "Move",
+      "parameters": {
+        "Motion": {
+          "stringValue": "Linear"
+        },
+        "Waypoints": {
+          "stringValue": "0"
+        },
+        "Path": {
+          "stringValue": "Curve"
+        },
+        "StartPositionX": {
+          "floatValue": 0
+        },
+        "StartPositionY": {
+          "floatValue": 0
+        },
+        "StartScaleX": {
+          "floatValue": 1
+        },
+        "StartScaleY": {
+          "floatValue": 1
+        },
+        "StartOriginX": {
+          "floatValue": 0
+        },
+        "StartOriginY": {
+          "floatValue": 0
+        },
+        "StartRotation": {
+          "floatValue": 0
+        },
+        "Point1PositionX": {
+          "floatValue": 0
+        },
+        "Point1PositionY": {
+          "floatValue": 0
+        },
+        "Point1ScaleX": {
+          "floatValue": 1
+        },
+        "Point1ScaleY": {
+          "floatValue": 1
+        },
+        "Point1OriginX": {
+          "floatValue": 0
+        },
+        "Point1OriginY": {
+          "floatValue": 0
+        },
+        "Point1Rotation": {
+          "floatValue": 0
+        },
+        "Point2PositionX": {
+          "floatValue": 0
+        },
+        "Point2PositionY": {
+          "floatValue": 0
+        },
+        "Point2ScaleX": {
+          "floatValue": 1
+        },
+        "Point2ScaleY": {
+          "floatValue": 1
+        },
+        "Point2OriginX": {
+          "floatValue": 0
+        },
+        "Point2OriginY": {
+          "floatValue": 0
+        },
+        "Point2Rotation": {
+          "floatValue": 0
+        },
+        "Point3PositionX": {
+          "floatValue": 0
+        },
+        "Point3PositionY": {
+          "floatValue": 0
+        },
+        "Point3ScaleX": {
+          "floatValue": 1
+        },
+        "Point3ScaleY": {
+          "floatValue": 1
+        },
+        "Point3OriginX": {
+          "floatValue": 0
+        },
+        "Point3OriginY": {
+          "floatValue": 0
+        },
+        "Point3Rotation": {
+          "floatValue": 0
+        },
+        "Point4PositionX": {
+          "floatValue": 0
+        },
+        "Point4PositionY": {
+          "floatValue": 0
+        },
+        "Point4ScaleX": {
+          "floatValue": 1
+        },
+        "Point4ScaleY": {
+          "floatValue": 1
+        },
+        "Point4OriginX": {
+          "floatValue": 0
+        },
+        "Point4OriginY": {
+          "floatValue": 0
+        },
+        "Point4Rotation": {
+          "floatValue": 0
+        },
+        "EndPositionX": {
+          "floatValue": 0
+        },
+        "EndPositionY": {
+          "floatValue": 0.64
+        },
+        "EndScaleX": {
+          "floatValue": 1
+        },
+        "EndScaleY": {
+          "floatValue": 1
+        },
+        "EndOriginX": {
+          "floatValue": 0
+        },
+        "EndOriginY": {
+          "floatValue": 0
+        },
+        "EndRotation": {
+          "floatValue": 0
+        }
+      },
+      "animation": {
+        "enabled": false,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Linear",
+          "motionOut": "Linear",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.2,
+          "parameters": [
+            "StartRotation",
+            "EndRotation"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.2,
+          "phase": 0,
+          "parameters": [
+            "StartRotation",
+            "EndRotation"
+          ]
+        }
+      }
+    },
+    {
+      "id": "4af79438-2340-4416-82c5-a73d6b9d42f3",
+      "trackId": "clip:fx-1a8af057-3a05-48ea-872e-28ab88b27061",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Glitch"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0.2
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Full"
+        }
+      }
+    },
+    {
+      "id": "b08e8bc4-c8f1-489a-b5ed-bacf63779b58",
+      "trackId": "clip:fx-19c0bae7-e06c-4496-b72c-9e39d212050d",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Dissolve"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0.2
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Full"
+        }
+      }
+    },
+    {
+      "id": "b2b7939b-23bc-47d9-b731-9fb0b8f7ebc2",
+      "trackId": "clip:window-47f29230-82d2-4c5c-9d88-ad7acaf5ab97",
+      "effectName": "Text",
+      "parameters": {
+        "FontFamily": {
+          "stringValue": "Inter"
+        },
+        "FontWeight": {
+          "stringValue": "Bold"
+        },
+        "FontStyle": {
+          "stringValue": ""
+        },
+        "Align": {
+          "stringValue": "Center"
+        },
+        "VerticalAlign": {
+          "stringValue": "Middle"
+        },
+        "ResizeToFit": {
+          "stringValue": "Off"
+        },
+        "FillMode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(244,247,236,1)"
+        },
+        "Stroke": {
+          "stringValue": "rgba(0,0,0,0)"
+        },
+        "Shadow": {
+          "stringValue": "On"
+        },
+        "LineHeight": {
+          "floatValue": 1.1
+        },
+        "LetterSpacing": {
+          "floatValue": 0
+        },
+        "StrokeWidth": {
+          "floatValue": 0
+        },
+        "Padding": {
+          "floatValue": 0
+        },
+        "Text": {
+          "stringValue": "MIDI"
+        },
+        "FontSize": {
+          "floatValue": 220
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "None",
+          "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        }
+      }
+    },
+    {
+      "id": "54d29130-35ff-417d-a07b-485550c62a2e",
+      "trackId": "clip:window-47f29230-82d2-4c5c-9d88-ad7acaf5ab97",
+      "effectName": "Bloom",
+      "parameters": {
+        "_Threshold": {
+          "floatValue": 0.6
+        },
+        "_Intensity": {
+          "floatValue": 1.99
+        },
+        "_Radius": {
+          "floatValue": 0.23
+        },
+        "_Tint": {
+          "stringValue": "rgb(255, 255, 255)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "lfo",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Intensity"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "2 Bars",
+          "depth": 1,
+          "phase": 86,
+          "parameters": [
+            "_Intensity"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dca28bda-0406-42fd-8826-189062bea56f",
+      "trackId": "clip:selection-5",
+      "effectName": "Retime",
+      "parameters": {
+        "Speed": {
+          "floatValue": -1
+        },
+        "Interpolation": {
+          "stringValue": "None"
+        }
+      }
+    },
+    {
+      "id": "805320ad-4052-4442-a2dc-2ef5e03a6337",
+      "trackId": "clip:fx-59522e4a-40a5-42fb-9631-2798efd3be8d",
+      "effectName": "AnalogGlitch",
+      "parameters": {
+        "_LowMod": {
+          "floatValue": 1
+        },
+        "_HighMod": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_LowMod",
+            "_HighMod"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.6,
+          "phase": 0,
+          "parameters": [
+            "_LowMod",
+            "_HighMod"
+          ]
+        }
+      }
+    },
+    {
+      "id": "2a1c0f5e-f378-4ad0-b35f-4ee1088a781c",
+      "trackId": "clip:fx-0d1e70e8-f632-4784-a344-94f9a21d5e0d",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Dip to White"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0.2
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Full"
+        }
+      }
+    },
+    {
+      "id": "30dda915-51b4-4c54-ae08-7ca02cb738c2",
+      "trackId": "clip:window-e0b0a4d0-ed89-4642-bf1b-600261d0b173",
+      "effectName": "Transition",
+      "parameters": {
+        "Type": {
+          "stringValue": "Pixelate"
+        },
+        "Direction": {
+          "stringValue": "Left"
+        },
+        "Softness": {
+          "floatValue": 0.2
+        },
+        "Iris": {
+          "stringValue": "Out"
+        },
+        "Orientation": {
+          "stringValue": "Horizontal"
+        },
+        "Count": {
+          "floatValue": 8
+        },
+        "Origin": {
+          "stringValue": "Center"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease In",
+          "motionOut": "Ease Out",
+          "timing": "Full"
+        }
+      }
+    },
+    {
+      "id": "f7f45127-3173-406f-abd0-a66939a827fe",
+      "trackId": "clip:window-89989981-a054-45fe-895b-b40fa668269f",
+      "effectName": "Text",
+      "parameters": {
+        "FontFamily": {
+          "stringValue": "Inter"
+        },
+        "FontWeight": {
+          "stringValue": "Bold"
+        },
+        "FontStyle": {
+          "stringValue": ""
+        },
+        "Align": {
+          "stringValue": "Center"
+        },
+        "VerticalAlign": {
+          "stringValue": "Middle"
+        },
+        "ResizeToFit": {
+          "stringValue": "Off"
+        },
+        "FillMode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(244,247,236,1)"
+        },
+        "Stroke": {
+          "stringValue": "rgba(0,0,0,0)"
+        },
+        "Shadow": {
+          "stringValue": "On"
+        },
+        "LineHeight": {
+          "floatValue": 1.1
+        },
+        "LetterSpacing": {
+          "floatValue": 0
+        },
+        "StrokeWidth": {
+          "floatValue": 0
+        },
+        "Padding": {
+          "floatValue": 0
+        },
+        "Text": {
+          "stringValue": "zvid"
+        },
+        "FontSize": {
+          "floatValue": 160
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "None",
+          "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.3,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1/8",
+          "depth": 0.3,
+          "phase": 0,
+          "parameters": [
+            "FontSize",
+            "LetterSpacing"
+          ]
+        }
+      }
+    },
+    {
+      "id": "caccbb7f-de7c-4e36-b921-2e39c4824630",
+      "trackId": "clip:window-89989981-a054-45fe-895b-b40fa668269f",
+      "effectName": "Transform",
+      "parameters": {
+        "PositionX": {
+          "floatValue": 0
+        },
+        "PositionY": {
+          "floatValue": 0.2
+        },
+        "ScaleX": {
+          "floatValue": 1
+        },
+        "ScaleY": {
+          "floatValue": 1
+        },
+        "OriginX": {
+          "floatValue": 0
+        },
+        "OriginY": {
+          "floatValue": 0
+        },
+        "Rotation": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "8e9a71e6-0072-4f29-937f-d8fd37fcf8d6",
+      "trackId": "clip:selection-0",
+      "effectName": "Pixelate",
+      "parameters": {
+        "_NumPixels": {
+          "floatValue": 0.58
+        },
+        "_LowIntensity": {
+          "floatValue": 0
+        },
+        "_HighIntensity": {
+          "floatValue": 1
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "lfo",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Fast"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_NumPixels"
+          ]
+        },
+        "lfo": {
+          "shape": "Triangle",
+          "sync": true,
+          "rate": 3.16,
+          "syncRate": "2 Bars",
+          "depth": 1,
+          "phase": 83,
+          "parameters": [
+            "_NumPixels"
+          ]
+        }
+      }
     }
   ],
   "timeline": {
@@ -3935,9 +5572,10 @@
     "projectDuration": 576
   },
   "playPosition": 0,
-  "playStartPosition": 0,
+  "sourceTracksLocked": false,
   "orderDefaulted": true,
   "clipContentEffects": true,
   "audioGainDefaulted": true,
-  "midiClipEffects": true
+  "midiClipEffects": true,
+  "playStartPosition": 0
 }
