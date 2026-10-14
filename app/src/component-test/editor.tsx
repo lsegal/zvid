@@ -267,10 +267,10 @@ export function Editor({
   });
   const playback = usePlayback({
     playbackOriginRef,
-    clips: timelineClips,
     timelineClips,
     timelineClipsRef: selection.timelineClipsRef,
     projectMediaItems: project.mediaItems,
+    sourceSpans: project.sourceSpans,
     bpm,
     barLength: timeline.barLength,
     snap: { unit: timeline.snapUnit, enabled: project.snapEnabled },

@@ -128,7 +128,6 @@ export function TransportHarness({
 
   const playback = usePlayback({
     playbackOriginRef,
-    clips,
     timelineClips: clips,
     timelineClipsRef,
     projectMediaItems: [],

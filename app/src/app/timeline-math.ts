@@ -322,17 +322,24 @@ export function findClipAtPlayhead(
   return match;
 }
 
+// Generated clips, clips of present media and MIDI clips with notes, which
+// play through their track's synth, are playable.
 export function getPlaybackStopQ(
   clips: ArrangementClip[],
   mediaItems: MediaItem[],
   startQ: number,
   bpm: number,
+  sourceSpans: SourceSpan[] = [],
 ) {
   const playableMediaIds = new Set(mediaItems.map((item) => item.id));
+  const midiSpanIds = new Set(
+    sourceSpans.filter((span) => span.notes?.length).map((span) => span.id),
+  );
 
   return clips.reduce((maximum, clip) => {
     if (
       !isGeneratedClip(clip) &&
+      !midiSpanIds.has(clip.sourceSpanId) &&
       (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
     ) {
       return maximum;
@@ -355,10 +362,17 @@ export function getPlaybackRange(
   mediaItems: MediaItem[],
   fromQ: number,
   bpm: number,
+  sourceSpans: SourceSpan[] = [],
 ): { startQ: number; stopQ: number } | undefined {
   const epsilon = 0.0001;
   for (const startQ of fromQ > 0 ? [fromQ, 0] : [fromQ]) {
-    const stopQ = getPlaybackStopQ(clips, mediaItems, startQ, bpm);
+    const stopQ = getPlaybackStopQ(
+      clips,
+      mediaItems,
+      startQ,
+      bpm,
+      sourceSpans,
+    );
     if (stopQ > startQ + epsilon) {
       return { startQ, stopQ };
     }
