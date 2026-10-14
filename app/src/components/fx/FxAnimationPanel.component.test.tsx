@@ -14,8 +14,8 @@ import {
   type EffectAnimation,
   LFO_SYNC_RATES,
 } from "../../fx-animation-defaults.ts";
-import { createProjectHistoryState } from "../../project-history";
 import { FX_COLLAPSED_STORAGE_KEY } from "../../fx-chain.ts";
+import { createProjectHistoryState } from "../../project-history";
 
 // The Animation modifier: a motion-icon toggle beside each device's power
 // button that attaches a collapsible Animation section to the device's right
