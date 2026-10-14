@@ -94,9 +94,9 @@ export function chainWorkletProcessor(registry: AudioProcessorRegistry) {
       }
       this.unreported %= interval;
       const levels: ChainReport["levels"] = [];
-      this.chain.forEachTransient((id, level) => {
+      this.chain.forEachTransient((id, level, hit) => {
         if (this.watched.has(id)) {
-          levels.push([id, level]);
+          levels.push([id, level, hit]);
         }
       });
       if (levels.length) {

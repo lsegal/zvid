@@ -2,18 +2,28 @@ import { getParameterFormat } from "../../../fx-chain";
 import { Fader } from "../../ui/Fader";
 import { Knob } from "../../ui/Knob";
 import type { FxParameterControlProps } from "../types";
+import { useLiveKnob } from "../use-live-knob";
 import { ColorWheelControl } from "./ColorWheelControl";
 import { ToggleControl } from "./ToggleControl";
 
 export function NumberControl(props: FxParameterControlProps) {
-  const { device, parameter, onSetParameter } = props;
+  const { parameter } = props;
   if (parameter.control === "toggle") {
     return <ToggleControl {...props} />;
   }
   if (parameter.control === "wheel") {
     return <ColorWheelControl {...props} />;
   }
+  return <LiveNumberControl {...props} />;
+}
 
+// A knob or fader, showing where Animation or Modulation moves it.
+function LiveNumberControl({
+  device,
+  parameter,
+  onSetParameter,
+}: FxParameterControlProps) {
+  const live = useLiveKnob(device, parameter.key);
   const defaultValue =
     typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
   const shared = {
@@ -21,6 +31,7 @@ export function NumberControl(props: FxParameterControlProps) {
     defaultValue,
     format: getParameterFormat(device.effectName, parameter.key),
     label: parameter.label,
+    live,
     max: parameter.max,
     min: parameter.min,
     onChange: (value: number) =>

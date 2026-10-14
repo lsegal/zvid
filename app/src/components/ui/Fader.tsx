@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { automationAccent } from "./automation-accent.ts";
 import "./fader.css";
 
 export type FaderTick = { value: number; label: string };
@@ -30,6 +31,11 @@ export type FaderProps = {
   /** Fires once when a drag, wheel, keyboard, reset, or typed edit ends. */
   onCommit?: (value: number) => void;
   disabled?: boolean;
+  /**
+   * Where Animation or Modulation has moved the value to, drawn beside the
+   * set value and read out in its place; undefined while nothing moves it.
+   */
+  live?: number;
 };
 
 const TRACK_HEIGHT = 112;
@@ -80,6 +86,7 @@ export function Fader({
   onChange,
   onCommit,
   disabled = false,
+  live,
 }: FaderProps) {
   const labelId = useId();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -295,6 +302,11 @@ export function Fader({
   const position = (at: number) =>
     range > 0 ? (clamp(at, min, max) - min) / range : 0;
   const valueText = format(value);
+  // Where automation has moved the fader: a band from the set value and a
+  // second line. A drag reads out the value being set.
+  const automated = live !== undefined;
+  const readout = automated && !dragging ? format(live) : valueText;
+  const livePosition = position(live ?? value);
 
   return (
     <div
@@ -302,14 +314,19 @@ export function Fader({
         "fader",
         dragging ? "fader--dragging" : "",
         disabled ? "fader--disabled" : "",
+        automated ? "fader--automated" : "",
       ]
         .filter(Boolean)
         .join(" ")}
       style={
         {
           "--fader-accent": accent,
+          "--fader-automation": automationAccent(accent),
           "--fader-height": `${TRACK_HEIGHT}px`,
           "--fader-position": position(value),
+          "--fader-live": livePosition,
+          "--fader-live-low": Math.min(livePosition, position(value)),
+          "--fader-live-high": Math.max(livePosition, position(value)),
         } as CSSProperties
       }
     >
@@ -354,6 +371,12 @@ export function Fader({
               }
             />
           ))}
+          {automated ? (
+            <>
+              <span className="fader__live-band" aria-hidden="true" />
+              <span className="fader__live-line" aria-hidden="true" />
+            </>
+          ) : null}
           <span className="fader__thumb" aria-hidden="true" />
         </div>
         <span className="fader__scale" aria-hidden="true">
@@ -401,7 +424,7 @@ export function Fader({
           aria-label={`${label}: ${valueText}. Edit value`}
           onClick={openEditor}
         >
-          {valueText}
+          {readout}
         </button>
       )}
     </div>

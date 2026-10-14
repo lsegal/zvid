@@ -441,6 +441,13 @@ describe("chain worklet", () => {
     const levels = reports.map((report) => report.levels[0][1]);
     assert.ok(Math.max(...levels) > 0.1, `${Math.max(...levels)}`);
     assert.ok(levels.some((level) => level === 0));
+    // Each swing comes with the seed of its hit, which the knobs draw each
+    // one's direction from.
+    const swinging = reports
+      .map((report) => report.levels[0])
+      .filter(([, level]) => level > 0);
+    assert.ok(swinging.every(([, , hit]) => Number.isFinite(hit)));
+    assert.ok(swinging.some(([, , hit]) => hit !== 0));
 
     // Unwatching stops the reports.
     send(processor, { type: "watch", ids: [] });

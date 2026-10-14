@@ -68,6 +68,30 @@
   background: var(--fader-accent);
 }
 
+/* Where Animation or Modulation has moved the fader, beside where it is set. */
+.fader__live-band {
+  position: absolute;
+  right: 7px;
+  bottom: calc(var(--fader-live-low) * 100%);
+  left: 7px;
+  height: calc((var(--fader-live-high) - var(--fader-live-low)) * 100%);
+  border-radius: 2px;
+  background: var(--fader-automation);
+  opacity: 0.55;
+}
+
+.fader__live-line {
+  position: absolute;
+  bottom: calc(var(--fader-live) * 100%);
+  left: 1px;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--fader-automation);
+  opacity: 0.75;
+  transform: translateY(50%);
+}
+
 .fader__thumb {
   position: absolute;
   bottom: calc(var(--fader-position) * 100%);
@@ -127,6 +151,10 @@
   font-size: 0.72rem;
   line-height: 20px;
   text-align: center;
+}
+
+.fader--automated .fader__value-text {
+  color: var(--fader-automation);
 }
 
 .fader__value-text {
