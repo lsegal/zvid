@@ -32,8 +32,6 @@ function toneWav(seconds = 20, sampleRate = 22_050) {
 // Drops the tone on a new source track, which the preview plays while there
 // are no layer clips.
 async function addTone(page: Page) {
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Show Source Tracks" }).click();
   const dataTransfer = await page.evaluateHandle((data) => {
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
     const transfer = new DataTransfer();
