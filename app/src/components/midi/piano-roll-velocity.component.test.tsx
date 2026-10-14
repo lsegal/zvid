@@ -327,75 +327,20 @@ test(
     expect(lane().getBoundingClientRect().bottom).toBeLessThanOrEqual(
       window.innerHeight,
     );
+    // The FX panel's devices can still shift it as they finish laying out
+    // (a scrollbar coming and going on Linux); drag once it holds still.
+    await expect
+      .poll(async () => {
+        const top = lane().getBoundingClientRect().top;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return lane().getBoundingClientRect().top === top;
+      })
+      .toBe(true);
 
     const left = lane().getBoundingClientRect().left;
-    const seen: unknown[] = [];
-    const scrollers = () => {
-      const out: number[] = [];
-      for (let e: HTMLElement | null = lane(); e; e = e.parentElement) {
-        if (e.scrollTop || e.scrollLeft) out.push(e.scrollTop, e.scrollLeft);
-      }
-      return out;
-    };
-    window.addEventListener(
-      "pointermove",
-      (e) =>
-        seen.push([
-          e.type,
-          e.clientX,
-          e.clientY,
-          lane().getBoundingClientRect().top,
-          scrollers(),
-          (e.target as Element).className,
-        ]),
-      true,
-    );
-    window.addEventListener(
-      "pointerdown",
-      (e) =>
-        seen.push([
-          e.type,
-          e.clientX,
-          e.clientY,
-          lane().getBoundingClientRect().top,
-          scrollers(),
-        ]),
-      true,
-    );
-    window.addEventListener(
-      "pointerup",
-      (e) =>
-        seen.push([
-          e.type,
-          e.clientX,
-          e.clientY,
-          lane().getBoundingClientRect().top,
-          scrollers(),
-        ]),
-      true,
-    );
     await drag(
       { x: left + 1, y: velocityY(50) },
       { x: left + 4 * PIANO_ROLL_QUARTER_PX + 1, y: velocityY(50) },
-    );
-    // DEBUG #1403
-    await new Promise((r) => setTimeout(r, 500));
-    const r = lane().getBoundingClientRect();
-    console.log(
-      "DEBUG1403",
-      JSON.stringify({
-        r,
-        y: velocityY(50),
-        left,
-        notes: notes(),
-        status,
-        seen,
-        stems: [...document.querySelectorAll("[data-stem-index]")].map((e) => [
-          e.getAttribute("aria-valuenow"),
-          JSON.stringify(e.getBoundingClientRect()),
-        ]),
-        hit: document.elementFromPoint(left + 1, velocityY(50))?.className,
-      }),
     );
     await expect
       .poll(() => notes()?.every((note) => Math.abs(note.velocity - 50) <= 2))
