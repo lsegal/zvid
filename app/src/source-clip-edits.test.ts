@@ -3,6 +3,10 @@ import { describe, it } from "node:test";
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
+import {
+  GAIN_EFFECT_NAME,
+  gainChainAmplitude,
+} from "./fx/effects/gain/gain.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import { sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
@@ -414,6 +418,27 @@ describe("createMidiClip", () => {
         accent: swatch.accent,
       },
     ]);
+  });
+
+  it("gives the clip a Gain at 0 dB so it sounds, keeping other stacks", () => {
+    const other = effect("fx", sourceClipEffectTrackId("a"));
+    const patch = createMidiClip(
+      project([], { effects: [other] }),
+      "t2",
+      4,
+      16,
+      "midi",
+    );
+    const stack =
+      patch?.effects?.filter(
+        (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
+      ) ?? [];
+    assert.deepEqual(
+      stack.map((effect) => effect.effectName),
+      [GAIN_EFFECT_NAME],
+    );
+    assert.equal(gainChainAmplitude(stack), 1);
+    assert.equal(patch?.effects?.[0], other);
   });
 
   it("ends where the next clip in its own track begins", () => {

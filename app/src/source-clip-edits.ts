@@ -10,6 +10,7 @@ import { getClipEndQ, quartersToSeconds } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
+import { addDefaultGain } from "./default-gain.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import { newMidiTimeline } from "./midi-clip-timeline.ts";
 import {
@@ -253,7 +254,9 @@ export function fitMidiClipDurationQ(
  * An empty MIDI clip `id`, up to `maxDurationQ` long, placed in source track
  * `trackId` at `startQ` and ending where the next clip there begins (see
  * fitMidiClipDurationQ). Its track's synth plays the notes the piano roll
- * adds to it. Undefined without the track or without room at `startQ`.
+ * adds to it, through the Gain at 0 dB it gets as a media clip does, since a
+ * clip makes sound only through Gain. Undefined without the track or without
+ * room at `startQ`.
  */
 export function createMidiClip(
   current: SourceClipProject,
@@ -274,7 +277,7 @@ export function createMidiClip(
   }
 
   const swatch = getSwatch(track.colorIndex);
-  return placeSourceSpans(
+  const patch = placeSourceSpans(
     current,
     current.sourceSpans,
     [
@@ -294,4 +297,14 @@ export function createMidiClip(
     ],
     [],
   );
+  return {
+    ...patch,
+    effects: addDefaultGain(
+      patch.effects ?? current.effects,
+      {
+        sourceSpans: [{ id }],
+      },
+      [],
+    ),
+  };
 }
