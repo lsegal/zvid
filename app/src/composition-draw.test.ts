@@ -10,6 +10,11 @@ import {
   type WebGlResources,
 } from "./composition-draw.ts";
 import {
+  frameWholeSource,
+  sourceBounds,
+  transformShrink,
+} from "./composition-framing.ts";
+import {
   resolveBandScissor,
   resolveCanvasBounds,
   resolveLayerPlacement,
@@ -491,8 +496,31 @@ describe("drawComposition Transform", () => {
     }
   });
 
+  const surface = { width: WIDTH, height: HEIGHT };
+  const placement = resolveLayerPlacement({
+    index: 1,
+    count: 2,
+    canvasWidth: WIDTH,
+    canvasHeight: HEIGHT,
+    sourceWidth: 1080,
+    sourceHeight: 1920,
+    visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
+  });
+  // The Transform is taken about the band, and moves the whole source.
+  const matrix = nestedTransformMatrix(
+    frameBoxInCanvas(placement.frame, surface),
+    surface,
+    moved,
+  );
+  const source = sourceBounds(placement, 0);
+
+  it("covers its band with a portrait source that reaches past it", () => {
+    assert.ok(source.halfHeight > placement.frame.halfHeight);
+    assert.deepEqual(frameWholeSource(placement, 0).placement.frame, source);
+  });
+
   for (const effects of [[], [colorize("lane-1")]]) {
-    it(`frames a transformed layer into its band, then draws it transformed and cropped to the band${effects.length ? ", after its effects" : ""}`, () => {
+    it(`draws a transformed layer's whole source transformed, then crops it to its band${effects.length ? ", after its effects" : ""}`, () => {
       const { canvasDraws, resources, draws } = render(
         2,
         effects,
@@ -505,18 +533,29 @@ describe("drawComposition Transform", () => {
       assertCompositeState(top, resources, 0, 2, null);
 
       const band = resolveBandScissor(1, 2, WIDTH, HEIGHT);
-      const framing = draws.filter(
-        (draw) =>
-          draw.framebuffer !== null &&
-          draw.viewport?.[2] === band.width &&
-          draw.viewport?.[3] === band.height,
-      );
-      assert.ok(framing.length >= 1 + effects.length, "framed at band size");
-      assert.notEqual(
-        bottom.texture,
-        resources.textureMap.get("media-1") as unknown as Handle,
-        "the framed band is drawn, not the raw source",
-      );
+      const rawSource = resources.textureMap.get(
+        "media-1",
+      ) as unknown as Handle;
+      if (effects.length) {
+        // Framed whole, at the size its Transform draws it, before its
+        // effects run.
+        const grow = frameWholeSource(placement, 0).grow;
+        const shrink = transformShrink(matrix);
+        const framing = draws.filter(
+          (draw) =>
+            draw.framebuffer !== null &&
+            draw.viewport?.[2] === Math.round(band.width * grow.x * shrink) &&
+            draw.viewport?.[3] === Math.round(band.height * grow.y * shrink),
+        );
+        assert.ok(framing.length >= 2, "framed whole, then filtered");
+        assert.notEqual(
+          bottom.texture,
+          rawSource,
+          "the framed source is drawn",
+        );
+      } else {
+        assert.equal(bottom.texture, rawSource, "the source is drawn directly");
+      }
       assert.ok(bottom.scissorTest, "the band crops the transformed layer");
       assert.deepEqual(bottom.scissor, [
         band.x,
@@ -525,19 +564,7 @@ describe("drawComposition Transform", () => {
         band.height,
       ]);
 
-      const { frame } = resolveLayerPlacement({
-        index: 1,
-        count: 2,
-        canvasWidth: WIDTH,
-        canvasHeight: HEIGHT,
-        sourceWidth: 1080,
-        sourceHeight: 1920,
-        visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
-      });
-      const expected = transformedQuadAxes(frame, moved, {
-        width: WIDTH,
-        height: HEIGHT,
-      });
+      const expected = matrixQuadAxes(source, matrix, surface);
       assert.deepEqual(bottom.axes, {
         uAxisX: expected.axisX,
         uAxisY: expected.axisY,
@@ -545,6 +572,25 @@ describe("drawComposition Transform", () => {
       });
     });
   }
+
+  it("moves the source, not its band's crop of it", () => {
+    const down = { ...IDENTITY_TRANSFORM, positionY: 0.5 };
+    const { canvasDraws } = render(2, [], undefined, false, [undefined, down]);
+    const croppedBand = transformedQuadAxes(placement.frame, down, surface);
+    const whole = transformedQuadAxes(source, down, surface);
+    assert.deepEqual(canvasDraws[1].axes, {
+      uAxisX: whole.axisX,
+      uAxisY: whole.axisY,
+      uOffset: whole.offset,
+    });
+    // The source is pinned to the band's top and taller than it, so what
+    // the band cropped off its bottom moves into view below it.
+    const bottomOf = (axes: {
+      axisY: [number, number];
+      offset: [number, number];
+    }) => axes.offset[1] - axes.axisY[1];
+    assert.ok(bottomOf(whole) < bottomOf(croppedBand));
+  });
 });
 
 describe("drawComposition clip Transform", () => {
@@ -559,7 +605,7 @@ describe("drawComposition clip Transform", () => {
     scaleX: 0.5,
     positionY: 0.1,
   };
-  const { frame } = resolveLayerPlacement({
+  const placement = resolveLayerPlacement({
     index: 1,
     count: 2,
     canvasWidth: WIDTH,
@@ -568,12 +614,15 @@ describe("drawComposition clip Transform", () => {
     sourceHeight: 1920,
     visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
   });
+  const { frame } = placement;
+  // Taken about the band, the Transforms move the whole source.
+  const source = sourceBounds(placement, 0);
   const axesOf = (
     layer: LayerTransform | undefined,
     clip: LayerTransform | undefined,
   ) => {
     const expected = matrixQuadAxes(
-      frame,
+      source,
       nestedTransformMatrix(
         frameBoxInCanvas(frame, surface),
         surface,
@@ -602,12 +651,7 @@ describe("drawComposition clip Transform", () => {
     assert.ok(bottom.scissorTest, "the band crops the transformed clip");
     const band = resolveBandScissor(1, 2, WIDTH, HEIGHT);
     assert.deepEqual(bottom.scissor, [band.x, band.y, band.width, band.height]);
-    const expected = transformedQuadAxes(frame, clipTransform, surface);
-    assert.deepEqual(bottom.axes, {
-      uAxisX: expected.axisX,
-      uAxisY: expected.axisY,
-      uOffset: expected.offset,
-    });
+    assert.deepEqual(bottom.axes, axesOf(undefined, clipTransform));
   });
 
   it("draws the clip Transform inside the layer Transform", () => {

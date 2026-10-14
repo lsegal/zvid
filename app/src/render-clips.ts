@@ -70,6 +70,14 @@ export function isSourceRenderId(id: string) {
   return id.startsWith(SOURCE_RENDER_ID_PREFIX);
 }
 
+// The source track or source clip (span) a virtual layer or clip id stands
+// for, or undefined for any other id.
+export function getSourceRenderedId(id: string) {
+  return isSourceRenderId(id)
+    ? id.slice(SOURCE_RENDER_ID_PREFIX.length)
+    : undefined;
+}
+
 // Whether there is anything to render: a layer clip, or else a source span.
 export function hasRenderableContent({
   clips,

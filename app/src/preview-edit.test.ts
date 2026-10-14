@@ -31,6 +31,7 @@ import {
   setLayerTransformPosition,
   toParentDelta,
 } from "./preview-edit.ts";
+import { sourceRenderClipId, sourceRenderLaneId } from "./render-clips.ts";
 
 const EPSILON = 1e-9;
 
@@ -1056,5 +1057,30 @@ describe("clip Transform editing", () => {
       "clip-transform",
     );
     assert.equal(findLayerTransform(resized, trackId)?.id, "clip-transform");
+  });
+
+  it("writes a source track's Transform, or its clip's, to their own stacks", () => {
+    const laneId = sourceRenderLaneId("track-1");
+    assert.equal(getPreviewEditTrackId({ laneId }), "source-track:track-1");
+    const trackId = getPreviewEditTrackId({
+      laneId,
+      clipId: sourceRenderClipId("span-1"),
+    });
+    assert.equal(trackId, "source-clip:span-1");
+
+    const moved = setLayerTransformPosition(
+      [],
+      trackId,
+      { x: 0, y: 0.72 },
+      "span-transform",
+    );
+    assert.deepEqual(
+      moved.map((entry) => [entry.id, entry.trackId]),
+      [["span-transform", "source-clip:span-1"]],
+    );
+    assert.deepEqual(readLayerTransformPosition(moved, trackId), {
+      x: 0,
+      y: 0.72,
+    });
   });
 });

@@ -97,6 +97,9 @@ export type PreviewPanelProps = Pick<
     previewClip: ArrangementClip | undefined;
     previewLaneId: string | undefined;
     previewLayers: ReturnType<typeof usePreview>["previewLayers"];
+    // The selected source track or clip, as the layer or clip the preview
+    // shows, while source tracks render in place of layers.
+    previewSelection?: { laneId: string; clipId?: string };
     resolvePreviewLayersAt: ReturnType<
       typeof usePreview
     >["resolvePreviewLayersAt"];
@@ -212,6 +215,7 @@ export function PreviewPanel({
   previewLayers,
   previewMaxWidth,
   previewMediaState,
+  previewSelection,
   previewTextEdit,
   previewVolume,
   projectDurationFrames,
@@ -370,8 +374,10 @@ export function PreviewPanel({
             layers={previewLayers}
             resolveLayersAt={resolvePreviewLayersAt}
             playheadSignal={playheadSignal}
-            selectedLaneId={previewLaneId}
-            selectedClipId={selectedClip?.id}
+            selectedLaneId={previewSelection?.laneId ?? previewLaneId}
+            selectedClipId={
+              previewSelection ? previewSelection.clipId : selectedClip?.id
+            }
             textEdit={previewTextEdit}
             getLayerPosition={getPreviewLayerPosition}
             getLayerTransform={getPreviewLayerTransform}

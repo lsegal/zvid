@@ -8,6 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  type SourceSelection,
+  selectSourceSpan,
+  selectSourceTrack,
+} from "../app/source-selection.ts";
 import { isClipAtPlayhead } from "../app/timeline-math.ts";
 import type { ArrangementClip, Lane } from "../app/types.ts";
 import type {
@@ -47,6 +52,7 @@ import {
   type TextEditorKeyAction,
   toggleClipTextStyle,
 } from "../preview-text-edit.ts";
+import { getSourceRenderedId } from "../render-clips.ts";
 import { isTextClip } from "../text-clip.ts";
 import { resolveTextStyle } from "../text-style.ts";
 
@@ -67,11 +73,13 @@ export type PreviewEditingInputs = {
   previewLayers: PreviewLayer[];
   refuseReadOnlyEdit: () => boolean;
   selectedClipId: string | undefined;
+  selectSource: (selection: SourceSelection | undefined) => void;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setPlayheadQ: (nextQ: number) => void;
   setPreviewLaneId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  sourceSelection: SourceSelection | undefined;
   timelineClipsRef: RefObject<ArrangementClip[]>;
 };
 
@@ -88,17 +96,32 @@ export function usePreviewEditing({
   previewLayers,
   refuseReadOnlyEdit,
   selectedClipId,
+  selectSource,
   setIsPlaying,
   setPlayheadQ,
   setPreviewLaneId,
   setSelectedClipId,
   setSelectedLaneId,
+  sourceSelection,
   timelineClipsRef,
 }: PreviewEditingInputs) {
   const effectsRef = useRef(effects);
   effectsRef.current = effects;
   const selectPreviewLayer = useCallback(
     (layer: PreviewLayer | undefined) => {
+      // A source track rendered in place of layers selects its source
+      // clip, and clicking off it leaves its track selected, as clicking
+      // off a clip leaves its layer.
+      const sourceTrackId = layer && getSourceRenderedId(layer.laneId);
+      const sourceSpanId = layer && getSourceRenderedId(layer.clipId);
+      if (sourceTrackId !== undefined && sourceSpanId !== undefined) {
+        selectSource(selectSourceSpan({ id: sourceSpanId, sourceTrackId }));
+        return;
+      }
+      if (!layer && sourceSelection) {
+        selectSource(selectSourceTrack(sourceSelection.sourceTrackId));
+        return;
+      }
       setPreviewLaneId(layer?.laneId);
       if (layer) {
         setSelectedClipId(layer.clipId);
@@ -107,7 +130,13 @@ export function usePreviewEditing({
         setSelectedClipId(undefined);
       }
     },
-    [setPreviewLaneId, setSelectedClipId, setSelectedLaneId],
+    [
+      selectSource,
+      setPreviewLaneId,
+      setSelectedClipId,
+      setSelectedLaneId,
+      sourceSelection,
+    ],
   );
   // A preview edit goes to the selected clip's own Transform, or to the
   // layer's when only the layer is selected; its history names either.

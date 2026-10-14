@@ -4,7 +4,12 @@
 // rather than a full frame's.
 import type { CompositeVisual, WebGlResources } from "./composition-draw.ts";
 import { bindCompositeState, drawQuad } from "./composition-draw-gl.ts";
-import type { FrameBounds, LayerPlacement } from "./composition-layout.ts";
+import type {
+  FrameBounds,
+  LayerPlacement,
+  ScissorBox,
+} from "./composition-layout.ts";
+import { fitTextureSize } from "./composition-textures.ts";
 import {
   type CanvasSize,
   frameBoxInCanvas,
@@ -53,18 +58,101 @@ export function visualShrink(
       );
 }
 
-// Whether the layer's source covers exactly its frame, unrotated, so
-// framing it would only copy it.
-export function fillsFrame(placement: LayerPlacement, rotationDeg: number) {
+// The box the layer's source covers, unrotated or around its rotation, in
+// clip space. A source covering its slot reaches past it, by as much as a
+// portrait picture in a landscape slot.
+export function sourceBounds(
+  placement: LayerPlacement,
+  rotationDeg: number,
+): FrameBounds {
   const { frame, halfExtents, translate } = placement;
-  const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
-  return (
-    !rotationDeg &&
-    near(halfExtents.x, frame.halfWidth) &&
-    near(halfExtents.y, frame.halfHeight) &&
-    near(translate.x, frame.centerX) &&
-    near(translate.y, frame.centerY)
+  const radians = (rotationDeg * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(radians));
+  const sin = Math.abs(Math.sin(radians));
+  const halfWidth = cos * halfExtents.x + sin * halfExtents.y;
+  const halfHeight = sin * halfExtents.x + cos * halfExtents.y;
+  return {
+    centerX: translate.x,
+    centerY: translate.y,
+    halfWidth,
+    halfHeight,
+    // In pixels, like its slot's.
+    aspect:
+      (frame.aspect * halfWidth * frame.halfHeight) /
+      Math.max(halfHeight * frame.halfWidth, 1e-12),
+  };
+}
+
+// `placement` with its frame grown to hold its whole source, and how much
+// that grows each side. A Transform or Move moves the source, not the crop
+// its slot makes of it, so moving it reveals what the slot crops away: the
+// layer is framed whole, drawn transformed and only then cropped to its
+// slot.
+export function frameWholeSource(
+  placement: LayerPlacement,
+  rotationDeg: number,
+) {
+  const { frame } = placement;
+  const source = sourceBounds(placement, rotationDeg);
+  const left = Math.min(
+    frame.centerX - frame.halfWidth,
+    source.centerX - source.halfWidth,
   );
+  const right = Math.max(
+    frame.centerX + frame.halfWidth,
+    source.centerX + source.halfWidth,
+  );
+  const bottom = Math.min(
+    frame.centerY - frame.halfHeight,
+    source.centerY - source.halfHeight,
+  );
+  const top = Math.max(
+    frame.centerY + frame.halfHeight,
+    source.centerY + source.halfHeight,
+  );
+  const halfWidth = (right - left) / 2;
+  const halfHeight = (top - bottom) / 2;
+  const grow = {
+    x: halfWidth / Math.max(frame.halfWidth, 1e-6),
+    y: halfHeight / Math.max(frame.halfHeight, 1e-6),
+  };
+  // Within a rounding error, the slot already holds the whole source.
+  if (grow.x < 1 + 1e-6 && grow.y < 1 + 1e-6) {
+    return { placement, grow: { x: 1, y: 1 } };
+  }
+  return {
+    placement: {
+      ...placement,
+      frame: {
+        centerX: (left + right) / 2,
+        centerY: (top + bottom) / 2,
+        halfWidth,
+        halfHeight,
+        aspect: (frame.aspect * grow.x) / grow.y,
+      },
+    },
+    grow,
+  };
+}
+
+// The size a layer is framed at, and its pixels per output pixel: its
+// slot's `scissor`, grown by `grow` to hold its whole source, at the size
+// its Transform draws it (`shrink`), and no larger than a texture can be.
+export function wholeSourceFrameSize(
+  gl: WebGLRenderingContext,
+  scissor: ScissorBox,
+  grow: { x: number; y: number },
+  shrink: number,
+) {
+  if (grow.x === 1 && grow.y === 1) {
+    return { size: shrunkSize(scissor, shrink), scale: shrink };
+  }
+  const fitted = fitTextureSize(
+    gl,
+    scissor.width * grow.x * shrink,
+    scissor.height * grow.y * shrink,
+  );
+  return { size: fitted, scale: fitted.factor * shrink };
 }
 
 // Draws the layer's source into a `size` region exactly as it would appear

@@ -17,7 +17,11 @@ import {
   isGeneratedClip,
 } from "../clip-media-state";
 import type { MediaItem } from "../media";
-import { isSourceRenderId, resolveRenderClips } from "../render-clips.ts";
+import {
+  resolveRenderClips,
+  sourceRenderClipId,
+  sourceRenderLaneId,
+} from "../render-clips.ts";
 import { loadFontFace, resolveFontFace } from "../text-fonts.ts";
 import { isTextEffectName, readTextStyle } from "../text-style.ts";
 import {
@@ -36,6 +40,8 @@ export type PreviewInputs = {
     | "setPreviewLaneId"
     | "setSelectedClipId"
     | "setSelectedLaneId"
+    | "selectSource"
+    | "sourceSelection"
     | "timelineClips"
     | "timelineClipsRef"
     | "timelineEffects"
@@ -87,6 +93,8 @@ export function usePreview({
     setPreviewLaneId,
     setSelectedClipId,
     setSelectedLaneId,
+    selectSource,
+    sourceSelection,
     timelineClips,
     timelineClipsRef,
     timelineEffects,
@@ -170,7 +178,7 @@ export function usePreview({
       ),
     [bpm, mediaItemsById, playheadQ, render],
   );
-  const { layers: renderedLayers, resolveLayersAt } = usePreviewLayers({
+  const { layers: previewLayers, resolveLayersAt } = usePreviewLayers({
     clips: render.clips,
     mediaItemsById,
     playheadQ,
@@ -184,33 +192,40 @@ export function usePreview({
     canvasWidth,
     canvasHeight,
   });
-  // Source tracks rendered in place of layers are render-only: the
-  // transform overlay can't select or edit them.
-  const previewLayers = useMemo(
-    () => renderedLayers.filter((layer) => !isSourceRenderId(layer.laneId)),
-    [renderedLayers],
-  );
-  const resolvePreviewLayersAt = useCallback(
-    (atQ: number) =>
-      resolveLayersAt(atQ).filter((layer) => !isSourceRenderId(layer.laneId)),
-    [resolveLayersAt],
+  // Source tracks rendered in place of layers are selected and edited in
+  // the preview like layers: the selected source track, or source clip, is
+  // the layer, or clip, the transform overlay shows.
+  const previewSelection = useMemo(
+    () =>
+      render.fromSourceTracks && sourceSelection
+        ? {
+            laneId: sourceRenderLaneId(sourceSelection.sourceTrackId),
+            clipId:
+              sourceSelection.sourceSpanId === undefined
+                ? undefined
+                : sourceRenderClipId(sourceSelection.sourceSpanId),
+          }
+        : undefined,
+    [render.fromSourceTracks, sourceSelection],
   );
   const previewEditing = usePreviewEditing({
     bpm,
     editEffects,
     effects,
     isPlaying,
-    lanes,
+    lanes: render.lanes,
     playbackOriginRef,
     playheadQRef,
     previewLayers,
     refuseReadOnlyEdit,
     selectedClipId,
+    selectSource,
     setIsPlaying,
     setPlayheadQ,
     setPreviewLaneId,
     setSelectedClipId,
     setSelectedLaneId,
+    sourceSelection,
     timelineClipsRef,
   });
   useEffect(() => {
@@ -227,7 +242,8 @@ export function usePreview({
   return {
     ...previewEditing,
     previewLayers,
-    resolvePreviewLayersAt,
+    resolvePreviewLayersAt: resolveLayersAt,
+    previewSelection,
     previewClip,
     renderClips: render.clips,
     renderLanes: render.lanes,
