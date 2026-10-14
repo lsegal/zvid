@@ -2,15 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { logClient } from "../app/util.ts";
 import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
+  type AudioMixContribution,
   audioMixPeaksKey,
   getAudioMixContributions,
   getAudioMixOrigin,
 } from "../audio-mix-clips.ts";
-import {
-  describeAudioMix,
-  type MixPeaksClip,
-  mixWaveformPeaks,
-} from "../audio-mix-peaks.ts";
+import { describeAudioMix } from "../audio-mix-peaks.ts";
+import type { MixPeaksSource } from "../audio-mix-peaks.worker.ts";
+import { mixWaveformPeaksInBackground } from "../audio-mix-peaks-loader.ts";
 import type { MediaItem } from "../media";
 import { loadWaveformPeaks } from "../waveform-loader";
 import type { WaveformPeaks } from "../waveform-peaks";
@@ -18,11 +17,6 @@ import type { WaveformPeaks } from "../waveform-peaks";
 // Recomputing waits for edits to settle, so dragging a clip or a Gain fader
 // does not re-mix on every frame.
 const MIX_DEBOUNCE_MS = 150;
-
-// A clip that renders audio, as the resolved mix plays it.
-export type AudioMixContribution = Omit<MixPeaksClip, "peaks"> & {
-  mediaId: string;
-};
 
 export type AudioMixInputs = {
   // The resolved mix the preview plays.
@@ -40,7 +34,9 @@ type MixState = {
 
 // The Audio row's read-only waveform: the peaks of the resolved mix, rebuilt
 // when its clips, their timing or their Gain change, or on Refresh. Edits to
-// clips without audio leave it alone (see audioMixPeaksKey).
+// clips without audio, and to MIDI clips, leave it alone (see
+// audioMixPeaksKey). It is mixed in a worker, after edits settle, so knob
+// drags never wait on it.
 export function useAudioMix({
   mix: audioMix,
   mediaItemsById: allMediaItemsById,
@@ -50,9 +46,8 @@ export function useAudioMix({
   const [refreshes, setRefreshes] = useState(0);
   const key = `${refreshes}:${audioMixPeaksKey(audioMix, allMediaItemsById)}`;
   // biome-ignore lint/correctness/useExhaustiveDependencies: key holds everything the peaks read from the mix and its media
-  const { origin, contributions, mediaItemsById } = useMemo(
+  const { contributions, mediaItemsById } = useMemo(
     () => ({
-      origin: getAudioMixOrigin(audioMix),
       contributions: getAudioMixContributions(audioMix),
       mediaItemsById: allMediaItemsById,
     }),
@@ -85,21 +80,34 @@ export function useAudioMix({
             return null;
           }
         }),
-      ).then((clips) => {
-        if (!canceled) {
-          const loaded: MixPeaksClip[] = [];
+      )
+        .then((clips) => {
+          if (canceled) {
+            return null;
+          }
+          const loaded: MixPeaksSource[] = [];
           for (const clip of clips) {
             if (clip) {
               loaded.push(clip);
             }
           }
-          setMix({
-            contributions,
-            mediaItemsById,
-            peaks: mixWaveformPeaks(loaded),
-          });
-        }
-      });
+          return mixWaveformPeaksInBackground(loaded);
+        })
+        .then(
+          (peaks) => {
+            if (!canceled) {
+              setMix({ contributions, mediaItemsById, peaks });
+            }
+          },
+          (error: unknown) => {
+            logClient("audio-mix:peaks:error", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            if (!canceled) {
+              setMix({ contributions, mediaItemsById, peaks: null });
+            }
+          },
+        );
     }, MIX_DEBOUNCE_MS);
     return () => {
       canceled = true;
@@ -113,15 +121,21 @@ export function useAudioMix({
     mix.mediaItemsById === mediaItemsById
       ? mix
       : null;
+  // MIDI clips are not drawn but still count as mixed clips.
   return {
-    summary: describeAudioMix(origin, contributions.length),
+    summary: describeAudioMix(
+      getAudioMixOrigin(audioMix),
+      audioMix.clips.length,
+    ),
     // Until the first mix of these inputs is ready, the last one stays up
     // under the skeleton.
     peaks: current ? current.peaks : (mix?.peaks ?? null),
     computing: contributions.length > 0 && !current,
     durationSeconds: Math.max(
       0,
-      ...contributions.map((contribution) => contribution.endSeconds),
+      ...audioMix.clips.map(
+        (clip) => clip.startSeconds + Math.max(0, clip.durationSeconds),
+      ),
     ),
     refresh,
   };
