@@ -33,13 +33,13 @@
   margin: 0;
   padding: 0;
   border: 0;
-  grid-template-columns: repeat(4, 64px);
+  grid-template-columns: repeat(4, 72px);
   gap: 4px;
 }
 
 .fx-drum-pad {
   position: relative;
-  height: 48px;
+  height: 52px;
 }
 
 .fx-drum-pad__hit {
@@ -88,13 +88,15 @@
 }
 
 .fx-drum-pad__name {
+  display: -webkit-box;
   overflow: hidden;
-  padding-right: 12px;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 600;
   line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .fx-drum-pad__note {
@@ -105,8 +107,8 @@
 
 .fx-drum-pad__menu {
   position: absolute;
-  top: 2px;
   right: 2px;
+  bottom: 2px;
   display: grid;
   place-items: center;
   width: 16px;

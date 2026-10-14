@@ -93,7 +93,9 @@ async function openRack() {
     name: DRUM_RACK_EFFECT_NAME,
     exact: true,
   });
-  await expect.element(rack.getByRole("button", { name: /^Pad 1:/ })).toBeVisible();
+  await expect
+    .element(rack.getByRole("button", { name: /^Pad 1:/ }))
+    .toBeVisible();
   const settings = () =>
     parseDrumRack(
       project.effects
@@ -150,7 +152,9 @@ describe("Drum Rack", { timeout: 60_000 }, () => {
   test("switching the bank remaps every pad, as one undo step", async () => {
     const { rack, settings } = await openRack();
     await userEvent.click(rack.getByRole("button", { name: "Bank: TR-808" }));
-    await userEvent.click(page.getByRole("menuitemcheckbox", { name: "TR-909" }));
+    await userEvent.click(
+      page.getByRole("menuitemcheckbox", { name: "TR-909" }),
+    );
     await expect.element(pad(rack, 16)).toHaveAccessibleName("Pad 16: Ride");
     await expect.element(pad(rack, 1)).toHaveAccessibleName("Pad 1: Kick");
     expect(settings().bank).toBe("builtin:tr-909");
@@ -173,7 +177,9 @@ describe("Drum Rack", { timeout: 60_000 }, () => {
 
     await userEvent.click(rack.getByRole("button", { name: "Pad 1 sample" }));
     await userEvent.click(page.getByRole("menuitem", { name: "Load file…" }));
-    await expect.element(pad(rack, 1)).toHaveAccessibleName("Pad 1: my-kick.wav");
+    await expect
+      .element(pad(rack, 1))
+      .toHaveAccessibleName("Pad 1: my-kick.wav");
     expect(imported).toEqual([undefined]);
     expect(settings().pads[0]).toBe("samples/my-kick.wav");
     // Until the app has the file, the pad is flagged and silent.
@@ -202,7 +208,9 @@ describe("Drum Rack", { timeout: 60_000 }, () => {
 
     // Picked from the media library.
     await userEvent.click(rack.getByRole("button", { name: "Pad 2 sample" }));
-    await userEvent.click(page.getByRole("menuitemcheckbox", { name: "vox.wav" }));
+    await userEvent.click(
+      page.getByRole("menuitemcheckbox", { name: "vox.wav" }),
+    );
     await expect.element(pad(rack, 2)).toHaveAccessibleName("Pad 2: vox.wav");
 
     // Back to the bank's sample.
