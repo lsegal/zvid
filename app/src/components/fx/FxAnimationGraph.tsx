@@ -27,7 +27,8 @@ type FxAnimationGraphProps = {
 
 // The trace in the Animation section's title, sampled as the compositor
 // animates the effect: LFO's waveform at the playhead, scaled by Depth;
-// Reactive's swing on each hit the preview has heard, scaled by Reactivity;
+// Reactive's swing on each hit the preview has heard at or above its
+// Reactivity, scaled by Amplitude;
 // or Clip's weight across the clip at the playhead, easing in, holding and
 // easing out.
 export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
@@ -73,13 +74,14 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
 
   const motion = reactive?.motion ?? "None";
   const reactivity = reactive?.reactivity ?? 0;
+  const amplitude = reactive?.amplitude ?? 0;
   const reactiveFrames = reactive
     ? getReactiveTimingFrames(effectName, reactive.timing)
     : 0;
   const sampleReactive = useCallback(
     (time: number, into: Float32Array) => {
       sampleReactiveTrace(
-        { motion, reactivity },
+        { motion, reactivity, amplitude },
         reactiveOnsets(),
         reactiveFrames,
         fps,
@@ -89,7 +91,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
         into,
       );
     },
-    [motion, reactivity, reactiveFrames, fps],
+    [motion, reactivity, amplitude, reactiveFrames, fps],
   );
 
   const { motionIn, motionOut, timing } = animation.clip;

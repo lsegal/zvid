@@ -140,7 +140,8 @@ function animation(mode, clip, reactive, lfo) {
     reactive: {
       motion: "Wobble",
       timing: "Normal",
-      reactivity: 0.5,
+      reactivity: 0,
+      amplitude: 0.5,
       parameters: [],
       ...reactive,
     },
@@ -293,7 +294,7 @@ addEffect(
     animation: animation(
       "reactive",
       {},
-      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+      { motion: "Bounce", amplitude: 0.6, parameters: ["_Amount"] },
     ),
   },
 );
@@ -427,7 +428,7 @@ THREE_UPS.forEach((start, cutIndex) => {
           animation: animation(
             "reactive",
             {},
-            { motion: "Wobble", reactivity: 1, parameters: ["_HueOffset"] },
+            { motion: "Wobble", amplitude: 1, parameters: ["_HueOffset"] },
           ),
         },
       );
@@ -609,7 +610,7 @@ addEffect(
     animation: animation(
       "lfo",
       {},
-      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+      { motion: "Bounce", amplitude: 0.6, parameters: ["_Amount"] },
       { sync: false, rate: 1, depth: 0.6, phase: 0, parameters: ["_Amount"] },
     ),
   },

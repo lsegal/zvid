@@ -119,8 +119,11 @@ export type ClipAnimation = {
 export type ReactiveAnimation = {
   motion: ReactiveMotion;
   timing: AnimationTiming;
-  // How strongly the music moves the parameters, 0..1.
+  // The weakest hit, 0..1, that moves the parameters: hits below it are
+  // ignored.
   reactivity: number;
+  // How far a hit swings the parameters, 0..MAX_REACTIVE_AMPLITUDE.
+  amplitude: number;
   // Keys of the knob parameters the music moves.
   parameters: string[];
 };
@@ -178,6 +181,8 @@ export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
 };
 
 export const REACTIVITY_STEP = 0.1;
+export const AMPLITUDE_STEP = 0.1;
+export const MAX_REACTIVE_AMPLITUDE = 10;
 export const LFO_DEPTH_STEP = 0.1;
 
 // Defaults for an effect that only animates on its clip's enter and exit.
@@ -199,7 +204,7 @@ function defaults(
   motionOut: ClipMotion,
   frames: readonly [number, number, number],
   motion: ReactiveMotion,
-  reactivity: number,
+  amplitude: number,
   parameters: readonly string[],
 ): FxAnimationDefaults {
   return {
@@ -208,7 +213,8 @@ function defaults(
     reactive: {
       motion,
       timing: "Normal",
-      reactivity,
+      reactivity: 0,
+      amplitude,
       parameters: [...parameters],
     },
     // The LFO sweeps the same knobs as far as the music would push them.
@@ -217,7 +223,7 @@ function defaults(
       sync: true,
       rate: 1,
       syncRate: "1/8",
-      depth: reactivity,
+      depth: amplitude,
       phase: 0,
       parameters: [...parameters],
     },
@@ -515,6 +521,10 @@ export function readReactivity(value: unknown, fallback: number) {
   return readNumber(value, 0, 1, fallback);
 }
 
+export function readAmplitude(value: unknown, fallback: number) {
+  return readNumber(value, 0, MAX_REACTIVE_AMPLITUDE, fallback);
+}
+
 export function readParameters(value: unknown, fallback: readonly string[]) {
   return Array.isArray(value)
     ? [
@@ -586,10 +596,20 @@ export function normalizeReactive(
   fallback: ReactiveAnimation,
 ): ReactiveAnimation {
   const reactive = isRecord(raw) ? raw : {};
+  // Saved before Reactivity became a threshold, when it scaled the swing
+  // as Amplitude does: every hit triggered, so it opens at threshold 0 with
+  // its Amplitude at the old Reactivity.
+  const legacy =
+    reactive.amplitude === undefined && typeof reactive.reactivity === "number";
   return {
     motion: readOption(reactive.motion, REACTIVE_MOTIONS, fallback.motion),
     timing: readOption(reactive.timing, ANIMATION_TIMINGS, fallback.timing),
-    reactivity: readReactivity(reactive.reactivity, fallback.reactivity),
+    reactivity: legacy
+      ? 0
+      : readReactivity(reactive.reactivity, fallback.reactivity),
+    amplitude: legacy
+      ? readReactivity(reactive.reactivity, fallback.amplitude)
+      : readAmplitude(reactive.amplitude, fallback.amplitude),
     parameters: readParameters(reactive.parameters, fallback.parameters),
   };
 }

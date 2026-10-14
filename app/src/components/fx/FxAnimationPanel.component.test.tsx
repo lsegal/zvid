@@ -150,7 +150,7 @@ describe("FX Animation", { timeout: 60_000 }, () => {
         ),
       )
       .toBe("Bounce");
-    expect(knobLabels(animation())).toEqual(["Reactivity"]);
+    expect(knobLabels(animation())).toEqual(["Reactivity", "Amplitude"]);
     await userEvent.click(
       animation().getByRole("button", { name: "Parameters: 1 of 1" }),
     );

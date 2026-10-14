@@ -5,6 +5,7 @@ import {
   TYPE_KEY,
 } from "../../fx/effects/transition/transition";
 import {
+  AMPLITUDE_STEP,
   ANIMATION_TIMINGS,
   type AnimatableParameter,
   CLIP_MOTIONS,
@@ -21,9 +22,11 @@ import {
   LFO_SHAPES,
   LFO_SYNC_RATES,
   type LfoAnimation,
+  MAX_REACTIVE_AMPLITUDE,
   ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
   REACTIVITY_STEP,
+  type ReactiveAnimation,
   toggleAnimatedParameter,
 } from "../../fx-animation-defaults";
 import type { FxDevice } from "../../fx-stack";
@@ -209,25 +212,12 @@ export function FxAnimationPanel({
               options={ANIMATION_TIMINGS}
               value={reactive.timing}
             />
-            <div className="fx-animation-panel__knob">
-              <Knob
-                accent={device.accent}
-                defaultValue={
-                  createDefaultAnimation(device.effectName)?.reactive
-                    ?.reactivity ?? 0.5
-                }
-                format={formatReactivity}
-                label="Reactivity"
-                max={1}
-                min={0}
-                onChange={(reactivity) =>
-                  setReactive({ reactivity }, "transient")
-                }
-                onCommit={(reactivity) => setReactive({ reactivity })}
-                step={REACTIVITY_STEP}
-                value={reactive.reactivity}
-              />
-            </div>
+            <FxReactiveKnobs
+              defaults={createDefaultAnimation(device.effectName)?.reactive}
+              device={device}
+              onChange={setReactive}
+              reactive={reactive}
+            />
             <FxAnimationSelect
               label="Motion"
               onChange={(motion) => setReactive({ motion })}
@@ -248,6 +238,63 @@ export function FxAnimationPanel({
 
 export function formatReactivity(value: number) {
   return value.toFixed(1);
+}
+
+// Reactivity is the weakest hit that triggers a swing.
+function formatThreshold(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatAmplitude(value: number) {
+  return `${value.toFixed(1)}x`;
+}
+
+// Reactive mode's knobs: Reactivity, the threshold a hit must reach to
+// swing the parameters, and Amplitude, how far it swings them. An audio
+// device's Transient modulation passes its own defaults.
+export function FxReactiveKnobs({
+  device,
+  reactive,
+  onChange,
+  defaults,
+}: {
+  device: FxDevice;
+  reactive: ReactiveAnimation;
+  onChange: (patch: Partial<ReactiveAnimation>, mode?: FxEditMode) => void;
+  defaults?: ReactiveAnimation;
+}) {
+  return (
+    <>
+      <div className="fx-animation-panel__knob">
+        <Knob
+          accent={device.accent}
+          defaultValue={defaults?.reactivity ?? 0}
+          format={formatThreshold}
+          label="Reactivity"
+          max={1}
+          min={0}
+          onChange={(reactivity) => onChange({ reactivity }, "transient")}
+          onCommit={(reactivity) => onChange({ reactivity })}
+          step={REACTIVITY_STEP}
+          value={reactive.reactivity}
+        />
+      </div>
+      <div className="fx-animation-panel__knob">
+        <Knob
+          accent={device.accent}
+          defaultValue={defaults?.amplitude ?? 1}
+          format={formatAmplitude}
+          label="Amplitude"
+          max={MAX_REACTIVE_AMPLITUDE}
+          min={0}
+          onChange={(amplitude) => onChange({ amplitude }, "transient")}
+          onCommit={(amplitude) => onChange({ amplitude })}
+          step={AMPLITUDE_STEP}
+          value={reactive.amplitude}
+        />
+      </div>
+    </>
+  );
 }
 
 function formatRate(value: number) {

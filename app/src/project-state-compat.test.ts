@@ -317,7 +317,8 @@ describe("migrateColorizeReactivity", () => {
       mode: "reactive",
       reactive: {
         ...defaults.reactive,
-        reactivity: 0.4,
+        reactivity: 0,
+        amplitude: 0.4,
         parameters: ["_HueOffset"],
       },
     });

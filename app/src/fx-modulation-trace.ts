@@ -67,7 +67,7 @@ const envelopePeaks = new Map<ReactiveMotion, number>();
 const ENVELOPE_SAMPLES = 2000;
 
 // A Transient level (see StageModulator) as a fraction of the most its
-// Motion swings, so a full-strength hit at full Reactivity fills the trace.
+// Motion swings, so a full-strength hit at Amplitude 1 fills the trace.
 export function transientTraceValue(motion: ReactiveMotion, level: number) {
   let peak = envelopePeaks.get(motion);
   if (peak === undefined) {

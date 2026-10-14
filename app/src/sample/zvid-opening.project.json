@@ -1101,7 +1101,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": [
             "_Amount"
           ]
@@ -1168,7 +1169,8 @@
         "reactive": {
           "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.6,
+          "reactivity": 0,
+          "amplitude": 0.6,
           "parameters": [
             "_Amount"
           ]
@@ -1254,7 +1256,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1329,7 +1332,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1379,7 +1383,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1450,7 +1455,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1596,7 +1602,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1667,7 +1674,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1720,7 +1728,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1773,7 +1782,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -1823,7 +1833,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -1875,7 +1886,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -1927,7 +1939,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -1979,7 +1992,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2031,7 +2045,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2083,7 +2098,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2279,7 +2295,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -2344,7 +2361,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -2394,7 +2412,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -2484,7 +2503,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -2549,7 +2569,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -2649,7 +2670,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2701,7 +2723,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2753,7 +2776,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2805,7 +2829,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2857,7 +2882,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -2909,7 +2935,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
+          "reactivity": 0,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ]
@@ -3001,7 +3028,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -3147,7 +3175,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -3653,7 +3682,8 @@
         "reactive": {
           "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.6,
+          "reactivity": 0,
+          "amplitude": 0.6,
           "parameters": [
             "_Amount"
           ]
@@ -3918,7 +3948,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         },
         "lfo": {
@@ -4186,7 +4217,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -4284,7 +4316,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -4471,7 +4504,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5084,7 +5118,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5118,7 +5153,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5242,7 +5278,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5440,7 +5477,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5616,7 +5654,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }
@@ -5714,7 +5753,8 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 0.5,
+          "reactivity": 0,
+          "amplitude": 0.5,
           "parameters": []
         }
       }

@@ -55,7 +55,8 @@ function reactive(
   return {
     motion: "Bounce",
     timing: "Normal",
-    reactivity: 1,
+    reactivity: 0,
+    amplitude: 1,
     parameters: ["_LowIntensity", "_HighIntensity"],
     ...overrides,
   };
@@ -178,6 +179,27 @@ describe("findReactiveImpulse", () => {
     assert.equal(impulse?.seed, 72);
   });
 
+  it("ignores hits below the threshold", () => {
+    const onsets = [
+      { time: 1, strength: 0.9 },
+      { time: 1.2, strength: 0.3 },
+      { time: 2, strength: 0.4 },
+    ];
+    // The weak hit at 1.2 doesn't restart the envelope from 1.
+    const impulse = findReactiveImpulse(onsets, 1.3, 12, 30, undefined, 0.5);
+    assert.equal(impulse?.seed, 60);
+    assert.ok(Math.abs((impulse?.u ?? 0) - 0.75) < 1e-9);
+    assert.equal(
+      findReactiveImpulse(onsets, 2.1, 12, 30, undefined, 0.5),
+      undefined,
+    );
+    // A hit exactly at the threshold triggers.
+    assert.equal(
+      findReactiveImpulse(onsets, 2.1, 12, 30, undefined, 0.4)?.strength,
+      0.4,
+    );
+  });
+
   it("starts afresh after the envelope has ended", () => {
     const onsets = [
       { time: 1, strength: 0.9 },
@@ -210,6 +232,25 @@ describe("findReactiveImpulse", () => {
           findReactiveImpulse(onsets, time, lengthFrames, fps),
           scanReactiveImpulse(onsets, time, lengthFrames, fps),
           `round ${round}, time ${time}`,
+        );
+        // A threshold acts as if the weaker hits never happened.
+        const threshold = random();
+        assert.deepEqual(
+          findReactiveImpulse(
+            onsets,
+            time,
+            lengthFrames,
+            fps,
+            undefined,
+            threshold,
+          ),
+          scanReactiveImpulse(
+            onsets.filter((onset) => onset.strength >= threshold),
+            time,
+            lengthFrames,
+            fps,
+          ),
+          `round ${round}, time ${time}, threshold ${threshold}`,
         );
       }
     }
@@ -307,10 +348,10 @@ describe("resolveReactiveParameters", () => {
     assert.ok(values.every((value) => value >= 0 && value <= 1));
   });
 
-  it("changes nothing at Reactivity 0 or with Motion None", () => {
+  it("changes nothing at Amplitude 0 or with Motion None", () => {
     const effect = negativeSplit();
     for (const settings of [
-      reactive({ reactivity: 0 }),
+      reactive({ amplitude: 0 }),
       reactive({ motion: "None" }),
     ]) {
       assert.ok(
@@ -328,13 +369,41 @@ describe("resolveReactiveParameters", () => {
     }
   });
 
-  it("scales the swing by Reactivity", () => {
+  it("scales the swing by Amplitude", () => {
     const effect = negativeSplit();
     const full = trace(effect, reactive(), "_LowIntensity");
-    const half = trace(effect, reactive({ reactivity: 0.5 }), "_LowIntensity");
+    const half = trace(effect, reactive({ amplitude: 0.5 }), "_LowIntensity");
     full.forEach((value, frame) => {
       assert.ok(Math.abs((half[frame] - 0.5) * 2 - (value - 0.5)) < 1e-9);
     });
+  });
+
+  it("only moves on hits at or above the Reactivity threshold", () => {
+    const effect = negativeSplit();
+    const at = (strength: number, reactivity: number) =>
+      resolveReactiveParameters(effect, reactive({ reactivity }), {
+        time: 12 / REACTIVE_FRAME_RATE,
+        onsets: [{ time: 10 / REACTIVE_FRAME_RATE, strength }],
+      });
+    assert.equal(at(0.5, 0.6), effect.parameters);
+    assert.notEqual(at(0.6, 0.6), effect.parameters);
+    assert.notEqual(at(0.1, 0), effect.parameters);
+  });
+
+  it("swings up to ten times as far at Amplitude 10, within the knob's limits", () => {
+    const full = trace(negativeSplit(), reactive(), "_LowIntensity");
+    const most = trace(
+      negativeSplit(0.1),
+      reactive({ amplitude: 10 }),
+      "_LowIntensity",
+    );
+    full.forEach((value, frame) => {
+      const expected = 0.1 + (value - 0.5) * 10;
+      assert.ok(
+        Math.abs(most[frame] - Math.max(0, Math.min(1, expected))) < 1e-9,
+      );
+    });
+    assert.ok(most.includes(0));
   });
 
   it("leaves unselected knobs alone", () => {

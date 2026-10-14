@@ -98,7 +98,8 @@ describe(FxPanel.name, () => {
         fx.querySelector(".mobile-sheet-header__title")?.textContent,
       ).toContain("Clip Text");
 
-      // The text animates in Reactive mode, with its Reactivity knob.
+      // The text animates in Reactive mode, with its Reactivity and
+      // Amplitude knobs.
       await page
         .getByRole("button", { name: "Animation", exact: true })
         .click();
@@ -133,7 +134,8 @@ describe(FxPanel.name, () => {
           knob.y < label.y + 20,
       ).toBe(true);
 
-      // Animation: Mode, Timing, Reactivity, Motion and Parameters all show
+      // Animation: Mode, Timing, Reactivity, Amplitude, Motion and
+      // Parameters all show
       // whole, with no two overlapping.
       await page
         .getByRole("button", { name: "Animation", exact: true })
@@ -145,7 +147,7 @@ describe(FxPanel.name, () => {
       const parts = [
         animation.getByRole("group", { name: "Mode" }).element(),
         animation.getByRole("group", { name: "Timing" }).element(),
-        section.querySelector(".fx-animation-panel__knob"),
+        ...section.querySelectorAll(".fx-animation-panel__knob"),
         [...section.querySelectorAll(".fx-select")].find((select) =>
           select.textContent?.includes("Motion"),
         ),

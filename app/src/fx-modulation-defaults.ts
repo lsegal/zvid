@@ -54,7 +54,8 @@ function defaults(
     transient: {
       motion,
       timing: "Normal",
-      reactivity: amount,
+      reactivity: 0,
+      amplitude: amount,
       parameters: [...parameters],
     },
     lfo: {

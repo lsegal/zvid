@@ -1,6 +1,7 @@
 // Reactive mode of the Animation modifier: on each audio hit, the effect's
 // selected knobs jump by a random amount and settle back along the Motion
-// curve over the Timing, scaled by Reactivity and the hit's strength.
+// curve over the Timing, scaled by Amplitude and the hit's strength. Hits
+// below the Reactivity threshold don't move them.
 
 import {
   getReactiveTimingFrames,
