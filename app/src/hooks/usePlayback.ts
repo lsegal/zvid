@@ -113,6 +113,7 @@ export function usePlayback({
   const playbackStopRef = useRef(0);
   // Open-ended playback, as while recording, ignores the loop.
   const playbackOpenRef = useRef(false);
+  const [isPlaybackOpen, setIsPlaybackOpen] = useState(false);
   // Read by the playback loop, so editing or deleting the loop during
   // playback takes effect right away.
   const loopRegionRef = useRef(loopRegion);
@@ -134,6 +135,7 @@ export function usePlayback({
   const startPlayback = useCallback(
     (fromQ?: number, options?: { open?: boolean }) => {
       playbackOpenRef.current = Boolean(options?.open);
+      setIsPlaybackOpen(Boolean(options?.open));
       if (options?.open) {
         fromQ ??= playheadQRef.current;
         playbackStopRef.current = Number.POSITIVE_INFINITY;
@@ -545,5 +547,7 @@ export function usePlayback({
     playbackEndQ,
     skipToEdge,
     jumpHalfBar,
+    // The loop playback wraps at.
+    playbackLoopRegion: isPlaybackOpen ? null : loopRegion,
   };
 }

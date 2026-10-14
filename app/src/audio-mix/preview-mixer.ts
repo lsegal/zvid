@@ -49,6 +49,7 @@ import {
   DecodedClipVoice,
   DecodedVoiceClock,
   decodedClipSeconds,
+  decodedLoopWrap,
   needsDecodedVoice,
   prefersDecodedVoice,
 } from "./preview-buffer-voice.ts";
@@ -82,6 +83,11 @@ import {
   subscribeWatchedTransients,
   watchedTransients,
 } from "./transient-monitor.ts";
+import {
+  loopedSeconds,
+  nearPlayhead,
+  type PlaybackLoop,
+} from "./voice-window.ts";
 
 export type AudioMixPlayback = {
   playheadSeconds: number;
@@ -89,6 +95,8 @@ export type AudioMixPlayback = {
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
   isContinuousScrubbing: boolean;
+  // The loop playback wraps at, if any.
+  loop?: PlaybackLoop | null;
 };
 
 export type PreviewAudioMixerOptions = {
@@ -123,14 +131,6 @@ type ChainGraph = {
   buses: Map<string, AudioWorkletNode>;
 };
 
-// A clip's element is made this long before the clip starts, so it has
-// loaded by then, and released this long after it ends, or after its
-// chain's tail when that is longer.
-const PRELOAD_SECONDS = 1.5;
-// A clip read other than forwards decodes its media and renders its span
-// before it can play, so its voice is made this much earlier.
-const DECODED_PRELOAD_SECONDS = 8;
-const RELEASE_SECONDS = 3;
 // How long past its tail a clip chain no longer needed waits to be dropped,
 // so its last stage crossfade and Gain ramps finish first.
 const RETIRE_MARGIN_SECONDS = 0.1;
@@ -269,6 +269,7 @@ export class PreviewAudioMixer {
     // Plain playback, as opposed to a scrub, lets seeks land and leads them.
     const steady = playback.isPlaying && !playback.isScrubbing;
     const now = playback.playheadSeconds;
+    const loop = (steady && playback.loop) || undefined;
     this.decodedClock.holdWhile(steady);
     this.applyMode();
     this.graph?.setScrubbing(playback.isAudibleScrubbing);
@@ -279,21 +280,16 @@ export class PreviewAudioMixer {
       this.chains && this.graph && this.timing
         ? this.timing.latencyFrames / this.graph.context.sampleRate
         : 0;
-    this.syncTransport(now + ahead, shouldPlay);
-    const linger = Math.max(
-      RELEASE_SECONDS,
-      this.chains ? (this.timing?.tailSeconds ?? 0) : 0,
-    );
+    const leadAt = loopedSeconds(now, now + ahead, loop);
+    this.syncTransport(leadAt, shouldPlay, loop);
+    const tail = this.chains ? (this.timing?.tailSeconds ?? 0) : 0;
 
     const clipById = new Map(this.mix.clips.map((clip) => [clip.id, clip]));
     for (const clip of this.mix.clips) {
       const start = clip.startSeconds;
       const end = clip.startSeconds + clip.durationSeconds;
-      const preload = this.needsDecoded(clip)
-        ? DECODED_PRELOAD_SECONDS
-        : PRELOAD_SECONDS;
-      const nearby = now >= start - preload && now < end + linger;
-      if (!nearby) {
+      const decoded = this.needsDecoded(clip);
+      if (!nearPlayhead(now, start, end, decoded, tail, loop)) {
         this.release(clip.id);
         continue;
       }
@@ -315,7 +311,7 @@ export class PreviewAudioMixer {
       // A video clip's picture, drawn from its element, leads by as much;
       // stopped, it shows the playhead's own frame.
       const video = Boolean(voice.player?.video);
-      const at = now + (shouldPlay || !video ? ahead : 0);
+      const at = shouldPlay || !video ? leadAt : now;
 
       if (voice.decoded) {
         voice.decoded.retune(clip, this.mix.bpm);
@@ -324,6 +320,7 @@ export class PreviewAudioMixer {
           driftTolerance,
           steady,
           start,
+          decodedLoopWrap(at, start, end, loop),
         );
         continue;
       }
@@ -520,11 +517,11 @@ export class PreviewAudioMixer {
 
   // Tells the chains where the timeline is when that changes: on play,
   // pause or drift. A seek also resets them.
-  private syncTransport(now: number, playing: boolean) {
+  private syncTransport(now: number, playing: boolean, loop?: PlaybackLoop) {
     const context = this.graph?.context;
     const next =
       this.chains && context
-        ? nextTransport(this.transport, context.currentTime, now, playing)
+        ? nextTransport(this.transport, context.currentTime, now, playing, loop)
         : null;
     if (!next) {
       return;

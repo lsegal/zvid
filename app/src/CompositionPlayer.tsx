@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { LoopRegion } from "./app/loop-region.ts";
 import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
 import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
@@ -74,6 +75,7 @@ import {
 import type { PlayheadSignal } from "./playhead-signal";
 import type { MeterSignature } from "./timeline-format.ts";
 import { usePausedPlayheadFollow } from "./use-paused-playhead-follow.ts";
+import { usePlaybackState } from "./use-playback-state.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -97,6 +99,8 @@ type CompositionPlayerProps = {
   // move it every frame without re-rendering the player; seeks move it with
   // the playhead state.
   playheadSignal: PlayheadSignal;
+  // The loop playback wraps at, if any, which the audio mix plays into.
+  loopRegion?: LoopRegion | null;
   // The clips the preview hears (see resolveAudioClips).
   audioMix?: AudioMix;
   // A text clip being typed on in the preview, whose text the on-canvas
@@ -547,6 +551,7 @@ export const CompositionPlayer = forwardRef<
     canvasWidth,
     canvasHeight,
     playheadSignal,
+    loopRegion,
     audioMix,
     hiddenTextClipId,
     frameAnalysis,
@@ -638,25 +643,17 @@ export const CompositionPlayer = forwardRef<
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
-  const playbackFlags = {
-    isPlaying,
-    isScrubbing,
-    isAudibleScrubbing,
-    isContinuousScrubbing,
-  };
-  const playbackFlagsRef = useRef(playbackFlags);
-  playbackFlagsRef.current = playbackFlags;
-  const readPlaybackState = useCallback((): CompositionPlaybackState => {
-    const playheadQ = playheadSignal.get();
-    return {
-      ...playbackFlagsRef.current,
-      playheadQ,
-      playheadSeconds: quartersToSeconds(
-        playheadQ,
-        rendererStateRef.current.bpm,
-      ),
-    };
-  }, [playheadSignal]);
+  const readPlaybackState = usePlaybackState(
+    {
+      isPlaying,
+      isScrubbing,
+      isAudibleScrubbing,
+      isContinuousScrubbing,
+      bpm,
+      loopRegion,
+    },
+    playheadSignal,
+  );
 
   useImperativeHandle(
     ref,

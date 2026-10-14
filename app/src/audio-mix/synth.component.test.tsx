@@ -379,3 +379,71 @@ test("the preview plays a MIDI clip in time through seeks and loops", {
   mixer.pause();
   mixer.dispose();
 });
+
+test("the preview plays the note at a timeline loop's in marker on every pass", {
+  timeout: 30_000,
+}, async () => {
+  await userEvent.click(document.body);
+  // A loop from the clip's start at 1 s to 2 s, whose only note is a
+  // 50 ms one right at the in marker: a voice that only catches up with
+  // the playhead once it has wrapped misses it.
+  const loop = { startSeconds: 1, endSeconds: 2 };
+  const mixer = new PreviewAudioMixer();
+  mixer.update(
+    midiMix([{ pitch: 69, start: 0, length: 0.1, velocity: 127 }], {
+      ...DEFAULT_SYNTH_PARAMS,
+      release: 0.01,
+    }),
+    [],
+  );
+  mixer.sync(playback(1.5, false));
+  const analyser = mixer.analyser;
+  if (!analyser) {
+    throw new Error("The mixer made no graph");
+  }
+  const context = analyser.context as AudioContext;
+  await context.audioWorklet.addModule(
+    URL.createObjectURL(new Blob([PEAK_TAP], { type: "text/javascript" })),
+  );
+  const node = new AudioWorkletNode(context, "peak-tap");
+  analyser.connect(node);
+  await context.resume();
+  for (let sync = 0; sync < 40; sync++) {
+    mixer.sync(playback(1.5, false));
+    await wait(25);
+  }
+  const heard = () =>
+    new Promise<number>((resolve) => {
+      node.port.onmessage = (event) => resolve(event.data);
+      node.port.postMessage("read");
+    });
+
+  // Plays from 1.3 s on the wall clock, wrapping at the out marker as
+  // usePlayback does, and hears each pass from 0.2 s before its in marker
+  // to 0.4 s after it.
+  const startedAt = performance.now();
+  const passes: number[] = [];
+  let listening = false;
+  for (;;) {
+    const elapsed = (performance.now() - startedAt) / 1000;
+    const position =
+      1 + ((0.3 + elapsed) % (loop.endSeconds - loop.startSeconds));
+    if (!listening && position >= 1.8) {
+      listening = true;
+      await heard();
+    } else if (listening && position >= 1.4 && position < 1.8) {
+      listening = false;
+      passes.push(await heard());
+      if (passes.length === 3) {
+        break;
+      }
+    }
+    mixer.sync({ ...playback(position, true), loop });
+    await wait(16);
+  }
+  for (const pass of passes) {
+    expect(pass).toBeGreaterThan(0.05);
+  }
+  mixer.pause();
+  mixer.dispose();
+});

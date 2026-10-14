@@ -699,6 +699,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 mediaTimeFormat={timeFormat}
                 previewVolume={previewVolume.previewVolume}
                 playheadSignal={playheadSignal}
+                loopRegion={playback.playbackLoopRegion}
                 previewLaneId={selection.previewLaneId}
                 projectDurationFrames={project.projectDurationFrames}
                 selectedClip={selectedClip}

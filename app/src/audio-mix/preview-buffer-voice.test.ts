@@ -10,6 +10,7 @@ import {
   DecodedClipVoice,
   DecodedVoiceClock,
   decodedClipSeconds,
+  decodedLoopWrap,
   prefersDecodedVoice,
   reanchoredClipSeconds,
 } from "./preview-buffer-voice.ts";
@@ -110,6 +111,169 @@ describe("DecodedClipVoice", () => {
       voice.sync(1.7, 0.18, true);
     }
     assert.deepEqual(starts, [0, 1.7]);
+  });
+});
+
+describe("DecodedClipVoice loop wraps", () => {
+  const originalFetch = globalThis.fetch;
+  before(() => {
+    globalThis.fetch = () => new Promise(() => {});
+  });
+  after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  type FakeSource = {
+    when: number;
+    offset: number;
+    stoppedAt: number | undefined;
+  };
+
+  // A loaded voice on a shared clock, recording when each source starts on
+  // the audio clock, from where in the clip, and when it stops.
+  function loadedVoice() {
+    const sources: FakeSource[] = [];
+    const context = {
+      currentTime: 0,
+      createBufferSource() {
+        const source: FakeSource = { when: 0, offset: 0, stoppedAt: undefined };
+        sources.push(source);
+        return {
+          buffer: null,
+          connect() {},
+          disconnect() {},
+          start(when: number, offset: number) {
+            source.when = when;
+            source.offset = offset;
+          },
+          stop(when?: number) {
+            source.stoppedAt = when ?? context.currentTime;
+          },
+        };
+      },
+    };
+    const voice = new DecodedClipVoice(
+      context as unknown as AudioContext,
+      {} as AudioMixClip,
+      "blob:clip",
+      120,
+      {} as AudioNode,
+      false,
+      new DecodedVoiceClock(),
+    );
+    (voice as unknown as { buffer: object }).buffer = {};
+    return { voice, context, sources };
+  }
+
+  // A clip from 0 to 8 s under a loop from 1 to 4 s.
+  const loop = { startSeconds: 1, endSeconds: 4 };
+  const wrapAt = (at: number) => decodedLoopWrap(at, 0, 8, loop);
+
+  it("starts the next pass from the in marker just as the loop wraps", () => {
+    const { voice, context, sources } = loadedVoice();
+    context.currentTime = 10;
+    voice.sync(3, 0.18, true, 0, wrapAt(3));
+    assert.equal(sources.length, 1);
+    // Within half a second of the out marker, the next pass starts ahead
+    // on the audio clock, once, where the one playing stops.
+    context.currentTime = 10.6;
+    voice.sync(3.6, 0.18, true, 0, wrapAt(3.6));
+    context.currentTime = 10.8;
+    voice.sync(3.8, 0.18, true, 0, wrapAt(3.8));
+    assert.equal(sources.length, 2);
+    const [first, next] = sources;
+    assert.ok(Math.abs((first.stoppedAt ?? 0) - 11) < 1e-9);
+    assert.ok(Math.abs(next.when - 11) < 1e-9);
+    assert.equal(next.offset, 1);
+    assert.equal(next.stoppedAt, undefined);
+
+    // Once the playhead wraps, it plays on from the next pass, never
+    // restarting, however long the playhead takes.
+    for (const [time, at] of [
+      [11.02, 1.02],
+      [11.05, 1.05],
+      [11.1, 1.1],
+      [11.2, 1.2],
+    ]) {
+      context.currentTime = time;
+      voice.sync(at, 0.18, true, 0, wrapAt(at));
+    }
+    assert.equal(sources.length, 2);
+    assert.equal(next.stoppedAt, undefined);
+  });
+
+  it("plays on into the next pass when the playhead wraps a moment before the audio clock", () => {
+    const { voice, context, sources } = loadedVoice();
+    context.currentTime = 10;
+    voice.sync(3.6, 0.18, true, 0, wrapAt(3.6));
+    assert.equal(sources.length, 2);
+    context.currentTime = 10.39;
+    voice.sync(1.0, 0.18, true, 0, wrapAt(1.0));
+    context.currentTime = 10.42;
+    voice.sync(1.02, 0.18, true, 0, wrapAt(1.02));
+    assert.equal(sources.length, 2);
+    assert.equal(sources[1].stoppedAt, undefined);
+  });
+
+  it("starts a clip at the loop's start that is silent before the wrap", () => {
+    const { voice, context, sources } = loadedVoice();
+    context.currentTime = 10;
+    // A clip from 1.2 s to 2 s, the playhead at 3.8 s.
+    voice.sync(undefined, 0.18, true, 1.2, decodedLoopWrap(3.8, 1.2, 2, loop));
+    assert.equal(sources.length, 1);
+    assert.ok(Math.abs(sources[0].when - 10.4) < 1e-9);
+    assert.equal(sources[0].offset, 0);
+  });
+
+  it("drops the next pass, and restarts, when playback stops being steady", () => {
+    const { voice, context, sources } = loadedVoice();
+    context.currentTime = 10;
+    voice.sync(3.6, 0.18, true, 0, wrapAt(3.6));
+    assert.equal(sources.length, 2);
+    context.currentTime = 10.1;
+    voice.sync(2, 0.035, false);
+    assert.equal(sources[1].stoppedAt, 10.1);
+    assert.equal(sources[0].stoppedAt, 10.1);
+    assert.equal(sources.length, 3);
+    assert.equal(sources[2].offset, 2);
+    assert.equal(sources[2].stoppedAt, undefined);
+  });
+
+  it("drops the next pass when the loop is gone before it wraps", () => {
+    const { voice, context, sources } = loadedVoice();
+    context.currentTime = 10;
+    voice.sync(3.6, 0.18, true, 0, wrapAt(3.6));
+    context.currentTime = 10.05;
+    voice.sync(3.65, 0.18, true, 0, undefined);
+    assert.equal(sources[1].stoppedAt, 10.05);
+    // The pass playing now plays on past where the loop was.
+    context.currentTime = 10.1;
+    voice.sync(3.7, 0.18, true, 0, undefined);
+    assert.equal(sources.length, 3);
+    assert.equal(sources[2].stoppedAt, undefined);
+  });
+});
+
+describe("decodedLoopWrap", () => {
+  const loop = { startSeconds: 1, endSeconds: 4 };
+
+  it("hands a clip its next pass within half a second of the out marker", () => {
+    const wrap = decodedLoopWrap(3.6, 0, 8, loop);
+    assert.equal(wrap?.atSeconds, 4);
+    assert.ok(Math.abs((wrap?.untilSeconds ?? 0) - 0.4) < 1e-9);
+    assert.equal(wrap?.clipSeconds, 1);
+    assert.equal(decodedLoopWrap(3.4, 0, 8, loop), undefined);
+    assert.equal(decodedLoopWrap(4, 0, 8, loop), undefined);
+    assert.equal(decodedLoopWrap(3.6, 0, 8, null), undefined);
+  });
+
+  it("starts a clip just after the in marker later, and leaves others silent", () => {
+    assert.equal(decodedLoopWrap(3.6, 1.25, 2, loop)?.clipSeconds, -0.25);
+    // Too late in the pass to start yet, before the in marker, or past
+    // the out marker.
+    assert.equal(decodedLoopWrap(3.6, 2, 3, loop)?.clipSeconds, undefined);
+    assert.equal(decodedLoopWrap(3.6, 0, 1, loop)?.clipSeconds, undefined);
+    assert.equal(decodedLoopWrap(3.6, 4, 5, loop)?.clipSeconds, undefined);
   });
 });
 

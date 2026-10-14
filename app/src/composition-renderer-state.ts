@@ -1,4 +1,5 @@
 import type { AudioMix } from "./audio-mix/resolve.ts";
+import type { PlaybackLoop } from "./audio-mix/voice-window.ts";
 import type {
   ArrangementClip,
   Lane,
@@ -33,4 +34,6 @@ export type CompositionPlaybackState = {
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
   isContinuousScrubbing: boolean;
+  // The loop playback wraps at, if any (see AudioMixPlayback).
+  loop?: PlaybackLoop | null;
 };
