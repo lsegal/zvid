@@ -21,6 +21,8 @@ export type MidiClipModel = {
   label: string;
   accent: string;
   notes: readonly MidiNote[];
+  // Where the clip starts on the timeline.
+  startQ: number;
   // The clip's window: `lengthQ` quarters from `trimStartQ` into its notes.
   trimStartQ: number;
   lengthQ: number;
@@ -51,6 +53,7 @@ export function getMidiPanelModel(
       label: span.label,
       accent: span.accent,
       notes: span.notes,
+      startQ: span.startQ,
       trimStartQ: secondsToQuarters(span.trimStartSeconds, bpm),
       lengthQ: getClipDurationQ(span, bpm),
       timeline: midiTimelineOf(span, bpm),

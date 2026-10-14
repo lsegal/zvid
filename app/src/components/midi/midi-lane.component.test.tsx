@@ -21,11 +21,16 @@ import {
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
 import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
-import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
+import {
+  defaultMidiTimeline,
+  type MidiClipTimeline,
+} from "../../midi-clip-timeline.ts";
 import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
+import { createPlayheadSignal } from "../../playhead-signal.ts";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
+import { FxModulationClockContext } from "../fx/modulation-clock";
 import {
   PIANO_ROLL_QUARTER_PX,
   PIANO_ROLL_ROW_PX,
@@ -463,6 +468,7 @@ test("clicking a note or a key auditions it through the track's synth", async ()
         label: "Bassline",
         accent: "#7ca1ff",
         notes: NOTES,
+        startQ: 0,
         trimStartQ: 0,
         lengthQ: 8,
         timeline: defaultMidiTimeline(8),
@@ -484,6 +490,91 @@ test("clicking a note or a key auditions it through the track's synth", async ()
   // A click that doesn't move the note edits nothing.
   await nextFrames();
   expect(onSetNotes).not.toHaveBeenCalled();
+});
+
+test("the piano roll's read-only playhead follows the note the clip sounds", async () => {
+  await installHarness();
+  const signal = createPlayheadSignal(0);
+  const onSetNotes = vi.fn();
+  // The clip starts at quarter 10, a quarter into its notes, and plays
+  // Start (quarter 4) to its loop end (6), then its loop from 1 to 6.
+  const timeline: MidiClipTimeline = {
+    length: 8,
+    start: 4,
+    loopStart: 1,
+    loopEnd: 6,
+    loop: true,
+  };
+  await render(
+    <FxModulationClockContext.Provider
+      value={{
+        signal,
+        bpm: 120,
+        signature: { numerator: 4, denominator: 4 },
+        isPlaying: true,
+      }}
+    >
+      <PianoRoll
+        collapsed={false}
+        model={{
+          spanId: "clip",
+          label: "Bassline",
+          accent: "#7ca1ff",
+          notes: NOTES,
+          startQ: 10,
+          trimStartQ: 1,
+          lengthQ: 8,
+          timeline,
+          synth: DEFAULT_SYNTH_PARAMS,
+        }}
+        onAudition={() => {}}
+        onSetNotes={onSetNotes}
+        onSetTimeline={() => {}}
+        onToggleCollapsed={() => {}}
+      />
+    </FxModulationClockContext.Provider>,
+  );
+  const grid = document.querySelector<HTMLElement>(
+    "[data-piano-roll-grid]",
+  ) as HTMLElement;
+  const playhead = () =>
+    document.querySelector<HTMLElement>("[data-piano-roll-playhead]");
+  // The line's center, in quarters across the grid.
+  const playheadQ = () => {
+    const line = playhead()?.getBoundingClientRect();
+    return line
+      ? (line.x + line.width / 2 - grid.getBoundingClientRect().x) /
+          PIANO_ROLL_QUARTER_PX
+      : undefined;
+  };
+
+  // Before the clip, it's hidden.
+  expect(playhead()).toBeNull();
+  // At the clip's start, a quarter into its first pass, it's past Start.
+  signal.set(10);
+  await expect.poll(playheadQ).toBe(5);
+  signal.set(10.5);
+  await expect.poll(playheadQ).toBe(5.5);
+  // Past the first pass, it wraps around the loop.
+  signal.set(11);
+  await expect.poll(playheadQ).toBe(1);
+  signal.set(12.25);
+  await expect.poll(playheadQ).toBe(2.25);
+  signal.set(16);
+  await expect.poll(playheadQ).toBe(1);
+  // Past the clip's window, it's hidden again.
+  signal.set(18);
+  await expect.poll(playhead).toBeNull();
+
+  // It has no handle and takes no pointer input: a click on it adds a note.
+  signal.set(10);
+  await expect.poll(playhead).not.toBeNull();
+  expect(getComputedStyle(playhead() as HTMLElement, "::before").content).toBe(
+    "none",
+  );
+  const line = (playhead() as HTMLElement).getBoundingClientRect();
+  await click(line.x + line.width / 2, cell(grid, 0, 52).y);
+  expect(onSetNotes).toHaveBeenCalledTimes(1);
 });
 
 test(

@@ -5,6 +5,7 @@ import {
   defaultMidiTimeline,
   dragMidiTimeline,
   type MidiClipTimeline,
+  midiSoundingQ,
   moveMidiLoop,
   newMidiTimeline,
   performMidiNotes,
@@ -217,5 +218,56 @@ describe("readMidiTimeline", () => {
       }),
       { length: 4, start: 3.75, loopStart: 0, loopEnd: 4, loop: true },
     );
+  });
+});
+
+describe("midiSoundingQ", () => {
+  it("follows the notes as they lie without a timeline", () => {
+    assert.equal(midiSoundingQ(undefined, 5.5), 5.5);
+  });
+
+  it("plays Start to the loop end first, then around the loop", () => {
+    // Start 2.1.1 with a loop from 1.1.2 to 4.1.1, as performMidiNotes
+    // plays it: the first pass is 8 quarters, later ones 11.75.
+    const timeline: MidiClipTimeline = {
+      length: 16,
+      start: 4,
+      loopStart: 0.25,
+      loopEnd: 12,
+      loop: true,
+    };
+    assert.equal(midiSoundingQ(timeline, 0), 4);
+    assert.equal(midiSoundingQ(timeline, 7.5), 11.5);
+    assert.equal(midiSoundingQ(timeline, 8), 0.25);
+    assert.equal(midiSoundingQ(timeline, 8 + 11.75 + 1), 1.25);
+  });
+
+  it("repeats Start to the Length with the loop off", () => {
+    const timeline: MidiClipTimeline = {
+      length: 8,
+      start: 2,
+      loopStart: 0,
+      loopEnd: 8,
+      loop: false,
+    };
+    assert.equal(midiSoundingQ(timeline, 5), 7);
+    assert.equal(midiSoundingQ(timeline, 6), 2);
+    assert.equal(midiSoundingQ(timeline, 13), 3);
+  });
+
+  it("lands on each played note's own start", () => {
+    const beats = Array.from({ length: 16 }, (_, index) =>
+      note(index, 0.5, index),
+    );
+    const timeline: MidiClipTimeline = {
+      length: 16,
+      start: 4,
+      loopStart: 1,
+      loopEnd: 12,
+      loop: true,
+    };
+    for (const played of performMidiNotes(beats, timeline, 40)) {
+      assert.equal(midiSoundingQ(timeline, played.start), played.pitch);
+    }
   });
 });
