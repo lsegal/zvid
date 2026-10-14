@@ -241,7 +241,8 @@ describe("zvid opening sample", () => {
         assert.deepEqual(order.animation, {
           enabled: true,
           mode: "clip",
-          // An Order has no Motion In or Out.
+          // Without Motion In and Out marked as its own, an Order slides
+          // Ease In Out both ways.
           clip: { timing: "Normal", transition: "Push" },
         });
         return [

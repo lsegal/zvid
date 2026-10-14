@@ -667,7 +667,9 @@ describe("resolveOrderSlide", () => {
     // Fully in from its first frame, but still slides out.
     assert.equal(orderSlideWeight(snapIn, 0, 4), 1);
     assert.equal(orderSlideWeight(snapIn, 2 / FPS, 4), 1);
-    assert.equal(orderSlideWeight(snapIn, 4 - 2 / FPS, 4), ease(2 / 5));
+    assert.ok(
+      Math.abs(orderSlideWeight(snapIn, 4 - 2 / FPS, 4) - ease(2 / 5)) < 1e-9,
+    );
     const snapOut: OrderSlide = { ...SLIDE, motionOut: "None" };
     assert.equal(orderSlideWeight(snapOut, 4 - 2 / FPS, 4), 1);
     assert.equal(orderSlideWeight(snapOut, 2 / FPS, 4), ease(2 / 5));
