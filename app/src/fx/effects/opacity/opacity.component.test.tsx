@@ -1,4 +1,10 @@
 import { describe, expect, test } from "vitest";
+import { render } from "vitest-browser-react";
+import {
+  addFromMenu,
+  device,
+  typeValue,
+} from "../../../component-test/fx-actions.ts";
 import {
   BLUE,
   CYAN,
@@ -14,6 +20,11 @@ import {
   solidColor,
   YELLOW,
 } from "../../../component-test/fx-clip.tsx";
+import { FxEditor } from "../../../component-test/fx-editor.tsx";
+import {
+  EMPTY_PROJECT,
+  withFillClip,
+} from "../../../component-test/fx-projects.ts";
 import type { SessionEffect } from "../../../fx-stack";
 import "../../../composition-fx-clip.ts";
 
@@ -223,5 +234,46 @@ describe("Opacity on an FX clip", { timeout: 60_000 }, () => {
     expectColors(await render(1), [CYAN]);
     expectColors(await render(0.25), [mixed(RED, CYAN, 0.25)]);
     expectColors(await render(0), [RED]);
+  });
+});
+
+describe("the Opacity device", { timeout: 60_000 }, () => {
+  test("is added from a clip's Video → Transform menu and fades it", async () => {
+    let { project, clip } = withFillClip(EMPTY_PROJECT, "#ff0000");
+    await render(
+      <FxEditor
+        project={project}
+        selection={{ clipId: clip.id }}
+        onChange={(history) => {
+          project = history.present;
+        }}
+      />,
+    );
+    await addFromMenu(
+      "Add device to this clip",
+      "Transform",
+      "Opacity",
+      "Video",
+    );
+    const fade = device("Opacity");
+    const knob = fade.getByRole("slider", { name: "Opacity" });
+    await expect.element(knob).toHaveAttribute("aria-valuetext", "100%");
+    // Clip mode fades the clip in and out from the start.
+    await expect
+      .element(
+        fade.getByRole("button", { name: "Turn Animation Off for Opacity" }),
+      )
+      .toHaveAttribute("aria-pressed", "true");
+
+    await typeValue(fade, "Opacity", "0.4");
+    await expect.element(knob).toHaveAttribute("aria-valuetext", "40%");
+    const stored = project.effects.find(
+      (effect) => effect.effectName === "Opacity",
+    );
+    expect(stored?.trackId).toBe(`clip:${clip.id}`);
+    expect(
+      stored?.parameters.map((parameter) => parameter.numericValue),
+    ).toEqual([0.4]);
+    expect(stored?.animation?.mode).toBe("clip");
   });
 });
