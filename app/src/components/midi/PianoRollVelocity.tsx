@@ -194,7 +194,9 @@ export function PianoRollVelocity({
     const velocity = clampVelocity(note.velocity + delta);
     if (velocity !== note.velocity) {
       onSetVelocities(
-        notes.map((other, at) => (at === index ? { ...note, velocity } : other)),
+        notes.map((other, at) =>
+          at === index ? { ...note, velocity } : other,
+        ),
       );
     }
   }
@@ -247,7 +249,6 @@ export function PianoRollVelocity({
   return (
     <>
       <div className="piano-roll__velocity-corner">Vel</div>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: painting velocities is a pointer gesture; each stem's slider takes the arrow keys */}
       <div
         className="piano-roll__velocity"
         data-piano-roll-velocity

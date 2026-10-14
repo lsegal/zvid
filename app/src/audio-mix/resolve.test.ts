@@ -12,6 +12,7 @@ import { createArpeggiatorEffect, createSynthEffect } from "../midi-effects.ts";
 import { type Arpeggiator, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
+import { SYNTH_VOICE_LEVEL, synthVoices } from "./synth.ts";
 
 // At 120 BPM one quarter is half a second.
 const BPM = 120;
@@ -508,6 +509,28 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.notEqual(mixOf([{ ...notes[0], velocity: 30 }]), id);
     assert.notEqual(mixOf(notes, { ...DEFAULT_SYNTH_PARAMS, release: 1 }), id);
     assert.equal(mixOf(notes, DEFAULT_SYNTH_PARAMS), id);
+  });
+
+  it("voices each note at the velocity the piano roll set (#1403)", () => {
+    const edited = [
+      { pitch: 60, start: 0, length: 1, velocity: 20 },
+      { pitch: 62, start: 1, length: 1, velocity: 127 },
+    ];
+    const synth = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "keys" }],
+        sourceSpans: [{ ...midiSpan("m", "keys"), notes: edited }],
+        effects: [synthOn("m")],
+      }),
+    ).clips[0].synth;
+    assert.ok(synth);
+    const peaks = synthVoices(synth.notes, synth.params, BPM).map(
+      (voice) => voice.envelope[1].level,
+    );
+    assert.deepEqual(peaks, [
+      (SYNTH_VOICE_LEVEL * 20) / 127,
+      SYNTH_VOICE_LEVEL,
+    ]);
   });
 
   it("plays a clip's notes through its Arpeggiators, on the beat grid", () => {

@@ -9,16 +9,13 @@ export const VELOCITY_MAX = 127;
 export const VELOCITY_LANE_MIN_PX = 24;
 export const VELOCITY_LANE_MAX_PX = 160;
 export const VELOCITY_LANE_DEFAULT_PX = 56;
-export const VELOCITY_LANE_STORAGE_KEY = "zvid.pianoRoll.velocityLaneHeight";
+export const VELOCITY_LANE_STORAGE_KEY = "zvid-piano-roll-velocity-height";
 // How far either side of a note's stem a press or a paint still reaches it.
 export const VELOCITY_STEM_REACH_PX = 4;
 
 /** `velocity` rounded and clamped to MIDI's 1 to 127. */
 export function clampVelocity(velocity: number) {
-  return Math.min(
-    VELOCITY_MAX,
-    Math.max(VELOCITY_MIN, Math.round(velocity)),
-  );
+  return Math.min(VELOCITY_MAX, Math.max(VELOCITY_MIN, Math.round(velocity)));
 }
 
 /** The velocity at `offsetY` pixels down a lane `heightPx` tall. */
@@ -52,7 +49,7 @@ export function stemsBetween(
 
 /**
  * `notes` with the stems a paint stroke crossed set along it: from velocity
- * `fromVelocity` at `fromX` to `toVelocity` at `toX`.
+ * `from.velocity` at `from.x` to `to.velocity` at `to.x`.
  */
 export function paintVelocities(
   notes: readonly MidiNote[],
