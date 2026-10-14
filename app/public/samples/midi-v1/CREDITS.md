@@ -20,6 +20,13 @@ They are free animations under the Lottie Simple License
 (https://lottiefiles.com/page/license) and were supplied for this sample in
 issue #1415.
 
+`background-full-screen.lottie` ("Background Full Screen") and
+`background-full-screen-train.lottie` ("Background Full Screen", its train
+variant) are dotLottie animations from LottieFiles (https://lottiefiles.com).
+The author in their manifests is LottieFiles. They are free animations under
+the Lottie Simple License (https://lottiefiles.com/page/license) and were
+supplied for this sample in issue #1435.
+
 ## Logo
 
 `zvid-logo.svg` is the zvid logo, zvid's own artwork.
