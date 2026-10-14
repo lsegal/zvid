@@ -84,7 +84,7 @@
   outline-offset: -3px;
 }
 
-/* Source tracks hide behind the overflow menu's toggle. */
+/* The overflow menu's toggle hides source tracks. */
 .app-shell--phone:not(.app-shell--source-tracks) .source-header,
 .app-shell--phone:not(.app-shell--source-tracks) .source-track-list,
 .app-shell--phone:not(.app-shell--source-tracks) .track-row--source-drop {
