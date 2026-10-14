@@ -16,10 +16,12 @@ import {
   deleteNote,
   isBlackKey,
   moveNote,
+  type NoteEdge,
   PIANO_ROLL_DEFAULT_PITCH,
   PIANO_ROLL_HIGH_PITCH,
   PIANO_ROLL_LOW_PITCH,
   pitchName,
+  resizeNote,
   sameNotes,
   sortNotes,
 } from "../../midi-piano-roll.ts";
@@ -70,10 +72,12 @@ function rowOf(pitch: number) {
 type NoteDrag = {
   pointerId: number;
   index: number;
+  // The edge a resize drags, or undefined for a move.
+  edge?: NoteEdge;
   from: MidiNote;
   startX: number;
   startY: number;
-  // The clip's notes during the drag, the dragged one moved.
+  // The clip's notes during the drag, the dragged one moved or resized.
   notes: MidiNote[];
 };
 
@@ -91,8 +95,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // each pitch down the left and the clip's notes across, from its quarter 0,
 // under its own ruler with the loop brace and Start marker (see
 // PianoRollRuler). Clicking empty grid inside the clip's Length adds a note
-// there, dragging a note moves it in time and pitch, and right-clicking a
-// note deletes it; each edit is one undo step. Clicking a note or a key
+// there, dragging a note moves it in time and pitch, dragging either of its
+// edges resizes it, and right-clicking a note deletes it; each edit is one
+// undo step. Clicking a note or a key
 // auditions it through the track's synth.
 export function PianoRoll({
   model,
@@ -167,11 +172,15 @@ export function PianoRoll({
       if (!from) {
         return;
       }
+      const edge = (event.target as Element).closest<HTMLElement>(
+        "[data-note-edge]",
+      )?.dataset.noteEdge as NoteEdge | undefined;
       audition(from.pitch);
       event.currentTarget.setPointerCapture?.(event.pointerId);
       setDrag({
         pointerId: event.pointerId,
         index,
+        edge,
         from,
         startX: event.clientX,
         startY: event.clientY,
@@ -195,16 +204,23 @@ export function PianoRoll({
     if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
-    const moved = moveNote(
-      notes,
-      drag.index,
-      drag.from,
-      (event.clientX - drag.startX) / PIANO_ROLL_QUARTER_PX,
-      -Math.round((event.clientY - drag.startY) / PIANO_ROLL_ROW_PX),
-    );
+    const deltaQ = (event.clientX - drag.startX) / PIANO_ROLL_QUARTER_PX;
+    const moved = drag.edge
+      ? resizeNote(notes, drag.index, drag.from, drag.edge, deltaQ)
+      : moveNote(
+          notes,
+          drag.index,
+          drag.from,
+          deltaQ,
+          -Math.round((event.clientY - drag.startY) / PIANO_ROLL_ROW_PX),
+        );
     const before = drag.notes[drag.index];
     const after = moved[drag.index];
-    if (before.pitch !== after.pitch || before.start !== after.start) {
+    if (
+      before.pitch !== after.pitch ||
+      before.start !== after.start ||
+      before.length !== after.length
+    ) {
       if (before.pitch !== after.pitch) {
         audition(after.pitch);
       }
@@ -218,7 +234,11 @@ export function PianoRoll({
     }
     setDrag(null);
     if (commit && !sameNotes(drag.notes, notes)) {
-      onSetNotes(spanId, sortNotes(drag.notes), midiHistoryLabels.moveNote);
+      onSetNotes(
+        spanId,
+        sortNotes(drag.notes),
+        drag.edge ? midiHistoryLabels.resizeNote : midiHistoryLabels.moveNote,
+      );
     }
   }
 
@@ -266,7 +286,7 @@ export function PianoRoll({
       >
         <span className="fx-device-panel__name">Notes</span>
         <span className="piano-roll__hint">
-          click: add · drag: move · right-click: delete
+          click: add · drag: move · drag edge: resize · right-click: delete
         </span>
         <button
           aria-expanded
@@ -305,7 +325,7 @@ export function PianoRoll({
         </div>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: adding and dragging notes are pointer gestures; each note's button deletes it from the keyboard */}
         <div
-          className="piano-roll__grid"
+          className={`piano-roll__grid${drag?.edge ? " piano-roll__grid--resizing" : ""}`}
           data-piano-roll-grid
           onContextMenu={(event) => {
             event.preventDefault();
@@ -359,7 +379,16 @@ export function PianoRoll({
                 }}
                 title={`${pitchName(note.pitch)}: Delete or right-click to remove`}
                 type="button"
-              />
+              >
+                <span
+                  className="piano-roll__note-edge piano-roll__note-edge--start"
+                  data-note-edge="start"
+                />
+                <span
+                  className="piano-roll__note-edge piano-roll__note-edge--end"
+                  data-note-edge="end"
+                />
+              </button>
             );
           })}
         </div>

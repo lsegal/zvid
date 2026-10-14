@@ -104,6 +104,43 @@ export function moveNote(
   );
 }
 
+/** A note's edge a resize drags. */
+export type NoteEdge = "start" | "end";
+
+/**
+ * `notes` with the note at `index` resized by dragging its `edge` `deltaQ`
+ * quarters from `from`, its place before the drag. The dragged edge snaps to
+ * the grid and the other stays put, so dragging the end changes the length
+ * and dragging the start moves the note and changes its length the other
+ * way. The note never gets shorter than one grid step, nor starts before the
+ * content start.
+ */
+export function resizeNote(
+  notes: readonly MidiNote[],
+  index: number,
+  from: MidiNote,
+  edge: NoteEdge,
+  deltaQ: number,
+): MidiNote[] {
+  const endQ = from.start + from.length;
+  const snapped = (valueQ: number) =>
+    Math.round(valueQ / PIANO_ROLL_SNAP_Q) * PIANO_ROLL_SNAP_Q;
+  return notes.map((note, noteIndex) => {
+    if (noteIndex !== index) {
+      return note;
+    }
+    if (edge === "end") {
+      const end = Math.max(from.start + PIANO_ROLL_SNAP_Q, snapped(endQ + deltaQ));
+      return { ...note, start: from.start, length: end - from.start };
+    }
+    const start = Math.max(
+      0,
+      Math.min(endQ - PIANO_ROLL_SNAP_Q, snapped(from.start + deltaQ)),
+    );
+    return { ...note, start, length: endQ - start };
+  });
+}
+
 /** `notes` without the note at `index`. */
 export function deleteNote(
   notes: readonly MidiNote[],
