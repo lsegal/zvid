@@ -11,6 +11,7 @@ import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import type { NoteGenerator } from "../note-generators.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
+import type { LoopRegion } from "./loop-region.ts";
 
 export type TimelineMode = "musical" | "timecode";
 
@@ -256,6 +257,8 @@ export type ProjectState = {
   // The export encoding from Session Settings; unset reads as the defaults.
   encoding?: SessionEncoding;
   zoom: number;
+  // The loop region playback loops between. Unset when there's none.
+  loopRegion?: LoopRegion;
   sessionName: string | null;
   mediaItems: MediaItem[];
   lanes: Lane[];

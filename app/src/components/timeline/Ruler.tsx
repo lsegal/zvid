@@ -63,7 +63,8 @@ type RulerProps = {
   playbackSelection: PlaybackSelection | null;
   setPlaybackSelection: (selection: PlaybackSelection | null) => void;
   loopRegion: LoopRegion | null;
-  setLoopRegion: (region: LoopRegion | null) => void;
+  setLoopRegion: (region: LoopRegion | null, label?: string) => void;
+  previewLoopRegion: (region: LoopRegion | null) => void;
   lockPlaybackSelection: () => void;
   timelineContentEndQ: number;
 };
@@ -109,6 +110,7 @@ export function Ruler({
   setPlaybackSelection,
   loopRegion,
   setLoopRegion,
+  previewLoopRegion,
   lockPlaybackSelection,
   timelineContentEndQ,
 }: RulerProps) {
@@ -253,6 +255,7 @@ export function Ruler({
           setPlaybackSelection={setPlaybackSelection}
           loopRegion={loopRegion}
           setLoopRegion={setLoopRegion}
+          previewLoopRegion={previewLoopRegion}
           lockPlaybackSelection={lockPlaybackSelection}
           lockLoopShortcut={shortcutLabels.lockLoop}
           timelineContentEndQ={timelineContentEndQ}

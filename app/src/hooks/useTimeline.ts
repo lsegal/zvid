@@ -138,7 +138,7 @@ export function useTimeline({
     flushZoomDraft,
   });
 
-  const loopRegion = useLoopRegion();
+  const loopRegion = useLoopRegion({ project, store });
 
   return {
     ...viewport,
