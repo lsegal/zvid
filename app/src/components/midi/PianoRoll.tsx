@@ -484,11 +484,6 @@ export function PianoRoll({
         }}
       >
         <span className="fx-device-panel__name">Notes</span>
-        <span className="piano-roll__hint">
-          click: add/select · drag: move · {mac ? "Cmd" : "Ctrl"}+drag:
-          duplicate · drag edge: resize · arrows: nudge/pitch · right-click:
-          menu · drag stems: velocity
-        </span>
         <button
           aria-expanded
           aria-label="Collapse Notes"
