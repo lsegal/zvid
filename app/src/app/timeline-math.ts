@@ -323,7 +323,7 @@ export function findClipAtPlayhead(
 }
 
 // Generated clips, clips of present media and MIDI clips with notes, which
-// play through their track's synth, are playable.
+// play through their Synth, are playable.
 export function getPlaybackStopQ(
   clips: ArrangementClip[],
   mediaItems: MediaItem[],

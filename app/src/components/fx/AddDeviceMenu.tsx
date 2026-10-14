@@ -30,9 +30,9 @@ export function AddDeviceMenu({
   onCloseAutoFocus: (event: Event) => void;
   onOpen: () => void;
 }) {
-  // Video and audio effects each get a heading once both are offered.
-  // Their categories open as submenus, unless the menu offers only one
-  // category, whose effects are then listed directly.
+  // MIDI, video and audio effects each get a heading once more than one
+  // kind is offered. Their categories open as submenus, unless the menu
+  // offers only one category, whose effects are then listed directly.
   const groups = groupAddableEffects(effects);
   const labeled = groups.length > 1;
   const inline =

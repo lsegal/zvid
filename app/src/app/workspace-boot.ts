@@ -1,6 +1,7 @@
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { migrateDefaultGain } from "../default-gain.ts";
 import { type MediaItem, toShareableMediaItem } from "../media.ts";
+import { migrateMidiClipEffects } from "../midi-effects.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
@@ -20,7 +21,7 @@ import {
   findRestoredSourceSelection,
   type SourceSelection,
 } from "./source-selection.ts";
-import type { ProjectState } from "./types.ts";
+import type { ProjectState, SourceTrack } from "./types.ts";
 import { logClient } from "./util.ts";
 import type {
   SavedWorkspaceSession,
@@ -53,6 +54,18 @@ const restoredMediaItems = new WeakMap<object, MediaItem>();
 
 // Validates a saved snapshot, fills in fields older saves lack and drops
 // object URLs, which die with the page that made them.
+// `track` without the synth and note generators older workspaces kept on
+// it, which migrateMidiClipEffects has moved onto its MIDI clips.
+function withoutLegacyMidi(
+  track: SourceTrack & { synth?: unknown; noteGenerators?: unknown },
+): SourceTrack {
+  if (!("synth" in track) && !("noteGenerators" in track)) {
+    return track;
+  }
+  const { synth: _synth, noteGenerators: _noteGenerators, ...rest } = track;
+  return rest;
+}
+
 function normalizeRestoredProjectState(value: unknown): ProjectState {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Saved project snapshot is not an object");
@@ -91,9 +104,19 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     state.mediaItems,
     saved.audioGainDefaulted,
   );
+  // An older workspace's source tracks carried their synth and note
+  // generators, which move onto their MIDI clips' stacks.
+  state.effects = migrateMidiClipEffects(
+    state.effects,
+    state.sourceTracks,
+    state.sourceSpans,
+    saved.midiClipEffects,
+  );
+  state.sourceTracks = state.sourceTracks.map(withoutLegacyMidi);
   state.orderDefaulted = true;
   state.clipContentEffects = true;
   state.audioGainDefaulted = true;
+  state.midiClipEffects = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {

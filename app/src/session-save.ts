@@ -14,9 +14,8 @@ import {
 } from "./fx-stack.ts";
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
-import type { MidiNote, SynthParams } from "./midi-clip.ts";
+import type { MidiNote } from "./midi-clip.ts";
 import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
-import type { NoteGenerator } from "./note-generators.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {
@@ -64,8 +63,6 @@ export type SaveableSourceTrack = {
   recordingPaths: string[];
   fxEnabled?: boolean;
   hidden?: boolean;
-  synth?: SynthParams;
-  noteGenerators?: NoteGenerator[];
 };
 
 export type SaveableSourceSpan = {
@@ -333,10 +330,6 @@ export function projectToSession(
       colorIndex: track.colorIndex,
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
       ...(track.hidden ? { hidden: true } : {}),
-      ...(track.synth ? { synth: track.synth } : {}),
-      ...(track.noteGenerators?.length
-        ? { noteGenerators: track.noteGenerators }
-        : {}),
       recordings: track.recordingPaths.map((filename) => ({ filename })),
     })),
     clips,
@@ -397,6 +390,9 @@ export function projectToSession(
     clipContentEffects: true,
     // Clips are written with their Gain, so a removed Gain stays removed.
     audioGainDefaulted: true,
+    // MIDI clips are written with their MIDI effects, so a removed Synth
+    // stays removed.
+    midiClipEffects: true,
   };
 
   return session;

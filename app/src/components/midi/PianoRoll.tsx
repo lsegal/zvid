@@ -50,7 +50,7 @@ type PianoRollProps = {
   onToggleCollapsed: () => void;
   onSetNotes: SetMidiClipNotes;
   onSetTimeline: SetMidiClipTimeline;
-  // Plays a note through the clip's track's synth; tests listen instead.
+  // Plays a note through the clip's Synth; tests listen instead.
   onAudition?: (pitch: number, synth: SynthParams) => void;
 };
 
@@ -98,7 +98,7 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // there, dragging a note moves it in time and pitch, dragging either of its
 // edges resizes it, and right-clicking a note deletes it; each edit is one
 // undo step. Clicking a note or a key
-// auditions it through the track's synth.
+// auditions it through the clip's Synth.
 export function PianoRoll({
   model,
   collapsed,

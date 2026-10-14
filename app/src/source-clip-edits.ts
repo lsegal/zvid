@@ -12,6 +12,7 @@ import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import { newMidiTimeline } from "./midi-clip-timeline.ts";
+import { addDefaultSynth } from "./midi-effects.ts";
 import {
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
@@ -252,8 +253,9 @@ export function fitMidiClipDurationQ(
 /**
  * An empty MIDI clip `id`, up to `maxDurationQ` long, placed in source track
  * `trackId` at `startQ` and ending where the next clip there begins (see
- * fitMidiClipDurationQ). Its track's synth plays the notes the piano roll
- * adds to it. Undefined without the track or without room at `startQ`.
+ * fitMidiClipDurationQ). A default Synth leads its own stack and plays
+ * the notes the piano roll adds to it; it gets no Arpeggiator. Undefined
+ * without the track or without room at `startQ`.
  */
 export function createMidiClip(
   current: SourceClipProject,
@@ -274,7 +276,7 @@ export function createMidiClip(
   }
 
   const swatch = getSwatch(track.colorIndex);
-  return placeSourceSpans(
+  const patch = placeSourceSpans(
     current,
     current.sourceSpans,
     [
@@ -294,4 +296,8 @@ export function createMidiClip(
     ],
     [],
   );
+  return {
+    ...patch,
+    effects: addDefaultSynth(patch.effects ?? current.effects, id),
+  };
 }

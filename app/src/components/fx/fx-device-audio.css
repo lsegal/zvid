@@ -1,5 +1,5 @@
-/* The badge on an audio device's title, such as Gain's, that tells it from
-   the video devices beside it in the same rack. */
+/* The badge on an audio or MIDI device's title, such as Gain's or Synth's,
+   that tells it from the video devices beside it in the same rack. */
 .fx-device-panel__audio {
   flex: none;
   display: grid;

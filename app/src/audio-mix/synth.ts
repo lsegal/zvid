@@ -1,18 +1,14 @@
-// Plays a MIDI clip's notes through its track's synth. Each note is a voice:
+// Plays a MIDI clip's notes through its Synth effect. Each note is a voice:
 // an oscillator through a lowpass filter into a gain shaped by the synth's
 // ADSR envelope. The voices render in an OfflineAudioContext into the
 // clip's audio, from its content start to its source window's end, which
 // the mix then reads like decoded media: the preview plays it from the
 // clip's position under the playhead, through seeks and loops, and export
 // renders it into the mix, so both hear the same performance.
-import {
-  type MidiNote,
-  type SynthParams,
-  synthParamsOf,
-} from "../midi-clip.ts";
+import type { MidiNote, SynthParams } from "../midi-clip.ts";
 import type { DecodedAudio } from "./mix.ts";
 
-// What a MIDI clip in the mix plays: its notes through its track's synth,
+// What a MIDI clip in the mix plays: its notes through its Synth,
 // rendered `durationSeconds` long from its content start.
 export type SynthClip = {
   notes: readonly MidiNote[];
@@ -110,15 +106,6 @@ export function synthVoices(
       },
     ];
   });
-}
-
-/** The synth clip of MIDI notes `notes` on a track with synth `params`. */
-export function synthClipOf(
-  notes: readonly MidiNote[],
-  params: SynthParams | undefined,
-  durationSeconds: number,
-): SynthClip {
-  return { notes, params: synthParamsOf(params), durationSeconds };
 }
 
 // A short, stable hash of `text` (32-bit FNV-1a), in base 36.

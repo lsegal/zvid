@@ -8,6 +8,7 @@ import {
   renderEditor,
   withTestPatternTrack,
 } from "../../component-test/editor.tsx";
+import { addFromMenu } from "../../component-test/fx-actions.ts";
 import {
   center,
   click,
@@ -17,9 +18,11 @@ import {
   rightClick,
   undo,
 } from "../../component-test/input.ts";
+import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
 import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
+import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
 import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { NEW_MIDI_CLIP_LABEL } from "../../source-clip-edits.ts";
@@ -30,9 +33,10 @@ import {
 } from "./PianoRoll";
 
 // MIDI clips in source-track lanes (#1351): their piano-roll thumbnails,
-// their track's Synth device, and the piano roll that edits the selected
-// clip's notes, each edit one undo step. The source lane menu's Add MIDI
-// Clip creates empty ones at the playhead (#1363, #1369).
+// the Synth and Arpeggiator MIDI effects on their own stacks (#1386), and
+// the piano roll that edits the selected clip's notes, each edit one undo
+// step. The source lane menu's Add MIDI Clip creates empty ones at the
+// playhead (#1363, #1369), with a Synth.
 
 const NOTES: MidiNote[] = [
   { pitch: 48, start: 0, length: 1, velocity: 100 },
@@ -41,7 +45,7 @@ const NOTES: MidiNote[] = [
 ];
 
 // The test pattern's track, then a Bass track with an eight-quarter MIDI
-// clip of NOTES.
+// clip of NOTES, played by a default Synth.
 function midiProject(): ProjectState {
   const base = withTestPatternTrack(INITIAL_PROJECT_STATE);
   return {
@@ -65,6 +69,7 @@ function midiProject(): ProjectState {
         accent: "#7ca1ff",
       },
     ],
+    effects: addDefaultSynth(base.effects, "source-bassline", "bass-synth"),
   };
 }
 
@@ -90,11 +95,20 @@ async function open(initial = midiProject()) {
     notes: () =>
       project().sourceSpans.find((span) => span.id === "source-bassline")
         ?.notes,
-    synth: () =>
-      project().sourceTracks.find((track) => track.id === "bass")?.synth,
-    arp: () =>
-      project().sourceTracks.find((track) => track.id === "bass")
-        ?.noteGenerators?.[0],
+    // What the clip's MIDI effects play.
+    chain: () =>
+      midiChainOf(
+        project().effects.filter(
+          (effect) =>
+            effect.trackId === sourceClipEffectTrackId("source-bassline"),
+        ),
+      ),
+    stackNames: (spanId = "source-bassline") =>
+      project()
+        .effects.filter(
+          (effect) => effect.trackId === sourceClipEffectTrackId(spanId),
+        )
+        .map((effect) => effect.effectName),
   };
 }
 
@@ -107,14 +121,6 @@ function midiSpan() {
 function bassRow() {
   return document.querySelector<HTMLElement>(
     '.track-row--source[data-source-track-id="bass"]',
-  );
-}
-
-// Selects the Bass track by its name, so the FX panel shows its devices.
-async function selectBass() {
-  await expect.poll(bassRow).toBeTruthy();
-  await userEvent.click(
-    bassRow()?.querySelector("[data-source-track-label-id]") as HTMLElement,
   );
 }
 
@@ -147,93 +153,142 @@ test(
   EDITOR_TEST_TIMEOUT,
 );
 
-test(
-  "selecting the track shows its Synth device, whose edits are undoable",
-  async () => {
-    const { synth } = await open();
-    await selectBass();
-    const device = page.getByRole("region", { name: "Bass synth" });
-    await expect.element(device).toBeVisible();
+// Selects the Bassline clip, so the FX panel shows its stack.
+async function selectBassline() {
+  await expect.poll(midiSpan).toBeTruthy();
+  await userEvent.click(midiSpan() as HTMLElement);
+  await expect
+    .element(page.getByRole("region", { name: "Bassline notes" }))
+    .toBeVisible();
+}
 
-    await userEvent.click(device.getByRole("button", { name: "Square" }));
-    await expect.poll(() => synth()?.wave).toBe("square");
+test(
+  "a MIDI clip's Synth is an effect on its own stack, whose edits are undoable",
+  async () => {
+    const { chain } = await open();
+    await selectBassline();
+    const device = page.getByRole("region", { name: "Synth", exact: true });
+    await expect.element(device).toBeVisible();
     await expect
-      .element(device.getByRole("button", { name: "Square" }))
+      .element(device.getByRole("img", { name: "MIDI effect" }))
+      .toBeVisible();
+
+    const wave = device.getByRole("group", { name: "Wave" });
+    await userEvent.click(wave.getByRole("button", { name: "Square" }));
+    await expect.poll(() => chain()?.synth.wave).toBe("square");
+    await expect
+      .element(wave.getByRole("button", { name: "Square" }))
       .toHaveAttribute("aria-pressed", "true");
 
     const cutoff = device.getByRole("slider", { name: "Cutoff" });
     (cutoff.element() as HTMLElement).focus();
     await userEvent.keyboard("{ArrowUp}");
     await expect
-      .poll(() => synth()?.cutoff ?? DEFAULT_SYNTH_PARAMS.cutoff)
+      .poll(() => chain()?.synth.cutoff)
       .toBeGreaterThan(DEFAULT_SYNTH_PARAMS.cutoff);
-    expect(synth()?.wave).toBe("square");
+    expect(chain()?.synth.wave).toBe("square");
 
     await undo();
-    await expect.poll(() => synth()?.cutoff).toBe(DEFAULT_SYNTH_PARAMS.cutoff);
+    await expect
+      .poll(() => chain()?.synth.cutoff)
+      .toBe(DEFAULT_SYNTH_PARAMS.cutoff);
     await undo();
-    await expect.poll(() => synth()?.wave ?? "sawtooth").toBe("sawtooth");
+    await expect.poll(() => chain()?.synth.wave).toBe("sawtooth");
+
+    // Bypassing its only Synth leaves the clip nothing to play through.
+    await userEvent.click(device.getByRole("button", { name: "Bypass Synth" }));
+    await expect.poll(chain).toBeUndefined();
   },
   EDITOR_TEST_TIMEOUT,
 );
 
 test(
-  "the Arpeggiator device adds, sets, bypasses and removes the track's arpeggiator",
+  "only a MIDI clip's add menu offers the MIDI group, whose Arpeggiator feeds the Synth",
   async () => {
-    const { arp } = await open();
-    await selectBass();
-    const device = page.getByRole("region", { name: "Bass arpeggiator" });
-    await expect.element(device).toBeVisible();
-    expect(arp()).toBeUndefined();
+    const { chain, stackNames } = await open();
+    await selectBassline();
+    expect(chain()?.generators).toEqual([]);
 
+    // The clip's menu lists the MIDI effects under their own heading.
     await userEvent.click(
-      device.getByRole("button", { name: "Add Arpeggiator" }),
+      page.getByRole("button", { name: "Add device to this clip" }),
     );
-    await expect.poll(arp).toEqual(DEFAULT_ARPEGGIATOR);
-    // It sits ahead of the Synth, which plays what it generates.
-    const synthDevice = page.getByRole("region", { name: "Bass synth" });
-    expect(
-      device.element().compareDocumentPosition(synthDevice.element()) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    await userEvent.click(device.getByRole("button", { name: "1/8" }));
-    await userEvent.click(device.getByRole("button", { name: "Up-Down" }));
-    await userEvent.click(device.getByRole("button", { name: "3" }));
-    await expect.poll(arp).toEqual({
-      ...DEFAULT_ARPEGGIATOR,
-      rate: 0.5,
-      pattern: "up-down",
-      octaves: 3,
-    });
+    const menu = page.getByRole("menu");
     await expect
-      .element(device.getByRole("button", { name: "Up-Down" }))
-      .toHaveAttribute("aria-pressed", "true");
-    await expect
-      .element(device.getByRole("button", { name: "1/16" }))
-      .toHaveAttribute("aria-pressed", "false");
-
-    await userEvent.click(
-      device.getByRole("button", { name: "Bypass Arpeggiator" }),
-    );
-    await expect.poll(() => arp()?.enabled).toBe(false);
-    await expect
-      .element(device.getByRole("button", { name: "Enable Arpeggiator" }))
-      .toHaveAttribute("aria-pressed", "false");
-    await undo();
-    await expect.poll(() => arp()?.enabled).toBe(true);
-    await undo();
-    await expect.poll(() => arp()?.octaves).toBe(1);
-
-    await userEvent.click(
-      device.getByRole("button", { name: "Remove Arpeggiator" }),
-    );
-    await expect.poll(arp).toBeUndefined();
-    await expect
-      .element(device.getByRole("button", { name: "Add Arpeggiator" }))
+      .element(menu.getByRole("group", { name: "MIDI" }))
       .toBeVisible();
+    await expect
+      .element(menu.getByRole("group", { name: "Audio" }))
+      .toBeVisible();
+    expect(menu.getByRole("group", { name: "Video" }).elements()).toHaveLength(
+      0,
+    );
+    await userEvent.keyboard("{Escape}");
+
+    // The track's menu offers none.
+    await userEvent.click(
+      page.getByRole("button", { name: "Add device to this track" }),
+    );
+    await expect.element(page.getByRole("menu")).toBeVisible();
+    expect(
+      page
+        .getByRole("menu")
+        .getByRole("menuitem", { name: "MIDI", exact: true })
+        .elements(),
+    ).toHaveLength(0);
+    await userEvent.keyboard("{Escape}");
+
+    await addFromMenu(
+      "Add device to this clip",
+      "MIDI",
+      /^Arpeggiator/,
+      "MIDI",
+    );
+    await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
+    expect(stackNames()).toEqual(["Synth", "Arpeggiator"]);
+
+    const arp = page.getByRole("region", { name: "Arpeggiator", exact: true });
+    await userEvent.click(
+      arp.getByRole("group", { name: "Rate" }).getByRole("button", {
+        name: "1/8",
+      }),
+    );
+    await userEvent.click(
+      arp.getByRole("group", { name: "Pattern" }).getByRole("button", {
+        name: "Up-Down",
+      }),
+    );
+    await expect
+      .poll(() => chain()?.generators)
+      .toEqual([{ ...DEFAULT_ARPEGGIATOR, rate: 0.5, pattern: "up-down" }]);
+
     await undo();
-    await expect.poll(() => arp()?.pattern).toBe("up-down");
+    await undo();
+    await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
+    await undo();
+    await expect.poll(() => stackNames()).toEqual(["Synth"]);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "other clips' add menus offer no MIDI effects",
+  async () => {
+    await open();
+    const videoSpan = document.querySelector<HTMLElement>(
+      ".source-span:not(.source-span--midi)",
+    );
+    await userEvent.click(videoSpan as HTMLElement);
+    await userEvent.click(
+      page.getByRole("button", { name: "Add device to this clip" }),
+    );
+    await expect.element(page.getByRole("menu")).toBeVisible();
+    expect(
+      page
+        .getByRole("menu")
+        .getByRole("menuitem", { name: "MIDI", exact: true })
+        .elements(),
+    ).toHaveLength(0);
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -436,7 +491,7 @@ test(
   async () => {
     const midi = midiProject();
     // The Bass track holds only its MIDI clip, moved to quarter 10.
-    const { project, status } = await open({
+    const { project, status, stackNames } = await open({
       ...midi,
       sourceSpans: midi.sourceSpans.map((span) =>
         span.id === "source-bassline" ? { ...span, startQ: 10 } : span,
@@ -491,6 +546,8 @@ test(
     expect((clip.durationSeconds * project().bpm) / 60).toBeCloseTo(2);
     expect(clip.label).toBe(NEW_MIDI_CLIP_LABEL);
     expect(bassSpans().find((span) => span.id === ahead.id)).toEqual(ahead);
+    // It plays through a default Synth, with no Arpeggiator.
+    expect(stackNames(clip.id)).toEqual(["Synth"]);
 
     // It shows as a MIDI clip, selected with its piano roll open.
     const span = () =>

@@ -12,7 +12,8 @@
 // Gain on its track's stack or its own stays silent.
 //
 // A source clip with MIDI notes sounds like one with audio: it plays its
-// notes through its source track's synth (see synth.ts).
+// notes through the MIDI effects on its own stack, its Arpeggiators and
+// then its Synth (see midi-effects.ts and synth.ts).
 import { quartersToSeconds, secondsToQuarters } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
@@ -26,13 +27,14 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
-import { isAudioEffectName } from "../fx-registry.ts";
-import type { MidiNote, SynthParams } from "../midi-clip.ts";
+import { isAudioEffectName, isMidiEffectName } from "../fx-registry.ts";
+import type { MidiNote } from "../midi-clip.ts";
 import {
   type MidiClipTimeline,
   performMidiNotes,
 } from "../midi-clip-timeline.ts";
-import { applyNoteGenerators, type NoteGenerator } from "../note-generators.ts";
+import { midiChainOf } from "../midi-effects.ts";
+import { applyNoteGenerators } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
   getClipPieceClips,
@@ -45,7 +47,7 @@ import {
   DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
 import { type AudioStageEffect, audioStageOf } from "./stages.ts";
-import { type SynthClip, synthClipOf, synthMediaId } from "./synth.ts";
+import { type SynthClip, synthMediaId } from "./synth.ts";
 
 type AudioEffect = AudioStageEffect;
 
@@ -64,14 +66,10 @@ type AudioSourceSpan = TrackContentSpan & {
 };
 
 // A layer or source track whose FX switch is off bypasses its own stack and
-// its clips' stacks, Gain included. A source track plays its MIDI clips
-// through its `noteGenerators`, then `synth`, or the default synth without
-// one.
+// its clips' stacks, Gain and MIDI effects included.
 type AudioTrack = {
   id: string;
   fxEnabled?: boolean;
-  synth?: SynthParams;
-  noteGenerators?: readonly NoteGenerator[];
 };
 
 export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
@@ -108,8 +106,8 @@ export type AudioMixClip<Effect extends AudioEffect = AudioEffect> = {
   // Its media's length, which it loops past: 0 or unset while it is not
   // known.
   mediaDurationSeconds?: number;
-  // Set on a MIDI clip, whose media is its notes played through its
-  // track's synth rather than a file; `mediaId` names that performance.
+  // Set on a MIDI clip, whose media is its notes played through its MIDI
+  // effects rather than a file; `mediaId` names that performance.
   synth?: SynthClip;
   // Its audio effects, Global first, then its layer's or source track's,
   // then its own; bypassed stacks are left out.
@@ -185,15 +183,21 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   signature = DEFAULT_TIME_SIGNATURE,
 }: AudioMixInputs<Effect>): AudioMix<Effect> {
   const audioEffects = new Map<string, Effect[]>();
+  const midiEffects = new Map<string, Effect[]>();
   for (const effect of effects) {
-    if (!isAudioEffectName(effect.effectName)) {
+    const stacks = isAudioEffectName(effect.effectName)
+      ? audioEffects
+      : isMidiEffectName(effect.effectName)
+        ? midiEffects
+        : undefined;
+    if (!stacks) {
       continue;
     }
-    const stack = audioEffects.get(effect.trackId);
+    const stack = stacks.get(effect.trackId);
     if (stack) {
       stack.push(effect);
     } else {
-      audioEffects.set(effect.trackId, [effect]);
+      stacks.set(effect.trackId, [effect]);
     }
   }
   const stackOf = (trackId: string) => audioEffects.get(trackId) ?? [];
@@ -248,15 +252,16 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
-  // What each MIDI clip with notes plays, and the media id it plays as.
+  // What each MIDI clip with notes and an enabled Synth plays, and the media
+  // id it plays as. A bypassed track's clips play no MIDI effects.
   const synthById = new Map(
     sourceSpans.flatMap((span) => {
-      if (!span.notes?.length) {
+      const chain = bypassed.has(span.sourceTrackId)
+        ? undefined
+        : midiChainOf(midiEffects.get(sourceClipEffectTrackId(span.id)) ?? []);
+      if (!span.notes?.length || !chain) {
         return [];
       }
-      const track = sourceTracks.find(
-        (candidate) => candidate.id === span.sourceTrackId,
-      );
       const durationSeconds = span.trimStartSeconds + span.durationSeconds;
       // The notes its timeline plays to its end, its loop repeated (see
       // midi-clip-timeline.ts). Generators step on the track's beat grid,
@@ -268,10 +273,14 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           span.midiTimeline,
           secondsToQuarters(durationSeconds, bpm),
         ),
-        track?.noteGenerators,
+        chain.generators,
         span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
       );
-      const synth = synthClipOf(notes, track?.synth, durationSeconds);
+      const synth: SynthClip = {
+        notes,
+        params: chain.synth,
+        durationSeconds,
+      };
       const mediaId = synthMediaId(span.id, synth, bpm);
       return [[span.id, { synth, mediaId }] as const];
     }),

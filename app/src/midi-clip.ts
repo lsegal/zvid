@@ -1,6 +1,6 @@
-// A MIDI clip is a source clip that carries notes instead of media. Its
-// track plays them through that track's synth (see audio-mix/synth.ts), in
-// preview and export alike. A clip without `notes` is not a MIDI clip: MIDI
+// A MIDI clip is a source clip that carries notes instead of media. It
+// plays them through the Synth effect on its own stack (see midi-effects.ts
+// and audio-mix/synth.ts), in preview and export alike. A clip without `notes` is not a MIDI clip: MIDI
 // clips imported from a Live set stay media-less placeholders that video can
 // be linked to, since the import does not read their notes.
 
@@ -22,7 +22,7 @@ export const SYNTH_WAVES = ["sine", "triangle", "sawtooth", "square"] as const;
 export type SynthWave = (typeof SYNTH_WAVES)[number];
 
 /**
- * A source track's synth: an oscillator through a lowpass filter and an ADSR
+ * A Synth effect's settings: an oscillator through a lowpass filter and an ADSR
  * envelope for each note. `octave` shifts every note by whole octaves and
  * `detune` by cents; `cutoff` is in Hz and `resonance` is the filter's Q.
  * `attack`, `decay` and `release` are in seconds and `sustain` is a level
@@ -113,9 +113,10 @@ export function readMidiNotes(value: unknown): MidiNote[] | undefined {
 }
 
 /**
- * A track's synth parameters read from parsed JSON, any missing or invalid
- * one taking its default and the rest held to their ranges. Undefined when
- * `value` is not an object, as for a track that has never set its synth.
+ * The synth parameters an older session saved on a source track, read from
+ * parsed JSON, any missing or invalid one taking its default and the rest
+ * held to their ranges. Undefined when `value` is not an object, as for a
+ * track that never set its synth.
  */
 export function readSynthParams(value: unknown): SynthParams | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -134,9 +135,4 @@ export function readSynthParams(value: unknown): SynthParams | undefined {
   }
   params.octave = Math.round(params.octave);
   return params;
-}
-
-/** A track's synth: `params`, or the default for a track without one. */
-export function synthParamsOf(params: SynthParams | undefined): SynthParams {
-  return params ?? DEFAULT_SYNTH_PARAMS;
 }
