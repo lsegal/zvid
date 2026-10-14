@@ -86,7 +86,7 @@ export type TimelineEditingInputs = {
   > &
     Pick<
       ReturnType<typeof useLoopRegion>,
-      "playbackSelection" | "lockPlaybackSelection"
+      "playbackSelection" | "lockPlaybackSelection" | "setLoopRegion"
     >;
   layout: Pick<
     AppLayout,
@@ -482,6 +482,7 @@ export function useTimelineEditing({
     selectedClip,
     selectedSourceSpan,
     selectedSourceTrack,
+    setLoopRegion: viewport.setLoopRegion,
     setPendingSelection,
     setPlayheadQ,
     setSelectedClipId,

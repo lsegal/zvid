@@ -10,7 +10,7 @@ import {
 import { redoShortcut, undoShortcut } from "./history.ts";
 import { matchesShortcutKey } from "./keys.ts";
 import { stepLayerShortcut } from "./layers.ts";
-import { lockLoopShortcut } from "./loop.ts";
+import { lockLoopShortcut, toggleLoopShortcut } from "./loop.ts";
 import {
   clearSelectionShortcut,
   commitSelectionShortcut,
@@ -39,6 +39,7 @@ export const shortcuts: readonly Shortcut[] = [
   jumpToEdgeShortcut,
   stepLayerShortcut,
   lockLoopShortcut,
+  toggleLoopShortcut,
   deleteShortcut,
 ];
 
