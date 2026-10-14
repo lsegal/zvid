@@ -17,6 +17,10 @@ import {
   moveWaypointPrefix,
 } from "./fx/effects/move/move.ts";
 import {
+  OPACITY_EFFECT_NAME,
+  OPACITY_KEY,
+} from "./fx/effects/opacity/opacity.ts";
+import {
   DRAWN_KEY,
   OFFSET_KEY,
   SHAPE_EFFECT_NAME,
@@ -277,6 +281,12 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
       "ScaleX",
       "ScaleY",
     ]),
+  ],
+  // Clip mode fades the clip or layer in and out; the music or the LFO
+  // flickers it.
+  [
+    OPACITY_EFFECT_NAME,
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [OPACITY_KEY]),
   ],
   // A Move already travels from its start to its end across the clip, so
   // new devices come with Animation off.
@@ -781,6 +791,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     ),
   ],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
+  // A fade starts from, and ends at, nothing.
+  [OPACITY_EFFECT_NAME, { [OPACITY_KEY]: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],
 ]);

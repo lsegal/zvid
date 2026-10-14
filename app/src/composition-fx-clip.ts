@@ -1,7 +1,8 @@
 // How the compositor applies an FX clip without an Order: its chain runs on
 // the composite drawn so far and the result replaces it inside the clip's
 // box. With an Order, it places the clip's arrangement on its parent. With
-// a Mask, the result is blended over the composite only where it lets it.
+// a Mask, the result is blended over the composite only where it lets it,
+// and with an Opacity below 100%, mixed over it by that much.
 
 import type {
   CompositeLayer,
@@ -47,6 +48,8 @@ export type FxMaskProgram = {
   offset: WebGLUniformLocation | null;
   uvScale: WebGLUniformLocation | null;
   uvMax: WebGLUniformLocation | null;
+  // Set only with `masked`.
+  opacity?: WebGLUniformLocation | null;
   masked?: MaskUniformLocations;
 };
 
@@ -67,14 +70,20 @@ export function createFxMaskProgram(
     offset: gl.getUniformLocation(program, "uOffset"),
     uvScale: gl.getUniformLocation(program, "uUvScale"),
     uvMax: gl.getUniformLocation(program, "uUvMax"),
-    ...(masked ? { masked: locateMaskUniforms(gl, program) } : {}),
+    ...(masked
+      ? {
+          opacity: gl.getUniformLocation(program, "uOpacity"),
+          masked: locateMaskUniforms(gl, program),
+        }
+      : {}),
   };
 }
 
 // Runs an FX clip's chain on the composite drawn so far, `scene`, and writes
 // the result back over the clip's box: the whole canvas, or where the
 // layer's and the clip's Transforms move it. With `mask`, drawn on
-// `scene`'s surface, the result is blended over the composite by it.
+// `scene`'s surface, the result is blended over the composite by it, and
+// by the clip's opacity.
 export function applyFxClip(
   resources: WebGlResources,
   scene: { framebuffer: WebGLFramebuffer; region: TextureRegion },
@@ -88,6 +97,11 @@ export function applyFxClip(
   const fxMask = mask ? resources.maskedFxMask : resources.fxMask;
   const { width, height } = surface;
   const source = scene.region;
+  const { opacity } = entry.visual;
+  // At 0% the clip's effects leave the composite as it is.
+  if (!(opacity > 0)) {
+    return;
+  }
   const adjusted = effectChain.run(source, width, height, steps, {
     time: frameContext.time,
     clipProgress: entry.clipProgress,
@@ -128,10 +142,18 @@ export function applyFxClip(
   gl.uniform2f(fxMask.axisY, ...axes.axisY);
   gl.uniform2f(fxMask.offset, ...axes.offset);
   if (!mask || !fxMask.masked) {
-    gl.disable(gl.BLEND);
+    if (opacity < 1) {
+      // Mixed with the composite it was made from, alpha too.
+      gl.enable(gl.BLEND);
+      gl.blendColor(0, 0, 0, opacity);
+      gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+    } else {
+      gl.disable(gl.BLEND);
+    }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return;
   }
+  gl.uniform1f(fxMask.opacity ?? null, opacity);
   // The masked result, its alpha multiplied by the mask's, is drawn over
   // the composite it was made from: where the composite is opaque, that is
   // the two mixed by the mask.
@@ -147,23 +169,58 @@ export function applyFxClip(
   );
 }
 
-// Draws an FX clip's processed picture, `processed`, with `axes` over the
-// unprocessed one already drawn on `target`, where `mask` lets it. A
-// `premultiplied` picture is blended as one.
-export function drawMaskedFxResult(
+// Draws an FX clip's picture with `axes` on `target`: `processed`, what its
+// chain made of `original`, over `original` where `mask` lets it and by
+// `opacity`. A `premultiplied` picture is blended as one.
+export function drawFxResult(
   resources: WebGlResources,
   target: CompositeSurface & { framebuffer: WebGLFramebuffer | null },
+  original: TextureRegion,
   processed: TextureRegion,
   axes: QuadAxes,
-  mask: DrawnMask,
+  mask: DrawnMask | undefined,
+  opacity: number,
   premultiplied = false,
+) {
+  const mixed = processed !== original && (mask || opacity < 1);
+  drawFxPicture(
+    resources,
+    target,
+    mixed ? original : processed,
+    axes,
+    1,
+    premultiplied,
+  );
+  if (mixed && opacity > 0) {
+    drawFxPicture(
+      resources,
+      target,
+      processed,
+      axes,
+      opacity,
+      premultiplied,
+      mask,
+    );
+  }
+}
+
+function drawFxPicture(
+  resources: WebGlResources,
+  target: CompositeSurface & { framebuffer: WebGLFramebuffer | null },
+  picture: TextureRegion,
+  axes: QuadAxes,
+  opacity: number,
+  premultiplied: boolean,
+  mask?: DrawnMask,
 ) {
   const { gl } = resources;
   const { width, height } = target;
   bindCompositeState(resources, target.framebuffer, width, height);
   if (premultiplied) {
+    // The shader fades only alpha, so the constant fades the color.
+    gl.blendColor(0, 0, 0, opacity);
     gl.blendFuncSeparate(
-      gl.ONE,
+      gl.CONSTANT_ALPHA,
       gl.ONE_MINUS_SRC_ALPHA,
       gl.ONE,
       gl.ONE_MINUS_SRC_ALPHA,
@@ -171,18 +228,22 @@ export function drawMaskedFxResult(
   }
   const values = {
     ...axes,
-    opacity: 1,
+    opacity,
     brightness: 0,
     contrast: 1,
     saturation: 1,
   };
+  if (!mask) {
+    drawQuad(resources, picture, values);
+    return;
+  }
   drawMaskedQuad(
     gl,
     resources.masked,
     mask,
     width,
     height,
-    (located) => drawQuad(resources, processed, values, located),
+    (located) => drawQuad(resources, picture, values, located),
     premultiplied,
   );
 }

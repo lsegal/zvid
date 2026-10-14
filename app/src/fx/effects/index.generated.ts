@@ -49,6 +49,7 @@ import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
 import * as noiseGate from "./noise-gate/definition.ts";
+import * as opacity from "./opacity/definition.ts";
 import * as order from "./order/definition.ts";
 import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
@@ -109,6 +110,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   move,
   negativeSplit,
   noiseGate,
+  opacity,
   order,
   phaser,
   pixelate,

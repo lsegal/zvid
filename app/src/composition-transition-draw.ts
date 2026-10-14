@@ -9,8 +9,8 @@ import type {
   FrameContext,
   WebGlResources,
 } from "./composition-draw.ts";
-import { bindCompositeState, drawQuad } from "./composition-draw-gl.ts";
-import { drawMaskedFxResult } from "./composition-fx-clip.ts";
+import { bindCompositeState } from "./composition-draw-gl.ts";
+import { drawFxResult } from "./composition-fx-clip.ts";
 import type { DrawnMask } from "./composition-layer-mask.ts";
 import type { LayerDrawStep } from "./composition-layout.ts";
 import { quadAxes } from "./composition-transform.ts";
@@ -91,27 +91,19 @@ export function drawTransition(
           bottomUp: true,
         }) ?? blend.region)
       : blend.region;
-  bindCompositeState(resources, parent.framebuffer, width, height);
   // The blend is premultiplied, and transparent where a type moved both
-  // comps away.
-  gl.blendFuncSeparate(
-    gl.ONE,
-    gl.ONE_MINUS_SRC_ALPHA,
-    gl.ONE,
-    gl.ONE_MINUS_SRC_ALPHA,
+  // comps away. It is bottom-up, unlike the top-row-first layer textures
+  // the composite shader expects, so it is drawn flipped. The other
+  // effects' result goes over it where the Mask lets it and by the
+  // Opacity.
+  drawFxResult(
+    resources,
+    parent,
+    blend.region,
+    blended,
+    quadAxes([1, -1], [0, 0], 0),
+    mask || undefined,
+    entry.visual.opacity,
+    true,
   );
-  // The blend is bottom-up, unlike the top-row-first layer textures the
-  // composite shader expects, so it is drawn flipped.
-  const axes = quadAxes([1, -1], [0, 0], 0);
-  const masked = mask && blended !== blend.region;
-  drawQuad(resources, masked ? blend.region : blended, {
-    ...axes,
-    opacity: 1,
-    brightness: 0,
-    contrast: 1,
-    saturation: 1,
-  });
-  if (masked) {
-    drawMaskedFxResult(resources, parent, blended, axes, mask, true);
-  }
 }

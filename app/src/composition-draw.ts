@@ -19,7 +19,7 @@ import {
 import {
   applyFxClip,
   createFxMaskProgram,
-  drawMaskedFxResult,
+  drawFxResult,
   type FxMaskProgram,
   placeArrangement,
 } from "./composition-fx-clip.ts";
@@ -736,7 +736,7 @@ export function drawComposition(
     gl.disable(gl.SCISSOR_TEST);
 
     // The FX clip's other effects run on the arranged layers, where its
-    // Mask lets them.
+    // Mask lets them and by its Opacity.
     const arrangement = target.region;
     const mask = fxMaskFor(step);
     const steps = mask === false ? [] : (fxSteps.get(entry) ?? []);
@@ -750,12 +750,15 @@ export function drawComposition(
           bottomUp: true,
         }) ?? arrangement)
       : arrangement;
-    if (mask && arranged !== arrangement) {
-      drawPicture(parent, arrangement, axes);
-      drawMaskedFxResult(resources, parent, arranged, axes, mask);
-    } else {
-      drawPicture(parent, arranged, axes);
-    }
+    drawFxResult(
+      resources,
+      parent,
+      arrangement,
+      arranged,
+      axes,
+      mask || undefined,
+      entry.visual.opacity,
+    );
   };
 
   drawSteps(planned, sceneTarget, 0);
