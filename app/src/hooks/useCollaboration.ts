@@ -36,6 +36,8 @@ import {
 } from "../collaboration";
 import type { ProjectHistoryAction } from "../project-history";
 import {
+  migrateEffectAnimation,
+  migrateEffectModulation,
   migrateMainAudio,
   migrateRenamedEffects,
   stripClipSelectionFlags,
@@ -252,10 +254,13 @@ export function useCollaboration({
       const migrated = stripLegacySnapMode(
         stripClipSelectionFlags(migrateMainAudio(remoteSnapshot)),
       );
-      // A peer on an older build still sends renamed effects' old names.
+      // A peer on an older build still sends renamed effects' old names,
+      // and animation or modulation settings in an older shape.
       const snapshot = {
         ...migrated,
-        effects: migrateRenamedEffects(migrated.effects),
+        effects: migrateEffectModulation(
+          migrateEffectAnimation(migrateRenamedEffects(migrated.effects)),
+        ),
       };
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)

@@ -3,7 +3,18 @@ import { type Locator, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { addFromMenu } from "../../component-test/fx-actions.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
-import { CLIP_MOTIONS, LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
+import { EMPTY_PROJECT, withEffect } from "../../component-test/fx-projects.ts";
+import {
+  autosavePayload,
+  restoreHistory,
+} from "../../component-test/fx-session.ts";
+import {
+  CLIP_MOTIONS,
+  createDefaultAnimation,
+  type EffectAnimation,
+  LFO_SYNC_RATES,
+} from "../../fx-animation-defaults.ts";
+import { createProjectHistoryState } from "../../project-history";
 import { FX_COLLAPSED_STORAGE_KEY } from "../../fx-chain.ts";
 
 // The Animation modifier: a motion-icon toggle beside each device's power
@@ -275,6 +286,43 @@ describe("FX Animation", { timeout: 60_000 }, () => {
     expect(
       animation().element().querySelectorAll(".fx-animation-graph"),
     ).toHaveLength(0);
+  });
+
+  test("Reactive settings saved before Amplitude open with it at the old Reactivity", async () => {
+    // A session saved before #1428, when Reactivity scaled the swing and
+    // there was no Amplitude.
+    const { project, effectId } = withEffect(EMPTY_PROJECT, "1", "Pixelate");
+    const legacy = {
+      ...createDefaultAnimation("Pixelate"),
+      enabled: true,
+      mode: "reactive",
+      reactive: {
+        motion: "None",
+        timing: "Normal",
+        reactivity: 0.4,
+        parameters: [],
+      },
+    } as unknown as EffectAnimation;
+    const saved = {
+      ...project,
+      effects: project.effects.map((effect) =>
+        effect.id === effectId ? { ...effect, animation: legacy } : effect,
+      ),
+    };
+    const history = restoreHistory(
+      autosavePayload(createProjectHistoryState(saved)),
+    );
+
+    await render(<FxEditor history={history} selection={{ laneId: "1" }} />);
+
+    // Every hit still triggers, swinging as far as it did.
+    const animation = section("Pixelate animation");
+    await expect
+      .element(animation.getByRole("slider", { name: "Reactivity" }))
+      .toHaveAttribute("aria-valuetext", "0%");
+    await expect
+      .element(animation.getByRole("slider", { name: "Amplitude" }))
+      .toHaveAttribute("aria-valuetext", "0.4x");
   });
 
   test("LFO mode shows its Shape, Rate, Sync, Depth, Phase and Parameters", async () => {

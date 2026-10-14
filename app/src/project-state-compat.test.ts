@@ -27,6 +27,7 @@ import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
   migrateDefaultOrder,
+  migrateEffectAnimation,
   migrateMainAudio,
   migrateOrderOuterMargin,
   migrateRenamedEffects,
@@ -638,5 +639,53 @@ describe("migrateClipContentEffects", () => {
       ),
       effects,
     );
+  });
+});
+
+describe("migrateEffectAnimation", () => {
+  // Reactive settings as saved before Reactivity became a threshold.
+  const legacy = {
+    id: "colorize",
+    trackId: "6",
+    effectName: "Colorize",
+    parameters: [],
+    enabled: true,
+    animation: {
+      ...createDefaultAnimation("Colorize"),
+      enabled: true,
+      mode: "reactive",
+      reactive: {
+        motion: "Wobble",
+        timing: "Fast",
+        reactivity: 0.6,
+        parameters: ["_HueOffset"],
+      },
+    } as unknown as EffectAnimation,
+  } satisfies SessionEffect;
+
+  it("leaves effects without animation unchanged", () => {
+    const effects = mapEffects([
+      { id: "a", trackId: "6", effectName: "Colorize", parameters: {} },
+    ]);
+    assert.equal(migrateEffectAnimation(effects), effects);
+  });
+
+  it("opens old reactive settings at threshold 0 with their Amplitude", () => {
+    const [migrated] = migrateEffectAnimation([legacy]);
+    assert.deepEqual(migrated.animation?.reactive, {
+      motion: "Wobble",
+      timing: "Fast",
+      reactivity: 0,
+      amplitude: 0.6,
+      parameters: ["_HueOffset"],
+    });
+    assert.equal(migrated.animation?.enabled, true);
+    assert.equal(migrated.animation?.mode, "reactive");
+  });
+
+  it("keeps an effect shared between snapshots shared", () => {
+    const [first] = migrateEffectAnimation([legacy]);
+    const [second] = migrateEffectAnimation([legacy]);
+    assert.equal(first, second);
   });
 });
