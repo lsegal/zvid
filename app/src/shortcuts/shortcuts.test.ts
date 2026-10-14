@@ -113,6 +113,7 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     selectedClip: undefined,
     selectedSourceSpan: undefined,
     selectedSourceTrack: undefined,
+    setLoopRegion: record("setLoopRegion"),
     setPendingSelection: record("setPendingSelection"),
     setPlayheadQ: record("setPlayheadQ"),
     setSelectedClipId: record("setSelectedClipId"),
@@ -170,6 +171,7 @@ describe("shortcut table", () => {
         "transport.jump-to-edge: Home, End",
         "layers.step-selection: ArrowUp, ArrowDown",
         "loop.lock: L",
+        "loop.toggle: Mod+L",
         "clips.delete: Delete, Backspace",
       ],
     );
@@ -339,12 +341,53 @@ describe("dispatching shortcuts", () => {
     assert.deepEqual(calls, ["lockPlaybackSelection"]);
   });
 
-  it("leaves L alone with no playback selection, in a text field or with a modifier", () => {
+  it("leaves L alone with no playback selection, in a text field or with Alt", () => {
     const playbackSelection = { startQ: 4, endQ: 8 };
     const noSelection = dispatch(press("l"));
     dispatch(press("l", { target: new FakeInput() }), { playbackSelection });
-    dispatch(press("l", { metaKey: true }), { playbackSelection });
+    dispatch(press("l", { altKey: true }), { playbackSelection });
     assert.equal(noSelection.defaultPrevented, false);
+    assert.deepEqual(calls, []);
+  });
+
+  it("loops the lane selection with Ctrl/Cmd+L before the playback selection", () => {
+    const playbackSelection = { startQ: 8, endQ: 12 };
+    const pendingSelection = { ...selection, startQ: 2 };
+    const ctrl = dispatch(press("l", { ctrlKey: true }), {
+      pendingSelection,
+      playbackSelection,
+    });
+    dispatch(press("L", { metaKey: true, shiftKey: true }), {
+      pendingSelection,
+    });
+    assert.equal(ctrl.defaultPrevented, true);
+    assert.deepEqual(calls, [
+      'setLoopRegion({"startQ":2,"endQ":6})',
+      'setLoopRegion({"startQ":2,"endQ":6})',
+    ]);
+  });
+
+  it("locks the playback selection into the loop with Ctrl/Cmd+L", () => {
+    const playbackSelection = { startQ: 4, endQ: 8 };
+    dispatch(press("l", { metaKey: true }), { playbackSelection });
+    assert.deepEqual(calls, ["lockPlaybackSelection"]);
+  });
+
+  it("clears the loop with Ctrl/Cmd+L and nothing selected", () => {
+    const event = dispatch(press("l", { ctrlKey: true }));
+    assert.equal(event.defaultPrevented, true);
+    assert.deepEqual(calls, ["setLoopRegion(null)"]);
+  });
+
+  it("leaves Ctrl/Cmd+L alone while typing or dragging", () => {
+    const typing = dispatch(
+      press("l", { metaKey: true, target: new FakeInput() }),
+      { pendingSelection: selection },
+    );
+    dispatch(press("l", { ctrlKey: true }), {
+      dragState: {} as ShortcutContext["dragState"],
+    });
+    assert.equal(typing.defaultPrevented, false);
     assert.deepEqual(calls, []);
   });
 

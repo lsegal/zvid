@@ -546,8 +546,8 @@ test(
     expect((clip.durationSeconds * project().bpm) / 60).toBeCloseTo(2);
     expect(clip.label).toBe(NEW_MIDI_CLIP_LABEL);
     expect(bassSpans().find((span) => span.id === ahead.id)).toEqual(ahead);
-    // It plays through a default Synth, with no Arpeggiator.
-    expect(stackNames(clip.id)).toEqual(["Synth"]);
+    // It plays through a default Synth, with no Arpeggiator, and its Gain.
+    expect(stackNames(clip.id)).toEqual(["Synth", "Gain"]);
 
     // It shows as a MIDI clip, selected with its piano roll open.
     const span = () =>

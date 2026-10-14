@@ -1,5 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import type { LoopRegion } from "../app/loop-region.ts";
 import type { PlaybackSelection } from "../app/playback-selection.ts";
 import type { SkipDirection } from "../app/transport-skip.ts";
 import type {
@@ -43,6 +44,8 @@ export type ShortcutContext = {
   selectedSourceSpan: SourceSpan | undefined;
   // The selected source track, while no clip or source clip is selected.
   selectedSourceTrack: SourceTrack | undefined;
+  // Replaces or, with null, clears the loop region.
+  setLoopRegion: (region: LoopRegion | null) => void;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setPlayheadQ: (playheadQ: number) => void;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;

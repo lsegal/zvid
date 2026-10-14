@@ -3,6 +3,10 @@ import { describe, it } from "node:test";
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
+import {
+  GAIN_EFFECT_NAME,
+  gainChainAmplitude,
+} from "./fx/effects/gain/gain.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import { sourceClipEffectTrackId } from "./fx-stack.ts";
 import { DEFAULT_SYNTH_PARAMS } from "./midi-clip.ts";
@@ -418,32 +422,30 @@ describe("createMidiClip", () => {
     ]);
   });
 
-  it("leads the new clip's own stack with a Synth, and no Arpeggiator", () => {
-    const gain: SessionEffect = {
-      id: "gain",
-      trackId: sourceClipEffectTrackId("other"),
-      effectName: "Gain",
-      parameters: [],
-      enabled: true,
-    };
-    const current = project([], { effects: [gain] });
-    const patch = createMidiClip(current, "t2", 4, 16, "midi");
-    const stack = (patch?.effects ?? []).filter(
-      (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
+  it("leads the clip's stack with a Synth and a 0 dB Gain, keeping other stacks", () => {
+    const other = effect("fx", sourceClipEffectTrackId("a"));
+    const patch = createMidiClip(
+      project([], { effects: [other] }),
+      "t2",
+      4,
+      16,
+      "midi",
     );
+    const stack =
+      patch?.effects?.filter(
+        (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
+      ) ?? [];
+    // It sounds through a default Synth, with no Arpeggiator.
     assert.deepEqual(
       stack.map((effect) => effect.effectName),
-      ["Synth"],
+      ["Synth", GAIN_EFFECT_NAME],
     );
     assert.deepEqual(midiChainOf(stack), {
       generators: [],
       synth: DEFAULT_SYNTH_PARAMS,
     });
-    // The rest of the session's effects stay as they were.
-    assert.deepEqual(
-      patch?.effects?.filter((effect) => !stack.includes(effect)),
-      current.effects,
-    );
+    assert.equal(gainChainAmplitude(stack), 1);
+    assert.equal(patch?.effects?.[0], other);
   });
 
   it("ends where the next clip in its own track begins", () => {
