@@ -750,15 +750,8 @@ export function drawComposition(
           bottomUp: true,
         }) ?? arrangement)
       : arrangement;
-    drawFxResult(
-      resources,
-      parent,
-      arrangement,
-      arranged,
-      axes,
-      mask || undefined,
-      entry.visual.opacity,
-    );
+    const { opacity } = entry.visual;
+    drawFxResult(resources, parent, arrangement, arranged, axes, mask, opacity);
   };
 
   drawSteps(planned, sceneTarget, 0);

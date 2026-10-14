@@ -102,7 +102,7 @@ export function drawTransition(
     blend.region,
     blended,
     quadAxes([1, -1], [0, 0], 0),
-    mask || undefined,
+    mask,
     entry.visual.opacity,
     true,
   );

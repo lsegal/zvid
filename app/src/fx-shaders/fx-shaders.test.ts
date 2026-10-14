@@ -7,10 +7,8 @@ import { loadLutFiles, setLutMedia } from "../fx/effects/lut/lut-media.ts";
 import { SHAPE_EFFECT_NAME } from "../fx/effects/shape/shape.ts";
 import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
 import { applyClipAnimationWeight } from "../fx-animation-clip.ts";
-import {
-  getAnimationNeutralValues,
-  supportsAnimation,
-} from "../fx-animation-defaults.ts";
+import { supportsAnimation } from "../fx-animation-defaults.ts";
+import { getAnimationNeutralValues } from "../fx-animation-neutrals.ts";
 import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,

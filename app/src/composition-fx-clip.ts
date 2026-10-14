@@ -178,7 +178,7 @@ export function drawFxResult(
   original: TextureRegion,
   processed: TextureRegion,
   axes: QuadAxes,
-  mask: DrawnMask | undefined,
+  mask: DrawnMask | false | undefined,
   opacity: number,
   premultiplied = false,
 ) {
@@ -199,7 +199,7 @@ export function drawFxResult(
       axes,
       opacity,
       premultiplied,
-      mask,
+      mask || undefined,
     );
   }
 }

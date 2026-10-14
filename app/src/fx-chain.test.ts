@@ -443,6 +443,7 @@ describe("addableEffectsFor", () => {
         "GaussianBlur",
         "MotionBlur",
         "Transform",
+        "Opacity",
         "Shape",
         "Move",
         "Mask",
