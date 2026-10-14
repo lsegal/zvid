@@ -215,9 +215,7 @@ function sessionProblems() {
   const text = readFileSync(SESSION_FILE, "utf8");
   const session = JSON.parse(text);
   const problems = [];
-  if (
-    text !== `${JSON.stringify(normalizeSession(session), null, 2)}\n`
-  ) {
+  if (text !== `${JSON.stringify(normalizeSession(session), null, 2)}\n`) {
     problems.push(`${SESSION_FILE} is not normalized`);
   }
   const known = new Set(MEDIA.map((media) => samplePath(media.file)));
@@ -265,5 +263,7 @@ if (process.argv.includes("--check")) {
     process.exit(1);
   }
   writeFileSync(MANIFEST_FILE, manifest);
-  console.log(`Wrote ${importIndex >= 0 ? `${SESSION_FILE} and ` : ""}${MANIFEST_FILE}`);
+  console.log(
+    `Wrote ${importIndex >= 0 ? `${SESSION_FILE} and ` : ""}${MANIFEST_FILE}`,
+  );
 }

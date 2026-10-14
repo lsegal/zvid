@@ -215,9 +215,13 @@ test("File → Open → Samples → MIDI opens the generated-audio sample", asyn
   for (const id of ["titles", "logo", "forest", "forest-echo", "dots"]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
-  await expect(lane(page, "forest-echo").locator("[data-clip-id]")).toHaveCount(
-    6,
-  );
+  // The background Lotties #1435 added: Sky and Train, each placed on a layer.
+  for (const name of ["Sky", "Train"]) {
+    const track = page.locator("[data-source-track-id]", {
+      has: page.getByText(name, { exact: true }),
+    });
+    await expect(track.locator("[data-source-span-id]")).toHaveCount(1);
+  }
   for (const id of ["drums", "bass", "arp", "pad", "lead"]) {
     await expect(
       page.locator(
