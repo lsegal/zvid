@@ -8,9 +8,10 @@ import {
   drawQuad,
 } from "./composition-draw-gl.ts";
 import {
-  fillsFrame,
+  frameWholeSource,
   renderLayerFrame,
   shrunkSize,
+  sourceBounds,
   transformShrink,
   visualShrink,
 } from "./composition-framing.ts";
@@ -391,9 +392,10 @@ function drawLayer(
     entry.visual.opacity * sourceOpacity * opacity,
   );
 
-  // A Transform moves the slot's content, so the layer is framed into its
-  // slot first and that frame is drawn transformed: by the clip's own
-  // Transform inside its layer's Transform, with their Moves.
+  // A Transform moves the layer's whole source about its slot, and the slot
+  // crops what it draws, so moving a source that covers its slot reveals
+  // what the slot cropped away: by the clip's own Transform inside its
+  // layer's Transform, with their Moves.
   const transformed = !isIdentityChain(visualTransformChain(entry.visual));
   const matrix = transformed
     ? (textBox?.matrix ??
@@ -409,34 +411,45 @@ function drawLayer(
     matrix &&
     !textBox &&
     !layerSteps.length &&
-    fillsFrame(placement, entry.visual.rotationDeg)
+    !entry.visual.rotationDeg
   ) {
-    // A source that fills its frame unrotated, with no effects to run, is
-    // its own frame: it is drawn transformed directly, sparing a pass.
+    // An unrotated source with no effects to run is drawn transformed
+    // directly, whole, sparing a framing pass.
     uniforms = layerUniforms(
-      matrixQuadAxes(frame, matrix, surface),
+      matrixQuadAxes(sourceBounds(placement, 0), matrix, surface),
       entry.visual,
       entry.visual.opacity * sourceOpacity * opacity,
     );
   } else if (layerSteps.length || transformed) {
     // Text is framed at its box's size, so its effects see it unstretched,
-    // with room around the box for the effects that spread it past it.
+    // with room around the box for the effects that spread it past it. A
+    // transformed source is framed whole, past its slot where it covers it.
     const outputScale = Math.min(width, height) / REFERENCE_OUTPUT_SIDE;
-    const bled = bleedTextPlacement(
-      placement,
-      textBox?.box,
-      layerSteps,
-      surface,
-      outputScale,
-    );
-    const fitted =
-      textBox &&
-      fitTextureSize(gl, sourceWidth * bled.grow.x, sourceHeight * bled.grow.y);
+    const bled =
+      matrix && !textBox
+        ? frameWholeSource(placement, entry.visual.rotationDeg)
+        : bleedTextPlacement(
+            placement,
+            textBox?.box,
+            layerSteps,
+            surface,
+            outputScale,
+          );
     // A Transform that shrinks the slot frames it at the size it is drawn
     // at, keeping its aspect.
     const shrink = matrix && !textBox ? transformShrink(matrix) : 1;
+    const grown = bled.grow.x !== 1 || bled.grow.y !== 1;
+    const fitted = textBox
+      ? fitTextureSize(gl, sourceWidth * bled.grow.x, sourceHeight * bled.grow.y)
+      : grown
+        ? fitTextureSize(
+            gl,
+            scissor.width * bled.grow.x * shrink,
+            scissor.height * bled.grow.y * shrink,
+          )
+        : undefined;
     const frameSize = fitted || shrunkSize(scissor, shrink);
-    const frameScale = fitted ? fitted.factor : shrink;
+    const frameScale = fitted ? fitted.factor * shrink : shrink;
     const framed = renderLayerFrame(
       resources,
       texture,
@@ -470,7 +483,7 @@ function drawLayer(
           },
         ) ?? framed);
     // The framed result already holds the layer's placement, so it fills
-    // its slot exactly, or the box its Transforms move the slot to. A text
+    // its slot exactly, or the box its Transforms move its frame to. A text
     // box already holds the Transforms' scale, so it is drawn without it,
     // padded as it was framed.
     const drawn = bled.placement.frame;
