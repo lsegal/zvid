@@ -338,9 +338,7 @@ export function copyNotes(
     return undefined;
   }
   const firstStart = Math.min(...selected.map((note) => note.start));
-  const lastEnd = Math.max(
-    ...selected.map((note) => note.start + note.length),
-  );
+  const lastEnd = Math.max(...selected.map((note) => note.start + note.length));
   return {
     notes: sortNotes(
       selected.map((note) => ({ ...note, start: note.start - firstStart })),

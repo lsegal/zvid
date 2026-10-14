@@ -10,10 +10,7 @@ import {
   useState,
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
-import {
-  isContextMenuPress,
-  type MenuPoint,
-} from "../../context-menu.ts";
+import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
 import { auditionNote } from "../../midi-audition.ts";
 import type { MidiNote, SynthParams } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
