@@ -15,6 +15,7 @@ export const midiHistoryLabels = {
   deleteNote: "Delete Note",
   deleteNotes: "Delete Notes",
   duplicateNote: "Duplicate Note",
+  setVelocity: "Set Note Velocity",
   duplicateNotes: "Duplicate Notes",
   nudgeNotes: "Nudge Notes",
   transposeNotes: "Transpose Notes",

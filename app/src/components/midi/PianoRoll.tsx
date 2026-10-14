@@ -54,6 +54,7 @@ import "../fx/fx-chain.css";
 import "./midi-devices.css";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
+import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -137,7 +138,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // semitone, Delete or Backspace deletes them, and Cmd/Ctrl+D, X, C and V
 // duplicate, cut, copy and paste, pasting at the playhead. Clicking a note or a key
 // auditions it through the clip's instrument. A read-only line follows the
-// transport playhead to the note sounding (see PianoRollPlayhead).
+// transport playhead to the note sounding (see PianoRollPlayhead), and a
+// resizable velocity lane along the bottom edits the notes' velocities (see
+// PianoRollVelocity).
 export function PianoRoll({
   model,
   collapsed,
@@ -151,6 +154,7 @@ export function PianoRoll({
   const gridRef = useRef<HTMLDivElement>(null);
   const clock = useContext(FxModulationClockContext);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
+  const velocityLane = useVelocityLaneHeight();
   const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
   // The selected notes' keys, for the clip they were selected in.
   const [selection, setSelection] = useState({
@@ -171,6 +175,7 @@ export function PianoRoll({
     "--piano-roll-row": `${PIANO_ROLL_ROW_PX}px`,
     "--piano-roll-quarter": `${PIANO_ROLL_QUARTER_PX}px`,
     "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
+    "--piano-roll-velocity": `${velocityLane.height}px`,
   } as CSSProperties;
 
   // Opens on the clip's notes, or on middle C when it has none.
@@ -186,7 +191,7 @@ export function PianoRoll({
       scroller.scrollTop =
         PIANO_ROLL_RULER_PX +
         (rowOf(centerPitch) + 0.5) * PIANO_ROLL_ROW_PX -
-        scroller.clientHeight / 2;
+        (scroller.clientHeight - velocityLane.height) / 2;
     }
   }, [spanId, collapsed]);
 
@@ -580,6 +585,16 @@ export function PianoRoll({
           })}
           <PianoRollPlayhead model={model} quarterPx={PIANO_ROLL_QUARTER_PX} />
         </div>
+        <PianoRollVelocity
+          lane={velocityLane}
+          notes={shownNotes}
+          onSetVelocities={(next) =>
+            onSetNotes(spanId, next, midiHistoryLabels.setVelocity)
+          }
+          quarterPx={PIANO_ROLL_QUARTER_PX}
+          selectedKeys={selectedKeys}
+          width={gridWidth}
+        />
       </div>
       {/* The menu is portaled out of the panel, but React still bubbles its
           events here; stop them before the panel acts on its keys. */}

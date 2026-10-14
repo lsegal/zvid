@@ -10,19 +10,23 @@
   max-width: min(640px, 70vw);
 }
 
-/* The keys and the grid under a corner and the ruler, which stay put while
-   the roll scrolls under them. */
+/* The keys and the grid under a corner and the ruler, and over the
+   velocity lane, which stay put while the roll scrolls under them. */
 .piano-roll__scroll {
   display: grid;
   grid-template-columns: 34px auto;
   align-items: start;
-  height: 180px;
+  height: calc(180px + var(--piano-roll-velocity));
   margin: 6px 8px 10px;
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 8px;
   scrollbar-width: thin;
+  /* Sized to its content, the roll would leave out its vertical scrollbar
+     where scrollbars take room (Linux, Windows), and show a horizontal one
+     until the next layout, which moves the velocity lane under the pointer. */
+  scrollbar-gutter: stable;
 }
 
 .piano-roll__keys {
@@ -245,6 +249,90 @@
   background: #f6b73c;
   pointer-events: none;
   z-index: 1;
+}
+
+/* The velocity lane, docked along the grid's bottom while the grid scrolls
+   up and down under it, and across with it. */
+.piano-roll__velocity-corner {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  height: var(--piano-roll-velocity);
+  padding: 7px 3px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  background: #1b1e27;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: right;
+}
+
+.piano-roll__velocity {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  height: var(--piano-roll-velocity);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: #171a22;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 1px,
+    transparent 1px
+  );
+  background-size: calc(var(--piano-roll-quarter) * 4) 100%;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* The lane's top edge, which resizes it. */
+.piano-roll__velocity-resize {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 5px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: row-resize;
+}
+
+.piano-roll__velocity-resize:hover,
+.piano-roll__velocity-resize:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--fx-accent) 60%, transparent);
+}
+
+/* A note's velocity: a stem up from the lane's bottom at the note's start,
+   capped with a dot. */
+.piano-roll__stem {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--fx-accent) 65%, white);
+}
+
+.piano-roll__stem::before {
+  position: absolute;
+  top: -3px;
+  left: -2.5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: inherit;
+  content: "";
+}
+
+.piano-roll__stem--selected {
+  background: #fff;
+}
+
+.piano-roll__stem:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .piano-roll__menu {
