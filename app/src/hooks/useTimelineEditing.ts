@@ -6,7 +6,10 @@ import {
 } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
 import { findSelectedSourceTrack } from "../app/source-selection.ts";
-import { getTimelineContentEndQ } from "../app/timeline-math.ts";
+import {
+  getSessionLengthQ,
+  getTimelineContentEndQ,
+} from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { MediaItem } from "../media";
 import { useMenus } from "../menus/useMenus.ts";
@@ -220,8 +223,15 @@ export function useTimelineEditing({
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
 
   const timelineContentEndQ = useMemo(
-    () => getTimelineContentEndQ(timelineClips, sourceSpans, bpm, barLength),
-    [barLength, bpm, sourceSpans, timelineClips],
+    () =>
+      getTimelineContentEndQ(
+        timelineClips,
+        sourceSpans,
+        bpm,
+        barLength,
+        getSessionLengthQ(projectDurationFrames, fps, bpm),
+      ),
+    [barLength, bpm, fps, projectDurationFrames, sourceSpans, timelineClips],
   );
 
   const {

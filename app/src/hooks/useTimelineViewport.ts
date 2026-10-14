@@ -47,6 +47,8 @@ export type TimelineViewportInputs = {
   pendingSelection: TimelineSelection | null;
   // The end of the clips being recorded, which aren't source spans yet.
   recordingEndQ?: number;
+  // The length set in Session Settings, which the timeline extends past.
+  sessionLengthQ?: number;
   labelWidth: number;
   playheadQRef: { current: number };
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -68,6 +70,7 @@ export function useTimelineViewport({
   sourceSpans,
   pendingSelection,
   recordingEndQ = 0,
+  sessionLengthQ = 0,
   labelWidth,
   playheadQRef,
   timelineScrollRef,
@@ -138,6 +141,12 @@ export function useTimelineViewport({
         recordingEndQ + barLength,
       );
     }
+    if (sessionLengthQ) {
+      nextTotalQuarters = Math.max(
+        nextTotalQuarters,
+        sessionLengthQ + barLength,
+      );
+    }
 
     return nextTotalQuarters;
   }, [
@@ -145,6 +154,7 @@ export function useTimelineViewport({
     bpm,
     pendingSelection,
     recordingEndQ,
+    sessionLengthQ,
     sourceSpans,
     timelineClips,
   ]);

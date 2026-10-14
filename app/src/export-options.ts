@@ -2,7 +2,11 @@
 // for one export without changing the session, plus the In→Out range to
 // render and the file name to save as.
 
-import { quartersToSeconds, secondsToQuarters } from "./app/timeline-math.ts";
+import {
+  getSessionLengthQ,
+  quartersToSeconds,
+  secondsToQuarters,
+} from "./app/timeline-math.ts";
 import { sanitizeFilenameSegment } from "./app/util.ts";
 import {
   type ExportContainer,
@@ -45,8 +49,12 @@ export type DefaultRangeInputs = {
   clips: readonly RangeClip[];
   bpm: number;
   fps: number;
-  // The session length from the opened session, in frames at `fps`.
+  // The session length from Session Settings or the opened session, in
+  // frames at `fps`.
   projectDurationFrames?: number;
+  // The clips the audio mix plays, such as MIDI clips sounding from source
+  // tracks under layers that draw only text, which the range also covers.
+  audioClips?: readonly { startSeconds: number; durationSeconds: number }[];
 };
 
 const EXPORT_EXTENSIONS: Record<ExportContainer, string> = {
@@ -60,23 +68,27 @@ function clipEndQ(clip: RangeClip, bpm: number) {
 
 /**
  * The range an export starts with: from the first clip's start to the
- * session length when the session has one, else to the last clip's end.
+ * session length when the session has one, else to the last clip's or
+ * audio clip's end.
  */
 export function defaultExportRange({
   clips,
   bpm,
   fps,
   projectDurationFrames,
+  audioClips = [],
 }: DefaultRangeInputs): ExportRange {
   if (!clips.length) {
     return { inQ: 0, outQ: 0 };
   }
   const inQ = Math.max(0, Math.min(...clips.map((clip) => clip.startQ)));
-  const lastClipEndQ = Math.max(...clips.map((clip) => clipEndQ(clip, bpm)));
-  const projectEndQ =
-    projectDurationFrames && projectDurationFrames > 0 && fps > 0
-      ? secondsToQuarters(projectDurationFrames / fps, bpm)
-      : 0;
+  const lastClipEndQ = Math.max(
+    ...clips.map((clip) => clipEndQ(clip, bpm)),
+    ...audioClips.map((clip) =>
+      secondsToQuarters(clip.startSeconds + clip.durationSeconds, bpm),
+    ),
+  );
+  const projectEndQ = getSessionLengthQ(projectDurationFrames, fps, bpm) ?? 0;
   return { inQ, outQ: projectEndQ > inQ ? projectEndQ : lastClipEndQ };
 }
 

@@ -258,11 +258,16 @@ export function useExport({
   const { sessionName } = project;
   const session = sessionSettingsFromProject(project);
   const render = renderClipsOf(project);
+  const currentAudioMix = useMemo(
+    () => audioMixOf(project, mediaItems),
+    [mediaItems, project],
+  );
   const defaultRange = defaultExportRange({
     clips: render.clips,
     bpm: project.bpm,
     fps: session.fps,
     projectDurationFrames: project.projectDurationFrames,
+    audioClips: currentAudioMix.clips,
   });
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<ExportDialogPhase>("editing");
@@ -590,8 +595,9 @@ export function useExport({
   const shownRender = shown ? renderClipsOf(shown.project) : render;
   const shownMediaItems = shown?.mediaItems ?? mediaItems;
   const shownAudioMix = useMemo(
-    () => audioMixOf(shownProject, shownMediaItems),
-    [shownMediaItems, shownProject],
+    () =>
+      shown ? audioMixOf(shown.project, shown.mediaItems) : currentAudioMix,
+    [currentAudioMix, shown],
   );
   const exportDialog: ExportDialogModel = {
     open,

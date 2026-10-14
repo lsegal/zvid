@@ -6,20 +6,39 @@ import {
   DEFAULT_SESSION_SETTINGS,
   type SessionSettings,
 } from "../session-settings";
-import { SessionSettingsDialog } from "./SessionSettingsDialog";
+import {
+  type SessionLength,
+  SessionSettingsDialog,
+} from "./SessionSettingsDialog";
 
-// File ▸ Session Settings…'s dialog sets the session's canvas, frame rate and
-// encoding, validates sizes, and opens on Ctrl/Cmd+,.
+// File ▸ Session Settings…'s dialog sets the session's canvas, frame rate,
+// length and encoding, validates sizes, and opens on Ctrl/Cmd+,.
+
+// At 120 BPM in 4/4, content ending after two bars, at 4 s.
+const DETECTED: SessionLength = {
+  bpm: 120,
+  signature: { numerator: 4, denominator: 4 },
+  detectedQ: 8,
+};
 
 // Renders the dialog closed or open over the default 1920x1080, 30 fps
-// session, recording what Apply reports.
-async function renderDialog(initiallyOpen: boolean) {
+// session, recording what Apply reports: the settings, and the lengths into
+// `lengths`.
+async function renderDialog(
+  initiallyOpen: boolean,
+  length: SessionLength = DETECTED,
+  lengths: (number | undefined)[] = [],
+) {
   const applied: SessionSettings[] = [];
   function Host() {
     const [open, setOpen] = useState(initiallyOpen);
     return (
       <SessionSettingsDialog
-        onApply={(settings) => applied.push(settings)}
+        length={length}
+        onApply={(settings, lengthQ) => {
+          applied.push(settings);
+          lengths.push(lengthQ);
+        }}
         onOpenChange={setOpen}
         open={open}
         settings={DEFAULT_SESSION_SETTINGS}
@@ -59,6 +78,47 @@ describe("SessionSettingsDialog", () => {
       canvasHeight: 1920,
       fps: 60,
     });
+  });
+
+  test("shows the session length in beats and timecode, sets it, and unsets it", async () => {
+    const lengths: (number | undefined)[] = [];
+    await renderDialog(true, DETECTED, lengths);
+    const settings = dialog();
+    const beats = settings.getByRole("spinbutton", { name: "Beats" });
+    const timecode = settings.getByRole("spinbutton", { name: "Timecode" });
+    await expect.element(beats).toHaveTextContent("2.0.0");
+    await expect.element(timecode).toHaveTextContent("00:04:00");
+    await expect
+      .element(settings.getByRole("button", { name: "Unset" }))
+      .toBeDisabled();
+
+    // Typing a length in beats updates the timecode, and the reverse.
+    await beats.getByRole("button").click();
+    await beats.getByRole("textbox").fill("4.0.0");
+    await userEvent.keyboard("{Enter}");
+    await expect.element(timecode).toHaveTextContent("00:08:00");
+    await timecode.getByRole("button").click();
+    await timecode.getByRole("textbox").fill("00:10:00");
+    await userEvent.keyboard("{Enter}");
+    await expect.element(beats).toHaveTextContent("5.0.0");
+    await settings.getByRole("button", { name: "Apply" }).click();
+    expect(lengths).toEqual([20]);
+  });
+
+  test("Unset reverts a set length to the detected end", async () => {
+    const lengths: (number | undefined)[] = [];
+    await renderDialog(true, { ...DETECTED, lengthQ: 20 }, lengths);
+    const settings = dialog();
+    const beats = settings.getByRole("spinbutton", { name: "Beats" });
+    await expect.element(beats).toHaveTextContent("5.0.0");
+
+    await settings.getByRole("button", { name: "Unset" }).click();
+    await expect.element(beats).toHaveTextContent("2.0.0");
+    await expect
+      .element(settings.getByRole("button", { name: "Unset" }))
+      .toBeDisabled();
+    await settings.getByRole("button", { name: "Apply" }).click();
+    expect(lengths).toEqual([undefined]);
   });
 
   test("validates sizes, and Cancel applies nothing", async () => {

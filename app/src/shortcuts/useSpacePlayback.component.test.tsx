@@ -266,6 +266,11 @@ function SpaceEditor({ signal = createPlayheadSignal() }) {
       <SessionSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        length={{
+          bpm: 120,
+          signature: { numerator: 4, denominator: 4 },
+          detectedQ: 4,
+        }}
         settings={DEFAULT_SESSION_SETTINGS}
         onApply={noop}
       />

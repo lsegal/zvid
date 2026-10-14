@@ -230,14 +230,33 @@ export function getSelectionEndQ(selection: TimelineSelection) {
   return selection.startQ + selection.durationQ;
 }
 
-// The session runs to the end of its last layer clip or source clip, which
-// is also where its audio, made only of clips, ends.
+// The session length set in Session Settings or by an import, in quarters,
+// or undefined when the session ends where its content does.
+export function getSessionLengthQ(
+  projectDurationFrames: number | undefined,
+  fps: number,
+  bpm: number,
+) {
+  return projectDurationFrames && projectDurationFrames > 0 && fps > 0
+    ? secondsToQuarters(projectDurationFrames / fps, bpm)
+    : undefined;
+}
+
+// The session runs to its set length when it has one. Otherwise it runs to
+// the end of its last layer clip or source clip, MIDI clips included, which
+// is also where its audio, made only of clips, ends: a MIDI clip's synth is
+// rendered only as long as the clip, so its release tails end with it (see
+// audio-mix/synth.ts).
 export function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
   bpm: number,
   barLength: number,
+  lengthQ?: number,
 ) {
+  if (lengthQ !== undefined && lengthQ > 0) {
+    return lengthQ;
+  }
   const clipTimelineEndQ = clips.reduce(
     (maximum, clip) => Math.max(maximum, getClipEndQ(clip, bpm)),
     0,

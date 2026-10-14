@@ -58,6 +58,11 @@ function SessionSettings() {
       onApply={noop}
       onOpenChange={setOpen}
       open={open}
+      length={{
+        bpm: 120,
+        signature: { numerator: 4, denominator: 4 },
+        detectedQ: 4,
+      }}
       settings={DEFAULT_SESSION_SETTINGS}
     />
   );

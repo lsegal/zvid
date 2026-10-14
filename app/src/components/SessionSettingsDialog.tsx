@@ -35,6 +35,8 @@ import {
   videoBitrateMbps,
   videoCodecOptions,
 } from "../session-settings";
+import type { TimeValueFormat } from "../time-value";
+import type { MeterSignature } from "../timeline-format";
 import {
   Dialog,
   DialogClose,
@@ -45,14 +47,27 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Select } from "./ui/select";
+import { TimeValueControl } from "./ui/TimeValueControl";
 import "./session-settings-dialog.css";
+
+// The session's length, in quarters at its tempo: where it ends when no
+// length is set, and the length set, if any.
+export type SessionLength = {
+  bpm: number;
+  signature: MeterSignature;
+  detectedQ: number;
+  lengthQ?: number;
+};
 
 type SessionSettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   // The session's current settings, which the dialog starts from.
   settings: SessionSettings;
-  onApply: (settings: SessionSettings) => void;
+  length: SessionLength;
+  // `lengthQ` is undefined when the session should end where its content
+  // does.
+  onApply: (settings: SessionSettings, lengthQ: number | undefined) => void;
 };
 
 const CUSTOM_FRAME_RATE = "custom";
@@ -69,6 +84,7 @@ export function SessionSettingsDialog({
   open,
   onOpenChange,
   settings,
+  length,
   onApply,
 }: SessionSettingsDialogProps) {
   useEffect(() => {
@@ -93,8 +109,9 @@ export function SessionSettingsDialog({
         {open ? (
           <SessionSettingsForm
             initial={settings}
-            onApply={(next) => {
-              onApply(next);
+            length={length}
+            onApply={(next, lengthQ) => {
+              onApply(next, lengthQ);
               onOpenChange(false);
             }}
           />
@@ -134,15 +151,75 @@ function inputValue(value: number | undefined) {
   return value !== undefined && Number.isFinite(value) ? value : "";
 }
 
+// Session length in bars.beats and in timecode, both editing one set
+// length, and Unset, which goes back to ending where the content does.
+function SessionLengthFields({
+  length,
+  lengthQ,
+  fps,
+  onChange,
+}: {
+  length: SessionLength;
+  lengthQ: number | undefined;
+  fps: number;
+  onChange: (lengthQ: number | undefined) => void;
+}) {
+  const format: TimeValueFormat = {
+    timelineMode: "musical",
+    bpm: length.bpm,
+    signature: length.signature,
+    fps,
+  };
+  // A sixteenth note is the shortest length.
+  const minQ = 1 / length.signature.denominator;
+  const control = (timelineMode: TimeValueFormat["timelineMode"]) => (
+    <TimeValueControl
+      {...format}
+      kind="duration"
+      label={timelineMode === "musical" ? "Beats" : "Timecode"}
+      max={Number.POSITIVE_INFINITY}
+      min={minQ}
+      onChange={(value) => onChange(value)}
+      timelineMode={timelineMode}
+      value={lengthQ ?? length.detectedQ}
+    />
+  );
+  return (
+    <fieldset className="session-settings__group">
+      <legend>Session length</legend>
+      <div className="session-settings__length">
+        {control("musical")}
+        {control("timecode")}
+        <button
+          className="ghost-button"
+          disabled={lengthQ === undefined}
+          onClick={() => onChange(undefined)}
+          type="button"
+        >
+          Unset
+        </button>
+      </div>
+      <span className="session-settings__hint">
+        {lengthQ === undefined
+          ? "Detected: the session ends with its last clip."
+          : "Set: the timeline, preview and export end here."}
+      </span>
+    </fieldset>
+  );
+}
+
 function SessionSettingsForm({
   initial,
+  length,
   onApply,
 }: {
   initial: SessionSettings;
-  onApply: (settings: SessionSettings) => void;
+  length: SessionLength;
+  onApply: (settings: SessionSettings, lengthQ: number | undefined) => void;
 }) {
   const id = useId();
   const [draft, setDraft] = useState(initial);
+  const [lengthQ, setLengthQ] = useState(length.lengthQ);
   const [lockAspect, setLockAspect] = useState(true);
   const [customFps, setCustomFps] = useState(
     () => matchFrameRate(initial.fps) === undefined,
@@ -190,15 +267,15 @@ function SessionSettingsForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!invalid) {
-          onApply(draft);
+          onApply(draft, lengthQ);
         }
       }}
     >
       <DialogHeader>
         <DialogTitle>Session Settings</DialogTitle>
         <DialogDescription>
-          The canvas, frame rate and encoding this session previews and exports
-          at.
+          The canvas, frame rate, length and encoding this session previews and
+          exports at.
         </DialogDescription>
       </DialogHeader>
 
@@ -352,6 +429,13 @@ function SessionSettingsForm({
             </div>
           </fieldset>
         </div>
+
+        <SessionLengthFields
+          fps={Number.isFinite(fps) && fps > 0 ? fps : initial.fps}
+          length={length}
+          lengthQ={lengthQ}
+          onChange={setLengthQ}
+        />
 
         <fieldset className="session-settings__group">
           <legend>Video encoding</legend>
