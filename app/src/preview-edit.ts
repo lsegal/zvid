@@ -55,7 +55,10 @@ import {
   setEffectAnimationEnabled,
   setEffectEnabled,
   setEffectParameter,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
 } from "./fx-stack.ts";
+import { getSourceRenderedId } from "./render-clips.ts";
 
 export type Size = { width: number; height: number };
 
@@ -160,11 +163,19 @@ export function resolveLayerSpace(
 // set, else the layer's.
 export type PreviewEditTarget = { laneId: string; clipId?: string };
 
-// The stack holding a target's Transform.
+// The stack holding a target's Transform. A source track rendered in place
+// of layers keeps its Transform in its own stack, and its clips theirs.
 export function getPreviewEditTrackId(target: PreviewEditTarget) {
-  return target.clipId === undefined
-    ? target.laneId
-    : clipEffectTrackId(target.clipId);
+  if (target.clipId === undefined) {
+    const sourceTrackId = getSourceRenderedId(target.laneId);
+    return sourceTrackId === undefined
+      ? target.laneId
+      : sourceTrackEffectTrackId(sourceTrackId);
+  }
+  const sourceSpanId = getSourceRenderedId(target.clipId);
+  return sourceSpanId === undefined
+    ? clipEffectTrackId(target.clipId)
+    : sourceClipEffectTrackId(sourceSpanId);
 }
 
 // The Transform a drag edits on `layer`, with the box it applies to and the

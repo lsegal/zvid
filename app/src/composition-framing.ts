@@ -60,7 +60,7 @@ export function sourceBounds(
   placement: LayerPlacement,
   rotationDeg: number,
 ): FrameBounds {
-  const { halfExtents, translate } = placement;
+  const { frame, halfExtents, translate } = placement;
   const radians = (rotationDeg * Math.PI) / 180;
   const cos = Math.abs(Math.cos(radians));
   const sin = Math.abs(Math.sin(radians));
@@ -71,7 +71,10 @@ export function sourceBounds(
     centerY: translate.y,
     halfWidth,
     halfHeight,
-    aspect: halfWidth / Math.max(halfHeight, 1e-6),
+    // In pixels, like its slot's.
+    aspect:
+      (frame.aspect * halfWidth * frame.halfHeight) /
+      Math.max(halfHeight * frame.halfWidth, 1e-12),
   };
 }
 
