@@ -117,11 +117,12 @@ function audioStageModulation(
       : undefined;
   }
   const { transient } = modulation;
-  return transient.motion !== "None" && transient.reactivity > 0
+  return transient.motion !== "None" && transient.amplitude > 0
     ? {
         mode: "transient",
         motion: transient.motion,
         reactivity: transient.reactivity,
+        amplitude: transient.amplitude,
         lengthFrames: getTransientTimingFrames(transient.timing),
         parameters,
       }

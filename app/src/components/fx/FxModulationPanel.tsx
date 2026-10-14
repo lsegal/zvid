@@ -3,7 +3,6 @@ import type { CSSProperties } from "react";
 import {
   ANIMATION_TIMINGS,
   REACTIVE_MOTIONS,
-  REACTIVITY_STEP,
 } from "../../fx-animation-defaults";
 import {
   createDefaultModulation,
@@ -13,13 +12,12 @@ import {
   MODULATION_MODES,
 } from "../../fx-modulation-defaults";
 import type { FxDevice } from "../../fx-stack";
-import { Knob } from "../ui/Knob";
 import {
   FxAnimatedParametersControl,
   FxAnimationSegmented,
   FxAnimationSelect,
   FxLfoControls,
-  formatReactivity,
+  FxReactiveKnobs,
 } from "./FxAnimationPanel";
 import type { FxChainProps } from "./FxChain";
 import { FxModulationGraph } from "./FxModulationGraph";
@@ -120,22 +118,12 @@ export function FxModulationPanel({
               options={ANIMATION_TIMINGS}
               value={transient.timing}
             />
-            <div className="fx-animation-panel__knob">
-              <Knob
-                accent={device.accent}
-                defaultValue={defaults?.transient.reactivity ?? 0.5}
-                format={formatReactivity}
-                label="Reactivity"
-                max={1}
-                min={0}
-                onChange={(reactivity) =>
-                  setTransient({ reactivity }, "transient")
-                }
-                onCommit={(reactivity) => setTransient({ reactivity })}
-                step={REACTIVITY_STEP}
-                value={transient.reactivity}
-              />
-            </div>
+            <FxReactiveKnobs
+              defaults={defaults?.transient}
+              device={device}
+              onChange={setTransient}
+              reactive={transient}
+            />
             <FxAnimationSelect
               label="Motion"
               onChange={(motion) => setTransient({ motion })}

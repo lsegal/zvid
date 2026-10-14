@@ -73,13 +73,14 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
 
   const motion = reactive?.motion ?? "None";
   const reactivity = reactive?.reactivity ?? 0;
+  const amplitude = reactive?.amplitude ?? 0;
   const reactiveFrames = reactive
     ? getReactiveTimingFrames(effectName, reactive.timing)
     : 0;
   const sampleReactive = useCallback(
     (time: number, into: Float32Array) => {
       sampleReactiveTrace(
-        { motion, reactivity },
+        { motion, reactivity, amplitude },
         reactiveOnsets(),
         reactiveFrames,
         fps,
@@ -89,7 +90,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
         into,
       );
     },
-    [motion, reactivity, reactiveFrames, fps],
+    [motion, reactivity, amplitude, reactiveFrames, fps],
   );
 
   const { motionIn, motionOut, timing } = animation.clip;

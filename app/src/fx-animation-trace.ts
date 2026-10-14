@@ -83,10 +83,10 @@ export function sampleClipTrace(
 
 // `count` samples of Reactive mode's swing over the `seconds` up to `time`,
 // oldest first: each hit in `onsets` spikes and falls back along the Motion
-// envelope `lengthFrames` long at `fps`, scaled by Reactivity and the hit's
-// strength, as a fraction of the most that Motion swings.
+// envelope `lengthFrames` long at `fps`, scaled by Amplitude and the hit's
+// strength, and hits below the Reactivity threshold are ignored, as a fraction of the most that Motion swings.
 export function sampleReactiveTrace(
-  reactive: Pick<ReactiveAnimation, "motion" | "reactivity">,
+  reactive: Pick<ReactiveAnimation, "motion" | "reactivity" | "amplitude">,
   onsets: readonly ReactiveOnset[],
   lengthFrames: number,
   fps: number,
