@@ -5,6 +5,8 @@ import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import { sourceClipEffectTrackId } from "./fx-stack.ts";
+import { DEFAULT_SYNTH_PARAMS } from "./midi-clip.ts";
+import { midiChainOf } from "./midi-effects.ts";
 import {
   canPasteIntoSourceTrack,
   createMidiClip,
@@ -414,6 +416,34 @@ describe("createMidiClip", () => {
         accent: swatch.accent,
       },
     ]);
+  });
+
+  it("leads the new clip's own stack with a Synth, and no Arpeggiator", () => {
+    const gain: SessionEffect = {
+      id: "gain",
+      trackId: sourceClipEffectTrackId("other"),
+      effectName: "Gain",
+      parameters: [],
+      enabled: true,
+    };
+    const current = project([], { effects: [gain] });
+    const patch = createMidiClip(current, "t2", 4, 16, "midi");
+    const stack = (patch?.effects ?? []).filter(
+      (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
+    );
+    assert.deepEqual(
+      stack.map((effect) => effect.effectName),
+      ["Synth"],
+    );
+    assert.deepEqual(midiChainOf(stack), {
+      generators: [],
+      synth: DEFAULT_SYNTH_PARAMS,
+    });
+    // The rest of the session's effects stay as they were.
+    assert.deepEqual(
+      patch?.effects?.filter((effect) => !stack.includes(effect)),
+      current.effects,
+    );
   });
 
   it("ends where the next clip in its own track begins", () => {

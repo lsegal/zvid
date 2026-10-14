@@ -889,7 +889,6 @@ describe("a session with a MIDI clip", () => {
         noteGenerators: [{ ...DEFAULT_ARPEGGIATOR, pattern: "up-down" }],
       },
       { id: "bass", name: "Bass" },
-      { id: "pad", name: "Pad" },
     ],
     clips: [
       {
@@ -905,6 +904,14 @@ describe("a session with a MIDI clip", () => {
       },
       // Imported from a Live set: no notes, so a placeholder.
       { id: "2", trackId: "bass", frameStart: 0, frameCount: 60, filePath: "" },
+    ],
+  };
+  // With a MIDI clip on a Pad track that never set its synth.
+  const withPad: ProjectSession = {
+    ...session,
+    tracks: [...(session.tracks ?? []), { id: "pad", name: "Pad" }],
+    clips: [
+      ...(session.clips ?? []),
       {
         id: "3",
         trackId: "pad",
@@ -934,7 +941,7 @@ describe("a session with a MIDI clip", () => {
   });
 
   it("moves its tracks' synths and arpeggiators onto their MIDI clips", () => {
-    const project = sessionToProject(session, []);
+    const project = sessionToProject(withPad, []);
     for (const track of project.sourceTracks) {
       assert.equal("synth" in track, false);
       assert.equal("noteGenerators" in track, false);
@@ -965,7 +972,7 @@ describe("a session with a MIDI clip", () => {
     );
     assert.deepEqual(
       saved.clips?.map((clip) => clip.notes),
-      project.sourceSpans.map((span) => span.notes),
+      [project.sourceSpans[0].notes, undefined],
     );
     assert.equal(saved.midiClipEffects, true);
     for (const track of saved.tracks ?? []) {
@@ -977,11 +984,20 @@ describe("a session with a MIDI clip", () => {
       reopened.sourceSpans[0].notes,
       project.sourceSpans[0].notes,
     );
-    assert.deepEqual(midiStack(reopened, "1"), midiStack(project, "1"));
+    const names = (stack: SessionEffect[]) =>
+      stack.map((effect) => [effect.id, effect.effectName]);
+    assert.deepEqual(
+      names(midiStack(reopened, "1")),
+      names(midiStack(project, "1")),
+    );
+    assert.deepEqual(
+      midiChainOf(midiStack(reopened, "1")),
+      midiChainOf(midiStack(project, "1")),
+    );
   });
 
   it("keeps a removed Synth removed once saved", () => {
-    const project = sessionToProject(session, []);
+    const project = sessionToProject(withPad, []);
     const saved = projectToSession(
       {
         ...INITIAL_PROJECT_STATE,

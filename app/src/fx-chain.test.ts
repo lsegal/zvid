@@ -34,7 +34,11 @@ import {
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
-import { FX_EFFECT_DEFINITIONS } from "./fx-registry.ts";
+import {
+  FX_EFFECT_DEFINITIONS,
+  type FxEffectDomain,
+  type FxEffectScope,
+} from "./fx-registry.ts";
 import {
   clipEffectTrackId,
   type FxDevice,
@@ -135,6 +139,53 @@ describe("groupChainDevices", () => {
     );
   });
 
+  it("offers the MIDI effects only on a MIDI clip's own stack", () => {
+    const names = (group: FxEffectScope, kind?: string) =>
+      addableEffectsFor(group, kind).map((definition) => definition.effectName);
+    const midi = names("clip", "midi");
+    assert.deepEqual(
+      midi.filter((name) => name === "Synth" || name === "Arpeggiator"),
+      ["Arpeggiator", "Synth"],
+    );
+    // A MIDI clip has no picture, so it offers no video effects.
+    assert.ok(
+      addableEffectsFor("clip", "midi").every(
+        (definition) =>
+          definition.domain === "audio" || definition.domain === "midi",
+      ),
+    );
+    assert.ok(midi.includes("Gain"));
+    for (const [group, kind] of [
+      ["clip", undefined],
+      ["clip", "audio"],
+      ["clip", "video"],
+      ["layer", "midi"],
+      ["global", "midi"],
+      ["fxClip", undefined],
+    ] as const) {
+      const offered = names(group, kind);
+      assert.equal(offered.includes("Synth"), false, `${group} ${kind}`);
+      assert.equal(offered.includes("Arpeggiator"), false, `${group} ${kind}`);
+    }
+  });
+
+  it("shows a MIDI clip's audio and MIDI devices, not video ones", () => {
+    const device = (id: string, domain: FxEffectDomain) =>
+      ({ id, domain, group: "clip" }) as FxDevice;
+    const groups = groupChainDevices(
+      [
+        device("synth", "midi"),
+        device("gain", "audio"),
+        device("blur", "video"),
+      ],
+      "midi",
+    );
+    assert.deepEqual(
+      groups.clip.map((item) => item.id),
+      ["synth", "gain"],
+    );
+  });
+
   it("lists the selected clip's own stack, apart from other clips'", () => {
     const effects = [
       ...DOGFOOD_EFFECTS,
@@ -206,6 +257,21 @@ describe("getFxClipName", () => {
 });
 
 describe("groupAddableEffects", () => {
+  it("lists a MIDI clip's MIDI effects first, under their own heading", () => {
+    const groups = groupAddableEffects(addableEffectsFor("clip", "midi"));
+    assert.deepEqual(
+      groups.map((group) => group.label),
+      ["MIDI", "Audio"],
+    );
+    assert.deepEqual(
+      groups[0].categories.map((category) => [
+        category.label,
+        category.effects.map((definition) => definition.displayName),
+      ]),
+      [["MIDI", ["Arpeggiator", "Synth"]]],
+    );
+  });
+
   it("lists the video effects, then the audio ones", () => {
     const groups = groupAddableEffects(addableEffectsFor("clip"));
     assert.deepEqual(
