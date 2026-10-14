@@ -245,8 +245,10 @@ function formatThreshold(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-function formatAmplitude(value: number) {
-  return `${value.toFixed(1)}x`;
+// Settings saved before Amplitude existed have none until they are
+// normalized; show the knob's default rather than failing to render.
+function formatAmplitude(value: number | undefined) {
+  return `${(value ?? 1).toFixed(1)}x`;
 }
 
 // Reactive mode's knobs: Reactivity, the threshold a hit must reach to
@@ -276,7 +278,7 @@ export function FxReactiveKnobs({
           onChange={(reactivity) => onChange({ reactivity }, "transient")}
           onCommit={(reactivity) => onChange({ reactivity })}
           step={REACTIVITY_STEP}
-          value={reactive.reactivity}
+          value={reactive.reactivity ?? defaults?.reactivity ?? 0}
         />
       </div>
       <div className="fx-animation-panel__knob">
@@ -290,7 +292,7 @@ export function FxReactiveKnobs({
           onChange={(amplitude) => onChange({ amplitude }, "transient")}
           onCommit={(amplitude) => onChange({ amplitude })}
           step={AMPLITUDE_STEP}
-          value={reactive.amplitude}
+          value={reactive.amplitude ?? defaults?.amplitude ?? 1}
         />
       </div>
     </>

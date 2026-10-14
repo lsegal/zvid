@@ -6,6 +6,7 @@ import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
   migrateDefaultOrder,
+  migrateEffectAnimation,
   migrateEffectModulation,
   migrateMainAudio,
   migrateOrderOuterMargin,
@@ -92,7 +93,9 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
       migrateDefaultOrder(
         migrateOrderOuterMargin(
           migrateColorizeReactivity(
-            migrateEffectModulation(migrateRenamedEffects(state.effects)),
+            migrateEffectModulation(
+              migrateEffectAnimation(migrateRenamedEffects(state.effects)),
+            ),
           ),
         ),
         saved.orderDefaulted,

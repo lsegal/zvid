@@ -10,7 +10,10 @@ import {
   MARGIN_KEY,
   parseCompositionOrder,
 } from "./fx/effects/order/order.ts";
-import { createDefaultAnimation } from "./fx-animation-defaults.ts";
+import {
+  createDefaultAnimation,
+  normalizeEffectAnimation,
+} from "./fx-animation-defaults.ts";
 import { normalizeEffectModulation } from "./fx-modulation-defaults.ts";
 import {
   clipEffectTrackId,
@@ -425,5 +428,35 @@ export function migrateEffectModulation(
     const { modulation: raw, ...rest } = effect;
     const modulation = normalizeEffectModulation(raw, effect.effectName);
     return modulation ? { ...rest, modulation } : rest;
+  });
+}
+
+// Effects' Animation as a workspace snapshot or a peer saved it, filled in
+// from each effect's defaults the way a session file's is. Reactive settings
+// saved before Reactivity became a threshold get their Amplitude, and
+// settings on an effect that doesn't support animation are dropped.
+// Restored history shares effects between snapshots, so each is normalized
+// once and stays shared.
+const migratedAnimations = new WeakMap<SessionEffect, SessionEffect>();
+
+export function migrateEffectAnimation(
+  effects: SessionEffect[],
+): SessionEffect[] {
+  if (!effects.some((effect) => "animation" in effect)) {
+    return effects;
+  }
+
+  return effects.map((effect) => {
+    if (!("animation" in effect)) {
+      return effect;
+    }
+    let migrated = migratedAnimations.get(effect);
+    if (!migrated) {
+      const { animation: raw, ...rest } = effect;
+      const animation = normalizeEffectAnimation(raw, effect.effectName);
+      migrated = animation ? { ...rest, animation } : rest;
+      migratedAnimations.set(effect, migrated);
+    }
+    return migrated;
   });
 }
