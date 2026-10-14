@@ -10,7 +10,7 @@ function inputs(overrides: Partial<FileMenuInputs> = {}): FileMenuInputs {
     canStartNewSession: true,
     handleNewSession: noop,
     handleOpenSession: async () => {},
-    sample: { handleOpenSample: noop },
+    sample: { openSample: noop },
     handleImport: async () => {},
     offlineMedia: [],
     showsMediaSync: false,
@@ -53,7 +53,7 @@ describe("File menu", () => {
   it("lists the desktop File menu's items in order", () => {
     assert.deepEqual(outline(buildFileMenuEntries(inputs())), [
       "New Session",
-      { Open: ["Session…", "Sample"] },
+      { Open: ["Session…", { Samples: ["Default", "MIDI"] }] },
       "Import Media",
       "All Media Linked (disabled)",
       "Media Storage…",
@@ -81,7 +81,7 @@ describe("File menu", () => {
     );
     assert.deepEqual(outline(entries), [
       "New Session (disabled)",
-      { Open: ["Session…", "Sample"] },
+      { Open: ["Session…", { Samples: ["Default", "MIDI"] }] },
       "Import Media",
       "Locate Offline Media…",
       "Media Storage…",
@@ -104,7 +104,7 @@ describe("File menu", () => {
       inputs({
         handleNewSession: record("new"),
         handleOpenSession: async () => record("open")(),
-        sample: { handleOpenSample: record("sample") },
+        sample: { openSample: (id) => record(`sample ${id}`)() },
         handleImport: async () => record("import")(),
         collaboration: {
           isConnectedClient: false,
@@ -118,11 +118,13 @@ describe("File menu", () => {
       }),
     );
     const open = item(entries, "open").submenu ?? [];
+    const samples = item(open, "open-samples").submenu ?? [];
     const exports = item(entries, "export").submenu ?? [];
     for (const selected of [
       item(entries, "new-session"),
       item(open, "open-session"),
-      item(open, "open-sample"),
+      item(samples, "open-sample-default"),
+      item(samples, "open-sample-midi"),
       item(entries, "import-media"),
       item(entries, "connect"),
       item(entries, "save"),
@@ -133,7 +135,8 @@ describe("File menu", () => {
     assert.deepEqual(calls, [
       "new",
       "open",
-      "sample",
+      "sample default",
+      "sample midi",
       "import",
       "connect",
       "save",

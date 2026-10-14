@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { WorkspaceBoot } from "../app/workspace-types";
+import { MIDI_SAMPLE } from "../sample/midi-sample";
 import { OPENING_SAMPLE } from "../sample/opening-sample";
 import {
   buildSampleOpenPayload,
   shouldAutoOpenSample,
 } from "../sample/sample-loader";
+import type { SampleId } from "../sample/samples";
 import type { SessionOpenResponse } from "../session";
+
+const SAMPLES = { default: OPENING_SAMPLE, midi: MIDI_SAMPLE };
 
 type SampleProjectInputs = {
   boot: Pick<WorkspaceBoot, "access" | "session" | "corruptKey">;
@@ -20,8 +24,8 @@ type SampleProjectInputs = {
   setStatus: (message: string) => void;
 };
 
-// File → Open → Sample, and the sample opened on its own when the app starts
-// with nothing to restore. The sample opens at once; useSampleMedia then
+// File → Open → Samples, and the opening sample opened on its own when the
+// app starts with nothing to restore. The sample opens at once; useSampleMedia then
 // loads its media in place, like media syncing from a peer.
 export function useSampleProject({
   boot,
@@ -34,11 +38,11 @@ export function useSampleProject({
   const inputsRef = useRef({ isPristine, openSamplePayload, setStatus });
   inputsRef.current = { isPristine, openSamplePayload, setStatus };
 
-  const open = useCallback(async (automatic: boolean) => {
+  const open = useCallback(async (automatic: boolean, id: SampleId) => {
     if (automatic && !inputsRef.current.isPristine()) {
       return;
     }
-    const { manifest, sessionText } = OPENING_SAMPLE;
+    const { manifest, sessionText } = SAMPLES[id];
     try {
       await inputsRef.current.openSamplePayload(
         buildSampleOpenPayload(manifest, sessionText),
@@ -51,12 +55,19 @@ export function useSampleProject({
     }
   }, []);
 
-  const handleOpenSample = useCallback(() => {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-    void open(false);
-  }, [open, refuseReadOnlyEdit]);
+  const openSample = useCallback(
+    (id: SampleId) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+      void open(false, id);
+    },
+    [open, refuseReadOnlyEdit],
+  );
+  const handleOpenSample = useCallback(
+    () => openSample("default"),
+    [openSample],
+  );
 
   useEffect(() => {
     if (autoRef.current) {
@@ -72,9 +83,9 @@ export function useSampleProject({
         webdriver: navigator.webdriver === true,
       })
     ) {
-      void open(true);
+      void open(true, "default");
     }
   }, [boot, open]);
 
-  return { handleOpenSample };
+  return { handleOpenSample, openSample };
 }

@@ -30,7 +30,7 @@ const props: TopBarProps = {
   canStartNewSession: true,
   handleNewSession: noop,
   handleOpenSession: async () => {},
-  sample: { handleOpenSample: noop },
+  sample: { openSample: noop },
   handleImport: async () => {},
   offlineMedia: [],
   showsMediaSync: false,

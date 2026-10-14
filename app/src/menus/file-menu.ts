@@ -2,6 +2,7 @@
 // the phone's More sheet show the same items.
 import type { Dispatch, SetStateAction } from "react";
 import type { ContextMenuEntry } from "../context-menu.ts";
+import { SAMPLE_CHOICES, type SampleId } from "../sample/samples.ts";
 
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 
@@ -9,7 +10,7 @@ export type FileMenuInputs = {
   canStartNewSession: boolean;
   handleNewSession: () => void;
   handleOpenSession: () => Promise<unknown>;
-  sample: { handleOpenSample: () => void };
+  sample: { openSample: (id: SampleId) => void };
   handleImport: () => Promise<unknown>;
   offlineMedia: readonly unknown[];
   showsMediaSync: boolean;
@@ -60,9 +61,14 @@ export function buildFileMenuEntries(
         },
         {
           type: "item",
-          id: "open-sample",
-          label: "Sample",
-          onSelect: inputs.sample.handleOpenSample,
+          id: "open-samples",
+          label: "Samples",
+          submenu: SAMPLE_CHOICES.map(({ id, label }) => ({
+            type: "item",
+            id: `open-sample-${id}`,
+            label,
+            onSelect: () => inputs.sample.openSample(id),
+          })),
         },
       ],
     },
