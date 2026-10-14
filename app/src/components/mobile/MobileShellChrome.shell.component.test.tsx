@@ -384,7 +384,7 @@ describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
         "Export",
       ]);
     await click("menuitem", "Open", { exact: true, ...inSheet() });
-    await expect.poll(items).toEqual(["Session…", "Sample"]);
+    await expect.poll(items).toEqual(["Session…", "Samples"]);
     // Back to File.
     await userEvent.click(query(".mobile-menu-sheet__back"));
     // Records the file chooser instead of opening it.

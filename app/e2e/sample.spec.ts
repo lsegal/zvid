@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { readProjectArchive } from "../src/project-archive.ts";
 
 // Kept in Playwright: the sample's downloads, decoding, playback, export and reloads need the whole app.
-// The zvid opening sample: File → Open → Sample, and the sample opened on an
+// The zvid opening sample: File → Open → Samples → Default, and the sample opened on an
 // empty start (`?sample=1`, since automation turns it off by default). The
 // sample opens at once and its media downloads from the app's own origin
 // into the media cache in place, through the same skeletons, status and
@@ -173,7 +173,7 @@ async function expectSampleOpen(page: Page) {
   ).toHaveCount(0);
 }
 
-test("File → Open → Sample opens the editable sample with all its media", async ({
+test("File → Open → Samples → Default opens the editable sample with all its media", async ({
   page,
 }) => {
   await page.goto("/");
@@ -181,7 +181,8 @@ test("File → Open → Sample opens the editable sample with all its media", as
 
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
   await expectSampleOpen(page);
   await expect(
     page.getByText("zvid opening sample", { exact: true }).first(),
@@ -190,6 +191,46 @@ test("File → Open → Sample opens the editable sample with all its media", as
   // A refresh restores the sample from the autosave and the media cache.
   await page.reload();
   await expectSampleOpen(page);
+});
+
+// File → Open → Samples → MIDI (#1415): its Lotties link, and the mix sounds
+// from its MIDI clips alone.
+test("File → Open → Samples → MIDI opens the generated-audio sample", async ({
+  page,
+}) => {
+  await probeMixLevel(page);
+  await page.goto("/");
+  await expect(page.getByText("No source media yet")).toBeVisible();
+
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "MIDI", exact: true }).click();
+  await expect(page.getByText("Media linked")).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByText("zvid MIDI sample", { exact: true }).first(),
+  ).toBeVisible();
+  for (const id of ["titles", "logo", "forest", "forest-echo", "dots"]) {
+    await expect(lane(page, id)).toHaveCount(1);
+  }
+  await expect(lane(page, "forest-echo").locator("[data-clip-id]")).toHaveCount(
+    6,
+  );
+  for (const id of ["drums", "bass", "arp", "pad", "lead"]) {
+    await expect(
+      page.locator(
+        `[data-source-track-id="source-${id}"] [data-source-span-id]`,
+      ),
+    ).toHaveCount(1);
+  }
+
+  await page.getByRole("button", { name: "Play timeline" }).click();
+  await expect
+    .poll(() => mixPeak(page), { timeout: 20_000 })
+    .toBeGreaterThan(0.02);
+  await page.getByRole("button", { name: "Pause playback" }).click();
 });
 
 test("the sample plays its music through the clip mix", async ({ page }) => {
@@ -448,7 +489,8 @@ test("the sample opens at once and loads its media in place", async ({
   await page.goto("/");
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
 
   for (const id of ["orbit", "ribbon", "corridor"]) {
     await expect(lane(page, id)).toHaveCount(1);
@@ -483,7 +525,8 @@ test("a failed download can be retried from the Media Sync dialog", async ({
   await page.goto("/");
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
 
   // The session is open; its media is what failed.
   await expect(lane(page, "orbit")).toHaveCount(1);
@@ -511,7 +554,8 @@ test("reopening the sample after a failed download tries it again", async ({
   await page.goto("/");
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /offline media files?$/ }),
   ).toBeVisible({ timeout: 60_000 });
@@ -521,7 +565,8 @@ test("reopening the sample after a failed download tries it again", async ({
   await expect(page.getByText("No source media yet")).toBeVisible();
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
   await expectSampleOpen(page);
 });
 
@@ -531,7 +576,8 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
   await page.goto("/");
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Samples", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Default", exact: true }).click();
   await expect(lane(page, "orbit")).toHaveCount(1);
 
   await startNewSession(page);

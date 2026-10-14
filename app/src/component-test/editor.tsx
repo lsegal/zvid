@@ -373,7 +373,7 @@ export function Editor({
         canStartNewSession={false}
         handleNewSession={noop}
         handleOpenSession={noopAsync}
-        sample={{ handleOpenSample: noop }}
+        sample={{ openSample: noop }}
         handleImport={noopAsync}
         offlineMedia={[]}
         showsMediaSync={false}
