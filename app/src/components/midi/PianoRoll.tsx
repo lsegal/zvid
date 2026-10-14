@@ -36,6 +36,7 @@ import "../fx/fx-chain.css";
 import "./midi-devices.css";
 import { PianoRollPlayhead } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
+import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -116,7 +117,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // selects it (Shift-click adds to the selection), Delete or Backspace
 // deletes the selected notes and Escape clears them. Clicking a note or a key
 // auditions it through the clip's Synth. A read-only line follows the
-// transport playhead to the note sounding (see PianoRollPlayhead).
+// transport playhead to the note sounding (see PianoRollPlayhead), and a
+// resizable velocity lane along the bottom edits the notes' velocities (see
+// PianoRollVelocity).
 export function PianoRoll({
   model,
   collapsed,
@@ -129,6 +132,7 @@ export function PianoRoll({
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
+  const velocityLane = useVelocityLaneHeight();
   // The selected notes' keys, for the clip they were selected in.
   const [selection, setSelection] = useState({
     spanId,
@@ -148,6 +152,7 @@ export function PianoRoll({
     "--piano-roll-row": `${PIANO_ROLL_ROW_PX}px`,
     "--piano-roll-quarter": `${PIANO_ROLL_QUARTER_PX}px`,
     "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
+    "--piano-roll-velocity": `${velocityLane.height}px`,
   } as CSSProperties;
 
   // Opens on the clip's notes, or on middle C when it has none.
@@ -163,7 +168,7 @@ export function PianoRoll({
       scroller.scrollTop =
         PIANO_ROLL_RULER_PX +
         (rowOf(centerPitch) + 0.5) * PIANO_ROLL_ROW_PX -
-        scroller.clientHeight / 2;
+        (scroller.clientHeight - velocityLane.height) / 2;
     }
   }, [spanId, collapsed]);
 
@@ -368,7 +373,8 @@ export function PianoRoll({
         <span className="fx-device-panel__name">Notes</span>
         <span className="piano-roll__hint">
           click: add/select · drag: move · {mac ? "Cmd" : "Ctrl"}+drag:
-          duplicate · drag edge: resize · Delete or right-click: delete
+          duplicate · drag edge: resize · Delete or right-click: delete ·
+          drag stems: velocity
         </span>
         <button
           aria-expanded
@@ -480,6 +486,16 @@ export function PianoRoll({
           })}
           <PianoRollPlayhead model={model} quarterPx={PIANO_ROLL_QUARTER_PX} />
         </div>
+        <PianoRollVelocity
+          lane={velocityLane}
+          notes={shownNotes}
+          onSetVelocities={(next) =>
+            onSetNotes(spanId, next, midiHistoryLabels.setVelocity)
+          }
+          quarterPx={PIANO_ROLL_QUARTER_PX}
+          selectedKeys={selectedKeys}
+          width={gridWidth}
+        />
       </div>
     </section>
   );
