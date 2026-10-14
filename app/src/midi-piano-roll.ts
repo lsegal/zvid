@@ -189,7 +189,10 @@ export function placeNote(
         return [note];
       }
       const end = note.start + note.length;
-      if (Math.min(end, placedEnd) - Math.max(note.start, placed.start) <= epsilon) {
+      if (
+        Math.min(end, placedEnd) - Math.max(note.start, placed.start) <=
+        epsilon
+      ) {
         return [note];
       }
       const left = Math.max(0, placed.start - note.start);

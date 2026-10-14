@@ -4,10 +4,13 @@ import type { MidiNote } from "./midi-clip.ts";
 import {
   addNote,
   deleteNote,
+  deleteNotes,
   isBlackKey,
   moveNote,
+  noteKey,
   PIANO_ROLL_HIGH_PITCH,
   pitchName,
+  placeNote,
   resizeNote,
   sameNotes,
   snapQ,
@@ -127,5 +130,53 @@ describe("lane thumbnails", () => {
       { left: bars[0].left, width: bars[0].width },
       { left: 0, width: 1 / 3 },
     );
+  });
+});
+
+describe("placing a note over others", () => {
+  const note = (pitch: number, start: number, length: number): MidiNote => ({
+    pitch,
+    start,
+    length,
+    velocity: 100,
+  });
+
+  it("trims a same-pitch note to its longer uncovered side", () => {
+    // Covering the start of a four-quarter note keeps its tail.
+    assert.deepEqual(placeNote([note(60, 0, 4), note(60, 0, 1)], 1), [
+      note(60, 0, 1),
+      note(60, 1, 3),
+    ]);
+    // Covering its end keeps its head.
+    assert.deepEqual(placeNote([note(60, 0, 4), note(60, 3, 2)], 1), [
+      note(60, 0, 3),
+      note(60, 3, 2),
+    ]);
+    // Inside it, the longer side wins, the earlier on a tie.
+    assert.deepEqual(placeNote([note(60, 0, 4), note(60, 1, 1)], 1), [
+      note(60, 1, 1),
+      note(60, 2, 2),
+    ]);
+    assert.deepEqual(placeNote([note(60, 0, 4), note(60, 1.5, 1)], 1), [
+      note(60, 0, 1.5),
+      note(60, 1.5, 1),
+    ]);
+  });
+
+  it("removes a covered note and leaves other pitches and neighbors", () => {
+    assert.deepEqual(
+      placeNote(
+        [note(60, 1, 1), note(62, 0, 4), note(60, 4, 1), note(60, 0, 4)],
+        3,
+      ),
+      [note(60, 0, 4), note(62, 0, 4), note(60, 4, 1)],
+    );
+  });
+});
+
+describe("deleting selected notes", () => {
+  it("removes the notes whose keys are selected", () => {
+    assert.deepEqual(deleteNotes([C4, E4], new Set([noteKey(E4)])), [C4]);
+    assert.deepEqual(deleteNotes([C4, E4], new Set()), [C4, E4]);
   });
 });

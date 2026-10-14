@@ -348,7 +348,6 @@ export function PianoRoll({
   }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: the panel hears Delete and Escape for the selected notes from the grid and note buttons inside it
     <section
       aria-label={name}
       className="fx-device-panel piano-roll"
