@@ -10,6 +10,7 @@ import {
   withTestPatternTrack,
 } from "../../component-test/editor.tsx";
 import { center, click, drag, undo } from "../../component-test/input.ts";
+import { setViewport } from "../../component-test/viewport.ts";
 import { installHarness } from "../../harness";
 import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
@@ -299,6 +300,9 @@ test(
   async () => {
     let state: ProjectState | undefined;
     let status = "";
+    // Tall enough for the whole lane under the FX panel's scrollbars, which
+    // take room on Linux.
+    await setViewport({ width: 1280, height: 960 });
     await renderEditor({
       project: midiProject(),
       onState: (next) => {
@@ -320,6 +324,9 @@ test(
       .toBeVisible();
     // The FX panel scrolls down to the lane at this window size.
     lane().scrollIntoView({ block: "end" });
+    expect(lane().getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      window.innerHeight,
+    );
 
     const left = lane().getBoundingClientRect().left;
     await drag(
