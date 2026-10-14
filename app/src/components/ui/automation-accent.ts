@@ -33,9 +33,7 @@ function hslToHex(hue: number, saturation: number, lightness: number) {
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
   const channel = (offset: number) => {
     const k = (offset + hue / 30) % 12;
-    return (
-      lightness - (chroma / 2) * Math.max(-1, Math.min(k - 3, 9 - k, 1))
-    );
+    return lightness - (chroma / 2) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
   };
   return toHex(channel(0), channel(8), channel(4));
 }

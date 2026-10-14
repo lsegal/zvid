@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { lfoSwing, modulatedValue } from "./audio-mix/modulation.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor.ts";
 import {
   createDefaultAnimation,
   type EffectAnimation,
@@ -122,10 +123,7 @@ describe("live knob values", () => {
     const driver = liveDriver(live);
     assert.equal(driver?.kind, "lfo");
     assert.equal(drivesKnob(driver, "_HighIntensity"), false);
-    assert.equal(
-      liveKnobValue(live, driver, "_HighIntensity", AT),
-      undefined,
-    );
+    assert.equal(liveKnobValue(live, driver, "_HighIntensity", AT), undefined);
 
     assert.ok(live.animation.lfo);
     const expected = resolveLfoParameters(asEffect(live), live.animation.lfo, {
@@ -209,6 +207,7 @@ describe("live knob values", () => {
       stored(live, "Frequency"),
       lfoSwing(live.modulation.lfo, live.id, "Frequency", AT.time, {
         bpm: AT.bpm,
+        signature: DEFAULT_TIME_SIGNATURE,
       }),
       {
         key: "Frequency",

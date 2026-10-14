@@ -4,9 +4,12 @@
 // knob points at what is drawn or heard: Animation's Clip, Reactive and LFO
 // modes, and Modulation's Transient and LFO.
 
-import { audioStageOf } from "./audio-mix/stages.ts";
 import type { AudioStageModulation } from "./audio-mix/modulation.ts";
 import { lfoSwing, modulatedValue } from "./audio-mix/modulation.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor.ts";
+import { audioStageOf } from "./audio-mix/stages.ts";
+import type { AnimatedParameter } from "./fx-animation.ts";
+import { reactsToAudio } from "./fx-animation.ts";
 import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
 import {
   DEFAULT_REACTIVE_RANGE_SCALE,
@@ -15,8 +18,6 @@ import {
 } from "./fx-animation-impulse.ts";
 import { resolveLfoParameters } from "./fx-animation-lfo.ts";
 import { resolveReactiveParameters } from "./fx-animation-reactive.ts";
-import type { AnimatedParameter } from "./fx-animation.ts";
-import { reactsToAudio } from "./fx-animation.ts";
 import type { AnimationClipSpan } from "./fx-animation-trace.ts";
 import type { FxDevice, FxDeviceParameter } from "./fx-stack.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -164,7 +165,7 @@ export function liveKnobValue(
       modulation.mode === "lfo"
         ? lfoSwing(modulation, device.id, key, at.time, {
             bpm: at.bpm,
-            signature: at.signature,
+            signature: at.signature ?? DEFAULT_TIME_SIGNATURE,
           })
         : at.transient
           ? reactiveOffset(device.id, key, at.transient.hit) *

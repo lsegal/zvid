@@ -344,8 +344,7 @@ export function Knob({
     : valueAngle;
   const liveInner = polar(liveAngle, 5);
   const liveOuter = polar(liveAngle, RADIUS - 5);
-  const readout =
-    automated && !dragging ? format(live) : valueText;
+  const readout = automated && !dragging ? format(live) : valueText;
 
   return (
     <div
