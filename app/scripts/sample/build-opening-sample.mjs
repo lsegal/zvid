@@ -381,6 +381,10 @@ const PANEL_EFFECTS = new Map([
 ]);
 // A panel cut to a Shape, its slot's border color showing around it.
 const PANEL_SHAPES = new Map([["ribbon 15", "Oval"]]);
+// A panel played backwards in slow motion, its frames blended smoothly.
+const PANEL_RETIMES = new Map([
+  ["orbit 15", { Speed: -0.5, Interpolation: "Blend" }],
+]);
 // Panels trimmed so they enter or leave while an Order is running, showing
 // off its enter and leave Push. Frames at 30 fps, keyed by layer and start.
 // A layer shows one clip at a time, so no trim runs past the next cut.
@@ -431,6 +435,10 @@ THREE_UPS.forEach((start, cutIndex) => {
     const panelShape = PANEL_SHAPES.get(`${layerId} ${start}`);
     if (panelShape) {
       addEffect(clipTrack(clipId), "Shape", { Shape: panelShape });
+    }
+    const panelRetime = PANEL_RETIMES.get(`${layerId} ${start}`);
+    if (panelRetime) {
+      addEffect(clipTrack(clipId), "Retime", panelRetime);
     }
     const panelEffect = PANEL_EFFECTS.get(`${layerId} ${start}`);
     if (panelEffect) {

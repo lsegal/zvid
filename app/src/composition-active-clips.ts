@@ -38,6 +38,7 @@ import type { ClipWarp } from "./clip-warp.ts";
 import {
   computeActiveClipTimings,
   quartersToSeconds,
+  type RetimeBlend,
   transitionCompTimings,
 } from "./composition-clip-timing.ts";
 import {
@@ -56,6 +57,7 @@ import {
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
+import { findClipRetimes } from "./composition-retime.ts";
 import {
   isMoveEffectName,
   isTransformEffectName,
@@ -117,6 +119,8 @@ export type MediaItem = {
   durationSeconds: number;
   width?: number;
   height?: number;
+  // A video's frame rate, when its analysis read one.
+  fps?: number;
   hasAudio: boolean;
   hasVideo: boolean;
   previewUrl: string;
@@ -231,6 +235,12 @@ export type ActiveClip = {
   // Set for a clip a Transition draws while it isn't under the playhead,
   // held on its last or first frame.
   held?: true;
+  // Set for a clip a Retime blends: the next source frame, which its own
+  // frame is crossfaded toward.
+  blend?: RetimeBlend;
+  // Set for a clip a Retime plays at another speed, which draws from media
+  // elements of its own rather than the mixer's.
+  retimed?: true;
   // Set for clips whose layer or own stack has an enabled Mask with a
   // Target: the layer whose drawn pixels show or hide this one.
   mask?: LayerMask;
@@ -572,6 +582,7 @@ export function computeActiveClips(
     bpm,
     lanePriority,
     findTransitionClips(clips, effectIndex),
+    findClipRetimes(clips, effectIndex, fps),
   ).map<ActiveClip>((timing) => {
     const { clip } = timing;
     const animationTiming = getAnimationTiming(clip);

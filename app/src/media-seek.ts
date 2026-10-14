@@ -157,10 +157,24 @@ export function syncPlaybackElement(
     return;
   }
 
+  // A clip Retime plays backwards, frozen, too slowly for the element or
+  // blended is seeked to each frame it is drawn at instead of played.
+  const behind = entry.mediaTime - element.currentTime;
+  if (entry.playbackRate < MIN_PLAYBACK_RATE) {
+    if (!element.paused) {
+      element.pause();
+    }
+    if (Math.abs(behind) > MEDIA_SEEK_TOLERANCE_SECONDS) {
+      seekWhenReady(element, entry.mediaTime);
+    } else {
+      cancelQueuedSeek(element);
+    }
+    return;
+  }
+
   // A warped clip changes speed between its warp markers; the drift
   // check below re-seeks it at each marker. Smaller drift in steady
   // playback is made up by playing a little faster or slower.
-  const behind = entry.mediaTime - element.currentTime;
   const steady = playback.isPlaying && !playback.isScrubbing;
   const playbackRate = clamp(
     steady

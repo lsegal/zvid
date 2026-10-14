@@ -6,6 +6,7 @@ import {
   nudgedPlaybackRate,
   seekMediaElement,
   seekWhenReady,
+  syncPlaybackElement,
 } from "./media-seek.ts";
 
 // A stand-in media element that records seeks and fires events on demand.
@@ -164,5 +165,62 @@ describe("nudgedPlaybackRate", () => {
   it("nudges by at most a tenth", () => {
     assert.equal(nudgedPlaybackRate(1, 5), 1.1);
     assert.equal(nudgedPlaybackRate(1, -5), 0.9);
+  });
+});
+
+describe("syncPlaybackElement for a Retime", () => {
+  const element = (currentTime: number) => {
+    const fake = {
+      currentTime,
+      paused: false,
+      seeking: false,
+      playbackRate: 1,
+      pause() {
+        fake.paused = true;
+      },
+      play() {
+        fake.paused = false;
+        return Promise.resolve();
+      },
+    };
+    return fake;
+  };
+  const playing = { isPlaying: true, isScrubbing: false };
+
+  it("seeks a clip playing backwards to each frame instead of playing it", () => {
+    const media = element(5);
+    for (const mediaTime of [4.95, 4.9]) {
+      syncPlaybackElement(
+        media as unknown as HTMLMediaElement,
+        { mediaTime, playbackRate: -1, isInBounds: true },
+        playing,
+      );
+      assert.equal(media.paused, true);
+      assert.equal(media.currentTime, mediaTime);
+    }
+    assert.equal(media.playbackRate, 1);
+  });
+
+  it("holds a frozen clip on its frame", () => {
+    const media = element(3);
+    syncPlaybackElement(
+      media as unknown as HTMLMediaElement,
+      { mediaTime: 3, playbackRate: 0, isInBounds: true },
+      playing,
+    );
+    assert.equal(media.paused, true);
+    assert.equal(media.currentTime, 3);
+  });
+
+  it("plays a clip sped up at the retimed rate", () => {
+    const media = element(3);
+    media.paused = true;
+    syncPlaybackElement(
+      media as unknown as HTMLMediaElement,
+      { mediaTime: 3, playbackRate: 2.5, isInBounds: true },
+      playing,
+    );
+    assert.equal(media.paused, false);
+    assert.equal(media.playbackRate, 2.5);
   });
 });
