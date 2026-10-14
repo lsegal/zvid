@@ -337,7 +337,9 @@ describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
     await renderApp();
     // #1381: the empty section is an entry point, not hidden behind More.
     await expect.poll(() => shown(".source-header")).toBe(true);
-    expect(query(".source-header").textContent).toContain("0 tracks in session");
+    expect(query(".source-header").textContent).toContain(
+      "0 tracks in session",
+    );
     await click("button", "More", { exact: true });
     await click("menuitem", "Hide Source Tracks");
     await expect.poll(() => shown(".source-header")).toBe(false);
