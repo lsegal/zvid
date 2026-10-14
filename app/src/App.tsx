@@ -85,7 +85,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const project = projectHistory.present;
   const { timelineMode, bpm, fps, canvasWidth, canvasHeight } = project;
   const { sessionName, lanes, sourceTracks, clips, effects } = project;
-
   const selection = useTimelineSelection({
     restoredSession,
     clips,
@@ -222,6 +221,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     collaboration,
     timelineClips,
     setSourceTracksCollapsed: layout.setSourceTracksCollapsed,
+    mediaDrawer,
     appShellRef,
     timelineScrollRef,
     labelWidth,
