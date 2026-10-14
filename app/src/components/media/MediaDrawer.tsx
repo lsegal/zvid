@@ -121,7 +121,8 @@ function countColumns(listbox: HTMLElement) {
 // item count and the selected item's details, plus the handle that resizes
 // it. Its Sessions tab, picked from the timeline toolbar's Sessions | Media |
 // Record switch, lists the Sessions library, and its Record tab sets the
-// default camera and mic to record from.
+// default camera and mic to record from. Media files dropped on the Media tab
+// import into the session, and a drag left of the timeline springs it open.
 export function MediaDrawer({
   drawer,
   library,
@@ -370,6 +371,7 @@ export function MediaDrawer({
         "media-drawer-column",
         isOpen ? "is-open" : "",
         drawer.isResizing ? "is-resizing" : "",
+        drawer.isDropTarget ? "is-drop-target" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -379,6 +381,9 @@ export function MediaDrawer({
         aria-hidden={!isOpen}
         aria-label={tab === "sessions" ? "Sessions" : "Media"}
         className="media-drawer"
+        // Media files dropped on the Media tab link their media without
+        // making clips.
+        data-media-bin-drop-target={isOpen && tab === "media" ? "" : undefined}
         id={MEDIA_DRAWER_ID}
         inert={!isOpen}
       >

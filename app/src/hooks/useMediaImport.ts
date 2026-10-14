@@ -3,6 +3,7 @@ import type { ArrangementClip, ProjectState } from "../app/types.ts";
 import type { AppMedia } from "./useAppMedia.ts";
 import type { CollaborationStateResult } from "./useCollaboration.ts";
 import { useDrumSampleImport } from "./useDrumSampleImport.ts";
+import type { MediaDrawerState } from "./useMediaDrawer.ts";
 import { useMediaLibraryCommands } from "./useMediaLibrary.ts";
 import { useMediaStatus } from "./useMediaStatus.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
@@ -27,6 +28,8 @@ export type MediaImportInputs = {
   >;
   timelineClips: ArrangementClip[];
   setSourceTracksCollapsed: (collapsed: boolean) => void;
+  // Springs open for, and takes, dropped media files.
+  mediaDrawer: Pick<MediaDrawerState, "showMediaView" | "setIsDropTarget">;
   appShellRef: RefObject<HTMLDivElement | null>;
   // Where on the timeline media dropped on a source track starts.
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -38,7 +41,7 @@ export type MediaImportInputs = {
 
 // The session's offline media and sync progress (useMediaStatus), importing
 // and relinking media (useMediaLibraryCommands), dropping files on the
-// source tracks, and loading Drum Rack pads' samples.
+// source tracks or the Media drawer, and loading Drum Rack pads' samples.
 export function useMediaImport({
   project,
   store,
@@ -46,6 +49,7 @@ export function useMediaImport({
   collaboration,
   timelineClips,
   setSourceTracksCollapsed,
+  mediaDrawer,
   appShellRef,
   timelineScrollRef,
   labelWidth,
@@ -107,6 +111,8 @@ export function useMediaImport({
     snapEnabled,
     importMediaIntoSourceTrack: mediaCommands.importMediaIntoSourceTrack,
     placeMediaInSourceTrack: mediaCommands.placeMediaInSourceTrack,
+    importMediaIntoBin: mediaCommands.importMediaIntoBin,
+    mediaDrawer,
     setStatus,
   });
   return { ...mediaStatus, ...mediaCommands, sourceTrackDrop };
