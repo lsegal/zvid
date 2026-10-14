@@ -229,3 +229,28 @@ export function performMidiNotes(
   }
   return played;
 }
+
+/**
+ * Where in its notes the clip sounds `playedQ` quarters into its
+ * performance, as `performMidiNotes` plays them: Start onward through the
+ * first pass, then around the repeating region. Without a timeline, the
+ * notes play as they lie.
+ */
+export function midiSoundingQ(
+  timeline: MidiClipTimeline | undefined,
+  playedQ: number,
+) {
+  if (!timeline) {
+    return playedQ;
+  }
+  const end = midiTimelineEnd(timeline);
+  const firstPass = end - timeline.start;
+  if (playedQ < firstPass) {
+    return timeline.start + playedQ;
+  }
+  const repeatStart = timeline.loop ? timeline.loopStart : timeline.start;
+  const passLength = end - repeatStart;
+  return passLength > 0
+    ? repeatStart + ((playedQ - firstPass) % passLength)
+    : repeatStart;
+}
