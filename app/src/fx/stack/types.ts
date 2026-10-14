@@ -49,7 +49,8 @@ export type FxDeviceParameter = {
     | "shape"
     | "waveform"
     | "lut"
-    | "curve";
+    | "curve"
+    | "drum-rack";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;

@@ -25,6 +25,7 @@ import * as digitalGlitch from "./digital-glitch/definition.ts";
 import { pass as digitalGlitchPass } from "./digital-glitch/pass.ts";
 import * as distortion from "./distortion/definition.ts";
 import { pass as distortionPass } from "./distortion/pass.ts";
+import * as drumRack from "./drum-rack/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as exposure from "./exposure/definition.ts";
 import { pass as exposurePass } from "./exposure/pass.ts";
@@ -89,6 +90,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   delay,
   digitalGlitch,
   distortion,
+  drumRack,
   eq,
   exposure,
   gain,

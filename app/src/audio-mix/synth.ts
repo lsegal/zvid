@@ -1,12 +1,14 @@
-// Plays a MIDI clip's notes through its instrument: its Synth, here, or its
-// Granular (see granular.ts). Each note through a Synth is a voice:
-// an oscillator through a lowpass filter into a gain shaped by the synth's
-// ADSR envelope. The voices render in an OfflineAudioContext into the
-// clip's audio, from its content start to its source window's end, which
-// the mix then reads like decoded media: the preview plays it from the
-// clip's position under the playhead, through seeks and loops, and export
-// renders it into the mix, so both hear the same performance.
+// Plays a MIDI clip's notes through its instrument: its Synth, here, its
+// Granular (see granular.ts) or its Drum Rack (see drum-rack.ts). Each
+// note through a Synth is a voice: an oscillator through a lowpass filter
+// into a gain shaped by the synth's ADSR envelope. The voices render in an
+// OfflineAudioContext into the clip's audio, from its content start to its
+// source window's end, which the mix then reads like decoded media: the
+// preview plays it from the clip's position under the playhead, through
+// seeks and loops, and export renders it into the mix, so both hear the
+// same performance.
 import type { MidiInstrument, MidiNote, SynthParams } from "../midi-clip.ts";
+import { renderDrumClip } from "./drum-rack.ts";
 import { renderGranularClip } from "./granular.ts";
 import type { DecodedAudio } from "./mix.ts";
 
@@ -141,6 +143,15 @@ export async function renderSynthClip(
   const { instrument } = synth;
   if (instrument.kind === "granular") {
     return renderGranularClip(
+      synth.notes,
+      instrument.params,
+      synth.durationSeconds,
+      bpm,
+      sampleRate,
+    );
+  }
+  if (instrument.kind === "drums") {
+    return renderDrumClip(
       synth.notes,
       instrument.params,
       synth.durationSeconds,

@@ -18,6 +18,7 @@ import {
 } from "../../fx-registry.ts";
 import { parseFontChoice } from "../../text-fonts.ts";
 import { isTextEffectName } from "../../text-style.ts";
+import { drumRackBank, parseDrumRack } from "../effects/drum-rack/drum-rack.ts";
 import { describeLut } from "../effects/lut/lut.ts";
 import { taperPosition } from "../taper.ts";
 import { GLOBAL_EFFECT_TRACK_ID, getTrackGroup } from "./clip-stacks.ts";
@@ -79,7 +80,9 @@ function toDeviceParameter(
           ? parseFontChoice(stringValue).family
           : definition.kind === "lut"
             ? describeLut(stringValue)
-            : stringValue,
+            : definition.kind === "drum-rack"
+              ? drumRackBank(parseDrumRack(stringValue)).name
+              : stringValue,
     };
   }
 

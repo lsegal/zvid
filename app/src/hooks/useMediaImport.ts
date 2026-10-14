@@ -2,6 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ArrangementClip, ProjectState } from "../app/types.ts";
 import type { AppMedia } from "./useAppMedia.ts";
 import type { CollaborationStateResult } from "./useCollaboration.ts";
+import { useDrumSampleImport } from "./useDrumSampleImport.ts";
 import { useMediaLibraryCommands } from "./useMediaLibrary.ts";
 import { useMediaStatus } from "./useMediaStatus.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
@@ -36,8 +37,8 @@ export type MediaImportInputs = {
 };
 
 // The session's offline media and sync progress (useMediaStatus), importing
-// and relinking media (useMediaLibraryCommands), and dropping files on the
-// source tracks.
+// and relinking media (useMediaLibraryCommands), dropping files on the
+// source tracks, and loading Drum Rack pads' samples.
 export function useMediaImport({
   project,
   store,
@@ -85,6 +86,14 @@ export function useMediaImport({
     offlineMedia: mediaStatus.offlineMedia,
     mediaItemsById,
     adoptMediaBlob,
+    setStatus,
+  });
+  useDrumSampleImport({
+    projectMediaItems,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+    seedLocalMediaItems,
+    cacheLocalMediaItems,
     setStatus,
   });
   const sourceTrackDrop = useSourceTrackDrop({

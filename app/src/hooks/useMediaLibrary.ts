@@ -16,6 +16,7 @@ import type {
   SourceTrackDropTarget,
 } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
+import { setDrumSampleMedia } from "../fx/effects/drum-rack/drum-media.ts";
 import { setLutMedia } from "../fx/effects/lut/lut-media.ts";
 import { setShapeImageMedia } from "../fx/effects/shape/custom-mask.ts";
 import { getHarness } from "../harness";
@@ -78,11 +79,12 @@ export function useMediaLibrary({
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
-  // Shape ▸ Custom draws its masks from the session's SVG media, and LUT
-  // grades with its .cube media.
+  // Shape ▸ Custom draws its masks from the session's SVG media, LUT
+  // grades with its .cube media and Drum Rack pads play its audio media.
   useEffect(() => {
     setShapeImageMedia(mediaItems);
     setLutMedia(mediaItems);
+    setDrumSampleMedia(mediaItems);
   }, [mediaItems]);
 
   const setLocalMediaOverride = useCallback(

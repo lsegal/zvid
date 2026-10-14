@@ -133,8 +133,7 @@ function biquad(input, type, frequency, q = Math.SQRT1_2) {
   return out;
 }
 
-const lowpass = (input, frequency, q) =>
-  biquad(input, "lowpass", frequency, q);
+const lowpass = (input, frequency, q) => biquad(input, "lowpass", frequency, q);
 const highpass = (input, frequency, q) =>
   biquad(input, "highpass", frequency, q);
 const bandpass = (input, frequency, q) =>
@@ -146,8 +145,10 @@ function shaped(input, fn) {
 }
 
 // An exponential decay with time constant `decay` after a linear attack.
-const decay = (time, attack = 0.0005) => (t) =>
-  t < attack ? t / attack : Math.exp(-(t - attack) / time);
+const decay =
+  (time, attack = 0.0005) =>
+  (t) =>
+    t < attack ? t / attack : Math.exp(-(t - attack) / time);
 
 const decayed = (input, time, attack) => shaped(input, decay(time, attack));
 
@@ -248,7 +249,10 @@ export const VOICES = {
       ),
     "Low Tom": () => drum(0.9, 105, 82, 0.05, 0.22),
     "Closed Hat": () =>
-      decayed(highpass(bandpass(metal(0.25, METAL_808), 10_000, 1), 7000), 0.03),
+      decayed(
+        highpass(bandpass(metal(0.25, METAL_808), 10_000, 1), 7000),
+        0.03,
+      ),
     "Low Conga": () => drum(0.45, 190, 165, 0.01, 0.11),
     Maracas: () => decayed(highpass(noise(0.15, 5), 5000), 0.022, 0.002),
     "Mid Tom": () => drum(0.8, 150, 120, 0.05, 0.19),
@@ -372,7 +376,11 @@ export const VOICES = {
       mix(
         [
           decayed(
-            bandpass(metal(2.5, [263, 400, 421, 474, 587, 845], 3.3), 5200, 0.8),
+            bandpass(
+              metal(2.5, [263, 400, 421, 474, 587, 845], 3.3),
+              5200,
+              0.8,
+            ),
             0.65,
           ),
           1,
@@ -382,13 +390,15 @@ export const VOICES = {
       ),
   },
   "builtin:cr-78": {
-    Kick: () =>
-      lowpass(decayed(sweep(0.6, 62, 55, 0.01), 0.13, 0.001), 400),
+    Kick: () => lowpass(decayed(sweep(0.6, 62, 55, 0.01), 0.13, 0.001), 400),
     Rimshot: () => decayed(tone(0.06, 1200), 0.009),
     Snare: () =>
       mix(
         [decayed(tone(0.35, 260), 0.04), 0.5],
-        [decayed(lowpass(bandpass(noise(0.35, 31), 3000, 0.7), 7000), 0.08), 0.8],
+        [
+          decayed(lowpass(bandpass(noise(0.35, 31), 3000, 0.7), 7000), 0.08),
+          0.8,
+        ],
       ),
     Guiro: () =>
       shaped(bandpass(noise(0.32, 32), 3000, 3), (t) => {
@@ -412,7 +422,10 @@ export const VOICES = {
     Tambourine: () =>
       shaped(
         highpass(
-          mix([metal(0.6, [2400, 3100, 3700, 4500], 1), 0.6], [noise(0.6, 37), 0.6]),
+          mix(
+            [metal(0.6, [2400, 3100, 3700, 4500], 1), 0.6],
+            [noise(0.6, 37), 0.6],
+          ),
           7000,
         ),
         (t) =>
@@ -425,12 +438,18 @@ export const VOICES = {
     Claves: () => decayed(tone(0.15, 2500), 0.025),
     Cymbal: () =>
       decayed(
-        highpass(mix([metal(1.8, METAL_808, 1.9), 0.5], [noise(1.8, 38), 0.6]), 5000),
+        highpass(
+          mix([metal(1.8, METAL_808, 1.9), 0.5], [noise(1.8, 38), 0.6]),
+          5000,
+        ),
         0.45,
         0.001,
       ),
     Cowbell: () =>
-      mix([decayed(tone(0.4, 800), 0.07), 0.6], [decayed(tone(0.4, 545), 0.06), 0.5]),
+      mix(
+        [decayed(tone(0.4, 800), 0.07), 0.6],
+        [decayed(tone(0.4, 545), 0.06), 0.5],
+      ),
     "Metal Beat": () =>
       mix(
         [decayed(tone(0.5, 1310), 0.08), 0.5],
@@ -568,7 +587,10 @@ export function renderAll() {
     return entry.pads.map((pad) => {
       const voice = voices[pad.name];
       if (!voice) throw new Error(`No voice for ${entry.id} ${pad.name}`);
-      return [join(BANKS_DIR, entry.slug, pad.file), encodeWav(finish(voice()))];
+      return [
+        join(BANKS_DIR, entry.slug, pad.file),
+        encodeWav(finish(voice())),
+      ];
     });
   });
   files.push([CREDITS_PATH, Buffer.from(renderCredits())]);

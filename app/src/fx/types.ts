@@ -87,8 +87,9 @@ export type FxFlagOption = { value: string; label: string; title: string };
 // stored as comma-separated layer ids, one layer (`layer`) stored as its id,
 // empty for none, a shape (`shape`) by name, from the Shape effect's
 // shapes, a LUT (`lut`), bundled by name or from the media library (see
-// effects/lut/lut.ts), and a tone curve (`curve`), stored as its points
-// (see effects/levels/curve.ts).
+// effects/lut/lut.ts), a tone curve (`curve`), stored as its points
+// (see effects/levels/curve.ts), and a drum rack's bank and pads
+// (`drum-rack`, see effects/drum-rack/drum-rack.ts).
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -110,6 +111,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "shape" })
   | (FxStringParameterFields & { kind: "lut" })
   | (FxStringParameterFields & { kind: "curve" })
+  | (FxStringParameterFields & { kind: "drum-rack" })
   | (FxStringParameterFields & {
       kind: "flags";
       options: readonly FxFlagOption[];

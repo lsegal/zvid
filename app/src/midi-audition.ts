@@ -1,15 +1,19 @@
 // Auditions a note through a MIDI clip's instrument when the piano roll's
-// note or key is clicked: one voice like the ones the mix renders (see
-// audio-mix/synth.ts and audio-mix/granular.ts), played straight away on a
-// context of its own, suspended again once nothing is sounding.
+// note or key is clicked, or a Drum Rack's pad is pressed: one voice like
+// the ones the mix renders (see audio-mix/synth.ts, audio-mix/granular.ts
+// and audio-mix/drum-rack.ts), played straight away on a context of its
+// own, suspended again once nothing is sounding.
 import { audioDiagnostics } from "./audio-mix/audio-diagnostics.ts";
+import { DRUM_VOICE_LEVEL, loadDrumSample } from "./audio-mix/drum-rack.ts";
 import {
   GRANULAR_VOICE_LEVEL,
   granularGrains,
   mixGrains,
 } from "./audio-mix/granular.ts";
 import { noteFrequency, synthEnvelope } from "./audio-mix/synth.ts";
+import { padForNote } from "./fx/effects/drum-rack/banks.ts";
 import type {
+  DrumRackParams,
   GranularParams,
   MidiInstrument,
   SynthParams,
@@ -31,6 +35,11 @@ const auditionContext = new SharedAudioContext(() => {
 export function auditionNote(pitch: number, instrument: MidiInstrument) {
   if (instrument.kind === "granular") {
     auditionGranular(pitch, instrument.params);
+  } else if (instrument.kind === "drums") {
+    const pad = padForNote(pitch);
+    if (pad !== undefined) {
+      void auditionDrumPad(pad, instrument.params);
+    }
   } else {
     auditionSynth(pitch, instrument.params);
   }
@@ -100,4 +109,36 @@ function auditionGranular(pitch: number, params: GranularParams) {
     auditionContext.release();
   };
   source.start(context.currentTime + 0.01);
+}
+
+/**
+ * Plays `pad`'s sample through a Drum Rack playing `params`, at a
+ * full-velocity hit's level, once it has loaded. Resolves to whether it
+ * played: false for a silent pad or a sample that can't be read.
+ */
+export async function auditionDrumPad(pad: number, params: DrumRackParams) {
+  const url = params.samples[pad];
+  if (!url) {
+    return false;
+  }
+  const context = auditionContext.acquire();
+  const sample = await loadDrumSample(url, context.sampleRate);
+  if (!sample) {
+    auditionContext.release();
+    return false;
+  }
+  const buffer = context.createBuffer(1, sample.length, context.sampleRate);
+  buffer.copyToChannel(sample, 0);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  const gain = context.createGain();
+  gain.gain.value = DRUM_VOICE_LEVEL;
+  source.connect(gain).connect(context.destination);
+  source.onended = () => {
+    source.disconnect();
+    gain.disconnect();
+    auditionContext.release();
+  };
+  source.start();
+  return true;
 }
