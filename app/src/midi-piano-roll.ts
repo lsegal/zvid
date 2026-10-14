@@ -152,6 +152,58 @@ export function deleteNote(
   return notes.filter((_, noteIndex) => noteIndex !== index);
 }
 
+/**
+ * A key naming a note by its pitch, start and length, which a selection
+ * keeps across edits that reorder the notes.
+ */
+export function noteKey(note: MidiNote) {
+  return `${note.pitch}:${note.start}:${note.length}`;
+}
+
+/** `notes` without those whose `noteKey` is in `keys`. */
+export function deleteNotes(
+  notes: readonly MidiNote[],
+  keys: ReadonlySet<string>,
+): MidiNote[] {
+  return notes.filter((note) => !keys.has(noteKey(note)));
+}
+
+/**
+ * `notes` in start order with the note at `index` placed, trimming the
+ * notes of its pitch it overlaps the way `resolveClipOverlaps` trims clips:
+ * each keeps its longer uncovered side, and is removed when it has none.
+ */
+export function placeNote(
+  notes: readonly MidiNote[],
+  index: number,
+): MidiNote[] {
+  const placed = notes[index];
+  if (!placed) {
+    return sortNotes(notes);
+  }
+  const placedEnd = placed.start + placed.length;
+  const epsilon = 1e-9;
+  return sortNotes(
+    notes.flatMap((note, noteIndex) => {
+      if (noteIndex === index || note.pitch !== placed.pitch) {
+        return [note];
+      }
+      const end = note.start + note.length;
+      if (Math.min(end, placedEnd) - Math.max(note.start, placed.start) <= epsilon) {
+        return [note];
+      }
+      const left = Math.max(0, placed.start - note.start);
+      const right = Math.max(0, end - placedEnd);
+      if (left <= epsilon && right <= epsilon) {
+        return [];
+      }
+      return left >= right
+        ? [{ ...note, length: left }]
+        : [{ ...note, start: placedEnd, length: right }];
+    }),
+  );
+}
+
 /** Whether two note lists hold the same notes in the same order. */
 export function sameNotes(
   left: readonly MidiNote[],
