@@ -45,7 +45,9 @@ export function snapSpeed(value: number) {
   }
   const clamped = Math.min(MAX_SPEED, Math.max(MIN_SPEED, value));
   // Rounded twice so 0.30000000000000004 reads as 0.3 and -0 as 0.
-  return Math.round(Math.round(clamped / SPEED_STEP) * SPEED_STEP * 10) / 10 || 0;
+  return (
+    Math.round(Math.round(clamped / SPEED_STEP) * SPEED_STEP * 10) / 10 || 0
+  );
 }
 
 export function parseRetimeSettings(
@@ -113,27 +115,35 @@ export function wrapMediaTime(seconds: number, durationSeconds: number) {
   return wrapped < 0 ? wrapped + durationSeconds : wrapped;
 }
 
-// The source frame `seconds` falls in, `start` to `end`.
+// A source frame, from `start` to `end` seconds into its media.
 export type FrameSpan = { start: number; end: number };
 
-// Blend's two frames at `seconds`: the one it falls in and the next, each
-// at a time inside it, and how far (0..1) `seconds` has got from the first
-// toward the second.
-export function blendFrames(seconds: number, span: FrameSpan) {
-  const length = span.end - span.start;
+// The source frame a time falls in and the one after it.
+export type FrameSpans = { current: FrameSpan; next: FrameSpan };
+
+// Blend's two frames at `seconds`: the middle of the frame it falls in and
+// of the next, and how far (0..1) `seconds` has got from the first toward
+// the second.
+export function blendFrames(seconds: number, { current, next }: FrameSpans) {
+  const length = current.end - current.start;
   const weight =
-    length > 0 ? Math.min(1, Math.max(0, (seconds - span.start) / length)) : 0;
+    length > 0
+      ? Math.min(1, Math.max(0, (seconds - current.start) / length))
+      : 0;
   return {
-    from: span.start + length / 2,
-    to: span.end + length / 2,
+    from: (current.start + current.end) / 2,
+    to: (next.start + next.end) / 2,
     weight,
   };
 }
 
-// The frame of a video `seconds` falls in, counting frames of
+// The frames of a video around `seconds`, counting frames of
 // `1 / frameRate` from its start.
-export function gridFrameSpan(seconds: number, frameRate: number): FrameSpan {
+export function gridFrameSpans(seconds: number, frameRate: number): FrameSpans {
   const length = 1 / frameRate;
   const start = Math.floor(seconds * frameRate + 1e-6) * length;
-  return { start, end: start + length };
+  return {
+    current: { start, end: start + length },
+    next: { start: start + length, end: start + 2 * length },
+  };
 }

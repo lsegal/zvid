@@ -5,7 +5,13 @@
 // once per URL; animated ones keep a few decoded frames and decode the one
 // a clip needs on demand. A paused preview redraws when one loads.
 
-import { isLottieName, lottieFrameIndex, lottieSeconds } from "./lottie.ts";
+import type { FrameSpans } from "./fx/effects/retime/retime.ts";
+import {
+  isLottieName,
+  lottieFrameCount,
+  lottieFrameIndex,
+  lottieSeconds,
+} from "./lottie.ts";
 import {
   type LottiePlayer,
   lottieFrameUrl,
@@ -319,6 +325,42 @@ export function imageFrameAt(
     void decodeFrame(animation, index).then((decoded) => decoded && notify());
   }
   return animation.shown && show(animation, animation.shown);
+}
+
+/**
+ * The frame of `media` showing `seconds` into it and the one after it,
+ * looping past its end, or undefined for a still or one not yet loaded.
+ */
+export function imageFrameSpans(
+  media: ImageMediaRef,
+  seconds: number,
+): FrameSpans | undefined {
+  const image = images.get(media.previewUrl);
+  if (image?.status === "lottie") {
+    const { data } = image.player;
+    const index = lottieFrameIndex(data, seconds);
+    const span = (at: number) => ({
+      start: at / data.fr,
+      end: (at + 1) / data.fr,
+    });
+    return {
+      current: span(index),
+      next: span((index + 1) % lottieFrameCount(data)),
+    };
+  }
+  if (image?.status !== "animated") {
+    return undefined;
+  }
+  const { frameEnds } = image.animation;
+  const index = animationFrameIndex(frameEnds, seconds);
+  const span = (at: number) => ({
+    start: frameEnds[at - 1] ?? 0,
+    end: frameEnds[at],
+  });
+  return {
+    current: span(index),
+    next: span((index + 1) % frameEnds.length),
+  };
 }
 
 /**

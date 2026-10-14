@@ -7,6 +7,15 @@ import type {
   ArrangementClip,
   MediaItem,
 } from "./composition-active-clips.ts";
+import {
+  blendFrames,
+  type FrameSpans,
+  gridFrameSpans,
+  type RetimeSettings,
+  retimeSeconds,
+  wrapMediaTime,
+} from "./fx/effects/retime/retime.ts";
+import { imageFrameSpans } from "./image-media-frames.ts";
 
 export type ActiveClipTiming = Pick<
   ActiveClip,
@@ -18,7 +27,27 @@ export type ActiveClipTiming = Pick<
   | "isInBounds"
   | "laneRank"
   | "held"
+  | "blend"
+  | "retimed"
 >;
+
+// The clips Retime plays at another speed, by clip id, and the frame rate
+// Blend counts a video's frames at.
+export type ClipRetimes = {
+  byClip: ReadonlyMap<string, RetimeSettings>;
+  frameRate: number;
+};
+
+// The second frame a Retime's Blend crossfades a clip's toward, drawn from
+// the element `sourceKey` (a video's) or its media's frame at `mediaTime`,
+// by `weight` (0..1).
+export type RetimeBlend = {
+  sourceKey: string;
+  mediaTime: number;
+  weight: number;
+};
+
+const NO_RETIMES: ClipRetimes = { byClip: new Map(), frameRate: 30 };
 
 const EPSILON = 0.0001;
 // A clip held on its last frame is drawn this long before its end, well
@@ -41,8 +70,16 @@ export function computeActiveClipTimings(
   bpm: number,
   lanePriority: Map<string, number>,
   transitions: readonly ArrangementClip[] = [],
+  retimes: ClipRetimes = NO_RETIMES,
 ): ActiveClipTiming[] {
-  const live = liveClipTimings(clips, mediaById, playheadQ, bpm, lanePriority);
+  const live = liveClipTimings(
+    clips,
+    mediaById,
+    playheadQ,
+    bpm,
+    lanePriority,
+    retimes,
+  );
   return transitions.length
     ? [
         ...live,
@@ -54,6 +91,7 @@ export function computeActiveClipTimings(
           lanePriority,
           transitions,
           live,
+          retimes,
         ),
       ]
     : live;
@@ -65,6 +103,7 @@ function liveClipTimings(
   playheadQ: number,
   bpm: number,
   lanePriority: Map<string, number>,
+  retimes: ClipRetimes = NO_RETIMES,
 ): ActiveClipTiming[] {
   const usedSourceKeys = new Set<string>();
 
@@ -129,10 +168,12 @@ function liveClipTimings(
         ? warpSourceTime(clip.warp, linearTime, bpm)
         : { seconds: linearTime, rate: 1 };
       const mediaTime = loopMediaTime(warpedTime, media.durationSeconds);
+      const sourceKey = claimSourceKey(usedSourceKeys, media.id, clip);
+      const retime = retimes.byClip.get(clip.id);
       return {
         clip,
         media,
-        sourceKey: claimSourceKey(usedSourceKeys, media.id, clip),
+        sourceKey,
         mediaTime,
         playbackRate,
         isInBounds:
@@ -140,8 +181,94 @@ function liveClipTimings(
           linearTime < clip.sourceWindowEndSeconds - EPSILON &&
           mediaTime >= 0,
         laneRank,
+        ...(retime &&
+          retimedTiming(
+            clip,
+            media,
+            sourceKey,
+            warpedTime,
+            playbackRate,
+            bpm,
+            retime,
+            retimes.frameRate,
+          )),
       };
     });
+}
+
+// Where a clip `retime` plays at another speed is drawn, given where it
+// would be (`warpedTime`, at `rate`): its media time scaled around the time
+// its start is drawn at and looped through its media. With Blend, it is
+// drawn at the middle of the source frame that time falls in, crossfaded
+// toward the next one. A video plays at the retimed rate; one that runs
+// backwards, stands still or blends is seeked to each frame instead.
+function retimedTiming(
+  clip: ArrangementClip,
+  media: MediaItem,
+  sourceKey: string,
+  warpedTime: number,
+  rate: number,
+  bpm: number,
+  retime: RetimeSettings,
+  frameRate: number,
+): Pick<ActiveClipTiming, "mediaTime" | "playbackRate" | "blend" | "retimed"> {
+  const startLinear =
+    quartersToSeconds(clip.layerClipStartQ ?? clip.startQ, bpm) +
+    clip.sourceOffsetSeconds;
+  const anchor = clip.warp
+    ? warpSourceTime(clip.warp, startLinear, bpm).seconds
+    : startLinear;
+  const seconds = wrapMediaTime(
+    retimeSeconds(warpedTime, anchor, retime.speed),
+    media.durationSeconds,
+  );
+  const spans: FrameSpans | undefined =
+    retime.interpolation !== "Blend"
+      ? undefined
+      : media.kind === "video"
+        ? gridFrameSpans(seconds, frameRate)
+        : imageFrameSpans(media, seconds);
+  if (!spans) {
+    return {
+      mediaTime: seconds,
+      playbackRate: rate * retime.speed,
+      retimed: true,
+    };
+  }
+  const { from, to, weight } = blendFrames(seconds, spans);
+  return {
+    mediaTime: wrapMediaTime(from, media.durationSeconds),
+    playbackRate: 0,
+    retimed: true,
+    blend: {
+      sourceKey: `${sourceKey}~blend`,
+      mediaTime: wrapMediaTime(to, media.durationSeconds),
+      weight,
+    },
+  };
+}
+
+// `timings` and, after each a Retime blends, its blend frame's element at
+// that frame's time, standing still: every media element they draw from.
+export function mediaSourceTimings<T extends ActiveClipTiming>(
+  timings: readonly T[],
+): readonly T[] {
+  if (!timings.some((timing) => timing.blend)) {
+    return timings;
+  }
+  return timings.flatMap((timing) =>
+    timing.blend
+      ? [
+          timing,
+          {
+            ...timing,
+            sourceKey: timing.blend.sourceKey,
+            mediaTime: timing.blend.mediaTime,
+            blend: undefined,
+          },
+        ]
+      : [timing],
+  );
 }
 
 function clipEndQ(clip: ArrangementClip, bpm: number) {
@@ -210,6 +337,7 @@ function transitionHolds(
   lanePriority: Map<string, number>,
   transitions: readonly ArrangementClip[],
   live: readonly ActiveClipTiming[],
+  retimes: ClipRetimes,
 ) {
   const drawn = new Set(live.map((timing) => timing.clip.id));
   const holds: ActiveClipTiming[] = [];
@@ -245,13 +373,18 @@ function transitionHolds(
         heldQ,
         bpm,
         lanePriority,
+        retimes,
       );
       if (timing) {
+        const sourceKey = isGeneratedClip(clip)
+          ? timing.sourceKey
+          : `${timing.media.id}@held/${clip.id}`;
         holds.push({
           ...timing,
-          sourceKey: isGeneratedClip(clip)
-            ? timing.sourceKey
-            : `${timing.media.id}@held/${clip.id}`,
+          sourceKey,
+          ...(timing.blend && {
+            blend: { ...timing.blend, sourceKey: `${sourceKey}~blend` },
+          }),
           held: true,
         });
       }

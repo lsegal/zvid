@@ -56,6 +56,7 @@ import { pass as pixelatePass } from "./pixelate/pass.ts";
 import * as rePitch from "./re-pitch/definition.ts";
 import * as refraction from "./refraction/definition.ts";
 import { pass as refractionPass } from "./refraction/pass.ts";
+import * as retime from "./retime/definition.ts";
 import * as reverb from "./reverb/definition.ts";
 import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
@@ -113,6 +114,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   pixelate,
   rePitch,
   refraction,
+  retime,
   reverb,
   reverse,
   saturation,

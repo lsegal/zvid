@@ -20,14 +20,19 @@ import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 export async function loadFrameAssets(
   clips: readonly Pick<
     ActiveClip,
-    "text" | "media" | "mediaTime" | "isInBounds"
+    "text" | "media" | "mediaTime" | "isInBounds" | "blend"
   >[],
   effects: readonly SessionEffect[],
 ) {
   await Promise.all([
     ...clips
       .filter(({ media, isInBounds }) => isInBounds && media.kind === "image")
-      .map(({ media, mediaTime }) => loadImageFrame(media, mediaTime)),
+      // A Retime's Blend draws the next frame too.
+      .flatMap(({ media, mediaTime, blend }) =>
+        [mediaTime, ...(blend ? [blend.mediaTime] : [])].map((seconds) =>
+          loadImageFrame(media, seconds),
+        ),
+      ),
     loadTextFaces(clips.map((entry) => entry.text)),
     loadShapeSvgs(customShapeMediaPaths(effects)),
     loadLutFiles(customLutMediaPaths(effects)),

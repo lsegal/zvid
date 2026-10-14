@@ -27,8 +27,10 @@ import {
 import { syncCanvasSurface } from "./composition-canvas.ts";
 import {
   type ActiveClipTiming,
+  type ClipRetimes,
   computeActiveClipTimings,
   isGeneratedClip,
+  mediaSourceTimings,
 } from "./composition-clip-timing.ts";
 import {
   EXPORT_CONTEXT_ATTRIBUTES,
@@ -46,19 +48,19 @@ import {
   indexEffects,
   stackEffects,
 } from "./composition-effect-index.ts";
-import { renderOfflineAudioBands } from "./composition-offline-bands.ts";
+import { OfflineBandsCache } from "./composition-offline-bands.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type {
   CompositionPlaybackState,
   CompositionRendererState,
 } from "./composition-renderer-state.ts";
+import { findClipRetimes } from "./composition-retime.ts";
 import { findTransitionClips } from "./composition-transition.ts";
 import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
 import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
-  type OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
 import type { FrameAnalysisHub } from "./fx-shaders/frame-analysis.ts";
@@ -147,14 +149,13 @@ export class CompositionRenderer {
   private sessionEffectIndex: EffectIndex<SessionEffect> = indexEffects([]);
   // FX clips with a Transition, which draw clips beyond their ends.
   private transitionClips: ArrangementClip[] = [];
+  // Media clips a Retime plays at another speed, from elements of their own.
+  private retimes: ClipRetimes = findClipRetimes([], indexEffects([]), 0);
   private readonly audioAnalysis: AudioAnalysisMode;
   private readonly contextAttributes: WebGLContextAttributes;
   private readonly frameAnalysis: FrameAnalysisHub | null;
   private liveAudioBands = new LiveAudioBands();
-  private offlineAudioBands: {
-    mix: AudioMix;
-    bands: Promise<OfflineAudioBands | null>;
-  } | null = null;
+  private offlineAudioBands = new OfflineBandsCache();
 
   constructor(
     state: CompositionRendererState,
@@ -196,6 +197,11 @@ export class CompositionRenderer {
       state.clips,
       this.renderedEffects,
     );
+    this.retimes = findClipRetimes(
+      state.clips,
+      this.renderedEffects,
+      state.fps,
+    );
     this.mixer?.update(state.audioMix ?? SILENT_AUDIO_MIX, state.mediaItems);
     this.syncMediaWindow(this.windowPlayheadQ);
   }
@@ -204,7 +210,7 @@ export class CompositionRenderer {
     this.clearVideoFrameReadyListeners();
     this.mixer?.dispose();
     this.mixer = null;
-    this.offlineAudioBands = null;
+    this.offlineAudioBands.clear();
     if (this.resources) {
       disposeWebGlResources(this.resources);
       this.resources = null;
@@ -274,7 +280,7 @@ export class CompositionRenderer {
     this.syncMediaWindow(playheadQ);
     const pendingSeeks = new Map<string, Promise<void>>();
 
-    for (const entry of nextActiveClips) {
+    for (const entry of mediaSourceTimings(nextActiveClips)) {
       if (!entry.isInBounds) {
         continue;
       }
@@ -318,7 +324,7 @@ export class CompositionRenderer {
     playback: CompositionPlaybackState,
   ) {
     const activeClipBySourceKey = new Map(
-      timings.map((entry) => [entry.sourceKey, entry]),
+      mediaSourceTimings(timings).map((entry) => [entry.sourceKey, entry]),
     );
     this.syncMediaWindow(playback.playheadQ);
     for (const [sourceKey, element] of this.media.elements) {
@@ -393,12 +399,12 @@ export class CompositionRenderer {
   ) {
     let addedElement = false;
     this.sharedElements.clear();
-    for (const entry of timings) {
+    for (const entry of mediaSourceTimings(timings)) {
       if (isGeneratedClip(entry.clip) || entry.media.kind !== "video") {
         continue;
       }
       const shared =
-        share && !entry.held
+        share && !entry.held && !entry.retimed
           ? this.mixer?.videoElementFor(drawnClipOf(entry.clip, this.state.bpm))
           : undefined;
       if (shared) {
@@ -432,21 +438,10 @@ export class CompositionRenderer {
       return this.sampleLiveAudioBands();
     }
 
-    const mix = this.state.audioMix ?? SILENT_AUDIO_MIX;
     if (!this.renderedEffects.effects.some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
-
-    // A mix resolved again, after an edit, is measured again.
-    if (this.offlineAudioBands?.mix !== mix) {
-      this.offlineAudioBands = {
-        mix,
-        bands: renderOfflineAudioBands(mix, this.state.mediaItems),
-      };
-    }
-
-    const bands = await this.offlineAudioBands.bands;
-    return bands?.at(playheadSeconds) ?? SILENT_AUDIO_BANDS;
+    return this.offlineAudioBands.at(this.state, playheadSeconds);
   }
 
   private draw(
@@ -492,6 +487,7 @@ export class CompositionRenderer {
       this.state.bpm,
       this.lanePriority,
       this.transitionClips,
+      this.retimes,
     );
   }
 
@@ -504,7 +500,9 @@ export class CompositionRenderer {
       this.mediaById,
       quartersToSeconds(playheadQ, bpm),
       bpm,
-      (clip) => Boolean(this.mixer?.playsVideoOf(drawnClipOf(clip, bpm))),
+      (clip) =>
+        !this.retimes.byClip.has(clip.id) &&
+        Boolean(this.mixer?.playsVideoOf(drawnClipOf(clip, bpm))),
       this.transitionClips.length ? this.timingsAt(playheadQ) : [],
     );
     if (this.media.sync(window, this.mediaById)) {

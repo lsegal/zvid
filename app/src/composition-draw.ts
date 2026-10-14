@@ -2,6 +2,7 @@ import {
   borderClearColor,
   sceneClearColor,
 } from "./composition-clear-color.ts";
+import type { RetimeBlend } from "./composition-clip-timing.ts";
 import {
   bindCompositeState,
   type CompositeUniforms,
@@ -48,6 +49,7 @@ import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
+import { retimeBlendedTexture } from "./composition-retime-blend.ts";
 import {
   COMPOSITE_FRAGMENT_SOURCE,
   COMPOSITE_VERTEX_SOURCE,
@@ -144,6 +146,8 @@ export type CompositeLayer = {
   transition?: TransitionSettings & TransitionComps;
   // Set for clips drawn only for a Transition, held on a frame.
   held?: boolean;
+  // Set for clips a Retime blends, toward this next frame.
+  blend?: RetimeBlend;
 };
 
 export type FrameContext = {
@@ -364,7 +368,7 @@ function drawLayer(
     if (!uploaded) {
       return true;
     }
-    texture = wholeTexture(uploaded.texture);
+    texture = retimeBlendedTexture(resources, entry, mediaRefs, uploaded);
     ({ width: sourceWidth, height: sourceHeight } = uploaded);
   }
 
