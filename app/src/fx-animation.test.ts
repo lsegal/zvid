@@ -657,8 +657,9 @@ describe("normalizeEffectAnimation", () => {
   });
 });
 
-// The static grading tools, whose new devices come with Animation off.
-const ADDED_OFF = ["Levels", "Contrast", "Exposure", "LUT", "Shape"];
+// The effects whose new devices come with Animation off: the static
+// grading tools, Shape and Move.
+const ADDED_OFF = ["Levels", "Contrast", "Exposure", "LUT", "Shape", "Move"];
 
 describe("animation on new devices", () => {
   it("is on, at the effect's defaults, for every other effect that supports it", () => {
