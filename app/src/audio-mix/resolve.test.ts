@@ -7,7 +7,13 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
-import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "../midi-clip.ts";
+import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
+import { createEffect } from "../fx/stack/ops.ts";
+import {
+  DEFAULT_GRANULAR_PARAMS,
+  DEFAULT_SYNTH_PARAMS,
+  type SynthParams,
+} from "../midi-clip.ts";
 import { createArpeggiatorEffect, createSynthEffect } from "../midi-effects.ts";
 import { type Arpeggiator, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
@@ -407,7 +413,7 @@ describe("resolveAudioClips with MIDI clips", () => {
     );
     const clip = mix.clips.find((item) => item.id === sourceRenderClipId("m"));
     assert.ok(clip?.synth);
-    assert.deepEqual(clip.synth.params, synth);
+    assert.deepEqual(clip.synth.instrument, { kind: "synth", params: synth });
     assert.equal(clip.synth.notes, notes);
     // It renders from its content start to the end of its window.
     assert.equal(clip.synth.durationSeconds, 2.5);
@@ -420,6 +426,28 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.equal(clip.amplitude, 1);
     assert.match(clip.mediaId, /^synth:m:/);
     // The Synth is no audio stage of the clip's chain.
+    assert.deepEqual(
+      clip.effects.map((effect) => effect.effectName),
+      ["Gain"],
+    );
+  });
+
+  it("plays a MIDI clip's notes through a Granular on its own stack", () => {
+    const stack = sourceClipEffectTrackId("m");
+    const mix = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "keys" }],
+        sourceSpans: [midiSpan("m", "keys", 4)],
+        effects: [createEffect(stack, GRANULAR_EFFECT_NAME), gain(stack)],
+      }),
+    );
+    const clip = mix.clips.find((item) => item.id === sourceRenderClipId("m"));
+    assert.deepEqual(clip?.synth?.instrument, {
+      kind: "granular",
+      params: DEFAULT_GRANULAR_PARAMS,
+    });
+    assert.match(clip.mediaId, /^synth:m:/);
+    // Like the Synth, the Granular is no audio stage of the clip's chain.
     assert.deepEqual(
       clip.effects.map((effect) => effect.effectName),
       ["Gain"],

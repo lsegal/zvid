@@ -15,9 +15,9 @@ export const GRANULAR_VOICE_LEVEL = 0.25;
 export const GRANULAR_SOURCE_PITCH = 60;
 // The shortest attack and release, so a cloud never clicks on or off.
 const MIN_RAMP_SECONDS = 0.002;
-// How many periods of its fundamental the source lasts, about 2 s, so it
-// loops seamlessly for grains that read past its end.
-const SOURCE_PERIODS = 523;
+// How long the source lasts. A grain reading past either end reads back
+// the other way, so it never jumps (see mirror).
+const SOURCE_SECONDS = 2;
 const SOURCE_PARTIALS = 12;
 
 /** A grain, in seconds from the clip's content start. */
@@ -56,14 +56,13 @@ export function granularSource(sampleRate: number): Float32Array {
     return cached;
   }
   const fundamental = 440 * 2 ** ((GRANULAR_SOURCE_PITCH - 69) / 12);
-  const length = Math.round((SOURCE_PERIODS / fundamental) * sampleRate);
+  const length = Math.round(SOURCE_SECONDS * sampleRate);
   const random = seededRandom(0x6a7d);
   const phases = Array.from(
     { length: SOURCE_PARTIALS },
     () => random() * 2 * Math.PI,
   );
-  // Each partial swells a whole number of times over the source, so it
-  // loops without a seam.
+  // How many times each partial swells over the source.
   const swells = Array.from(
     { length: SOURCE_PARTIALS },
     () => 1 + Math.floor(random() * 6),
@@ -72,7 +71,7 @@ export function granularSource(sampleRate: number): Float32Array {
   let peak = 0;
   for (let index = 0; index < length; index++) {
     const along = index / length;
-    const cycles = (SOURCE_PERIODS * index) / length;
+    const cycles = (fundamental * index) / sampleRate;
     let sample = 0;
     for (let partial = 1; partial <= SOURCE_PARTIALS; partial++) {
       const swell =
@@ -93,6 +92,12 @@ export function granularSource(sampleRate: number): Float32Array {
   }
   sources.set(sampleRate, data);
   return data;
+}
+
+// `at` folded back into 0 to `length`, as a read bouncing off each end.
+function mirror(at: number, length: number) {
+  const folded = Math.abs(at) % (2 * length);
+  return folded > length ? 2 * length - folded : folded;
 }
 
 // A note's seed, from what it plays, so the same note always strays alike.
@@ -135,7 +140,8 @@ export function granularGrains(
     const offLevel = Math.min(1, (off - start) / attack);
     const random = seededRandom(noteSeed(note, index));
     const grains: Grain[] = [];
-    for (let at = start; at < cloudEnd; at += interval) {
+    for (let step = 0; start + step * interval < cloudEnd; step++) {
+      const at = start + step * interval;
       const jitter = (random() - 0.5) * params.spray * interval;
       const stray = (random() - 0.5) * params.spray;
       const startSeconds = Math.max(start, at + jitter);
@@ -151,7 +157,7 @@ export function granularGrains(
       grains.push({
         startSeconds,
         durationSeconds: params.grainSize,
-        offset: (((params.position + stray) % 1) + 1) % 1,
+        offset: mirror(params.position + stray, 1),
         rate,
         level: peak * envelope,
       });
@@ -162,7 +168,7 @@ export function granularGrains(
 
 /**
  * `grains` mixed into `length` samples at `sampleRate`, each a
- * Hann-windowed read of `source`, looping past its end.
+ * Hann-windowed read of `source`, reading back the other way past its end.
  */
 export function mixGrains(
   grains: readonly Grain[],
@@ -171,20 +177,18 @@ export function mixGrains(
   source = granularSource(sampleRate),
 ): Float32Array<ArrayBuffer> {
   const out = new Float32Array(length);
-  const sourceLength = source.length;
+  const last = source.length - 1;
   for (const grain of grains) {
     const first = Math.round(grain.startSeconds * sampleRate);
     const count = Math.max(2, Math.round(grain.durationSeconds * sampleRate));
-    const last = Math.min(length, first + count);
-    for (let index = Math.max(0, first); index < last; index++) {
+    const end = Math.min(length, first + count);
+    for (let index = Math.max(0, first); index < end; index++) {
       const step = index - first;
-      const read =
-        (grain.offset * sourceLength + step * grain.rate) % sourceLength;
-      const whole = Math.floor(read);
+      const read = mirror(grain.offset * last + step * grain.rate, last);
+      const whole = Math.min(last - 1, Math.floor(read));
       const fraction = read - whole;
       const sample =
-        source[whole] +
-        (source[(whole + 1) % sourceLength] - source[whole]) * fraction;
+        source[whole] + (source[whole + 1] - source[whole]) * fraction;
       const window = 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (count - 1));
       out[index] += grain.level * window * sample;
     }
@@ -194,7 +198,7 @@ export function mixGrains(
 
 /** `samples` at `sampleRate` through `params`' lowpass filter. */
 export async function filterGranular(
-  samples: Float32Array,
+  samples: Float32Array<ArrayBuffer>,
   params: Pick<GranularParams, "cutoff" | "resonance">,
   sampleRate: number,
 ): Promise<Float32Array> {

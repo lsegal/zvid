@@ -20,7 +20,12 @@ import {
 } from "../../component-test/input.ts";
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
-import { DEFAULT_SYNTH_PARAMS, type MidiNote } from "../../midi-clip.ts";
+import {
+  DEFAULT_INSTRUMENT,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiInstrument,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import {
   defaultMidiTimeline,
   type MidiClipTimeline,
@@ -171,6 +176,10 @@ test(
   "a MIDI clip's Synth is an effect on its own stack, whose edits are undoable",
   async () => {
     const { chain } = await open();
+    const synthOf = () => {
+      const instrument = chain()?.instrument;
+      return instrument?.kind === "synth" ? instrument.params : undefined;
+    };
     await selectBassline();
     const device = page.getByRole("region", { name: "Synth", exact: true });
     await expect.element(device).toBeVisible();
@@ -180,7 +189,7 @@ test(
 
     const wave = device.getByRole("group", { name: "Wave" });
     await userEvent.click(wave.getByRole("button", { name: "Square" }));
-    await expect.poll(() => chain()?.synth.wave).toBe("square");
+    await expect.poll(() => synthOf()?.wave).toBe("square");
     await expect
       .element(wave.getByRole("button", { name: "Square" }))
       .toHaveAttribute("aria-pressed", "true");
@@ -189,16 +198,16 @@ test(
     (cutoff.element() as HTMLElement).focus();
     await userEvent.keyboard("{ArrowUp}");
     await expect
-      .poll(() => chain()?.synth.cutoff)
+      .poll(() => synthOf()?.cutoff)
       .toBeGreaterThan(DEFAULT_SYNTH_PARAMS.cutoff);
-    expect(chain()?.synth.wave).toBe("square");
+    expect(synthOf()?.wave).toBe("square");
 
     await undo();
     await expect
-      .poll(() => chain()?.synth.cutoff)
+      .poll(() => synthOf()?.cutoff)
       .toBe(DEFAULT_SYNTH_PARAMS.cutoff);
     await undo();
-    await expect.poll(() => chain()?.synth.wave).toBe("sawtooth");
+    await expect.poll(() => synthOf()?.wave).toBe("sawtooth");
 
     // Bypassing its only Synth leaves the clip nothing to play through.
     await userEvent.click(device.getByRole("button", { name: "Bypass Synth" }));
@@ -553,7 +562,10 @@ test("clicking a note or a key auditions it through the track's synth", async ()
   await installHarness();
   const onAudition = vi.fn();
   const onSetNotes = vi.fn();
-  const synth = { ...DEFAULT_SYNTH_PARAMS, wave: "square" as const };
+  const synth: MidiInstrument = {
+    kind: "synth",
+    params: { ...DEFAULT_SYNTH_PARAMS, wave: "square" },
+  };
   await render(
     <PianoRoll
       collapsed={false}
@@ -566,7 +578,7 @@ test("clicking a note or a key auditions it through the track's synth", async ()
         trimStartQ: 0,
         lengthQ: 8,
         timeline: defaultMidiTimeline(8),
-        synth,
+        instrument: synth,
       }}
       onAudition={onAudition}
       onSetNotes={onSetNotes}
@@ -619,7 +631,7 @@ test("the piano roll's read-only playhead follows the note the clip sounds", asy
           trimStartQ: 1,
           lengthQ: 8,
           timeline,
-          synth: DEFAULT_SYNTH_PARAMS,
+          instrument: DEFAULT_INSTRUMENT,
         }}
         onAudition={() => {}}
         onSetNotes={onSetNotes}

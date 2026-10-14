@@ -442,7 +442,7 @@ describe("createMidiClip", () => {
     );
     assert.deepEqual(midiChainOf(stack), {
       generators: [],
-      synth: DEFAULT_SYNTH_PARAMS,
+      instrument: { kind: "synth", params: DEFAULT_SYNTH_PARAMS },
     });
     assert.equal(gainChainAmplitude(stack), 1);
     assert.equal(patch?.effects?.[0], other);

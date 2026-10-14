@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
-import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "./midi-clip.ts";
+import { GRANULAR_EFFECT_NAME } from "./fx/effects/granular/granular.ts";
+import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
+import {
+  DEFAULT_GRANULAR_PARAMS,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiInstrument,
+  type SynthParams,
+} from "./midi-clip.ts";
 import {
   addDefaultSynth,
-  auditionSynthOf,
+  auditionInstrumentOf,
   createArpeggiatorEffect,
   createSynthEffect,
   midiChainOf,
@@ -28,6 +35,19 @@ function gain(trackId: string, id = "gain"): SessionEffect {
   return { id, trackId, effectName: "Gain", parameters: [], enabled: true };
 }
 
+const asSynth = (params: SynthParams): MidiInstrument => ({
+  kind: "synth",
+  params,
+});
+
+// A Granular effect on the clip's stack, its Density set to `density`.
+function granular(density?: number): SessionEffect {
+  const effect = createEffect(STACK, GRANULAR_EFFECT_NAME);
+  return density === undefined
+    ? effect
+    : setEffectParameter([effect], effect.id, "Density", density)[0];
+}
+
 let nextId = 0;
 const createId = () => `id-${++nextId}`;
 
@@ -48,7 +68,10 @@ describe("midiChainOf", () => {
       createArpeggiatorEffect(STACK, random),
       createSynthEffect(STACK, { ...SQUARE, wave: "sine" }),
     ]);
-    assert.deepEqual(chain, { generators: [up, random], synth: SQUARE });
+    assert.deepEqual(chain, {
+      generators: [up, random],
+      instrument: asSynth(SQUARE),
+    });
   });
 
   it("has nothing to play without an enabled Synth", () => {
@@ -64,7 +87,9 @@ describe("midiChainOf", () => {
 
   it("reads missing or invalid settings as their defaults", () => {
     const synth = createSynthEffect(STACK, undefined);
-    assert.deepEqual(midiChainOf([synth])?.synth, DEFAULT_SYNTH_PARAMS);
+    assert.deepEqual(midiChainOf([synth])?.instrument,
+      asSynth(DEFAULT_SYNTH_PARAMS),
+    );
     assert.deepEqual(
       midiChainOf([
         {
@@ -73,27 +98,68 @@ describe("midiChainOf", () => {
         },
         { ...synth, parameters: [{ key: "Wave", value: "Noise" }] },
       ]),
-      { generators: [DEFAULT_ARPEGGIATOR], synth: DEFAULT_SYNTH_PARAMS },
+      {
+        generators: [DEFAULT_ARPEGGIATOR],
+        instrument: asSynth(DEFAULT_SYNTH_PARAMS),
+      },
     );
   });
 });
 
-describe("auditionSynthOf", () => {
-  it("auditions through the enabled Synth, else a bypassed one", () => {
+describe("midiChainOf with a Granular", () => {
+  it("plays through a Granular on its own", () => {
+    assert.deepEqual(midiChainOf([granular()]), {
+      generators: [],
+      instrument: { kind: "granular", params: DEFAULT_GRANULAR_PARAMS },
+    });
+  });
+
+  it("plays through the first enabled instrument, Synth or Granular", () => {
     assert.deepEqual(
-      auditionSynthOf([
+      midiChainOf([granular(12), createSynthEffect(STACK, SQUARE)])
+        ?.instrument,
+      { kind: "granular", params: { ...DEFAULT_GRANULAR_PARAMS, density: 12 } },
+    );
+    assert.deepEqual(
+      midiChainOf([createSynthEffect(STACK, SQUARE), granular(12)])
+        ?.instrument,
+      asSynth(SQUARE),
+    );
+    // A bypassed instrument leaves the next one to play.
+    assert.deepEqual(
+      midiChainOf([
+        { ...createSynthEffect(STACK, SQUARE), enabled: false },
+        granular(12),
+      ])?.instrument,
+      { kind: "granular", params: { ...DEFAULT_GRANULAR_PARAMS, density: 12 } },
+    );
+    assert.equal(midiChainOf([{ ...granular(), enabled: false }]), undefined);
+  });
+});
+
+describe("auditionInstrumentOf", () => {
+  it("auditions through the enabled instrument, else a bypassed one", () => {
+    assert.deepEqual(
+      auditionInstrumentOf([
         { ...createSynthEffect(STACK, SQUARE), enabled: false },
         createSynthEffect(STACK, DEFAULT_SYNTH_PARAMS),
       ]),
-      DEFAULT_SYNTH_PARAMS,
+      asSynth(DEFAULT_SYNTH_PARAMS),
     );
     assert.deepEqual(
-      auditionSynthOf([
+      auditionInstrumentOf([
         { ...createSynthEffect(STACK, SQUARE), enabled: false },
       ]),
-      SQUARE,
+      asSynth(SQUARE),
     );
-    assert.equal(auditionSynthOf([gain(STACK)]), undefined);
+    assert.deepEqual(
+      auditionInstrumentOf([
+        { ...createSynthEffect(STACK, SQUARE), enabled: false },
+        granular(12),
+      ]),
+      { kind: "granular", params: { ...DEFAULT_GRANULAR_PARAMS, density: 12 } },
+    );
+    assert.equal(auditionInstrumentOf([gain(STACK)]), undefined);
   });
 });
 
@@ -109,7 +175,9 @@ describe("addDefaultSynth", () => {
         ["own", STACK],
       ],
     );
-    assert.deepEqual(midiChainOf(next.slice(1))?.synth, DEFAULT_SYNTH_PARAMS);
+    assert.deepEqual(midiChainOf(next.slice(1))?.instrument,
+      asSynth(DEFAULT_SYNTH_PARAMS),
+    );
   });
 });
 
@@ -145,12 +213,12 @@ describe("migrateMidiClipEffects", () => {
     );
     assert.deepEqual(midiChainOf(stack("m")), {
       generators: [arp],
-      synth: SQUARE,
+      instrument: asSynth(SQUARE),
     });
     // A track that never set its synth played the default one.
     assert.deepEqual(midiChainOf(stack("plain")), {
       generators: [],
-      synth: DEFAULT_SYNTH_PARAMS,
+      instrument: asSynth(DEFAULT_SYNTH_PARAMS),
     });
     assert.deepEqual(stack("placeholder"), []);
   });
