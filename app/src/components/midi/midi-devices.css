@@ -230,3 +230,17 @@
 .piano-roll__grid--resizing .piano-roll__note {
   cursor: ew-resize;
 }
+
+/* The transport playhead, read-only: the timeline's line without its
+   diamond scrub handle, which clicks pass through. */
+.piano-roll__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  will-change: transform;
+  background: #f6b73c;
+  pointer-events: none;
+  z-index: 1;
+}

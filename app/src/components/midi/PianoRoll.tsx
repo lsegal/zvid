@@ -28,6 +28,7 @@ import {
 import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
 import "./midi-devices.css";
+import { PianoRollPlayhead } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 
 export type SetMidiClipNotes = (
@@ -98,7 +99,8 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // there, dragging a note moves it in time and pitch, dragging either of its
 // edges resizes it, and right-clicking a note deletes it; each edit is one
 // undo step. Clicking a note or a key
-// auditions it through the clip's Synth.
+// auditions it through the clip's Synth. A read-only line follows the
+// transport playhead to the note sounding (see PianoRollPlayhead).
 export function PianoRoll({
   model,
   collapsed,
@@ -391,6 +393,7 @@ export function PianoRoll({
               </button>
             );
           })}
+          <PianoRollPlayhead model={model} quarterPx={PIANO_ROLL_QUARTER_PX} />
         </div>
       </div>
     </section>
