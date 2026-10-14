@@ -374,7 +374,7 @@ test("clicking a note or a key auditions it through the track's synth", async ()
 });
 
 test(
-  "Add MIDI Clip places an empty clip at the playhead, up to the next clip, whose piano roll adds notes",
+  "Add MIDI Clip places an empty clip where the lane was right-clicked, up to the next clip, whose piano roll adds notes",
   async () => {
     const midi = midiProject();
     // The Bass track holds only its MIDI clip, moved to quarter 10.
@@ -414,14 +414,15 @@ test(
       await userEvent.click(menuItem("Add MIDI Clip"));
     };
 
-    // The playhead parked just past quarter 8 on the ruler snaps to it. The
-    // menu opens elsewhere in the lane, but the clip goes at the playhead and
-    // stops where the clip at quarter 10 begins, short of a whole bar.
+    // With the playhead parked at quarter 4 on the ruler, right-clicking
+    // just past quarter 8 snaps there. The clip goes at the cursor, not the
+    // playhead, and stops where the clip at quarter 10 begins, short of a
+    // whole bar.
     const ruler = (
       document.querySelector(".ruler-row__content") as HTMLElement
     ).getBoundingClientRect();
-    await click(box.x + 8.05 * quarterPx, ruler.y + 4);
-    await addMidiClipAt(4);
+    await click(box.x + 4 * quarterPx, ruler.y + 4);
+    await addMidiClipAt(8.05);
     await expect.poll(() => bassSpans()).toHaveLength(2);
     const clip = bassSpans().find((span) => span.id !== ahead.id);
     if (!clip) {
@@ -456,10 +457,10 @@ test(
       .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
       .toBe(1);
 
-    // With the playhead at the new clip's start, Add MIDI Clip adds nothing
-    // and says why.
-    await addMidiClipAt(5);
-    await expect.poll(status).toMatch(/Move the playhead off the clip/);
+    // Right-clicking just left of the new clip snaps to its start, so Add
+    // MIDI Clip adds nothing and says why.
+    await addMidiClipAt(7.9);
+    await expect.poll(status).toMatch(/can't start inside another clip/);
     expect(bassSpans()).toHaveLength(2);
 
     // Adding the note and creating the clip are an undo step each.

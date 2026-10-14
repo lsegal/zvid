@@ -152,7 +152,7 @@ export function useSourceClipActions({
         maxDurationQ,
       ) > 0;
     if (!fits) {
-      setStatus("Move the playhead off the clip to add a MIDI clip there.");
+      setStatus("A MIDI clip can't start inside another clip.");
       return;
     }
 

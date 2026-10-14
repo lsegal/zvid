@@ -278,13 +278,18 @@ export function useMenus({
 
   // Right-clicking empty space in a source track's row keeps its selected
   // source clip, for the entries that act on one, and otherwise selects the
-  // track.
+  // track. The menu remembers where in the row it was opened, inside the
+  // row's left border.
   function openSourceLaneMenu(
     event: ReactMouseEvent<HTMLElement>,
     trackId: string,
   ) {
     event.preventDefault();
     event.stopPropagation();
+    const row = event.currentTarget;
+    const pointerQ =
+      (event.clientX - row.getBoundingClientRect().left - row.clientLeft) /
+      quarterPx;
     setPendingSelection(null);
     if (selectedSourceSpan?.sourceTrackId !== trackId) {
       selectSource(selectSourceTrack(trackId));
@@ -292,6 +297,7 @@ export function useMenus({
     setClipMenu({
       kind: "source-lane",
       trackId,
+      pointerQ,
       anchor: getMenuAnchor(event),
     });
   }
@@ -365,7 +371,7 @@ export function useMenus({
 
     if (menu.kind === "source-lane") {
       return sourceTracks.some((track) => track.id === menu.trackId)
-        ? getSourceLaneMenuEntries(menu.trackId)
+        ? getSourceLaneMenuEntries(menu.trackId, menu.pointerQ)
         : [];
     }
 
@@ -405,9 +411,10 @@ export function useMenus({
   }
 
   // Paste goes into the track and Add MIDI Clip places a clip of up to a bar
-  // at the playhead, snapped like a drop; the other entries act on its
+  // where the menu was right-clicked open, snapped like a drop, or at the
+  // playhead when the keyboard opened it; the other entries act on its
   // selected source clip.
-  function getSourceLaneMenuEntries(trackId: string) {
+  function getSourceLaneMenuEntries(trackId: string, pointerQ?: number) {
     const span =
       selectedSourceSpan?.sourceTrackId === trackId
         ? selectedSourceSpan
@@ -439,7 +446,11 @@ export function useMenus({
           trackId,
           Math.max(
             0,
-            snapQuarterValue(playheadQRef.current, snapUnit, snapEnabled),
+            snapQuarterValue(
+              pointerQ ?? playheadQRef.current,
+              snapUnit,
+              snapEnabled,
+            ),
           ),
           barLength,
         ),
