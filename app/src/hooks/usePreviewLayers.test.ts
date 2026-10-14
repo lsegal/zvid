@@ -24,6 +24,7 @@ function media(id: string, kind: MediaKind): MediaItem {
 function clipOf(item: MediaItem, laneId: string): ArrangementClip {
   return {
     id: `clip-${item.id}`,
+    sourceSpanId: `span-${item.id}`,
     sourceTrackId: "source-1",
     laneId,
     label: item.name,
