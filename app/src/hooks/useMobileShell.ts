@@ -35,7 +35,10 @@ export function useMobileShell({
   }
   const [fxScreen, setFxScreen] = useState<FxSheetScreen>("devices");
   const [isReordering, setIsReordering] = useState(false);
-  const [showsSourceTracks, setShowsSourceTracks] = useState(false);
+  // Source tracks show until hidden from the overflow menu, so a session's
+  // tracks, or an empty session's Source Tracks header, are never hidden
+  // behind it by default.
+  const [showsSourceTracks, setShowsSourceTracks] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isMediaOpen = isPhone && isMediaDrawerOpen;

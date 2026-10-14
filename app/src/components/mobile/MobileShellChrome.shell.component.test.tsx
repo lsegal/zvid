@@ -332,6 +332,22 @@ describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
     await expect.poll(() => redo().matches(":disabled")).toBe(true);
   });
 
+  test("a new session shows the Source Tracks header until hidden", async () => {
+    await usePhone();
+    await renderApp();
+    // #1381: the empty section is an entry point, not hidden behind More.
+    await expect.poll(() => shown(".source-header")).toBe(true);
+    expect(query(".source-header").textContent).toContain(
+      "0 tracks in session",
+    );
+    await click("button", "More", { exact: true });
+    await click("menuitem", "Hide Source Tracks");
+    await expect.poll(() => shown(".source-header")).toBe(false);
+    await click("button", "More", { exact: true });
+    await click("menuitem", "Show Source Tracks");
+    await expect.poll(() => shown(".source-header")).toBe(true);
+  });
+
   test("the More sheet has the desktop File and Edit menus", async () => {
     await usePhone();
     await renderApp();
@@ -351,7 +367,7 @@ describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
         "Edit",
         "Save to Library",
         "Reorder Layers",
-        "Show Source Tracks",
+        "Hide Source Tracks",
       ]);
     await click("menuitem", "File", inSheet());
     await expect

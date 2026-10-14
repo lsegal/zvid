@@ -312,11 +312,9 @@ export async function chooseFromMore(item: string) {
   await click("menuitem", item);
 }
 
-// Puts the test pattern on Layer 1 through the phone's own menus: show the
-// source tracks, drop the file, then Copy to layer from the clip's menu
-// sheet.
+// Puts the test pattern on Layer 1 through the phone's own menus: drop the
+// file on the source tracks, then Copy to layer from the clip's menu sheet.
 export async function addClip(url = VIDEO) {
-  await chooseFromMore("Show Source Tracks");
   const bytes = await (await fetch(url)).arrayBuffer();
   const name = url.split("?")[0].split("/").pop() ?? "";
   const type = name.endsWith(".webm") ? "video/webm" : "video/mp4";
