@@ -445,3 +445,22 @@ export function applySessionSettings(
   );
   return changed ? { ...project, ...patch } : project;
 }
+
+/**
+ * The project with its session length set to `lengthQ` quarters, kept in
+ * frames at its frame rate, or with no set length when `lengthQ` is
+ * undefined, so the session ends where its content does. The same project
+ * when the length does not change.
+ */
+export function applySessionLength(
+  project: ProjectState,
+  lengthQ: number | undefined,
+): ProjectState {
+  const frames =
+    lengthQ !== undefined && lengthQ > 0 && project.bpm > 0
+      ? Math.max(1, Math.round(((lengthQ * 60) / project.bpm) * project.fps))
+      : undefined;
+  return frames === project.projectDurationFrames
+    ? project
+    : { ...project, projectDurationFrames: frames };
+}

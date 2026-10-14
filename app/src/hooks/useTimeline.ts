@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { getSessionLengthQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import type { MediaItem } from "../media";
@@ -65,6 +66,8 @@ export function useTimeline({
     sourceSpans,
     clips,
     effects,
+    fps,
+    projectDurationFrames,
   } = project;
   const { playheadQRef, commitViewChange } = store;
   const { timelineClips, pendingSelection, selectedClipId } = selection;
@@ -82,6 +85,7 @@ export function useTimeline({
     sourceSpans,
     pendingSelection,
     recordingEndQ,
+    sessionLengthQ: getSessionLengthQ(projectDurationFrames, fps, bpm),
     labelWidth,
     playheadQRef,
     timelineScrollRef,

@@ -58,6 +58,13 @@
   gap: 10px 12px;
 }
 
+.session-settings__length {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  align-items: end;
+}
+
 .session-settings__size {
   display: grid;
   grid-template-columns: 1fr auto 1fr auto;

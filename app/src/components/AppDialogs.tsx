@@ -1,4 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
+import { signatureById } from "../app/constants.ts";
+import {
+  getSessionLengthQ,
+  getTimelineContentEndQ,
+} from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import { getHarness } from "../harness";
 import type {
@@ -16,6 +21,7 @@ import type { usePeerMedia } from "../hooks/usePeerMedia.ts";
 import type { useProjectStore } from "../hooks/useProjectStore.ts";
 import type { useWorkspacePersistence } from "../hooks/useWorkspacePersistence.ts";
 import {
+  applySessionLength,
   applySessionSettings,
   sessionSettingsFromProject,
 } from "../session-settings.ts";
@@ -30,7 +36,10 @@ import {
   ProjectExportDialog,
   type ProjectExportOptions,
 } from "./ProjectExportDialog";
-import { SessionSettingsDialog } from "./SessionSettingsDialog";
+import {
+  type SessionLength,
+  SessionSettingsDialog,
+} from "./SessionSettingsDialog";
 import {
   Dialog,
   DialogClose,
@@ -100,6 +109,28 @@ export type AppDialogsProps = Pick<
     setIsSessionSettingsOpen: SetOpen;
     setStatus: (status: string) => void;
   };
+
+// The session's length for Session Settings: where its content ends, and
+// the length set, if any.
+function sessionLengthOf(project: ProjectState): SessionLength {
+  const signature = signatureById(project.signatureId);
+  const barLength = signature.numerator * (4 / signature.denominator);
+  return {
+    bpm: project.bpm,
+    signature,
+    detectedQ: getTimelineContentEndQ(
+      project.clips,
+      project.sourceSpans,
+      project.bpm,
+      barLength,
+    ),
+    lengthQ: getSessionLengthQ(
+      project.projectDurationFrames,
+      project.fps,
+      project.bpm,
+    ),
+  };
+}
 
 // The app's dialogs (share, connect, diagnostics, offline media, media sync,
 // media storage, session settings, export, project export, capture
@@ -289,9 +320,13 @@ export function AppDialogs({
       />
 
       <SessionSettingsDialog
-        onApply={(settings) =>
+        length={sessionLengthOf(projectHistory.present)}
+        onApply={(settings, lengthQ) =>
           commitProjectChange("Session Settings", (current) =>
-            applySessionSettings(current, settings),
+            applySessionLength(
+              applySessionSettings(current, settings),
+              lengthQ,
+            ),
           )
         }
         onOpenChange={setIsSessionSettingsOpen}
