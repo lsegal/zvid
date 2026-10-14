@@ -207,6 +207,162 @@ export function placeNote(
   );
 }
 
+/**
+ * `notes` in start order with each of `placed` (indexes into `notes`)
+ * placed as `placeNote` places one: the other notes of their pitches they
+ * overlap are trimmed or removed. Placed notes never trim each other.
+ */
+export function placeNotes(
+  notes: readonly MidiNote[],
+  placed: ReadonlySet<number>,
+): MidiNote[] {
+  const epsilon = 1e-9;
+  let others = notes.filter((_, index) => !placed.has(index));
+  for (const index of placed) {
+    const note = notes[index];
+    if (!note) {
+      continue;
+    }
+    const end = note.start + note.length;
+    others = others.flatMap((other) => {
+      const otherEnd = other.start + other.length;
+      if (
+        other.pitch !== note.pitch ||
+        Math.min(end, otherEnd) - Math.max(note.start, other.start) <= epsilon
+      ) {
+        return [other];
+      }
+      const left = Math.max(0, note.start - other.start);
+      const right = Math.max(0, otherEnd - end);
+      if (left <= epsilon && right <= epsilon) {
+        return [];
+      }
+      return left >= right
+        ? [{ ...other, length: left }]
+        : [{ ...other, start: end, length: right }];
+    });
+  }
+  return sortNotes([
+    ...others,
+    ...notes.filter((_, index) => placed.has(index)),
+  ]);
+}
+
+/** Notes after a selection edit, with the keys of the notes to select. */
+export type NoteSelectionEdit = { notes: MidiNote[]; keys: Set<string> };
+
+// `notes` with `added` appended and placed, selecting `added`.
+function withPlacedNotes(
+  notes: readonly MidiNote[],
+  added: readonly MidiNote[],
+): NoteSelectionEdit {
+  const placed = new Set(added.map((_, index) => notes.length + index));
+  return {
+    notes: placeNotes([...notes, ...added], placed),
+    keys: new Set(added.map(noteKey)),
+  };
+}
+
+/**
+ * `notes` with those whose `noteKey` is in `keys` moved `deltaQ` quarters
+ * and `deltaPitch` semitones together, placed over the rest. The move is
+ * cut short so no note starts before the content start or leaves the roll's
+ * keys, keeping the notes' spacing; it returns undefined when nothing can
+ * move.
+ */
+export function shiftNotes(
+  notes: readonly MidiNote[],
+  keys: ReadonlySet<string>,
+  deltaQ: number,
+  deltaPitch: number,
+): NoteSelectionEdit | undefined {
+  const selected = notes.filter((note) => keys.has(noteKey(note)));
+  if (!selected.length) {
+    return undefined;
+  }
+  const firstStart = Math.min(...selected.map((note) => note.start));
+  const low = Math.min(...selected.map((note) => note.pitch));
+  const high = Math.max(...selected.map((note) => note.pitch));
+  const shiftQ = Math.max(deltaQ, -firstStart);
+  const shiftPitch = Math.min(
+    PIANO_ROLL_HIGH_PITCH - high,
+    Math.max(PIANO_ROLL_LOW_PITCH - low, deltaPitch),
+  );
+  if (Math.abs(shiftQ) < 1e-9 && shiftPitch === 0) {
+    return undefined;
+  }
+  return withPlacedNotes(
+    notes.filter((note) => !keys.has(noteKey(note))),
+    selected.map((note) => ({
+      ...note,
+      start: note.start + shiftQ,
+      pitch: note.pitch + shiftPitch,
+    })),
+  );
+}
+
+/**
+ * `notes` with copies of those whose `noteKey` is in `keys` placed right
+ * after them: shifted by the span from the first one's start to the last
+ * one's end. The copies are selected.
+ */
+export function duplicateNotes(
+  notes: readonly MidiNote[],
+  keys: ReadonlySet<string>,
+): NoteSelectionEdit | undefined {
+  const clipboard = copyNotes(notes, keys);
+  if (!clipboard) {
+    return undefined;
+  }
+  const selected = notes.filter((note) => keys.has(noteKey(note)));
+  const firstStart = Math.min(...selected.map((note) => note.start));
+  return pasteNotes(notes, clipboard, firstStart + clipboard.lengthQ);
+}
+
+/**
+ * Copied notes, their starts from the first one's, and `lengthQ` from the
+ * first one's start to the last one's end.
+ */
+export type NoteClipboard = {
+  notes: readonly MidiNote[];
+  lengthQ: number;
+};
+
+/** The clipboard for the notes whose `noteKey` is in `keys`. */
+export function copyNotes(
+  notes: readonly MidiNote[],
+  keys: ReadonlySet<string>,
+): NoteClipboard | undefined {
+  const selected = notes.filter((note) => keys.has(noteKey(note)));
+  if (!selected.length) {
+    return undefined;
+  }
+  const firstStart = Math.min(...selected.map((note) => note.start));
+  const lastEnd = Math.max(...selected.map((note) => note.start + note.length));
+  return {
+    notes: sortNotes(
+      selected.map((note) => ({ ...note, start: note.start - firstStart })),
+    ),
+    lengthQ: lastEnd - firstStart,
+  };
+}
+
+/**
+ * `notes` with `clipboard`'s notes placed from `atQ`, keeping their spacing
+ * and pitches. The pasted notes are selected.
+ */
+export function pasteNotes(
+  notes: readonly MidiNote[],
+  clipboard: NoteClipboard,
+  atQ: number,
+): NoteSelectionEdit {
+  const startQ = Math.max(0, atQ);
+  return withPlacedNotes(
+    notes,
+    clipboard.notes.map((note) => ({ ...note, start: startQ + note.start })),
+  );
+}
+
 /** Whether two note lists hold the same notes in the same order. */
 export function sameNotes(
   left: readonly MidiNote[],
