@@ -278,12 +278,16 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
       "ScaleY",
     ]),
   ],
+  // A Move already travels from its start to its end across the clip, so
+  // new devices come with Animation off.
   [
     MOVE_EFFECT_NAME,
-    defaults("Linear", "Linear", [12, 8, 4], "Wobble", 0.2, [
-      "StartRotation",
-      "EndRotation",
-    ]),
+    offWhenAdded(
+      defaults("Linear", "Linear", [12, 8, 4], "Wobble", 0.2, [
+        "StartRotation",
+        "EndRotation",
+      ]),
+    ),
   ],
   [
     "ZoomAndPan",
