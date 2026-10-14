@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { logClient } from "../app/util.ts";
 import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
+  type AudioMixContribution,
   audioMixPeaksKey,
   getAudioMixContributions,
   getAudioMixOrigin,

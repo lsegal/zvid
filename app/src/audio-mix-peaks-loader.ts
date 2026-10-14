@@ -27,9 +27,12 @@ function getWorker() {
   }
 
   try {
-    worker = new Worker(new URL("./audio-mix-peaks.worker.ts", import.meta.url), {
-      type: "module",
-    });
+    worker = new Worker(
+      new URL("./audio-mix-peaks.worker.ts", import.meta.url),
+      {
+        type: "module",
+      },
+    );
   } catch {
     workerUnavailable = true;
     return null;

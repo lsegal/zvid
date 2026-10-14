@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { type AudioMixInputs, resolveAudioClips } from "./audio-mix/resolve.ts";
-import {
-  getAudioMixContributions,
-  toMixPeaksClip,
-} from "./audio-mix-clips.ts";
+import { getAudioMixContributions, toMixPeaksClip } from "./audio-mix-clips.ts";
 import { mixPeakLevel, mixWaveformPeaks } from "./audio-mix-peaks.ts";
 import { gainToAmplitude } from "./fx/effects/gain/gain.ts";
 import {
