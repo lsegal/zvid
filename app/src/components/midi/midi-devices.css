@@ -10,15 +10,6 @@
   max-width: min(640px, 70vw);
 }
 
-.piano-roll__hint {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.68rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* The keys and the grid under a corner and the ruler, which stay put while
    the roll scrolls under them. */
 .piano-roll__scroll {
