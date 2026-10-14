@@ -163,7 +163,11 @@ describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
     await expect.poll(() => shown(".mobile-menu-sheet")).toBe(false);
 
     await click("button", "Animation", { exact: true, root: fx });
-    await click("combobox", "Motion In", { root: fx });
+    // The Global Order has a Motion In of its own.
+    const zoomSection = 'section[aria-label="Zoom & Pan animation"]';
+    await expect.poll(() => shown(zoomSection)).toBe(true);
+    const zoomAnimation = query(zoomSection);
+    await click("combobox", "Motion In", { root: zoomAnimation });
     await expect
       .poll(() => isVisible(document.querySelector('[role="listbox"]')))
       .toBe(true);

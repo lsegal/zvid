@@ -1481,7 +1481,13 @@ describe("drawComposition text layers", () => {
       arrangement: "vertical",
       gridSize: 2,
       spacing: 0,
-      slide: { frames: 30, fps: 30, transition: "Squish" },
+      slide: {
+        frames: 30,
+        fps: 30,
+        motionIn: "Ease In Out",
+        motionOut: "Ease In Out",
+        transition: "Squish",
+      },
     };
     const clip = (layer: CompositeLayer, clipProgress = 0.5) => ({
       ...layer,

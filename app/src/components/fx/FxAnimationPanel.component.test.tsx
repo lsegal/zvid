@@ -3,7 +3,7 @@ import { type Locator, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { addFromMenu } from "../../component-test/fx-actions.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
-import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
+import { CLIP_MOTIONS, LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
 import { FX_COLLAPSED_STORAGE_KEY } from "../../fx-chain.ts";
 
 // The Animation modifier: a motion-icon toggle beside each device's power
@@ -350,14 +350,8 @@ describe("FX Animation", { timeout: 60_000 }, () => {
     expect(
       animation.getByRole("button", { name: "Reactive" }).elements(),
     ).toHaveLength(0);
-    // It moves the clips entering and leaving beneath it, eased its own
-    // way, so it has no Motion In or Out, and no Full timing.
-    expect(
-      animation.getByRole("combobox", { name: "Motion In" }).elements(),
-    ).toHaveLength(0);
-    expect(
-      animation.getByRole("combobox", { name: "Motion Out" }).elements(),
-    ).toHaveLength(0);
+    // It only moves the clips entering and leaving beneath it, so it has no
+    // Full timing.
     expect(
       texts(
         animation.getByRole("group", { name: "Timing" }).getByRole("button"),
@@ -366,6 +360,45 @@ describe("FX Animation", { timeout: 60_000 }, () => {
     expect(animation.element().querySelectorAll(".knob__label")).toHaveLength(
       0,
     );
+  });
+
+  // Motion In and Out ease the clips sliding into and out of an Order's
+  // arrangement, with the same choices as every other effect's.
+  test("Order's Animation section picks Motion In and Out", async () => {
+    await openLayer();
+    const animation = () => section("Order animation");
+    await expect.element(animation()).toBeVisible();
+    await expect
+      .poll(() =>
+        textOf(animation().getByRole("combobox", { name: "Motion In" })),
+      )
+      .toBe("Ease Out");
+    await expect
+      .poll(() =>
+        textOf(animation().getByRole("combobox", { name: "Motion Out" })),
+      )
+      .toBe("Ease In");
+
+    await userEvent.click(
+      animation().getByRole("combobox", { name: "Motion In" }),
+    );
+    const motions = page.getByRole("listbox").getByRole("option");
+    await expect.element(motions.first()).toBeVisible();
+    expect(
+      motions.elements().map((option) => option.textContent?.trim()),
+    ).toEqual([...CLIP_MOTIONS]);
+    await userEvent.click(
+      page.getByRole("option", { name: "None", exact: true }),
+    );
+    await expect
+      .poll(() =>
+        textOf(animation().getByRole("combobox", { name: "Motion In" })),
+      )
+      .toBe("None");
+    // The Transition stays alongside them.
+    await expect
+      .element(animation().getByRole("group", { name: "Transition" }))
+      .toBeVisible();
   });
 
   // Order's Clip mode also picks how clips enter and exit its arrangement:

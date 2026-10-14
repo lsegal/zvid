@@ -498,8 +498,8 @@ for (const [start, duration, arrangement, spacing, margin] of ARRANGEMENTS) {
       BorderColor: IVORY,
     },
     {
-      // An Order eases the clips entering and leaving beneath it itself, so
-      // it has no Motion In or Out.
+      // With no Motion In or Out of its own, an Order eases the clips
+      // entering and leaving beneath it Ease In Out both ways.
       animation: {
         enabled: true,
         mode: "clip",

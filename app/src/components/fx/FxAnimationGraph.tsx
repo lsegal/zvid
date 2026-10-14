@@ -92,7 +92,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
     [motion, reactivity, reactiveFrames, fps],
   );
 
-  const { motionIn, motionOut, timing, transition } = animation.clip;
+  const { motionIn, motionOut, timing } = animation.clip;
   const clipFrames = getClipTimingFrames(effectName, timing);
   const sampleClip = useCallback(
     (time: number, into: Float32Array) => {
@@ -110,7 +110,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
         timeline.sessionEndSeconds,
       );
       sampleClipTrace(
-        { motionIn, motionOut, transition },
+        { motionIn, motionOut },
         clipFrames,
         timeline.fps,
         span,
@@ -120,7 +120,7 @@ export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
         into,
       );
     },
-    [clipFrames, timeline, group, bpm, motionIn, motionOut, transition],
+    [clipFrames, timeline, group, bpm, motionIn, motionOut],
   );
 
   const source = useMemo<TraceSource>(

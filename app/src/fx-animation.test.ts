@@ -119,6 +119,7 @@ describe("animation defaults", () => {
       motionOut: "Ease In",
       timing: "Normal",
       transition: "Squish",
+      slideMotions: true,
     });
     assert.deepEqual(getAnimationDefaults("Order")?.clipFrames, {
       Slow: 7,
@@ -567,6 +568,43 @@ describe("normalizeEffectAnimation", () => {
     assert.equal(loaded?.lfo, undefined);
   });
 
+  // Orders saved before their slides followed Motion In and Out slid Ease
+  // In Out both ways, whatever motions they were saved with.
+  it("loads an Order saved before Motion In and Out with its old easing", () => {
+    for (const clip of [
+      {},
+      { motionIn: "Ease Out", motionOut: "Ease In", transition: "Push" },
+    ]) {
+      const loaded = normalizeEffectAnimation(
+        { enabled: true, mode: "clip", clip },
+        "Order",
+      );
+      assert.equal(loaded?.clip.motionIn, "Ease In Out");
+      assert.equal(loaded?.clip.motionOut, "Ease In Out");
+      assert.equal(loaded?.clip.slideMotions, true);
+    }
+  });
+
+  it("keeps the Motion In and Out an Order is saved with", () => {
+    const saved = {
+      enabled: true,
+      mode: "clip",
+      clip: {
+        motionIn: "None",
+        motionOut: "Linear",
+        timing: "Fast",
+        transition: "Push",
+        slideMotions: true,
+      },
+    };
+    assert.deepEqual(normalizeEffectAnimation(saved, "Order"), saved);
+    // Other effects have no such marker.
+    assert.equal(
+      normalizeEffectAnimation(saved, "Pixelate")?.clip.slideMotions,
+      undefined,
+    );
+  });
+
   it("loads a saved Reactive Order in Clip mode and drops its Reactive settings", () => {
     const saved = {
       enabled: true,
@@ -583,10 +621,11 @@ describe("normalizeEffectAnimation", () => {
       enabled: true,
       mode: "clip",
       clip: {
-        motionIn: "Linear",
-        motionOut: "Ease In",
+        motionIn: "Ease In Out",
+        motionOut: "Ease In Out",
         timing: "Fast",
         transition: "Push",
+        slideMotions: true,
       },
     });
     assert.deepEqual(
@@ -595,10 +634,11 @@ describe("normalizeEffectAnimation", () => {
         enabled: false,
         mode: "clip",
         clip: {
-          motionIn: "Linear",
-          motionOut: "Ease In",
+          motionIn: "Ease In Out",
+          motionOut: "Ease In Out",
           timing: "Fast",
           transition: "Push",
+          slideMotions: true,
         },
       },
     );

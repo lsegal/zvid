@@ -40,7 +40,13 @@ describe("drawComposition with an animated Order", () => {
       arrangement: "horizontal",
       gridSize: 2,
       spacing: 6,
-      slide: { frames, fps: 30, transition: "Squish" },
+      slide: {
+        frames,
+        fps: 30,
+        motionIn: "Ease In Out",
+        motionOut: "Ease In Out",
+        transition: "Squish",
+      },
     } as unknown as Order;
     const effect = (
       trackId: string,
@@ -246,7 +252,13 @@ describe("drawComposition with an animated Order", () => {
       arrangement: "horizontal",
       gridSize: 2,
       spacing: 0,
-      slide: { frames, fps: 30, transition: "Push" },
+      slide: {
+        frames,
+        fps: 30,
+        motionIn: "Ease In Out",
+        motionOut: "Ease In Out",
+        transition: "Push",
+      },
     } as unknown as Order;
     const colors = [
       { r: 255, g: 0, b: 0, a: 1 },

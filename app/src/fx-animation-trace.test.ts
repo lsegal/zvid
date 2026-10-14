@@ -76,15 +76,6 @@ describe("sampleClipTrace", () => {
     });
     close(trace[5], 1);
   });
-
-  it("eases an Order's slide whatever its Motion In and Out", () => {
-    const trace = sample(
-      { motionIn: "None", motionOut: "None", transition: "Push" },
-      2,
-    );
-    close(trace[0], -1);
-    close(trace[5], 0, 1e-3);
-  });
 });
 
 describe("sampleReactiveTrace", () => {

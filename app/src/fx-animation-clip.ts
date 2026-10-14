@@ -222,13 +222,6 @@ export function resolveClipAnimatedParameters(
   return applyClipAnimationWeight(effect, weight);
 }
 
-// How a clip eases into and out of an Order's arrangement: the same both
-// ways, so leaving is entering played backwards.
-export const ORDER_SLIDE_MOTION = {
-  motionIn: "Ease In Out",
-  motionOut: "Ease In Out",
-} as const satisfies Pick<ClipAnimation, "motionIn" | "motionOut">;
-
 // The slide an Order with this animation gives its layers, at `fps`, or
 // undefined when it isn't animating in Clip mode. `window` is the Order
 // clip's, for an FX clip's Order.
@@ -246,6 +239,8 @@ export function resolveOrderSlide(
     : {
         frames,
         fps,
+        motionIn: animation.clip.motionIn,
+        motionOut: animation.clip.motionOut,
         ...(animation.clip.transition
           ? { transition: animation.clip.transition }
           : {}),
@@ -267,7 +262,7 @@ export function orderSlideWeight(
     Math.round(seconds * Math.max(1, slide.fps));
   const window = slide.window;
   return clipAnimationWeight(
-    ORDER_SLIDE_MOTION,
+    slide,
     slide.frames,
     slide.fps,
     elapsedSeconds,

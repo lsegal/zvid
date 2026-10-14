@@ -169,8 +169,19 @@ export function FxAnimationPanel({
               options={getClipTimings(device.effectName)}
               value={animation.clip.timing}
             />
-            {/* An Order eases its clips' slides itself, so it has a
-                Transition instead of Motion In and Out. */}
+            <FxAnimationSelect
+              label="Motion In"
+              onChange={(motionIn) => setClip({ motionIn })}
+              options={CLIP_MOTIONS}
+              value={animation.clip.motionIn}
+            />
+            <FxAnimationSelect
+              label="Motion Out"
+              onChange={(motionOut) => setClip({ motionOut })}
+              options={CLIP_MOTIONS}
+              value={animation.clip.motionOut}
+            />
+            {/* An Order also picks how its clips enter and exit. */}
             {animation.clip.transition ? (
               <FxAnimationSegmented
                 label="Transition"
@@ -178,22 +189,7 @@ export function FxAnimationPanel({
                 options={ORDER_TRANSITIONS}
                 value={animation.clip.transition}
               />
-            ) : (
-              <>
-                <FxAnimationSelect
-                  label="Motion In"
-                  onChange={(motionIn) => setClip({ motionIn })}
-                  options={CLIP_MOTIONS}
-                  value={animation.clip.motionIn}
-                />
-                <FxAnimationSelect
-                  label="Motion Out"
-                  onChange={(motionOut) => setClip({ motionOut })}
-                  options={CLIP_MOTIONS}
-                  value={animation.clip.motionOut}
-                />
-              </>
-            )}
+            ) : null}
             {transitionType?.options ? (
               <FxAnimationSelect
                 label="Type"
