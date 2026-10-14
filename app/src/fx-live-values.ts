@@ -91,7 +91,7 @@ export function liveDriver(device: LiveDevice): LiveDriver | undefined {
       return { kind: "clip" };
     }
     if (animation.mode === "lfo" && animation.lfo) {
-      return animation.lfo.depth > 0 && animation.lfo.parameters.length
+      return animation.lfo.depth !== 0 && animation.lfo.parameters.length
         ? { kind: "lfo", keys: new Set(animation.lfo.parameters) }
         : undefined;
     }

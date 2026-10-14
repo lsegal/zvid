@@ -41,6 +41,17 @@ describe("sampleLfoTrace", () => {
     });
   });
 
+  it("inverts the waveform at negative Depth and clamps past 1x", () => {
+    const at = { ...TEMPO, time: 1 };
+    const full = sampleLfoTrace(lfo(), at, "", 9, 1);
+    const inverted = sampleLfoTrace(lfo({ depth: -1 }), at, "", 9, 1);
+    const doubled = sampleLfoTrace(lfo({ depth: 2 }), at, "", 9, 1);
+    full.forEach((value, index) => {
+      close(inverted[index], -value);
+      close(doubled[index], Math.max(-1, Math.min(1, 2 * value)));
+    });
+  });
+
   it("draws each shape", () => {
     for (const shape of ["Triangle", "Saw Up", "Saw Down", "Square"] as const) {
       const trace = sampleLfoTrace(

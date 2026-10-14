@@ -40,9 +40,9 @@ export type LfoOptions = LfoTime & {
 
 // The parameters `effect` is drawn with at `options.time` under `lfo`. Only
 // the selected knobs move, each by up to Depth of its reach either side of
-// where it is set, clamped to its limits, and nothing moves on an effect
-// that doesn't support LFO mode. Returns `effect.parameters` itself when
-// nothing moves.
+// where it is set, clamped to its limits; negative Depth moves them against
+// the waveform. Nothing moves at Depth 0 or on an effect that doesn't
+// support LFO mode. Returns `effect.parameters` itself when nothing moves.
 export function resolveLfoParameters(
   effect: LfoEffect,
   lfo: LfoAnimation,
@@ -50,14 +50,14 @@ export function resolveLfoParameters(
 ): LfoParameter[] {
   if (
     !supportsAnimationMode(effect.effectName, "lfo") ||
-    !(lfo.depth > 0) ||
+    !lfo.depth ||
     !lfo.parameters.length
   ) {
     return effect.parameters;
   }
 
   const cycles = evaluateLfoCycles(lfo, options);
-  const amplitude = Math.min(1, lfo.depth);
+  const amplitude = lfo.depth;
   const selected = new Set(lfo.parameters);
   const rangeScale = options.rangeScale ?? DEFAULT_REACTIVE_RANGE_SCALE;
   const effectId = effect.id ?? effect.effectName;

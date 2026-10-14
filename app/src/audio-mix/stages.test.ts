@@ -71,7 +71,7 @@ describe("audioStageOf modulation", () => {
       highCut({
         ...modulation,
         mode: "lfo",
-        lfo: { ...modulation.lfo, shape: "Square", phase: 90 },
+        lfo: { ...modulation.lfo, shape: "Square", depth: -3, phase: 90 },
       }),
       "a",
     );
@@ -79,6 +79,10 @@ describe("audioStageOf modulation", () => {
     assert.equal(
       stage.modulation?.mode === "lfo" && stage.modulation.shape,
       "Square",
+    );
+    assert.equal(
+      stage.modulation?.mode === "lfo" && stage.modulation.depth,
+      -3,
     );
   });
 

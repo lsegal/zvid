@@ -103,7 +103,7 @@ function audioStageModulation(
 
   if (modulation.mode === "lfo") {
     const { lfo } = modulation;
-    return lfo.depth > 0
+    return lfo.depth !== 0
       ? {
           mode: "lfo",
           shape: lfo.shape,

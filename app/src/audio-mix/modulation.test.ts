@@ -108,6 +108,17 @@ describe("lfoSwing", () => {
     }
   });
 
+  it("scales with Depth past 1 and inverts below 0", () => {
+    for (const time of [0.3, 0.6, 1.4]) {
+      const once = lfoSwing(lfo(), "fx", "Level", time, TEMPO);
+      const swing = (depth: number) =>
+        lfoSwing(lfo({ depth }), "fx", "Level", time, TEMPO);
+      close(swing(2), 2 * once);
+      close(swing(-1), -once);
+      close(swing(-10), -10 * once);
+    }
+  });
+
   it("lines up synced cycles with bars at any tempo", () => {
     const settings = lfo({ shape: "Saw Up" });
     for (const bpm of [90, 120, 137]) {
@@ -325,7 +336,7 @@ describe("StageModulator", () => {
 
   it("swings every LFO knob", () => {
     const settings = lfo({
-      depth: 0.5,
+      depth: -2.5,
       parameters: [
         { key: "Level", min: 0, max: 1 },
         { key: "Mix", min: 0, max: 1 },
