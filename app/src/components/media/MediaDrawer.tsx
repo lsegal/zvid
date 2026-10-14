@@ -383,9 +383,7 @@ export function MediaDrawer({
         className="media-drawer"
         // Media files dropped on the Media tab link their media without
         // making clips.
-        data-media-bin-drop-target={
-          isOpen && tab === "media" ? "" : undefined
-        }
+        data-media-bin-drop-target={isOpen && tab === "media" ? "" : undefined}
         id={MEDIA_DRAWER_ID}
         inert={!isOpen}
       >

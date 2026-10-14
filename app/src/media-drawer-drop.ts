@@ -5,7 +5,7 @@ export const MEDIA_DRAWER_SPRING_EDGE_PX = 24;
 type Rect = Pick<DOMRect, "left" | "top" | "bottom">;
 
 function closestElement(target: EventTarget | null, selector: string) {
-  return !!target && typeof (target as Element).closest === "function"
+  return target && typeof (target as Element).closest === "function"
     ? (target as Element).closest(selector)
     : null;
 }
