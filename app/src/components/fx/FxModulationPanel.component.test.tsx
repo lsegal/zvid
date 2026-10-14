@@ -125,9 +125,11 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
       page.getByRole("option", { name: "1/32", exact: true }),
     );
     await expect.poll(() => comboText("Rate")).toBe("1/32");
-    await expect
-      .element(section().getByRole("slider", { name: "Depth" }))
-      .toHaveAttribute("aria-valuetext", "0.3");
+    const depth = section().getByRole("slider", { name: "Depth" });
+    await expect.element(depth).toHaveAttribute("aria-valuetext", "0.3x");
+    // Depth reaches 10x either way; below 0 it inverts the LFO.
+    await expect.element(depth).toHaveAttribute("aria-valuemin", "-10");
+    await expect.element(depth).toHaveAttribute("aria-valuemax", "10");
     await expect
       .element(section().getByRole("slider", { name: "Phase" }))
       .toHaveAttribute("aria-valuetext", "0°");
