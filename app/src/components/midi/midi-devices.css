@@ -203,6 +203,17 @@
   outline-offset: 1px;
 }
 
+/* A selected note: lighter, ringed in white. */
+.piano-roll__note--selected {
+  border-color: #fff;
+  background: color-mix(in srgb, var(--fx-accent) 30%, white);
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.piano-roll__grid:focus {
+  outline: none;
+}
+
 .piano-roll__note--dragging {
   cursor: grabbing;
   opacity: 0.85;

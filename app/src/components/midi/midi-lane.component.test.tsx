@@ -455,6 +455,100 @@ test(
   EDITOR_TEST_TIMEOUT,
 );
 
+test(
+  "clicking notes selects them, Escape clears, and Delete removes them (#1394)",
+  async () => {
+    const { notes, status } = await openPianoRoll();
+    const selected = () =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          ".piano-roll__note--selected",
+        ),
+      ].map((note) => note.getAttribute("aria-label"));
+    const c3 = noteButton("C3");
+    const g3 = noteButton("G3");
+    if (!c3 || !g3) {
+      throw new Error("missing C3 or G3 note");
+    }
+    await click(center(c3).x, center(c3).y);
+    await expect.poll(selected).toEqual(["C3 at beat 1"]);
+    expect(c3.getAttribute("aria-pressed")).toBe("true");
+    // Escape clears the selection and deletes nothing.
+    await userEvent.keyboard("{Escape}");
+    await expect.poll(selected).toEqual([]);
+    expect(notes()).toEqual(NOTES);
+
+    // Shift-click adds to the selection; Delete removes both in one step.
+    await click(center(c3).x, center(c3).y);
+    await click(center(g3).x, center(g3).y, { modifiers: ["Shift"] });
+    await expect.poll(selected).toEqual(["C3 at beat 1", "G3 at beat 3"]);
+    await userEvent.keyboard("{Delete}");
+    await expect.poll(() => notes()).toEqual(NOTES.slice(2));
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Delete Notes.");
+
+    // Backspace deletes a single selected note.
+    const c4 = noteButton("C4");
+    if (!c4) {
+      throw new Error("missing C4 note");
+    }
+    await click(center(c4).x, center(c4).y);
+    await userEvent.keyboard("{Backspace}");
+    await expect.poll(() => notes()).toEqual(NOTES.slice(0, 2));
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "Cmd/Ctrl-dragging a note duplicates it, trimming the note it lands on (#1394)",
+  async () => {
+    const { grid, notes, status } = await openPianoRoll();
+    const c4 = noteButton("C4");
+    if (!c4) {
+      throw new Error("missing C4 note");
+    }
+    // A copy of the half-note C4 a quarter later covers the original's
+    // second quarter, so the original keeps its first.
+    const from = center(c4);
+    await drag(
+      from,
+      { x: from.x + PIANO_ROLL_QUARTER_PX, y: from.y },
+      { modifiers: ["Meta"] },
+    );
+    await expect
+      .poll(() => notes())
+      .toEqual([
+        ...NOTES.slice(0, 2),
+        { pitch: 60, start: 4, length: 1, velocity: 100 },
+        { pitch: 60, start: 5, length: 2, velocity: 100 },
+      ]);
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Duplicate Note.");
+
+    // Moving a note fully over another of its pitch removes that one.
+    const point = cell(grid, 0, 55);
+    await click(point.x, point.y);
+    await expect.poll(() => notes()?.length).toBe(4);
+    const g3 = document.querySelector<HTMLElement>(
+      '.piano-roll__note[aria-label="G3 at beat 3"]',
+    );
+    if (!g3) {
+      throw new Error("missing the G3 note at beat 3");
+    }
+    const g3From = center(g3);
+    await drag(g3From, {
+      x: g3From.x - 2 * PIANO_ROLL_QUARTER_PX,
+      y: g3From.y,
+    });
+    await expect
+      .poll(() => notes())
+      .toEqual([NOTES[0], { ...NOTES[1], start: 0 }, NOTES[2]]);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
 test("clicking a note or a key auditions it through the track's synth", async () => {
   await installHarness();
   const onAudition = vi.fn();
