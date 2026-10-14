@@ -130,7 +130,10 @@ export function resizeNote(
       return note;
     }
     if (edge === "end") {
-      const end = Math.max(from.start + PIANO_ROLL_SNAP_Q, snapped(endQ + deltaQ));
+      const end = Math.max(
+        from.start + PIANO_ROLL_SNAP_Q,
+        snapped(endQ + deltaQ),
+      );
       return { ...note, start: from.start, length: end - from.start };
     }
     const start = Math.max(

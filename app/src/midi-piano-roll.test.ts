@@ -8,6 +8,7 @@ import {
   moveNote,
   PIANO_ROLL_HIGH_PITCH,
   pitchName,
+  resizeNote,
   sameNotes,
   snapQ,
   sortNotes,
@@ -54,6 +55,35 @@ describe("piano roll edits", () => {
     ]);
     // Never before the clip's content start.
     assert.equal(moveNote([C4], 0, C4, -3, 0)[0].start, 0);
+  });
+
+  it("resizes a note's end on the grid, never shorter than a sixteenth", () => {
+    assert.deepEqual(resizeNote([C4, E4], 0, C4, "end", 1.4), [
+      { ...C4, length: 2.5 },
+      E4,
+    ]);
+    assert.equal(resizeNote([C4], 0, C4, "end", -0.9)[0].length, 0.25);
+    assert.equal(resizeNote([C4], 0, C4, "end", -5)[0].length, 0.25);
+    assert.equal(resizeNote([E4], 0, E4, "end", -1)[0].start, 2);
+  });
+
+  it("resizes a note's start, keeping its end", () => {
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", -0.6)[0], {
+      ...E4,
+      start: 1.5,
+      length: 1,
+    });
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", 2)[0], {
+      ...E4,
+      start: 2.25,
+      length: 0.25,
+    });
+    // Never before the clip's content start.
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", -9)[0], {
+      ...E4,
+      start: 0,
+      length: 2.5,
+    });
   });
 
   it("deletes a note and sorts moved notes back into order", () => {
