@@ -327,44 +327,11 @@ test(
     expect(lane().getBoundingClientRect().bottom).toBeLessThanOrEqual(
       window.innerHeight,
     );
-    // The FX panel's devices can still shift it as they finish laying out
-    // (a scrollbar coming and going on Linux); drag once it holds still.
-    await expect
-      .poll(async () => {
-        const top = lane().getBoundingClientRect().top;
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        return lane().getBoundingClientRect().top === top;
-      })
-      .toBe(true);
-
-    const snap = () => {
-      const out: unknown[] = [document.activeElement?.className];
-      for (let e: HTMLElement | null = lane(); e; e = e.parentElement) {
-        const r = e.getBoundingClientRect();
-        out.push([
-          e.className.toString().slice(0, 30),
-          Math.round(r.top),
-          Math.round(r.height),
-          e.offsetHeight - e.clientHeight,
-          e.offsetWidth - e.clientWidth,
-          e.scrollTop,
-          e.scrollWidth - e.clientWidth,
-        ]);
-      }
-      return out;
-    };
-    const seen: unknown[] = [snap()];
-    window.addEventListener(
-      "pointermove",
-      () => seen.length < 3 && seen.push(snap()),
-      true,
-    );
     const left = lane().getBoundingClientRect().left;
     await drag(
       { x: left + 1, y: velocityY(50) },
       { x: left + 4 * PIANO_ROLL_QUARTER_PX + 1, y: velocityY(50) },
     );
-    console.log("DEBUG1403", JSON.stringify(seen));
     await expect
       .poll(() => notes()?.every((note) => Math.abs(note.velocity - 50) <= 2))
       .toBe(true);

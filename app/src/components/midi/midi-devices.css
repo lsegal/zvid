@@ -23,6 +23,10 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   scrollbar-width: thin;
+  /* Sized to its content, the roll would leave out its vertical scrollbar
+     where scrollbars take room (Linux, Windows), and show a horizontal one
+     until the next layout, which moves the velocity lane under the pointer. */
+  scrollbar-gutter: stable;
 }
 
 .piano-roll__keys {
