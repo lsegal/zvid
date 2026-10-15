@@ -155,11 +155,13 @@ describe("FxChain menus on a phone", () => {
         sheetElement()?.querySelectorAll("[aria-haspopup='menu']") ?? [],
       ).find((element) => element.textContent?.includes("Stylize")) ?? null;
     await expectHidden(stylizeCategory);
-    const pixelate = page.getByRole("menuitem", { name: /^Pixelate/ });
-    await expectVisible(only(pixelate));
+    const negativeSplit = page.getByRole("menuitem", {
+      name: /^Negative Split/,
+    });
+    await expectVisible(only(negativeSplit));
     // Each effect's row spans the sheet, so its description isn't squeezed
     // into a column beside the categories.
-    const row = pixelate.element().getBoundingClientRect();
+    const row = negativeSplit.element().getBoundingClientRect();
     const panel = (sheetElement() as HTMLElement).getBoundingClientRect();
     expect(row.width).toBeGreaterThan(panel.width * 0.85);
 
@@ -169,21 +171,23 @@ describe("FxChain menus on a phone", () => {
 
     await stylize.click();
     const devicesBefore = fx.querySelectorAll(".fx-device-panel").length;
-    await expectVisible(only(pixelate));
-    await pixelate.click();
+    await expectVisible(only(negativeSplit));
+    await negativeSplit.click();
     await expectHidden(sheetElement);
     await expect
       .poll(() => fx.querySelectorAll(".fx-device-panel").length)
       .toBe(devicesBefore + 1);
     await expectVisible(
-      only(page.getByRole("region", { name: "Pixelate", exact: true })),
+      only(page.getByRole("region", { name: "Negative Split", exact: true })),
     );
   });
 
   test("a long effect list scrolls inside the sheet", async () => {
     await renderPhoneChain({ width: 412, height: 480 });
     await openAddMenu();
-    await page.getByRole("menuitem", { name: "Stylize" }).click();
+    await page
+      .getByRole("menuitem", { name: "Transform", exact: true })
+      .click();
     await expectVisible(() =>
       document.querySelector(".mobile-menu-sheet__back"),
     );

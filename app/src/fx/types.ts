@@ -168,6 +168,9 @@ export type FxEffectDomain = "video" | "audio" | "midi";
 export type FxEffectCategory =
   | "transform"
   | "color"
+  | "blur"
+  | "distort"
+  | "glitch"
   | "stylize"
   | "text"
   | "volume"

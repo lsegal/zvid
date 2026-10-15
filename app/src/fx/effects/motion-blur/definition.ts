@@ -15,7 +15,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Motion Blur",
   description: "Smears the picture along one direction, as if it were moving.",
   accent: "#c4c8ff",
-  category: "stylize",
+  category: "blur",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

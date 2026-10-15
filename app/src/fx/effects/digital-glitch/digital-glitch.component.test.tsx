@@ -23,13 +23,13 @@ import { getDefaultFillColor } from "../../../fill-clip.ts";
 import "./pass.ts";
 
 // The Digital Glitch video effect: added to a layer from its add menu's
-// Stylize group, beside Analog Glitch, with its controls at their defaults,
+// Glitch group, beside Analog Glitch, with its controls at their defaults,
 // and glitching the preview once its Amount turns up.
 
 const PREVIEW = { width: 320, height: 180 };
 
 describe("Digital Glitch", { timeout: 60_000 }, () => {
-  test("is added to a layer from Video → Stylize with its defaults and glitches the preview", async () => {
+  test("is added to a layer from Video → Glitch with its defaults and glitches the preview", async () => {
     // The viewport the e2e spec used.
     await setViewport({ width: 1600, height: 1200 });
     // A fill clip on layer 1, as Insert Fill Clip makes it, previewed in its
@@ -74,7 +74,7 @@ describe("Digital Glitch", { timeout: 60_000 }, () => {
     page
       .getByRole("menu")
       .getByRole("group", { name: "Video" })
-      .getByRole("menuitem", { name: "Stylize", exact: true })
+      .getByRole("menuitem", { name: "Glitch", exact: true })
       .element()
       .focus();
     await userEvent.keyboard("{ArrowRight}");
@@ -82,17 +82,17 @@ describe("Digital Glitch", { timeout: 60_000 }, () => {
     await expect
       .element(submenu.getByRole("menuitem", { name: /^Digital Glitch/ }))
       .toBeVisible();
-    // Listed after Analog Glitch, among the Stylize effects that followed it.
-    const stylize = submenu
+    // Listed after Analog Glitch, in the Glitch submenu.
+    const glitch = submenu
       .getByRole("menuitem")
       .elements()
       .map((item) => item.textContent ?? "");
-    const analog = stylize.findIndex((name) =>
+    const analog = glitch.findIndex((name) =>
       name.startsWith("Analog Glitch"),
     );
     expect(analog).toBeGreaterThanOrEqual(0);
     expect(
-      stylize.findIndex((name) => name.startsWith("Digital Glitch")),
+      glitch.findIndex((name) => name.startsWith("Digital Glitch")),
     ).toBeGreaterThan(analog);
     await userEvent.click(
       submenu.getByRole("menuitem", { name: /^Digital Glitch/ }),

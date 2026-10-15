@@ -26,7 +26,7 @@ import {
 import "./pass.ts";
 
 // Gaussian Blur (#1024): blurs what it's applied to by its Radius. Added
-// from a layer's Video → Stylize menu, and rendered in real WebGL on small
+// from a layer's Video → Blur menu, and rendered in real WebGL on small
 // synthetic frames.
 
 type Rgba = number[];
@@ -42,7 +42,7 @@ async function setRadius(blur: Locator, value: string) {
 }
 
 describe("Gaussian Blur", { timeout: 60_000 }, () => {
-  test("is added from a layer's Video → Stylize menu and blurs the preview more as Radius grows", async () => {
+  test("is added from a layer's Video → Blur menu and blurs the preview more as Radius grows", async () => {
     // A text clip on layer 1, previewed in its middle.
     let project: ProjectState = withTextClip(EMPTY_PROJECT).project;
     const preview = () => renderFrame(rendererState(project, PREVIEW), 4);
@@ -60,7 +60,7 @@ describe("Gaussian Blur", { timeout: 60_000 }, () => {
     );
     await addFromMenu(
       "Add device to this layer",
-      "Stylize",
+      "Blur",
       "Gaussian Blur",
       "Video",
     );

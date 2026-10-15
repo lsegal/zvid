@@ -18,7 +18,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Refraction",
   description: "Shows the layer through water or textured glass.",
   accent: "#9ad7f5",
-  category: "stylize",
+  category: "distort",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

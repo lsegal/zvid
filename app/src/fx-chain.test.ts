@@ -325,7 +325,10 @@ describe("effect categories", () => {
         group.categories.map((category) => category.label),
       ]),
       [
-        ["Video", ["Transform", "Color", "Stylize", "Text"]],
+        [
+          "Video",
+          ["Transform", "Color", "Blur", "Distort", "Glitch", "Stylize", "Text"],
+        ],
         [
           "Audio",
           [
