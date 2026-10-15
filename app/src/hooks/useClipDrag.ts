@@ -44,6 +44,7 @@ export type ClipDragInputs = {
   playbackOriginRef: { current: number };
   isWorkspaceReadOnlyRef: { current: boolean };
   refuseReadOnlyEdit: () => void;
+  setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setPlayheadQ: (nextPlayheadQ: number) => void;
   jumpToClipStart: (clipId: string) => void;
   commitProjectChange: (
@@ -74,6 +75,7 @@ export function useClipDrag({
   playbackOriginRef,
   isWorkspaceReadOnlyRef,
   refuseReadOnlyEdit,
+  setIsPlaying,
   setPlayheadQ,
   jumpToClipStart,
   commitProjectChange,
@@ -320,14 +322,16 @@ export function useClipDrag({
         return;
       }
 
-      // A press released before it became a drag is a click: it seeks
-      // instead of leaving a selection behind.
+      // A press released before it became a drag is a click: it stops
+      // playback and seeks instead of leaving a selection behind. A drag
+      // leaves playback running (#1447).
       if (dragState.kind === "selection") {
         const release = releaseLaneSelectionGesture(dragState.gesture);
         if (release.kind === "click") {
           setPendingSelection(null);
           setPlayheadQ(release.playheadQ);
           playbackOriginRef.current = release.playheadQ;
+          setIsPlaying(false);
         }
       }
 
@@ -417,6 +421,7 @@ export function useClipDrag({
     jumpToClipStart,
     minimumWindowQ,
     refuseReadOnlyEdit,
+    setIsPlaying,
     setPlayheadQ,
     snapEnabled,
     labelWidth,
