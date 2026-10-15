@@ -115,17 +115,25 @@ export async function openLottie(
   };
 }
 
+// A canvas with no size encodes as "data:,".
+const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+
 /**
  * A PNG of `player`'s frame `index`, as an object URL. It throws when the
  * canvas yields no image, e.g. when it has no size.
+ *
+ * The PNG is encoded synchronously: Chromium's `toBlob` and `convertToBlob`
+ * wait for the page to go idle, up to a second each, which a busy page
+ * (playback, or a headless Linux browser) never does (#1496).
  */
 export async function lottieFrameUrl(player: LottiePlayer, index: number) {
-  const canvas = player.frame(index);
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/png"),
-  );
-  if (!blob) {
+  const dataUrl = player.frame(index).toDataURL("image/png");
+  if (!dataUrl.startsWith(PNG_DATA_URL_PREFIX)) {
     throw new Error("The Lottie frame could not be captured.");
   }
-  return URL.createObjectURL(blob);
+  const bytes = Uint8Array.from(
+    atob(dataUrl.slice(PNG_DATA_URL_PREFIX.length)),
+    (char) => char.charCodeAt(0),
+  );
+  return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
 }
