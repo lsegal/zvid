@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { LABEL_WIDTH_DEFAULT } from "../../app/constants.ts";
 import type { ClipMenuState, Lane } from "../../app/types.ts";
-import type { AudioMix } from "../../audio-mix/resolve.ts";
+import { type AudioMix, resolveAudioClips } from "../../audio-mix/resolve.ts";
 import { AUDIO_ROW_HEIGHT } from "../../audio-row-section.ts";
 import {
   EDITOR_TEST_TIMEOUT,
@@ -13,9 +13,13 @@ import {
 import { menuItem, rightClick } from "../../component-test/input.ts";
 import { DesktopShell } from "../../component-test/shells.tsx";
 import { setViewport } from "../../component-test/viewport.ts";
+import { createEffect } from "../../fx/stack/ops.ts";
+import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { useAudioMix } from "../../hooks/useAudioMix.ts";
 import type { MediaItem } from "../../media.ts";
 import { buildAudioMenuEntries } from "../../menus/audio-menu.ts";
+import type { MidiNote } from "../../midi-clip.ts";
+import { createSynthEffect } from "../../midi-effects.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
 import type { WaveformPeaks } from "../../waveform-peaks.ts";
 import { TimelineContextMenu } from "../TimelineContextMenu";
@@ -420,6 +424,73 @@ test("a clip with audio draws the mix, and Refresh recomputes it", {
     .toEqual(["ready", "computing"]);
   expect(mixContent().getAttribute("data-audio-mix")).toBe("ready");
   await expect.poll(drawnLevel).toBeGreaterThan(0.1);
+});
+
+// A MIDI clip of two notes at `velocity`, played by a default Synth through
+// a Gain, as the only clip in the mix.
+function midiMix(velocity: number) {
+  const stack = sourceClipEffectTrackId("midi");
+  const notes: MidiNote[] = [
+    { pitch: 57, start: 0, length: 2, velocity },
+    { pitch: 64, start: 4, length: 2, velocity },
+  ];
+  return resolveAudioClips({
+    clips: [],
+    lanes: [],
+    sourceTracks: [{ id: "keys" }],
+    sourceSpans: [
+      {
+        id: "midi",
+        sourceTrackId: "keys",
+        startQ: 0,
+        durationSeconds: 4,
+        trimStartSeconds: 0,
+        notes,
+      },
+    ],
+    mediaById: new Map(),
+    effects: [
+      createSynthEffect(stack, undefined),
+      createEffect(stack, "Gain", "gain"),
+    ],
+    bpm: 120,
+  });
+}
+
+test("a MIDI clip draws its performance in the mix, and redraws when its notes change", {
+  timeout: 30_000,
+}, async () => {
+  const loud = midiMix(127);
+  expect(loud.clips[0]?.synth).toBeTruthy();
+  const screen = await render(
+    <DesktopShell>
+      <HookedRow mix={loud} />
+    </DesktopShell>,
+  );
+  await expect
+    .poll(() => audioRow().textContent)
+    .toContain("From source tracks · 1 clip");
+  await expect
+    .poll(() => mixContent().getAttribute("data-audio-mix"), {
+      timeout: 30_000,
+    })
+    .toBe("ready");
+  await expect
+    .element(audioRow().querySelector<HTMLElement>(".waveform__canvas"))
+    .toBeVisible();
+  await expect.poll(drawnLevel).toBeGreaterThan(0.05);
+  const loudLevel = drawnLevel();
+
+  // Quieter notes render a new performance, drawn at their level.
+  await screen.rerender(
+    <DesktopShell>
+      <HookedRow mix={midiMix(32)} />
+    </DesktopShell>,
+  );
+  await expect
+    .poll(drawnLevel, { timeout: 30_000 })
+    .toBeLessThan(loudLevel / 2);
+  expect(drawnLevel()).toBeGreaterThan(0);
 });
 
 // The Audio row docked under the timeline's rows.

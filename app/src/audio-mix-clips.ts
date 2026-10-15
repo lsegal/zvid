@@ -2,10 +2,10 @@
 // clip's media mapped onto song time the way the mix plays it, at its Gain
 // and the Global Gain.
 //
-// MIDI clips are left out: their media is a synth performance, which has no
-// waveform to draw, so tweaking a Synth or a MIDI effect on one does not
-// rebuild the waveform.
+// A MIDI clip's media is its performance, its notes through its instrument,
+// which is rendered for its peaks (see synth-waveform-loader.ts).
 import type { AudioMix, AudioMixClip } from "./audio-mix/resolve.ts";
+import type { SynthClip } from "./audio-mix/synth.ts";
 import type { AudioMixOrigin, MixPeaksClip } from "./audio-mix-peaks.ts";
 import { loopMediaTime, warpSourceTime } from "./clip-warp.ts";
 import type { MediaItem } from "./media.ts";
@@ -29,12 +29,9 @@ export type AudioMixContribution = Omit<
 > & {
   mediaId: string;
   timing: AudioMixTiming;
+  // A MIDI clip's performance, whose rendered audio is its media.
+  synth?: SynthClip;
 };
-
-// The clips the waveform draws: those that play media rather than notes.
-function drawnClips(mix: AudioMix) {
-  return mix.clips.filter((clip) => !clip.synth);
-}
 
 export function getAudioMixOrigin(mix: AudioMix): AudioMixOrigin {
   return mix.fromSourceTracks ? "source-tracks" : "layers";
@@ -43,8 +40,9 @@ export function getAudioMixOrigin(mix: AudioMix): AudioMixOrigin {
 export function getAudioMixContributions(
   mix: AudioMix,
 ): AudioMixContribution[] {
-  return drawnClips(mix).map((clip) => ({
+  return mix.clips.map((clip) => ({
     mediaId: clip.mediaId,
+    ...(clip.synth ? { synth: clip.synth } : {}),
     startSeconds: clip.startSeconds,
     endSeconds: clip.startSeconds + Math.max(0, clip.durationSeconds),
     amplitude: clip.amplitude * mix.masterAmplitude,
@@ -93,18 +91,20 @@ export function toMixPeaksClip(
 // Everything the Audio row's waveform reads from the mix and its media. The
 // mix holds only clips whose media has audio, so editing a clip without
 // audio (video-only media, fill, text or FX clips) leaves the key as it was
-// and the waveform is not rebuilt. Nor is it for edits to MIDI clips, their
-// notes, Gain or instrument, which it does not draw. An edit that adds a clip to the mix or
+// and the waveform is not rebuilt. An edit that adds a clip to the mix or
 // takes one out of it, such as re-pointing a clip between audio and
-// video-only media, changes the key.
+// video-only media, changes the key. A MIDI clip's media id names its
+// performance, so editing its notes, its instrument or the tempo changes it.
 export function audioMixPeaksKey(
   mix: AudioMix,
   mediaItemsById: ReadonlyMap<string, MediaItem>,
 ) {
   const media = new Map<string, unknown>();
-  const clips = drawnClips(mix).map((clip) => {
-    const item = mediaItemsById.get(clip.mediaId);
-    media.set(clip.mediaId, [item?.availability, item?.previewUrl]);
+  const clips = mix.clips.map((clip) => {
+    if (!clip.synth) {
+      const item = mediaItemsById.get(clip.mediaId);
+      media.set(clip.mediaId, [item?.availability, item?.previewUrl]);
+    }
     return [
       clip.mediaId,
       clip.startSeconds,
