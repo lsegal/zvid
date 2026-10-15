@@ -280,12 +280,16 @@ export const ClipCard = memo(function ClipCard({
       <button
         className="clip-card__body"
         onClick={(event) => {
+          // The press and release already selected or toggled a clicked clip
+          // (useClipDrag); this handles keyboard activation.
+          if (event.detail > 0) {
+            return;
+          }
           // A Shift-click toggles the clip on release instead (useClipDrag).
           if (event.shiftKey) {
             return;
           }
-          // One of several selected clips keeps the selection, which a
-          // release without dragging narrows instead (useClipDrag).
+          // One of several selected clips keeps the selection.
           if (inGroup) {
             return;
           }
@@ -311,8 +315,9 @@ export const ClipCard = memo(function ClipCard({
             ? `window-${crypto.randomUUID()}`
             : clip.id;
           // A Shift-click adds the clip to the selection or takes it out
-          // on release; dragging still moves it.
-          const toggleOnClick = event.shiftKey && !duplicateOnDrag;
+          // on release, and a click on a selected clip takes it out;
+          // dragging still moves it, or the whole selection (#1481).
+          const toggleOnClick = (event.shiftKey || selected) && !duplicateOnDrag;
           // The other selected clips move, or duplicate, along with it.
           const group = inGroup
             ? [...selectedClipIds]

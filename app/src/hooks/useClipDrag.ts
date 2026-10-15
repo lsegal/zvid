@@ -453,7 +453,8 @@ export function useClipDrag({
 
       // A group drag keeps its clips selected, or selects the duplicates,
       // the grabbed one primary. Released without dragging, it is a click
-      // that selects just the grabbed clip, unless Shift toggles it.
+      // that takes the grabbed clip out of the selection, or a Ctrl/Cmd-click
+      // that selects just it.
       if (dragState.kind === "move" && dragState.group) {
         if (dragPreviewClips && dragState.duplicateOnDrag) {
           applySelection(
@@ -481,8 +482,8 @@ export function useClipDrag({
         return;
       }
 
-      // A Shift-press selects the clip it moved, or toggles it when it
-      // never moved.
+      // A Shift-press, or a press on the selected clip, selects the clip it
+      // moved, or toggles it when it never moved.
       if (dragState.kind === "move" && dragState.toggleOnClick) {
         if (dragPreviewClips) {
           setSelectedClipId(dragState.clipId);

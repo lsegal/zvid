@@ -3,6 +3,7 @@ import {
   memo,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
+  useRef,
 } from "react";
 import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
@@ -22,6 +23,7 @@ import {
 } from "../../clip-media-state";
 import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
+import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../../lane-selection-gesture.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import { type MediaItem, showsPicture } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
@@ -171,6 +173,9 @@ export const SourceSpan = memo(function SourceSpan({
   const trimmingStart = trimming && sourceSpanDrag?.kind === "resize-start";
   const trimmingEnd = trimming && sourceSpanDrag?.kind === "resize-end";
 
+  // Where the body was last pressed, which tells a click from a drag.
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+
   function startDrag(
     event: ReactPointerEvent,
     kind: SourceSpanDragState["kind"],
@@ -218,8 +223,22 @@ export const SourceSpan = memo(function SourceSpan({
           return;
         }
         if (!isSourceClipDropClick(event)) {
-          // Selecting never moves the playhead.
-          selectSourceSpan(clip, event.shiftKey ? "toggle" : "select");
+          // A Shift-click, or a click on a selected span that never became
+          // a drag, adds it or takes it out (#1481). Selecting never moves
+          // the playhead.
+          const press = pressRef.current;
+          const clicked =
+            !press ||
+            (Math.abs(event.clientX - press.x) <=
+              LANE_SELECTION_DRAG_THRESHOLD_PX &&
+              Math.abs(event.clientY - press.y) <=
+                LANE_SELECTION_DRAG_THRESHOLD_PX);
+          selectSourceSpan(
+            clip,
+            event.shiftKey || (clicked && selectedSourceSpanIds.has(clip.id))
+              ? "toggle"
+              : "select",
+          );
           return;
         }
 
@@ -230,6 +249,9 @@ export const SourceSpan = memo(function SourceSpan({
       onContextMenu={(event) => {
         selectSourceSpan(clip, "menu");
         openSourceSpanMenu(event, clip);
+      }}
+      onPointerDownCapture={(event) => {
+        pressRef.current = { x: event.clientX, y: event.clientY };
       }}
       onPointerDown={(event) => startDrag(event, "move")}
       title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement, ${shortcutLabels.selectionToggle} to add it to or remove it from the selection`}
