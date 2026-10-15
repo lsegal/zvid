@@ -11,6 +11,10 @@ function lottieJson() {
     layers: [solid(1, "#ff0000", 0, 15), solid(2, "#0000ff", 15, 30)] });
 }
 
+function capped<T>(p: Promise<T>) {
+  return Promise.race([p, new Promise<"TIMEOUT">((r) => setTimeout(() => r("TIMEOUT"), 3000))]);
+}
+
 async function blobOf(canvas: HTMLCanvasElement) {
   return new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
 }
@@ -29,31 +33,31 @@ test("DIAG lottie timing", async () => {
     lap("openLottie");
     const canvas = player.frame(15);
     lap(`frame ${canvas.width}x${canvas.height}`);
-    const blob = await blobOf(canvas);
-    lap(`toBlob ${blob?.size}`);
-    await lottieFrameUrl(player, 20);
+    const blob = await capped(blobOf(canvas));
+    lap(`toBlob ${blob instanceof Blob ? blob.size : blob}`);
+    await capped(lottieFrameUrl(player, 20));
     lap("lottieFrameUrl other frame");
     const small = document.createElement("canvas");
     small.width = 160; small.height = 160;
     small.getContext("2d")?.drawImage(canvas, 0, 0, 160, 160);
     lap("downscale 160");
-    const sb = await blobOf(small);
-    lap(`small toBlob ${sb?.size}`);
+    const sb = await capped(blobOf(small));
+    lap(`small toBlob ${sb instanceof Blob ? sb.size : sb}`);
     const off = new OffscreenCanvas(canvas.width, canvas.height);
     off.getContext("2d")?.drawImage(canvas, 0, 0);
     lap("offscreen copy");
-    const ob = await off.convertToBlob({ type: "image/png" });
-    lap(`convertToBlob ${ob.size}`);
+    const ob = await capped(off.convertToBlob({ type: "image/png" }));
+    lap(`convertToBlob ${ob instanceof Blob ? ob.size : ob}`);
     const bmp = await createImageBitmap(canvas);
     lap("bitmap");
     const off2 = new OffscreenCanvas(bmp.width, bmp.height);
     off2.getContext("bitmaprenderer")?.transferFromImageBitmap(bmp);
-    const ob2 = await off2.convertToBlob({ type: "image/png" });
-    lap(`bitmaprenderer convertToBlob ${ob2.size}`);
+    const ob2 = await capped(off2.convertToBlob({ type: "image/png" }));
+    lap(`bitmaprenderer convertToBlob ${ob2 instanceof Blob ? ob2.size : ob2}`);
     const d = canvas.toDataURL("image/png");
     lap(`toDataURL ${d.length}`);
-    const raf = await new Promise<number>((r) => { const s = performance.now(); requestAnimationFrame(() => r(performance.now() - s)); });
-    out.push(`DIAG r${round} raf ${raf.toFixed(1)}`);
+    const raf = await capped(new Promise<number>((r) => { const s = performance.now(); requestAnimationFrame(() => r(performance.now() - s)); }));
+    out.push(`DIAG r${round} raf ${raf}`);
   }
   throw new Error(out.join("\n"));
-});
+}, 120_000);
