@@ -8,8 +8,7 @@ import testPatternUrl from "../../e2e/fixtures/test-pattern.mp4?url";
 import type { ClipClipboard } from "../app/clip-ops.ts";
 import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
-import { selectSourceSpan } from "../app/source-selection.ts";
-import type { Lane, ProjectState, SourceSpan } from "../app/types.ts";
+import type { Lane, ProjectState } from "../app/types.ts";
 import type { WorkspaceAccess } from "../app/workspace-types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
@@ -23,6 +22,7 @@ import { TimelineContextMenu } from "../components/TimelineContextMenu";
 import { TopBar } from "../components/TopBar";
 import { ArrangementLanes } from "../components/timeline/ArrangementLanes";
 import { AudioRow } from "../components/timeline/AudioRow";
+import { MarqueeBox } from "../components/timeline/MarqueeBox";
 import { Ruler } from "../components/timeline/Ruler";
 import { SourceTracks } from "../components/timeline/SourceTracks";
 import { Timeline } from "../components/timeline/Timeline";
@@ -354,11 +354,6 @@ export function Editor({
     fxClipId: fxPanel.fxClipId,
     projectDurationFrames: project.projectDurationFrames,
   });
-  const { selectSource } = selection;
-  const selectSourceSpanClip = useCallback(
-    (span: SourceSpan) => selectSource(selectSourceSpan(span)),
-    [selectSource],
-  );
 
   onState?.({
     project,
@@ -588,7 +583,7 @@ export function Editor({
                     revealedMediaIds: NO_IDS,
                     clipMenu: selection.clipMenu,
                     selectedSourceSpanIds: selection.selectedSourceSpanIds,
-                    selectSourceSpan: selectSourceSpanClip,
+                    selectSourceSpan: selection.selectSourceSpanClip,
                     shortcutLabels,
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
@@ -662,6 +657,7 @@ export function Editor({
           </FxModulationClockContext.Provider>
         </div>
       </main>
+      <MarqueeBox rect={editing.marqueeRect} />
       <TimelineContextMenu
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}

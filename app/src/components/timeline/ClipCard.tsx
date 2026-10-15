@@ -277,7 +277,11 @@ export const ClipCard = memo(function ClipCard({
       />
       <button
         className="clip-card__body"
-        onClick={() => {
+        onClick={(event) => {
+          // A Shift-click toggles the clip on release instead (useClipDrag).
+          if (event.shiftKey) {
+            return;
+          }
           setPendingSelection(null);
           // Selecting never moves the playhead.
           setSelectedClipId(clip.id);

@@ -229,6 +229,18 @@ describe("buildStatusItems", () => {
     assert.equal(media?.title, "1 media file offline");
   });
 
+  it("reports the selection only while several clips are selected", () => {
+    assert.equal(
+      itemsById({ ...BASE, selectedClipCount: 1 }).has("selection"),
+      false,
+    );
+    const selection = itemsById({ ...BASE, selectedClipCount: 3 }).get(
+      "selection",
+    );
+    assert.equal(selection?.value, "3");
+    assert.equal(selection?.title, "3 clips selected");
+  });
+
   it("pluralizes clip and track counts in the title", () => {
     assert.equal(
       itemsById({ ...BASE, clipCount: 1, trackCount: 1 }).get("content")?.title,
