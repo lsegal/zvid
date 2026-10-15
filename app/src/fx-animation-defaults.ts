@@ -28,7 +28,7 @@ export const CLIP_MOTIONS = [
 ] as const;
 export type ClipMotion = (typeof CLIP_MOTIONS)[number];
 
-export const REACTIVE_MOTIONS = ["None", "Bounce", "Wobble"] as const;
+export const REACTIVE_MOTIONS = ["None", "Bounce", "Wobble", "Single"] as const;
 export type ReactiveMotion = (typeof REACTIVE_MOTIONS)[number];
 
 export const LFO_SHAPES = [

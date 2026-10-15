@@ -88,7 +88,7 @@ describe("sampleReactiveTrace", () => {
     reactive: Parameters<typeof sampleReactiveTrace>[0],
     time: number,
   ) => sampleReactiveTrace(reactive, onsets, 30, 30, time, COUNT, SECONDS);
-  const peak = (motion: "Bounce" | "Wobble") => {
+  const peak = (motion: "Bounce" | "Wobble" | "Single") => {
     let most = 0;
     for (let index = 0; index < 2000; index++) {
       most = Math.max(most, Math.abs(reactiveEnvelope(motion, index / 2000)));
@@ -119,6 +119,14 @@ describe("sampleReactiveTrace", () => {
     const trace = sample({ motion: "Wobble", reactivity: 0, amplitude: 1 }, 2);
     assert.ok(Math.min(...trace) < 0);
     assert.ok(Math.max(...trace) > 0);
+  });
+
+  it("draws one full sine cycle for Single", () => {
+    const trace = sample({ motion: "Single", reactivity: 0, amplitude: 1 }, 2);
+    for (let index = 0; index <= 10; index++) {
+      const u = index / 10;
+      close(trace[index], Math.sin(2 * Math.PI * u));
+    }
   });
 
   it("scales by Amplitude and the hit's strength", () => {
