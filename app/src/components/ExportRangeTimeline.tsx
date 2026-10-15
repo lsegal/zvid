@@ -202,7 +202,7 @@ export function ExportRangeTimeline({
                     style={{
                       left,
                       width: Math.max(1, toPx(getClipEndQ(clip, bpm)) - left),
-                      backgroundColor: clip.tint,
+                      ["--clip-tint" as string]: clip.tint,
                       backgroundImage: thumbnail
                         ? `url("${thumbnail}")`
                         : undefined,

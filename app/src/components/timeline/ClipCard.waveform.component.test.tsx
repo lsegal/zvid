@@ -6,6 +6,7 @@ import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import type { ArrangementClip } from "../../app/types.ts";
 import { DesktopShell } from "../../component-test/shells.tsx";
 import type { MediaItem } from "../../media.ts";
+import { setTheme } from "../../theme.ts";
 import { ClipCard, type ClipCardContext } from "./ClipCard";
 import "./lane-row.css";
 
@@ -219,6 +220,25 @@ function drawnColumns(selector: string) {
   return columns;
 }
 
+// The mean red, green and blue of a waveform canvas's drawn pixels, 0-255.
+function drawnColor(selector: string) {
+  const canvas = document.querySelector<HTMLCanvasElement>(selector);
+  const context = canvas?.getContext("2d");
+  if (!canvas || !context || !canvas.width || !canvas.height) {
+    return 0;
+  }
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+  let sum = 0;
+  let count = 0;
+  for (let index = 0; index < data.length; index += 4) {
+    if (data[index + 3] > 0) {
+      sum += (data[index] + data[index + 1] + data[index + 2]) / 3;
+      count += 1;
+    }
+  }
+  return count ? sum / count : 0;
+}
+
 // The element the pointer would hit at the middle of an element's box.
 function hitAtCenter(element: Element) {
   const box = element.getBoundingClientRect();
@@ -262,6 +282,44 @@ describe("an audio-only clip card", () => {
     await userEvent.hover(start);
     await expect.poll(() => opacity(start)).toBe("1");
     await expect.poll(() => opacity(end)).toBe("0");
+  });
+});
+
+describe("a clip card in the light theme", () => {
+  afterEach(() => setTheme("dark"));
+
+  test("redraws its waveform dark on a lightened clip", {
+    timeout: 30_000,
+  }, async () => {
+    const card = await renderMediaClip(
+      toneMedia({ hasVideo: false, hasAudio: true }),
+    );
+    const selector = "canvas.clip-card__waveform";
+    await expect
+      .poll(() => drawnColumns(selector), { timeout: 30_000 })
+      .toBeGreaterThan(20);
+    expect(drawnColor(selector)).toBeGreaterThan(180);
+    const darkTint = getComputedStyle(card).backgroundColor;
+
+    setTheme("light");
+    await expect.poll(() => drawnColor(selector)).toBeLessThan(100);
+    expect(getComputedStyle(card).backgroundColor).not.toBe(darkTint);
+  });
+
+  test("keeps the dark theme over its frames", {
+    timeout: 30_000,
+  }, async () => {
+    setTheme("light");
+    const card = await renderMediaClip(
+      toneMedia({ hasVideo: true, hasAudio: true }),
+      { filmstrip: true },
+    );
+    expect(card.dataset.theme).toBe("dark");
+    const selector = "canvas.clip-card__waveform-overlay";
+    await expect
+      .poll(() => drawnColumns(selector), { timeout: 30_000 })
+      .toBeGreaterThan(20);
+    expect(drawnColor(selector)).toBeGreaterThan(180);
   });
 });
 

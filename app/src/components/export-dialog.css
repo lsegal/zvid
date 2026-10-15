@@ -315,6 +315,11 @@
   top: 0;
   bottom: 0;
   border-radius: 3px;
+  /* The clip's color, lightened in the light theme as on clip-card.css. */
+  background-color: light-dark(
+    color-mix(in srgb, var(--clip-tint) 24%, white),
+    var(--clip-tint)
+  );
   background-size: auto 100%;
   background-repeat: repeat-x;
   opacity: 0.85;

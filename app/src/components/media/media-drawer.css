@@ -533,7 +533,7 @@
   bottom: 4px;
   padding: 1px 5px;
   border-radius: 4px;
-  background: light-dark(rgba(40, 48, 80, 0.36), rgba(8, 9, 15, 0.72));
+  background: rgba(8, 9, 15, 0.72);
   color: #fff;
   font-size: 0.66rem;
   font-variant-numeric: tabular-nums;
