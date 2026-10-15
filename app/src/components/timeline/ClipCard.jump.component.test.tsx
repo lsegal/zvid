@@ -214,7 +214,9 @@ describe("ClipCard jump to start", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("on macOS Cmd-click jumps and Ctrl-click opens the clip menu", async () => {
     restorePlatform = reportMacOS();
     await addVideoClip("Meta");
-    expect(clipBody().title).toBe("Cmd+click to jump to start");
+    expect(clipBody().title).toBe(
+      "Cmd+click to jump to start, Shift+click to add to or remove from the selection",
+    );
     const startX = clipX();
     const { x, y } = jumpPoint();
 

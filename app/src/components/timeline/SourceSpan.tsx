@@ -227,7 +227,7 @@ export const SourceSpan = memo(function SourceSpan({
         openSourceSpanMenu(event, clip);
       }}
       onPointerDown={(event) => startDrag(event, "move")}
-      title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
+      title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement, ${shortcutLabels.selectionToggle} to add it to or remove it from the selection`}
       style={{
         left: clip.startQ * quarterPx,
         width: widthPx,
