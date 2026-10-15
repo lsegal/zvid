@@ -5,8 +5,8 @@ export type AudioBands = {
   // Detected onsets, 0..1: jumps on a hit and decays quickly between hits.
   impulseLow: number;
   impulseHigh: number;
-  // Hits detected in the last ONSET_MEMORY_SECONDS, oldest first, each at
-  // the stronger of the two bands' strengths.
+  // Low-band hits (kicks and bass notes) detected in the last
+  // ONSET_MEMORY_SECONDS, oldest first.
   onsets?: readonly AudioOnset[];
 };
 
@@ -40,24 +40,33 @@ const MAX_ENVELOPE_STEP_SECONDS = 0.25;
 // AnalyserNode defaults, reproduced offline so export matches the preview.
 const MIN_DECIBELS = -100;
 const MAX_DECIBELS = -30;
-// Onset detection runs once per tick of the reference-rate grid. A band's
-// onset function is its positive spectral flux: the mean rise of its bins
-// since the previous tick, as a fraction of full scale. A tick is a hit when
-// the flux beats `mean + k * stddev` of the flux over the preceding window
-// (and a floor, so near-silence never fires), outside the refractory period
-// of the previous hit.
+// Onset detection runs once per tick of the reference-rate grid, outside the
+// refractory period of the band's previous hit.
+const ONSET_REFRACTORY_SECONDS = 0.08;
+// The high band's onset function is its positive spectral flux: the mean
+// rise of its bins since the previous tick, as a fraction of full scale. A
+// tick is a hit when the flux beats `mean + k * stddev` of the flux over the
+// preceding window (and a floor, so near-silence never fires).
 const ONSET_WINDOW_SECONDS = 0.75;
 const ONSET_THRESHOLD_DEVIATIONS = 2.5;
 const ONSET_MIN_FLUX = 0.02;
-const ONSET_REFRACTORY_SECONDS = 0.08;
 // Flux above the threshold that gives a full-strength impulse.
 const ONSET_FULL_STRENGTH_FLUX = 0.2;
+// The low band's onset function is the rise of its total energy, in
+// decibels, over the loudest of the previous few ticks. A kick or bass note
+// lands on a band that a held bass already fills, so the bins themselves
+// sit at the analyser's ceiling and barely move; the energy still jumps.
+// The window is short next to a bass wave, so a held note's energy dips
+// for a tick now and then, and comparing against the previous tick alone
+// would fire when it recovers.
+const LOW_ONSET_LOOKBACK_TICKS = 4;
+// The rise a hit needs, and the rise that gives a full-strength impulse.
+const LOW_ONSET_MIN_RISE_DB = 5;
+const LOW_ONSET_FULL_RISE_DB = 10;
+// Quieter low-band energy never fires.
+const LOW_ONSET_MIN_ENERGY_DB = -70;
 // Time for an impulse to decay to 10% of its peak.
 const IMPULSE_DECAY_SECONDS = 0.15;
-// The high band's share of a combined onset's strength. Hats, clicks and
-// sibilance still register as hits, but weakly enough that a Reactivity
-// threshold a kick clears drops them.
-export const HIGH_ONSET_WEIGHT = 0.35;
 // Offline envelopes are rebuilt from this much audio before a random seek.
 // It must cover the onset window so seeks detect the same hits.
 const OFFLINE_WARMUP_SECONDS = 1;
@@ -124,6 +133,34 @@ function bandFlux(
   return total / ((last - first + 1) * 255);
 }
 
+// A band's total energy, in decibels, from the analyser's unclipped
+// decibel bins; -Infinity in silence.
+function bandEnergy(
+  decibels: Float32Array,
+  sampleRate: number,
+  minimumHz: number,
+  maximumHz: number,
+) {
+  const { first, last } = bandBins(sampleRate, minimumHz, maximumHz);
+  let power = 0;
+  for (let index = first; index <= last; index++) {
+    power += 10 ** (decibels[index] / 10);
+  }
+  return 10 * Math.log10(power);
+}
+
+// The bins getByteFrequencyData gives for `decibels`, the bins
+// getFloatFrequencyData gives, from an analyser set up by
+// createBandAnalyser.
+function byteBins(decibels: Float32Array, into: Uint8Array) {
+  const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
+  for (let index = 0; index < into.length; index++) {
+    const value = Math.floor(scale * (decibels[index] - MIN_DECIBELS));
+    into[index] = Number.isFinite(value) ? Math.max(0, Math.min(255, value)) : 0;
+  }
+  return into;
+}
+
 function measureLevels(bins: Uint8Array, sampleRate: number) {
   return {
     low: bandMean(bins, sampleRate, 0, LOW_BAND_MAX_HZ),
@@ -160,7 +197,7 @@ function decayImpulse(impulse: number, elapsedSeconds: number) {
   return impulse * 0.1 ** (Math.max(0, elapsedSeconds) / IMPULSE_DECAY_SECONDS);
 }
 
-// Adaptive-threshold onset detector and impulse envelope for one band,
+// Adaptive-threshold onset detector and impulse envelope for the high band,
 // advanced one reference-rate tick at a time.
 class OnsetDetector {
   private readonly history = new Float64Array(ONSET_WINDOW_TICKS);
@@ -231,13 +268,68 @@ class OnsetDetector {
   }
 }
 
+// Onset detector and impulse envelope for the low band, advanced one
+// reference-rate tick at a time: a hit is a jump in the band's energy.
+class EnergyRiseDetector {
+  private readonly recent = new Float64Array(LOW_ONSET_LOOKBACK_TICKS).fill(
+    Number.NEGATIVE_INFINITY,
+  );
+  private recentNext = 0;
+  private refractoryTicks = 0;
+  impulse = 0;
+
+  // Steps one tick with the band's energy in decibels and returns the
+  // strength of the hit it detected, or 0.
+  tick(energy: number) {
+    const rise = energy - Math.max(...this.recent);
+    this.impulse = decayImpulse(this.impulse, TICK_SECONDS);
+    let hit = 0;
+    if (this.refractoryTicks > 0) {
+      this.refractoryTicks -= 1;
+    } else if (
+      energy > LOW_ONSET_MIN_ENERGY_DB &&
+      rise > LOW_ONSET_MIN_RISE_DB
+    ) {
+      hit = Math.min(
+        1,
+        (rise - LOW_ONSET_MIN_RISE_DB) /
+          (LOW_ONSET_FULL_RISE_DB - LOW_ONSET_MIN_RISE_DB),
+      );
+      this.impulse = Math.max(this.impulse, hit);
+      this.refractoryTicks = ONSET_REFRACTORY_TICKS;
+    }
+
+    this.recent[this.recentNext] = energy;
+    this.recentNext = (this.recentNext + 1) % LOW_ONSET_LOOKBACK_TICKS;
+    return hit;
+  }
+
+  // Steps a tick whose spectrum matches the previous one.
+  hold() {
+    const last =
+      this.recent[
+        (this.recentNext + LOW_ONSET_LOOKBACK_TICKS - 1) %
+          LOW_ONSET_LOOKBACK_TICKS
+      ];
+    this.tick(last);
+  }
+
+  reset() {
+    this.recent.fill(Number.NEGATIVE_INFINITY);
+    this.recentNext = 0;
+    this.refractoryTicks = 0;
+    this.impulse = 0;
+  }
+}
+
 // Level envelopes and onset detectors for both bands. Onsets are detected on
 // the fixed reference-rate grid, the same one OfflineAudioBands steps, so
 // preview and export fire on the same hits at any frame rate.
 export class AudioBandTracker {
   private readonly envelope = new BandEnvelope();
-  private readonly lowOnsets = new OnsetDetector();
+  private readonly lowOnsets = new EnergyRiseDetector();
   private readonly highOnsets = new OnsetDetector();
+  private readonly bins = new Uint8Array(FFT_SIZE / 2);
   private readonly previous = new Uint8Array(FFT_SIZE / 2);
   private hasPrevious = false;
   // Seconds since the last onset tick, carried between live samples.
@@ -249,11 +341,13 @@ export class AudioBandTracker {
   // The onsets `bands` gives, reused from call to call.
   private readonly onsets: AudioOnset[] = [];
 
-  // Feeds the latest analyser bins after `elapsedSeconds` of playback and
-  // steps every grid tick that elapsed. Only the latest bins are known, so
-  // the spectrum is held until the last of those ticks, which takes the
-  // whole rise, as it would at the reference rate.
-  advance(bins: Uint8Array, sampleRate: number, elapsedSeconds: number) {
+  // Feeds the latest analyser spectrum, in decibels as
+  // getFloatFrequencyData gives it, after `elapsedSeconds` of playback and
+  // steps every grid tick that elapsed. Only the latest spectrum is known,
+  // so it is held until the last of those ticks, which takes the whole
+  // rise, as it would at the reference rate.
+  advance(decibels: Float32Array, sampleRate: number, elapsedSeconds: number) {
+    const bins = byteBins(decibels, this.bins);
     const elapsed = Math.min(
       MAX_ENVELOPE_STEP_SECONDS,
       Math.max(0, elapsedSeconds),
@@ -267,14 +361,16 @@ export class AudioBandTracker {
       this.holdTick();
     }
     if (ticks > 0) {
-      this.tickOnsets(bins, sampleRate);
+      this.tickOnsets(decibels, bins, sampleRate);
     }
   }
 
-  // Steps exactly one grid tick with the bins measured at that tick.
-  step(bins: Uint8Array, sampleRate: number) {
+  // Steps exactly one grid tick with the spectrum measured at that tick, in
+  // decibels.
+  step(decibels: Float32Array, sampleRate: number) {
+    const bins = byteBins(decibels, this.bins);
     this.envelope.step(measureLevels(bins, sampleRate), TICK_SECONDS);
-    this.tickOnsets(bins, sampleRate);
+    this.tickOnsets(decibels, bins, sampleRate);
     this.sinceTick = 0;
   }
 
@@ -316,20 +412,27 @@ export class AudioBandTracker {
   // A tick whose spectrum matches the previous one, so nothing rose.
   private holdTick() {
     if (this.hasPrevious) {
-      this.lowOnsets.tick(0);
+      this.lowOnsets.hold();
       this.highOnsets.tick(0);
     }
     this.recordHit(0);
   }
 
-  private tickOnsets(bins: Uint8Array, sampleRate: number) {
+  // Only the low band's hits are remembered: Reactivity follows kicks and
+  // bass notes, not hats, claps or sibilance. The high band still keeps
+  // its own impulse.
+  private tickOnsets(
+    decibels: Float32Array,
+    bins: Uint8Array,
+    sampleRate: number,
+  ) {
     // The first spectrum after a reset has nothing to rise from.
     let hit = 0;
     if (this.hasPrevious) {
-      const low = this.lowOnsets.tick(
-        bandFlux(bins, this.previous, sampleRate, 0, LOW_BAND_MAX_HZ),
+      hit = this.lowOnsets.tick(
+        bandEnergy(decibels, sampleRate, 0, LOW_BAND_MAX_HZ),
       );
-      const high = this.highOnsets.tick(
+      this.highOnsets.tick(
         bandFlux(
           bins,
           this.previous,
@@ -338,7 +441,6 @@ export class AudioBandTracker {
           HIGH_BAND_MAX_HZ,
         ),
       );
-      hit = Math.max(low, high * HIGH_ONSET_WEIGHT);
     }
     this.previous.set(bins);
     this.hasPrevious = true;
@@ -427,7 +529,7 @@ export function createMeterTap(context: BaseAudioContext) {
 // Without an analyser it measures nothing and starts afresh once given one,
 // so the preview passes none while no effect reacts to the mix.
 export class LiveAudioBands {
-  private bins = new Uint8Array(FFT_SIZE / 2);
+  private decibels = new Float32Array(FFT_SIZE / 2);
   private tracker = new AudioBandTracker();
   private lastSampleMs: number | null = null;
 
@@ -440,9 +542,9 @@ export class LiveAudioBands {
       return SILENT_AUDIO_BANDS;
     }
 
-    analyser.getByteFrequencyData(this.bins);
+    analyser.getFloatFrequencyData(this.decibels);
     this.tracker.advance(
-      this.bins,
+      this.decibels,
       analyser.context.sampleRate,
       elapsedSeconds,
     );
@@ -450,14 +552,14 @@ export class LiveAudioBands {
   }
 }
 
-// The bins an analyser set up by createBandAnalyser reads, measured from
-// samples: what AnalyserNode.getByteFrequencyData gives with no temporal
-// smoothing.
-export class ByteSpectrum {
+// The spectrum an analyser set up by createBandAnalyser reads, measured
+// from samples: what AnalyserNode.getFloatFrequencyData gives with no
+// temporal smoothing.
+export class Spectrum {
   private readonly window = new Float32Array(FFT_SIZE);
   private readonly real = new Float64Array(FFT_SIZE);
   private readonly imaginary = new Float64Array(FFT_SIZE);
-  readonly bins = new Uint8Array(FFT_SIZE / 2);
+  readonly decibels = new Float32Array(FFT_SIZE / 2);
 
   constructor() {
     for (let index = 0; index < FFT_SIZE; index++) {
@@ -467,9 +569,9 @@ export class ByteSpectrum {
     }
   }
 
-  // The bins of the FFT_SIZE samples `sample(0)` to `sample(FFT_SIZE - 1)`,
-  // oldest first: Blackman window, FFT scaled by 1/N, then decibels mapped
-  // onto 0..255.
+  // The decibels of the FFT_SIZE samples `sample(0)` to
+  // `sample(FFT_SIZE - 1)`, oldest first: Blackman window, then FFT scaled
+  // by 1/N.
   measure(sample: (index: number) => number) {
     for (let index = 0; index < FFT_SIZE; index++) {
       this.real[index] = sample(index) * this.window[index];
@@ -478,7 +580,7 @@ export class ByteSpectrum {
     return this.transform();
   }
 
-  // The bins of the FFT_SIZE samples of the ring buffer `ring` from index
+  // The decibels of the FFT_SIZE samples of the ring buffer `ring` from index
   // `start` on, wrapping: what measure gives, without a call per sample.
   measureRing(ring: Float32Array, start: number) {
     const length = ring.length;
@@ -491,22 +593,17 @@ export class ByteSpectrum {
 
   private transform() {
     fft(this.real, this.imaginary);
-    const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
-    for (let index = 0; index < this.bins.length; index++) {
+    for (let index = 0; index < this.decibels.length; index++) {
       const magnitude =
         Math.hypot(this.real[index], this.imaginary[index]) / FFT_SIZE;
-      const decibels = 20 * Math.log10(magnitude);
-      const value = Math.floor(scale * (decibels - MIN_DECIBELS));
-      this.bins[index] = Number.isFinite(value)
-        ? Math.max(0, Math.min(255, value))
-        : 0;
+      this.decibels[index] = 20 * Math.log10(magnitude);
     }
 
-    return this.bins;
+    return this.decibels;
   }
 }
 
-// The samples ByteSpectrum measures at once.
+// The samples Spectrum measures at once.
 export const SPECTRUM_SIZE = FFT_SIZE;
 
 // Reproduces the live analyser from decoded samples for offline rendering.
@@ -515,7 +612,7 @@ export const SPECTRUM_SIZE = FFT_SIZE;
 export class OfflineAudioBands {
   private readonly samples: Float32Array;
   private readonly sampleRate: number;
-  private readonly spectrum = new ByteSpectrum();
+  private readonly spectrum = new Spectrum();
   private tracker = new AudioBandTracker();
   private envelopeStep = -1;
 
@@ -564,7 +661,7 @@ export class OfflineAudioBands {
     );
   }
 
-  // The bins of the FFT_SIZE samples before `timeSeconds`.
+  // The spectrum of the FFT_SIZE samples before `timeSeconds`.
   private measureAt(timeSeconds: number) {
     const start = Math.floor(timeSeconds * this.sampleRate) - FFT_SIZE;
     return this.spectrum.measure((index) => {

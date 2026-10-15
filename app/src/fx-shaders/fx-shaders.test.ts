@@ -13,7 +13,6 @@ import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
   AudioBandTracker,
-  HIGH_ONSET_WEIGHT,
   LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
@@ -79,6 +78,38 @@ function clickTrack(seconds: number) {
   return samples;
 }
 
+// A held 55 Hz bass under a kick every half second from 0.25 s, a pitch
+// drop from 150 to 50 Hz, and a hi-hat every eighth of a second.
+function kickOverBassTrack(seconds: number) {
+  const samples = new Float32Array(seconds * SAMPLE_RATE);
+  let seed = 3;
+  let previousNoise = 0;
+  let kickPhase = 0;
+  for (let index = 0; index < samples.length; index++) {
+    const time = index / SAMPLE_RATE;
+    const sinceKick = (time + 0.25) % 0.5;
+    kickPhase += (2 * Math.PI * (50 + 100 * Math.exp(-sinceKick / 0.03))) /
+      SAMPLE_RATE;
+    if (sinceKick < 1 / SAMPLE_RATE) {
+      kickPhase = 0;
+    }
+    const kick =
+      time >= 0.25 && sinceKick < 0.25
+        ? 0.9 * Math.sin(kickPhase) * Math.exp(-sinceKick / 0.08)
+        : 0;
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    const noise = seed / 1073741824 - 1;
+    const sinceHat = time % 0.125;
+    const hat =
+      sinceHat < 0.03
+        ? 0.3 * (noise - previousNoise) * Math.exp(-sinceHat / 0.01)
+        : 0;
+    previousNoise = noise;
+    samples[index] = 0.25 * Math.sin(2 * Math.PI * 55 * time) + kick + hat;
+  }
+  return samples;
+}
+
 // A steady bass and treble chord with no transients.
 function toneTrack(seconds: number) {
   const samples = new Float32Array(seconds * SAMPLE_RATE);
@@ -89,6 +120,16 @@ function toneTrack(seconds: number) {
       0.2 * Math.sin(2 * Math.PI * 4000 * time);
   }
   return samples;
+}
+
+// An analyser spectrum, in decibels, silent but for `bands`: each fills
+// bins `from` up to `to` at `decibels`.
+function spectrum(...bands: Array<[from: number, to: number, decibels: number]>) {
+  const decibels = new Float32Array(512).fill(Number.NEGATIVE_INFINITY);
+  for (const [from, to, level] of bands) {
+    decibels.fill(level, from, to);
+  }
+  return decibels;
 }
 
 // Reads a signal's bands at `fps` from `from` up to `to` seconds.
@@ -397,19 +438,18 @@ describe("audio onsets", () => {
     assert.deepEqual(sequential.at(19.6).onsets, expected);
   });
 
-  it("weights high-band hits by HIGH_ONSET_WEIGHT and low-band hits fully", () => {
-    // Analyser bins: a jump in the low band (to 250 Hz) or high band
-    // (2-10 kHz) every half second.
+  it("remembers low-band hits at full strength and no high-band hits", () => {
+    // A jump in the low band (to 250 Hz) or high band (2-10 kHz) every
+    // half second.
     const onsetStrengths = (from: number, to: number) => {
       const tracker = new AudioBandTracker();
       const strengths: number[] = [];
       let impulseHigh = 0;
       for (let tick = 0; tick < 120; tick++) {
-        const bins = new Uint8Array(512);
-        if (tick % 30 === 0 && tick > 0) {
-          bins.fill(200, from, to);
-        }
-        tracker.step(bins, SAMPLE_RATE);
+        tracker.step(
+          tick % 30 === 0 && tick > 0 ? spectrum([from, to, -45]) : spectrum(),
+          SAMPLE_RATE,
+        );
         const bands = tracker.bands(0);
         impulseHigh = Math.max(impulseHigh, bands.impulseHigh);
         const latest = bands.onsets?.at(-1);
@@ -422,23 +462,16 @@ describe("audio onsets", () => {
     const low = onsetStrengths(1, 6);
     const high = onsetStrengths(43, 214);
 
-    assert.equal(low.strengths.length, 3, `${low.strengths}`);
-    assert.equal(high.strengths.length, 3, `${high.strengths}`);
-    for (const strength of low.strengths) {
-      assert.ok(strength > 0.8, `low strength ${strength}`);
-    }
-    for (const strength of high.strengths) {
-      assert.ok(strength > 0, `high strength ${strength}`);
-      assert.ok(strength <= HIGH_ONSET_WEIGHT, `high strength ${strength}`);
-    }
+    assert.deepEqual(low.strengths, [1, 1, 1]);
+    assert.deepEqual(high.strengths, []);
     // The high band still detects its hits at full strength on its own.
     assert.ok(high.impulseHigh > 0.8, `impulseHigh ${high.impulseHigh}`);
   });
 
   it("reuses one onsets array, aging each hit from call to call", () => {
     const tracker = new AudioBandTracker();
-    const quiet = new Uint8Array(512);
-    const hit = new Uint8Array(512).fill(200, 1, 6);
+    const quiet = spectrum();
+    const hit = spectrum([1, 6, -45]);
     tracker.step(quiet, SAMPLE_RATE);
     tracker.step(hit, SAMPLE_RATE);
     const first = tracker.bands(0).onsets;
@@ -460,9 +493,9 @@ describe("LiveAudioBands", () => {
     const analyser = {
       reads: 0,
       context: { sampleRate: SAMPLE_RATE },
-      getByteFrequencyData(bins: Uint8Array) {
+      getFloatFrequencyData(decibels: Float32Array) {
         analyser.reads += 1;
-        bins.fill(0);
+        decibels.fill(Number.NEGATIVE_INFINITY);
       },
     };
     return analyser;
@@ -501,6 +534,30 @@ describe("audio impulses", () => {
     }
   });
 
+  it("hits on each kick over a held bass, right away, and not on hats", () => {
+    const bands = new OfflineAudioBands(kickOverBassTrack(4), SAMPLE_RATE);
+    const hits = new Map<number, number>();
+    for (let tick = 60; tick <= 4 * 60; tick++) {
+      const time = tick / 60;
+      for (const onset of bands.at(time).onsets ?? []) {
+        const at = Math.round((time - onset.secondsAgo) * 60);
+        if (at >= 60) {
+          hits.set(at, onset.strength);
+        }
+      }
+    }
+    const kicks = [1.25, 1.75, 2.25, 2.75, 3.25, 3.75];
+
+    assert.equal(hits.size, kicks.length, `hits at ${[...hits.keys()]}`);
+    for (const kick of kicks) {
+      // Within two ticks of the kick, at most 1/30 s later.
+      const [tick, strength] =
+        [...hits].find(([at]) => at >= kick * 60 && at <= kick * 60 + 2) ?? [];
+      assert.ok(tick !== undefined, `no hit for the kick at ${kick}`);
+      assert.ok((strength ?? 0) > 0.5, `kick at ${kick}: ${strength}`);
+    }
+  });
+
   it("stays near 0 on steady noise and a sustained tone", () => {
     assert.ok(maxImpulse(readBands(hissTrack(3), 60, 1, 3)) < 0.05);
     assert.ok(maxImpulse(readBands(toneTrack(3), 60, 1, 3)) < 0.05);
@@ -528,15 +585,9 @@ describe("audio impulses", () => {
   });
 
   it("gives the same live impulses at 30, 60 and 120 fps", () => {
-    // Analyser bins: both bands jump for 40 ms every half second.
-    const binsAt = (time: number) => {
-      const bins = new Uint8Array(512);
-      if (time % 0.5 < 0.04) {
-        bins.fill(200, 1, 6);
-        bins.fill(200, 43, 214);
-      }
-      return bins;
-    };
+    // Both bands jump for 40 ms every half second.
+    const binsAt = (time: number) =>
+      time % 0.5 < 0.04 ? spectrum([1, 6, -45], [43, 214, -45]) : spectrum();
     const playLive = (fps: number) => {
       const tracker = new AudioBandTracker();
       const frames = new Map<number, AudioBands>();
