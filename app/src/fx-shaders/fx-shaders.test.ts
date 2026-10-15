@@ -13,6 +13,7 @@ import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
   AudioBandTracker,
+  HIGH_ONSET_WEIGHT,
   LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
@@ -394,6 +395,44 @@ describe("audio onsets", () => {
 
     assert.equal(expected.length, 2);
     assert.deepEqual(sequential.at(19.6).onsets, expected);
+  });
+
+  it("weights high-band hits by HIGH_ONSET_WEIGHT and low-band hits fully", () => {
+    // Analyser bins: a jump in the low band (to 250 Hz) or high band
+    // (2-10 kHz) every half second.
+    const onsetStrengths = (from: number, to: number) => {
+      const tracker = new AudioBandTracker();
+      const strengths: number[] = [];
+      let impulseHigh = 0;
+      for (let tick = 0; tick < 120; tick++) {
+        const bins = new Uint8Array(512);
+        if (tick % 30 === 0 && tick > 0) {
+          bins.fill(200, from, to);
+        }
+        tracker.step(bins, SAMPLE_RATE);
+        const bands = tracker.bands(0);
+        impulseHigh = Math.max(impulseHigh, bands.impulseHigh);
+        const latest = bands.onsets?.at(-1);
+        if (latest?.secondsAgo === 0) {
+          strengths.push(latest.strength);
+        }
+      }
+      return { strengths, impulseHigh };
+    };
+    const low = onsetStrengths(1, 6);
+    const high = onsetStrengths(43, 214);
+
+    assert.equal(low.strengths.length, 3, `${low.strengths}`);
+    assert.equal(high.strengths.length, 3, `${high.strengths}`);
+    for (const strength of low.strengths) {
+      assert.ok(strength > 0.8, `low strength ${strength}`);
+    }
+    for (const strength of high.strengths) {
+      assert.ok(strength > 0, `high strength ${strength}`);
+      assert.ok(strength <= HIGH_ONSET_WEIGHT, `high strength ${strength}`);
+    }
+    // The high band still detects its hits at full strength on its own.
+    assert.ok(high.impulseHigh > 0.8, `impulseHigh ${high.impulseHigh}`);
   });
 
   it("reuses one onsets array, aging each hit from call to call", () => {
