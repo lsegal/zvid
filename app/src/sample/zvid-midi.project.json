@@ -4303,6 +4303,45 @@
       }
     },
     {
+      "id": "7c3e9a52-1f4b-4d8e-9b6a-2c5d8e0f1459",
+      "trackId": "clip:fx-aafd6694-d1c4-42e3-8623-2da1b13ea02d",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.425
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "lfo",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0,
+          "amplitude": 0.5,
+          "parameters": [
+            "_HueOffset"
+          ]
+        },
+        "lfo": {
+          "shape": "Sine",
+          "sync": true,
+          "rate": 1,
+          "syncRate": "1 Bar",
+          "depth": 0.7,
+          "phase": 86,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
       "id": "b97e2358-3b15-4652-9e6e-ce1b9bbffb6a",
       "trackId": "clip:window-f8c61a00-3f32-42bd-a137-edc37ae4b62f",
       "effectName": "Transition",
