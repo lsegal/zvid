@@ -264,7 +264,7 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   ],
   [
     "Transform",
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, [
       "ScaleX",
       "ScaleY",
     ]),
@@ -282,7 +282,7 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   ],
   [
     "ZoomAndPan",
-    defaults("Ease In Out", "Ease In Out", [16, 10, 6], "Bounce", 0.3, [
+    defaults("Ease In Out", "Ease In Out", [16, 10, 6], "Single", 0.3, [
       "_End_Zoom",
     ]),
   ],
@@ -295,27 +295,27 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     "Exposure",
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, ["_Stops"]),
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.5, ["_Stops"]),
     ),
   ],
   // Pivot is animatable too, but the music moves Contrast by default.
   [
     "Contrast",
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["_Contrast"]),
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, ["_Contrast"]),
     ),
   ],
   [
     "LUT",
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, [
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.5, [
         "_Intensity",
       ]),
     ),
   ],
   [
     "Pixelate",
-    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_NumPixels"]),
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Single", 0.5, ["_NumPixels"]),
   ],
   [
     "NegativeSplit",
@@ -337,7 +337,7 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   ],
   [
     "Caustics",
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.5, [
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.5, [
       "_Intensity",
       "_Warp",
     ]),
@@ -348,38 +348,38 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   ],
   [
     "DigitalGlitch",
-    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.6, [
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Single", 0.6, [
       "_Amount",
       "_Displace",
     ]),
   ],
   [
     "Bloom",
-    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Intensity"]),
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Single", 0.5, ["_Intensity"]),
   ],
   [
     "GaussianBlur",
-    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Radius"]),
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Single", 0.5, ["_Radius"]),
   ],
   [
     "MotionBlur",
-    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Distance"]),
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Single", 0.5, ["_Distance"]),
   ],
   [
     LEVELS_EFFECT_NAME,
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["GainY"]),
+      defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, ["GainY"]),
     ),
   ],
   [
     COLOR_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, ["Opacity"]),
   ],
   // Clip mode fades the clip or layer in and out; the music or the LFO
   // flickers it.
   [
     OPACITY_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, ["Opacity"]),
   ],
   // A Shape animates its outline: Clip mode draws it on, and the music or
   // the LFO marches its dashes. A filled shape has no outline to move, so
@@ -387,12 +387,12 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     SHAPE_EFFECT_NAME,
     offWhenAdded(
-      defaults("Ease Out", "Ease In", [24, 16, 8], "Bounce", 0.3, [OFFSET_KEY]),
+      defaults("Ease Out", "Ease In", [24, 16, 8], "Single", 0.3, [OFFSET_KEY]),
     ),
   ],
   [
     TEXT_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Single", 0.3, [
       "FontSize",
       "LetterSpacing",
     ]),

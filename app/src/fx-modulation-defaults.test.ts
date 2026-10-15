@@ -98,6 +98,21 @@ describe("normalizeEffectModulation", () => {
     );
   });
 
+  it("defaults Motion to Single but keeps a saved Bounce", () => {
+    assert.equal(createDefaultModulation("Gain")?.transient.motion, "Single");
+    assert.equal(
+      normalizeEffectModulation({ enabled: true }, "Gain")?.transient.motion,
+      "Single",
+    );
+    assert.equal(
+      normalizeEffectModulation(
+        { enabled: true, transient: { motion: "Bounce" } },
+        "Gain",
+      )?.transient.motion,
+      "Bounce",
+    );
+  });
+
   it("keeps a saved synced rate, from 4 Bars down to 1/32", () => {
     for (const syncRate of LFO_SYNC_RATES) {
       assert.equal(
