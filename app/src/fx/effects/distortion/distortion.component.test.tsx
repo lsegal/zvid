@@ -26,7 +26,7 @@ import {
 } from "../../../fx-shaders/chain.ts";
 import { pass as distortion } from "./pass.ts";
 
-// Distortion is added to a layer from Video → Stylize with its defaults and
+// Distortion is added to a layer from Video → Distort with its defaults and
 // warps the preview; rendered straight through the effect chain, Amount 0
 // leaves every type's picture as is and Transparent edges clear what falls
 // outside the source.
@@ -34,7 +34,7 @@ import { pass as distortion } from "./pass.ts";
 const PREVIEW = { width: 320, height: 180 };
 
 describe("Distortion", { timeout: 60_000 }, () => {
-  test("is added to a layer from Video → Stylize with its defaults and warps the preview", async () => {
+  test("is added to a layer from Video → Distort with its defaults and warps the preview", async () => {
     // A fill clip on layer 1, as Insert Fill Clip makes it, selected and
     // previewed in its middle.
     const fill = withFillClip(
@@ -68,11 +68,11 @@ describe("Distortion", { timeout: 60_000 }, () => {
       .getByRole("menu")
       .first()
       .getByRole("group", { name: "Video" })
-      .getByRole("menuitem", { name: "Stylize", exact: true })
+      .getByRole("menuitem", { name: "Distort", exact: true })
       .element()
       .focus();
     await userEvent.keyboard("{ArrowRight}");
-    // The Stylize submenu's, not the audio Distortion beside it.
+    // The Distort submenu's, not the audio Distortion beside it.
     await userEvent.click(
       page
         .getByRole("menu")

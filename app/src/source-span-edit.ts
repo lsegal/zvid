@@ -187,3 +187,64 @@ export function placeDroppedSourceSpans(
     clips: syncClipsToSourceSpans(clips, sourceSpans, nextSourceSpans, bpm),
   };
 }
+
+export type SourceSpanGroupMove = {
+  // How far the grabbed item moved, in quarters and in source track rows.
+  deltaQ: number;
+  trackShift: number;
+  // The source tracks top to bottom.
+  trackIds: readonly string[];
+  bpm: number;
+};
+
+/**
+ * `spans` with every span in `memberIds` moved by the grabbed item's offset
+ * in time and source tracks (#1483). The offset stops where a member would
+ * start before 0 or leave the source tracks, so the group keeps its shape.
+ * Each member overwrites the spans it lands on, as a single span's move
+ * does.
+ */
+export function moveSourceSpanGroup(
+  spans: readonly SourceSpan[],
+  memberIds: ReadonlySet<string>,
+  { deltaQ, trackShift, trackIds, bpm }: SourceSpanGroupMove,
+): SourceSpan[] {
+  const members = spans.filter((span) => memberIds.has(span.id));
+  if (!members.length) {
+    return [...spans];
+  }
+
+  const groupDeltaQ = Math.max(
+    deltaQ,
+    -Math.min(...members.map((span) => span.startQ)),
+  );
+  const trackIndexes = members
+    .map((span) => trackIds.indexOf(span.sourceTrackId))
+    .filter((index) => index >= 0);
+  const groupTrackShift = trackIndexes.length
+    ? Math.min(
+        Math.max(trackShift, -Math.min(...trackIndexes)),
+        trackIds.length - 1 - Math.max(...trackIndexes),
+      )
+    : 0;
+
+  // Every member moves first, in place, so none trims another where it
+  // used to be.
+  const moved = spans.map((span) => {
+    if (!memberIds.has(span.id)) {
+      return span;
+    }
+    const trackIndex = trackIds.indexOf(span.sourceTrackId);
+    return {
+      ...span,
+      startQ: span.startQ + groupDeltaQ,
+      sourceTrackId:
+        trackIndex >= 0
+          ? trackIds[trackIndex + groupTrackShift]
+          : span.sourceTrackId,
+    };
+  });
+  return moved
+    .filter((span) => memberIds.has(span.id))
+    .reduce((next, span) => resolveSourceSpanOverlaps(next, span, bpm), moved);
+}

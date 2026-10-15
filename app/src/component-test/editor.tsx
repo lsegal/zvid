@@ -508,6 +508,7 @@ export function Editor({
                     setDragState,
                     clipCard: {
                       selectedClipIds: selection.selectedClipIds,
+                      selectedSourceSpanIds: selection.selectedSourceSpanIds,
                       dragState,
                       bpm,
                       quarterPx,

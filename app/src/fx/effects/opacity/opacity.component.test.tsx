@@ -238,7 +238,7 @@ describe("Opacity on an FX clip", { timeout: 60_000 }, () => {
 });
 
 describe("the Opacity device", { timeout: 60_000 }, () => {
-  test("is added from a clip's Video → Transform menu and fades it", async () => {
+  test("is added from a clip's Video → Color menu and fades it", async () => {
     let { project, clip } = withFillClip(EMPTY_PROJECT, "#ff0000");
     await render(
       <FxEditor
@@ -249,12 +249,7 @@ describe("the Opacity device", { timeout: 60_000 }, () => {
         }}
       />,
     );
-    await addFromMenu(
-      "Add device to this clip",
-      "Transform",
-      "Opacity",
-      "Video",
-    );
+    await addFromMenu("Add device to this clip", "Color", "Opacity", "Video");
     const fade = device("Opacity");
     const knob = fade.getByRole("slider", { name: "Opacity" });
     await expect.element(knob).toHaveAttribute("aria-valuetext", "100%");

@@ -591,6 +591,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setDragState,
                     clipCard: {
                       selectedClipIds: selection.selectedClipIds,
+                      selectedSourceSpanIds: selection.selectedSourceSpanIds,
                       dragState,
                       bpm,
                       quarterPx,

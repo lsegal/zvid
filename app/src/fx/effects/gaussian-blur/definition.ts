@@ -14,7 +14,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Gaussian Blur",
   description: "Softens the picture with a smooth blur.",
   accent: "#b8d4ff",
-  category: "stylize",
+  category: "blur",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

@@ -26,7 +26,7 @@ import {
 import "./pass.ts";
 
 // Refraction (#823): the layer seen through water or textured glass. It is
-// added from the Stylize submenu of a layer's add menu, shows its defaults,
+// added from the Distort submenu of a layer's add menu, shows its defaults,
 // shows Speed only for Water and Angle only for Reeded Glass, and bends the
 // preview when its settings change.
 
@@ -49,7 +49,7 @@ async function pickType(type: string) {
 }
 
 describe("Refraction", { timeout: 60_000 }, () => {
-  test("is added from Stylize with its defaults and bends the preview", async () => {
+  test("is added from Distort with its defaults and bends the preview", async () => {
     // The test pattern dropped on a new source track, placed on the
     // arrangement and its clip selected.
     const dropped = withDroppedMedia(
@@ -92,7 +92,7 @@ describe("Refraction", { timeout: 60_000 }, () => {
         }}
       />,
     );
-    await addFromMenu("Add device to this layer", "Stylize", "Refraction");
+    await addFromMenu("Add device to this layer", "Distort", "Refraction");
     await userEvent.click(
       panel().getByRole("button", {
         name: "Turn Animation Off for Refraction",

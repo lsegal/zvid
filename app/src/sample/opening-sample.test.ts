@@ -123,16 +123,19 @@ describe("zvid opening sample", () => {
     assert.deepEqual(missing, []);
   });
 
-  // Color paints the fill clips; every other Stylize or Color effect is
-  // shown off on a clip of its own.
-  it("puts each Stylize and Color effect on a clip of its own", () => {
+  // Color paints the fill clips and Opacity fades clips; every other Blur,
+  // Distort, Glitch, Stylize or Color effect is shown off on a clip of its
+  // own.
+  it("puts each Blur, Distort, Glitch, Stylize and Color effect on a clip of its own", () => {
     const showcased = new Set(
       FX_EFFECT_DEFINITIONS.filter(
         (definition) =>
           definition.domain !== "audio" &&
-          (definition.category === "stylize" ||
-            definition.category === "color") &&
-          definition.effectName !== "Color",
+          ["blur", "distort", "glitch", "stylize", "color"].includes(
+            definition.category,
+          ) &&
+          definition.effectName !== "Color" &&
+          definition.effectName !== "Opacity",
       ).map((definition) => definition.effectName),
     );
     const byClip = new Map<string, string[]>();

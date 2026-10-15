@@ -139,6 +139,9 @@ export type DragState =
       // The other selected clips, when the clip is one of several selected:
       // they move, or duplicate, with it (see clip-group-move.ts).
       group?: ClipGroupMember[];
+      // The selected source clips, which a move, not a duplicate, takes
+      // the same time offset (#1483).
+      spanGroup?: string[];
     }
   | {
       kind: "resize-start";

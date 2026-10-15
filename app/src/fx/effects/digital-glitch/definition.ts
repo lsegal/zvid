@@ -14,7 +14,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Digital Glitch",
   description: "Adds blocky digital corruption and channel offsets.",
   accent: "#4fd1e8",
-  category: "stylize",
+  category: "glitch",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

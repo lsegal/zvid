@@ -28,7 +28,7 @@ import {
 import "./pass.ts";
 
 // Motion Blur (#1305): smears what it's applied to along its Angle over its
-// Distance. Added from a layer's Video → Stylize menu, and rendered in real
+// Distance. Added from a layer's Video → Blur menu, and rendered in real
 // WebGL on small synthetic frames.
 
 const PREVIEW = { width: 320, height: 180 };
@@ -47,7 +47,7 @@ async function setKnob(
 }
 
 describe("Motion Blur", { timeout: 60_000 }, () => {
-  test("is added from a layer's Video → Stylize menu and smears the preview more as Distance grows", async () => {
+  test("is added from a layer's Video → Blur menu and smears the preview more as Distance grows", async () => {
     // A text clip on layer 1, previewed in its middle.
     let project: ProjectState = withTextClip(EMPTY_PROJECT).project;
     const preview = () => renderFrame(rendererState(project, PREVIEW), 4);
@@ -64,7 +64,7 @@ describe("Motion Blur", { timeout: 60_000 }, () => {
     );
     await addFromMenu(
       "Add device to this layer",
-      "Stylize",
+      "Blur",
       "Motion Blur",
       "Video",
     );

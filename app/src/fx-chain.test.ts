@@ -325,7 +325,18 @@ describe("effect categories", () => {
         group.categories.map((category) => category.label),
       ]),
       [
-        ["Video", ["Transform", "Color", "Stylize", "Text"]],
+        [
+          "Video",
+          [
+            "Transform",
+            "Color",
+            "Blur",
+            "Distort",
+            "Glitch",
+            "Stylize",
+            "Text",
+          ],
+        ],
         [
           "Audio",
           [
@@ -367,7 +378,7 @@ describe("effect categories", () => {
       groupAddableEffects(addableEffectsFor("fxClip")).map((group) =>
         group.categories.map((category) => category.category),
       ),
-      [["transform", "color", "stylize"]],
+      [["transform", "color", "blur", "distort", "glitch", "stylize"]],
     );
   });
 });

@@ -203,6 +203,9 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await undo();
     await expect.poll(pieceRanges).toEqual([[0, 1]]);
 
+    // The Shift-drags above selected just the source clip, so the layer
+    // clip doesn't move with it.
+    expect(clip().className).not.toMatch(/clip-card--selected/);
     // Moving the source clip six quarters later leaves nothing under the
     // layer clip; moving it back fills it again, with no relinking.
     await dragBy(query(".source-span__body", span()), 6 * quarterPx);

@@ -15,16 +15,20 @@ describe("Distortion definition", () => {
     return parameter;
   };
 
-  it("is a Stylize effect for the same stacks as Analog Glitch", () => {
-    assert.equal(definition.category, "stylize");
+  it("is a Distort effect for the same stacks as Analog Glitch", () => {
+    assert.equal(definition.category, "distort");
     assert.equal(definition.domain, undefined);
     assert.deepEqual(definition.scopes, analogGlitch.scopes);
     assert.ok(menuOrder > 50 && menuOrder < 60);
   });
 
-  it("has its own accent among the Stylize effects", () => {
+  it("has its own accent among the Blur, Distort, Glitch and Stylize effects", () => {
     const others = EFFECT_DEFINITION_MODULES.map((module) => module.definition)
-      .filter((other) => other.category === "stylize" && other !== definition)
+      .filter(
+        (other) =>
+          ["blur", "distort", "glitch", "stylize"].includes(other.category) &&
+          other !== definition,
+      )
       .map((other) => other.accent);
     assert.ok(others.includes(analogGlitch.accent));
     assert.ok(!others.includes(definition.accent));
