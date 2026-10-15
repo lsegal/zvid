@@ -286,3 +286,90 @@ test("overlays the timeline as a sheet on narrow layouts", async () => {
   await drawer().getByRole("button", { name: "Close media drawer" }).click();
   await expectDrawerHidden();
 });
+
+// A 64×64 Lottie at 30 fps, one second long, red for its first half and blue
+// for its second.
+function redThenBlueLottie() {
+  const still = (k: unknown) => ({ a: 0, k });
+  const solid = (ind: number, color: string, ip: number, op: number) => ({
+    ddd: 0,
+    ind,
+    ty: 1,
+    nm: color,
+    sc: color,
+    sw: 64,
+    sh: 64,
+    ip,
+    op,
+    st: 0,
+    sr: 1,
+    bm: 0,
+    ks: {
+      o: still(100),
+      r: still(0),
+      p: still([0, 0, 0]),
+      a: still([0, 0, 0]),
+      s: still([100, 100, 100]),
+    },
+  });
+  return JSON.stringify({
+    v: "5.7.0",
+    fr: 30,
+    ip: 0,
+    op: 30,
+    w: 64,
+    h: 64,
+    nm: "red then blue",
+    ddd: 0,
+    assets: [],
+    layers: [solid(1, "#ff0000", 0, 15), solid(2, "#0000ff", 15, 30)],
+  });
+}
+
+// The RGB at the middle of `image`.
+function centerPixel(image: HTMLImageElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D;
+  context.drawImage(image, 0, 0);
+  const { data } = context.getImageData(
+    canvas.width >> 1,
+    canvas.height >> 1,
+    1,
+    1,
+  );
+  return [data[0], data[1], data[2]];
+}
+
+// A Lottie's middle frame, drawn when it was imported, is an object URL a
+// saved session can't keep (#1494), so the drawer draws it again.
+test("draws a Lottie's middle frame when it has no thumbnail", async () => {
+  const previewUrl = URL.createObjectURL(
+    new Blob([redThenBlueLottie()], { type: "application/json" }),
+  );
+  try {
+    const lottie: MediaItem = {
+      ...mediaItem("lottie", "spinner.json", "video"),
+      kind: "image",
+      hasVideo: false,
+      durationSeconds: 1,
+      width: 64,
+      height: 64,
+      previewUrl,
+    };
+    await render(<Editor mediaItems={[lottie]} />);
+    await toggle().click();
+
+    await expect
+      .poll(() => item("spinner").element().querySelector("img")?.src ?? "")
+      .toMatch(/^blob:/);
+    const shown = item("spinner")
+      .element()
+      .querySelector("img") as HTMLImageElement;
+    await shown.decode();
+    expect(centerPixel(shown)).toEqual([0, 0, 255]);
+  } finally {
+    URL.revokeObjectURL(previewUrl);
+  }
+});
