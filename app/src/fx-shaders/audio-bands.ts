@@ -54,6 +54,10 @@ const ONSET_REFRACTORY_SECONDS = 0.08;
 const ONSET_FULL_STRENGTH_FLUX = 0.2;
 // Time for an impulse to decay to 10% of its peak.
 const IMPULSE_DECAY_SECONDS = 0.15;
+// The high band's share of a combined onset's strength. Hats, clicks and
+// sibilance still register as hits, but weakly enough that a Reactivity
+// threshold a kick clears drops them.
+export const HIGH_ONSET_WEIGHT = 0.35;
 // Offline envelopes are rebuilt from this much audio before a random seek.
 // It must cover the onset window so seeks detect the same hits.
 const OFFLINE_WARMUP_SECONDS = 1;
@@ -334,7 +338,7 @@ export class AudioBandTracker {
           HIGH_BAND_MAX_HZ,
         ),
       );
-      hit = Math.max(low, high);
+      hit = Math.max(low, high * HIGH_ONSET_WEIGHT);
     }
     this.previous.set(bins);
     this.hasPrevious = true;
