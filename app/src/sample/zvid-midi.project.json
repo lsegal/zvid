@@ -2,7 +2,7 @@
   "mainTracks": [
     {
       "id": "4",
-      "name": "Layer 9",
+      "name": "Order Swaps",
       "colorIndex": -1
     },
     {
@@ -4856,9 +4856,10 @@
           "timing": "Normal"
         },
         "reactive": {
-          "motion": "Bounce",
+          "motion": "Single",
           "timing": "Fast",
-          "reactivity": 1,
+          "reactivity": 0.1,
+          "amplitude": 6.9,
           "parameters": [
             "_HueOffset"
           ]
