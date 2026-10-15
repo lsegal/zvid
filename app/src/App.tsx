@@ -346,6 +346,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     media,
     workspace,
     setArrangementEmptyStateDismissed: setArrangementEmptyStateDismissed,
+    setLayersCollapsed: layout.setLayersCollapsed,
     setStatus,
   });
   const library = useSessionLibrary({

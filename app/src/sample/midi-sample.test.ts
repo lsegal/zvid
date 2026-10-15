@@ -57,6 +57,10 @@ describe("MIDI sample", () => {
     assert.ok(SAMPLE_MANIFESTS.includes(MIDI_SAMPLE_MANIFEST));
   });
 
+  it("opens at 90% zoom (#1467)", () => {
+    assert.equal(openSample().project.zoom, 0.9);
+  });
+
   it("runs 12 bars of 4/4 at 120 BPM", () => {
     const { project } = openSample();
     assert.equal(project.bpm, BPM);

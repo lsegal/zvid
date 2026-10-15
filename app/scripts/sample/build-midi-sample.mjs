@@ -134,8 +134,8 @@ function remapMedia(value) {
   return value;
 }
 
-// The session as the sample opens it: at the start, with nothing selected
-// and the timeline at its default zoom.
+// The session as the sample opens it: at the start and with nothing
+// selected. The timeline keeps the zoom it was saved at (90%, #1467).
 function normalizeSession(session) {
   const strip = (value) => {
     if (Array.isArray(value)) {
@@ -150,10 +150,8 @@ function normalizeSession(session) {
     }
     return value;
   };
-  const { zoom: _zoom, ...timeline } = session.timeline ?? {};
   return {
     ...strip(session),
-    timeline,
     playPosition: 0,
     playStartPosition: 0,
   };

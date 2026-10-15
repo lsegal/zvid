@@ -45,6 +45,7 @@ export type SessionFilesInputs = {
     | "reportSessionMediaCheck"
   >;
   setArrangementEmptyStateDismissed: Dispatch<SetStateAction<boolean>>;
+  setLayersCollapsed: (collapsed: boolean) => void;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -57,6 +58,7 @@ export function useSessionFiles({
   media,
   workspace,
   setArrangementEmptyStateDismissed,
+  setLayersCollapsed,
   setStatus,
 }: SessionFilesInputs) {
   const { projectHistory, refuseReadOnlyEdit } = store;
@@ -93,6 +95,7 @@ export function useSessionFiles({
     isPristine: () => isPristineProjectHistory(projectHistory),
     refuseReadOnlyEdit,
     openSamplePayload: sessionIO.openSamplePayload,
+    setLayersCollapsed,
     setStatus,
   });
 
