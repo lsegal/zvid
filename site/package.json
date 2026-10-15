@@ -1,0 +1,20 @@
+{
+  "name": "zvid-site",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5189 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5189 --strictPort",
+    "lint": "tsc --noEmit && pnpm --dir .. exec biome check site"
+  },
+  "dependencies": {
+    "@zvid/tokens": "link:../packages/tokens"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4"
+  }
+}
