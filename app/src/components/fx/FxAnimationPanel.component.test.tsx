@@ -162,6 +162,18 @@ describe("FX Animation", { timeout: 60_000 }, () => {
       )
       .toBe("Single");
     expect(knobLabels(animation())).toEqual(["Reactivity", "Amplitude"]);
+    // Every hit triggers by default, and Reactivity moves in 1% steps.
+    const reactivity = animation().getByRole("slider", { name: "Reactivity" });
+    await expect.element(reactivity).toHaveAttribute("aria-valuetext", "100%");
+    reactivity.element().focus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.element(reactivity).toHaveAttribute("aria-valuetext", "99%");
+    // A negative Amplitude swings the other way.
+    const amplitude = animation().getByRole("slider", { name: "Amplitude" });
+    await expect.element(amplitude).toHaveAttribute("aria-valuemin", "-10");
+    amplitude.element().focus();
+    await userEvent.keyboard("{Home}");
+    await expect.element(amplitude).toHaveAttribute("aria-valuetext", "-10.0x");
     await userEvent.click(
       animation().getByRole("button", { name: "Parameters: 1 of 1" }),
     );
@@ -319,7 +331,7 @@ describe("FX Animation", { timeout: 60_000 }, () => {
     const animation = section("Pixelate animation");
     await expect
       .element(animation.getByRole("slider", { name: "Reactivity" }))
-      .toHaveAttribute("aria-valuetext", "0%");
+      .toHaveAttribute("aria-valuetext", "100%");
     await expect
       .element(animation.getByRole("slider", { name: "Amplitude" }))
       .toHaveAttribute("aria-valuetext", "0.4x");
