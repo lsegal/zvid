@@ -328,10 +328,10 @@ export function useClipDrag({
       if (dragState.kind === "selection") {
         const release = releaseLaneSelectionGesture(dragState.gesture);
         if (release.kind === "click") {
-          setIsPlaying(false);
           setPendingSelection(null);
           setPlayheadQ(release.playheadQ);
           playbackOriginRef.current = release.playheadQ;
+          setIsPlaying(false);
         }
       }
 
