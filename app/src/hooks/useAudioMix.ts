@@ -11,8 +11,9 @@ import { describeAudioMix } from "../audio-mix-peaks.ts";
 import type { MixPeaksSource } from "../audio-mix-peaks.worker.ts";
 import { mixWaveformPeaksInBackground } from "../audio-mix-peaks-loader.ts";
 import type { MediaItem } from "../media";
+import { sharedSynthWaveformLoader } from "../synth-waveform-loader.ts";
 import { loadWaveformPeaks } from "../waveform-loader";
-import type { WaveformPeaks } from "../waveform-peaks";
+import type { WaveformPeaks, WaveformPeaksResult } from "../waveform-peaks";
 
 // Recomputing waits for edits to settle, so dragging a clip or a Gain fader
 // does not re-mix on every frame.
@@ -33,10 +34,11 @@ type MixState = {
 };
 
 // The Audio row's read-only waveform: the peaks of the resolved mix, rebuilt
-// when its clips, their timing or their Gain change, or on Refresh. Edits to
-// clips without audio, and to MIDI clips, leave it alone (see
-// audioMixPeaksKey). It is mixed in a worker, after edits settle, so knob
-// drags never wait on it.
+// when its clips, their timing or their Gain change, a MIDI clip's notes or
+// instrument change, or on Refresh. Edits to clips without audio leave it
+// alone (see audioMixPeaksKey). MIDI clips' performances are rendered for
+// their peaks (see synth-waveform-loader.ts). It is mixed in a worker, after
+// edits settle, so knob drags never wait on it.
 export function useAudioMix({
   mix: audioMix,
   mediaItemsById: allMediaItemsById,
@@ -62,19 +64,28 @@ export function useAudioMix({
     let canceled = false;
     const timer = setTimeout(() => {
       void Promise.all(
-        contributions.map(async (contribution) => {
+        contributions.map(async ({ synth, ...contribution }) => {
           const media = mediaItemsById.get(contribution.mediaId);
-          if (media?.availability !== "ready" || !media.previewUrl) {
+          let load: Promise<WaveformPeaksResult>;
+          if (synth) {
+            load = sharedSynthWaveformLoader().load(
+              contribution.mediaId,
+              synth,
+              contribution.timing.bpm,
+            );
+          } else if (media?.availability === "ready" && media.previewUrl) {
+            load = loadWaveformPeaks(media.id, media.previewUrl);
+          } else {
             return null;
           }
           try {
-            const result = await loadWaveformPeaks(media.id, media.previewUrl);
+            const result = await load;
             return result.status === "ready"
               ? { ...contribution, peaks: result.peaks }
               : null;
           } catch (error) {
             logClient("waveform:decode:error", {
-              mediaId: media.id,
+              mediaId: contribution.mediaId,
               message: error instanceof Error ? error.message : String(error),
             });
             return null;
@@ -121,7 +132,6 @@ export function useAudioMix({
     mix.mediaItemsById === mediaItemsById
       ? mix
       : null;
-  // MIDI clips are not drawn but still count as mixed clips.
   return {
     summary: describeAudioMix(
       getAudioMixOrigin(audioMix),

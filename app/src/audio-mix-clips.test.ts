@@ -260,35 +260,33 @@ describe("the Audio row's waveform with MIDI clips", () => {
     };
   }
 
-  it("ignores edits to MIDI clips, their Synth and their Gain", () => {
+  it("rebuilds after edits to MIDI clips, their Synth and their Gain", () => {
     const before = key(withMidi());
-    assert.equal(
-      key(withMidi({ params: { ...DEFAULT_SYNTH_PARAMS, cutoff: 800 } })),
-      before,
-    );
-    assert.equal(key(withMidi({ db: -12 })), before);
-    assert.equal(key(withMidi({ pitch: 64 })), before);
-    assert.equal(key(withMidi({ startQ: 8 })), before);
-    // The audio clip's own edits still rebuild it.
-    assert.notEqual(
-      key({
-        ...withMidi(),
-        effects: [
-          gain("source-track:track-1", -6),
-          ...(withMidi().effects ?? []).slice(1),
-        ],
-      }),
-      before,
-    );
+    for (const edited of [
+      withMidi({ params: { ...DEFAULT_SYNTH_PARAMS, cutoff: 800 } }),
+      withMidi({ db: -12 }),
+      withMidi({ pitch: 64 }),
+      withMidi({ startQ: 8 }),
+    ]) {
+      assert.notEqual(key(edited), before);
+    }
+    assert.equal(key(withMidi()), before);
   });
 
-  it("draws only the clips that play media, as plain data", () => {
+  it("draws MIDI clips' performances alongside media, as plain data", () => {
     const mix = resolveAudioClips(inputs(withMidi()));
-    assert.ok(mix.clips.some((clip) => clip.synth));
+    const midi = mix.clips.find((clip) => clip.synth);
+    assert.ok(midi);
     const contributions = getAudioMixContributions(mix);
     assert.deepEqual(
-      contributions.map((contribution) => contribution.mediaId),
-      ["tone"],
+      contributions.map((contribution) => contribution.mediaId).sort(),
+      [midi.mediaId, "tone"].sort(),
+    );
+    const performance = contributions.find((item) => item.synth);
+    assert.equal(performance?.synth, midi.synth);
+    assert.equal(
+      performance?.timing.mediaDurationSeconds,
+      midi.synth?.durationSeconds,
     );
     // They are posted to the mixing worker as they are.
     assert.deepEqual(structuredClone(contributions), contributions);
