@@ -4883,7 +4883,7 @@
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
-          "floatValue": 0
+          "floatValue": 0.394
         }
       },
       "animation": {
@@ -4896,9 +4896,9 @@
         },
         "reactive": {
           "motion": "Single",
-          "timing": "Fast",
-          "reactivity": 0.9,
-          "amplitude": 6.9,
+          "timing": "Normal",
+          "reactivity": 0.7,
+          "amplitude": 1,
           "parameters": [
             "_HueOffset"
           ],
