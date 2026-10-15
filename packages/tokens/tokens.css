@@ -56,6 +56,12 @@
   --waveform: 36 52 88;
 }
 
+/* Inherited text colors are already resolved, so an element that switches
+ * theme sets its own. */
+[data-theme] {
+  color: var(--ink);
+}
+
 /* Space Grotesk 400/500/700 (latin, latin-ext) */
 @font-face {
   font-family: 'Space Grotesk';

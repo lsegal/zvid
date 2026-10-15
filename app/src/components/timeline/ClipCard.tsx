@@ -219,6 +219,8 @@ export const ClipCard = memo(function ClipCard({
     <div
       className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${audio ? "clip-card--audio" : ""} ${waveformOverlay ? "clip-card--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
       data-clip-id={clip.id}
+      // Frames and fills are content, so their labels keep the dark theme.
+      data-theme={filmstrip || fillBackground ? "dark" : undefined}
       onContextMenu={(event) => openArrangementClipMenu(event, clip)}
       onPointerDown={(event) => {
         // Right-click, or Ctrl-click on macOS, selects through the

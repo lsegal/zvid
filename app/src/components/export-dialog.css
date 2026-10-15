@@ -37,7 +37,7 @@
   position: relative;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.3), rgba(6, 8, 12, 0.6));
+  background: light-dark(rgba(40, 48, 80, 0.3), rgba(6, 8, 12, 0.6));
   overflow: hidden;
 }
 
@@ -84,7 +84,7 @@
   padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
   min-width: 0;
 }
 
@@ -111,7 +111,7 @@
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
   min-width: 0;
 }
 
@@ -209,7 +209,7 @@
   padding: 5px 8px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.25), rgba(6, 8, 12, 0.5));
+  background: light-dark(rgba(40, 48, 80, 0.125), rgba(6, 8, 12, 0.5));
   color: var(--ink);
   font: inherit;
   font-size: 0.82rem;
@@ -284,7 +284,7 @@
   height: 76px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.25), rgba(6, 8, 12, 0.5));
+  background: light-dark(rgba(40, 48, 80, 0.125), rgba(6, 8, 12, 0.5));
   /* Markers at either end stay grabbable past the edge. */
   overflow: visible;
   cursor: text;
@@ -333,7 +333,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: light-dark(rgba(60, 70, 110, 0.34), rgba(6, 8, 12, 0.68));
+  background: light-dark(rgba(40, 48, 80, 0.34), rgba(6, 8, 12, 0.68));
   pointer-events: none;
 }
 

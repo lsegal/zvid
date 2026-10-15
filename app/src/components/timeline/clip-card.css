@@ -193,11 +193,11 @@
 .clip-card--filmstrip .clip-card__text {
   background: linear-gradient(
     90deg,
-    light-dark(rgba(60, 70, 110, 0.36), rgba(8, 10, 20, 0.72)),
-    light-dark(rgba(60, 70, 110, 0.2), rgba(8, 10, 20, 0.4)) 60%,
-    light-dark(rgba(60, 70, 110, 0.05), rgba(8, 10, 20, 0.1))
+    light-dark(rgba(247, 248, 251, 0.82), rgba(8, 10, 20, 0.72)),
+    light-dark(rgba(247, 248, 251, 0.45), rgba(8, 10, 20, 0.4)) 60%,
+    light-dark(rgba(247, 248, 251, 0.1), rgba(8, 10, 20, 0.1))
   );
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 1px 2px light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.8));
 }
 
 .clip-card--filmstrip .clip-card__meta {
@@ -314,11 +314,11 @@
 .clip-card--audio .clip-card__text {
   background: linear-gradient(
     90deg,
-    light-dark(rgba(60, 70, 110, 0.36), rgba(8, 10, 20, 0.72)),
-    light-dark(rgba(60, 70, 110, 0.2), rgba(8, 10, 20, 0.4)) 60%,
-    light-dark(rgba(60, 70, 110, 0.05), rgba(8, 10, 20, 0.1))
+    light-dark(rgba(247, 248, 251, 0.82), rgba(8, 10, 20, 0.72)),
+    light-dark(rgba(247, 248, 251, 0.45), rgba(8, 10, 20, 0.4)) 60%,
+    light-dark(rgba(247, 248, 251, 0.1), rgba(8, 10, 20, 0.1))
   );
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 1px 2px light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.8));
 }
 
 .clip-card--audio .clip-card__meta {

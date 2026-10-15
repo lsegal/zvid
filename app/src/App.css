@@ -68,7 +68,7 @@
   justify-content: center;
   min-width: 74px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.16), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.08), rgba(12, 14, 20, 0.32));
   color: var(--ink);
   border-radius: 14px;
   padding: 10px 16px;
@@ -219,7 +219,7 @@
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: light-dark(rgba(60, 70, 110, 0.35), rgba(7, 9, 14, 0.7));
+  background: light-dark(rgba(40, 48, 80, 0.35), rgba(7, 9, 14, 0.7));
   backdrop-filter: blur(10px);
   z-index: 50;
 }
@@ -281,7 +281,7 @@
   padding: 14px 16px 14px 36px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
   font-size: 0.88rem;
   line-height: 1.45;
 }
@@ -452,7 +452,7 @@
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgb(var(--tint) / 0.08);
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
 }
 
 .offline-media__info {
@@ -597,7 +597,7 @@
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgb(var(--tint) / 0.08);
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
 }
 
 .media-sync-dialog__icon {
@@ -734,7 +734,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: light-dark(rgba(60, 70, 110, 0.16), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.08), rgba(12, 14, 20, 0.32));
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 8px;
@@ -797,7 +797,7 @@
   padding: 0 12px;
   overflow: hidden;
   white-space: nowrap;
-  background: light-dark(rgba(60, 70, 110, 0.12), rgba(7, 8, 14, 0.24));
+  background: light-dark(rgba(40, 48, 80, 0.06), rgba(7, 8, 14, 0.24));
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.68rem;
@@ -870,7 +870,7 @@
 
 .editor-panel,
 .fx-panel {
-  background: light-dark(rgba(60, 70, 110, 0.08), rgba(7, 8, 14, 0.16));
+  background: light-dark(rgba(40, 48, 80, 0.04), rgba(7, 8, 14, 0.16));
   border: 1px solid var(--line);
   border-radius: 0 20px 20px 0;
   overflow: hidden;
@@ -898,7 +898,7 @@
   display: inline-flex;
   gap: 6px;
   padding: 4px;
-  background: light-dark(rgba(60, 70, 110, 0.14), rgba(8, 9, 15, 0.28));
+  background: light-dark(rgba(40, 48, 80, 0.07), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
   border-radius: 999px;
 }
@@ -1011,7 +1011,7 @@
   place-items: center;
   border-radius: 9px;
   border: 1px solid var(--line-strong);
-  background: light-dark(rgba(60, 70, 110, 0.14), rgba(15, 17, 24, 0.28));
+  background: light-dark(rgba(40, 48, 80, 0.07), rgba(15, 17, 24, 0.28));
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
 }
@@ -1041,7 +1041,7 @@
 .track-row__content {
   min-height: var(--lane-height);
   border-bottom: 1px solid var(--line);
-  background-color: light-dark(rgba(60, 70, 110, 0.15), rgba(20, 21, 32, 0.3));
+  background-color: light-dark(rgba(40, 48, 80, 0.075), rgba(20, 21, 32, 0.3));
 }
 
 .waveform__canvas {
@@ -1087,7 +1087,7 @@
   bottom: 0;
   height: 3px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.32);
+  background: light-dark(rgba(40, 48, 80, 0.12), rgba(0, 0, 0, 0.32));
 }
 
 .media-sync__bar {
@@ -1209,7 +1209,7 @@
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(60, 70, 110, 0.18), rgba(10, 12, 20, 0.36));
+  background: light-dark(rgba(40, 48, 80, 0.09), rgba(10, 12, 20, 0.36));
   color: var(--ink);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1360,7 +1360,7 @@
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: light-dark(rgba(60, 70, 110, 0.2), rgba(7, 8, 14, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.1), rgba(7, 8, 14, 0.4));
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;

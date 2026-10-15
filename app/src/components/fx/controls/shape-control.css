@@ -22,7 +22,7 @@
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: light-dark(rgba(60, 70, 110, 0.2), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.1), rgba(11, 13, 19, 0.4));
 }
 
 .fx-shape__trigger:hover,

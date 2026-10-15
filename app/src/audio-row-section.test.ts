@@ -73,7 +73,11 @@ describe("audio row section", () => {
     assert.doesNotMatch(audioRowTsx, /isPinned/);
     assert.doesNotMatch(audioRowCss, /sticky|--bus-pinned|margin-top: auto/);
     const row = audioRowCss.match(/\.track-row--bus \{[^}]*\}/)?.[0] ?? "";
-    assert.match(row, /background: #/, "the footer row must be opaque");
+    assert.match(
+      row,
+      /background: light-dark\(rgb\([^)]*\), #\w+\);/,
+      "the footer row must be opaque in both themes",
+    );
   });
 
   it("draws the waveform collapsed too", () => {

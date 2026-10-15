@@ -217,6 +217,8 @@ export const SourceSpan = memo(function SourceSpan({
     <div
       className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""} ${collapsed ? "source-span--collapsed" : ""} ${midiNotes ? "source-span--midi" : ""}`}
       data-source-span-id={clip.id}
+      // Frames are content, so their labels keep the dark theme.
+      data-theme={filmstrip ? "dark" : undefined}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
         if (isContextMenuPress(event, shortcutLabels.mac)) {

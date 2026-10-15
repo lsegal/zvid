@@ -162,7 +162,7 @@ describe("arrangement empty state wiring", () => {
     assert.match(rule, /color: var\(--muted\);/);
     assert.match(
       componentCss,
-      /\.arrangement-empty-state__dismiss:focus-visible \{[^}]*border-color: #ffe084;/,
+      /\.arrangement-empty-state__dismiss:focus-visible \{[^}]*border-color: light-dark\(#\w+, #ffe084\);/,
     );
   });
 

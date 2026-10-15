@@ -65,7 +65,7 @@
   border: 1px solid transparent;
   border-radius: 50%;
   background:
-    radial-gradient(circle closest-side, light-dark(rgb(230, 232, 237), #2a2c38) 0%, light-dark(rgba(60, 70, 110, 0.275), rgba(42, 44, 56, 0.55)) 55%, transparent 100%),
+    radial-gradient(circle closest-side, light-dark(rgb(230, 232, 237), #2a2c38) 0%, light-dark(rgba(40, 48, 80, 0.138), rgba(42, 44, 56, 0.55)) 55%, transparent 100%),
     conic-gradient(#e0484c, #d8c640, #4ccc5a, #3fc6c8, #4a62e0, #c84ad6, #e0484c);
   background-origin: border-box;
   background-repeat: no-repeat;
@@ -151,7 +151,7 @@
   padding: 1px 0;
   border: 1px solid transparent;
   border-radius: 3px;
-  background: light-dark(rgba(60, 70, 110, 0.2), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.1), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font: inherit;
   font-size: 0.62rem;

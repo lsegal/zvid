@@ -35,7 +35,7 @@
   padding: 8px 14px 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
 }
 
 .session-settings__group legend {
@@ -78,7 +78,7 @@
   padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: light-dark(rgba(60, 70, 110, 0.17), rgba(12, 14, 20, 0.34));
+  background: light-dark(rgba(40, 48, 80, 0.085), rgba(12, 14, 20, 0.34));
   color: var(--ink);
   font: inherit;
   font-size: 0.9rem;
