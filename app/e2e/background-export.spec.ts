@@ -279,9 +279,9 @@ test("the editor plays, scrubs and edits during an export, which renders the ses
   await page.mouse.up();
   expect(await playheadX(page)).not.toBeCloseTo(beforeScrub, 0);
 
-  // Editing: delete the only clip mid-export.
+  // Editing: delete the only clip, still selected, mid-export.
   await expect(statusProgress(page)).toBeVisible();
-  await page.locator(".clip-card").click();
+  await expect(page.locator(".clip-card--selected")).toHaveCount(1);
   await page.keyboard.press("Delete");
   await expect(page.locator(".clip-card")).toHaveCount(0);
 

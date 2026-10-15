@@ -228,7 +228,8 @@ test("a layer clip keeps its window as its source clip is trimmed, moved and del
 
   // Deleting the source clip leaves the layer clip in place, showing
   // nothing; undo brings the source clip back and fills it again.
-  await span.locator(".source-span__body").click();
+  // The last drag left it selected.
+  await expect(span).toHaveClass(/source-span--selected/);
   await page.keyboard.press("Delete");
   await expect(span).toHaveCount(0);
   await expect(clip).toHaveCount(1);

@@ -317,7 +317,8 @@ test("a layer clip's filmstrip and preview follow edits to its source clip", asy
 
   // Deleting the source clip leaves the layer clip in place, showing
   // nothing; undo brings back what it showed.
-  await span.locator(".source-span__body").click();
+  // The last drag left it selected.
+  await expect(span).toHaveClass(/source-span--selected/);
   await page.keyboard.press("Delete");
   await expect(span).toHaveCount(0);
   await expect(clip).toHaveCount(1);
