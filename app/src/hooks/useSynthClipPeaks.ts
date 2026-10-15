@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { logClient } from "../app/util.ts";
 import type { SourceSpanSynth } from "../audio-mix/resolve.ts";
-import { requestSynthWaveformPeaks } from "../synth-waveform-loader.ts";
+import { sharedSynthWaveformLoader } from "../synth-waveform-loader.ts";
 import type { WaveformPeaks } from "../waveform-peaks";
 import type { AudioClipPeaks } from "./useAudioClipPeaks.ts";
 
@@ -30,7 +30,11 @@ export function useSynthClipPeaks(
       return;
     }
     let canceled = false;
-    const request = requestSynthWaveformPeaks(mediaId, performance.synth, bpm);
+    const request = sharedSynthWaveformLoader().request(
+      mediaId,
+      performance.synth,
+      bpm,
+    );
     request.peaks.then(
       (result) => {
         if (!canceled) {

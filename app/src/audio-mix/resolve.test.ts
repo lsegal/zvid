@@ -18,7 +18,11 @@ import {
 import { createArpeggiatorEffect, createSynthEffect } from "../midi-effects.ts";
 import { type Arpeggiator, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
-import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
+import {
+  type AudioMixInputs,
+  resolveAudioClips,
+  resolveSourceSpanSynths,
+} from "./resolve.ts";
 import { SYNTH_VOICE_LEVEL, synthVoices } from "./synth.ts";
 
 // At 120 BPM one quarter is half a second.
@@ -473,6 +477,34 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.deepEqual(
       mixOf([{ ...synthOn("m"), trackId: sourceTrackEffectTrackId("keys") }]),
       [],
+    );
+  });
+
+  it("resolves what each MIDI clip plays for the timeline, as the mix plays it", () => {
+    const overrides = {
+      sourceTracks: [{ id: "keys" }, { id: "muted", fxEnabled: false }],
+      sourceSpans: [midiSpan("m", "keys"), midiSpan("off", "muted")],
+      effects: [synthOn("m"), synthOn("off")],
+    };
+    const session = inputs(overrides);
+    const [clip] = resolveAudioClips(session).clips;
+    const synths = resolveSourceSpanSynths(session);
+    // A bypassed track's clip plays nothing.
+    assert.deepEqual([...synths.keys()], ["m"]);
+    assert.deepEqual(synths.get("m"), {
+      synth: clip.synth,
+      mediaId: clip.mediaId,
+    });
+
+    // The timeline still draws it while layer clips' audio plays instead.
+    const layered = inputs({
+      ...overrides,
+      clips: [layerClip("c", "lane-1", "tone")],
+    });
+    assert.ok(resolveAudioClips(layered).clips.every((mixed) => !mixed.synth));
+    assert.deepEqual(
+      resolveSourceSpanSynths(layered).get("m"),
+      synths.get("m"),
     );
   });
 

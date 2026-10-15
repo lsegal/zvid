@@ -8,16 +8,19 @@
 // starts, so a burst of edits renders only the latest. Peaks are kept per
 // performance media id, which changes whenever the notes, instrument or
 // tempo do.
+import type { DecodedAudio } from "./audio-mix/mix.ts";
 import { renderSynthClip, type SynthClip } from "./audio-mix/synth.ts";
+import { DEFAULT_SESSION_ENCODING } from "./session-settings.ts";
 import type {
   SynthWaveformRequest,
   SynthWaveformResponse,
 } from "./synth-waveform.worker";
 import type { WaveformPeaksResult } from "./waveform-peaks";
 
-// Peaks keep 200 buckets a second, so the render needs far less than the
-// mix's rate; the envelope it draws is the same.
-export const SYNTH_WAVEFORM_SAMPLE_RATE = 22050;
+// Export's default rate. Renders are quick even so, and lower rates lose
+// the peaks of the Drum Rack's transients.
+export const SYNTH_WAVEFORM_SAMPLE_RATE =
+  DEFAULT_SESSION_ENCODING.audioSampleRate;
 // Settled peaks kept for clips no longer drawn, as when an edit is undone.
 const MAX_IDLE_ENTRIES = 64;
 
@@ -30,142 +33,182 @@ type Entry = {
   settled: boolean;
 };
 
-const entries = new Map<string, Entry>();
-const pendingRequests = new Map<
-  number,
-  (result: WaveformPeaksResult) => void
->();
-let queue: Promise<unknown> = Promise.resolve();
-let worker: Worker | null = null;
-let workerUnavailable = false;
-let nextRequestId = 1;
+// Peaks requested for a clip: `release` them once they are no longer wanted.
+export type SynthWaveformRequestHandle = {
+  peaks: Promise<WaveformPeaksResult>;
+  release(): void;
+};
 
-function getWorker() {
-  if (worker || workerUnavailable) {
-    return worker;
-  }
-  try {
-    worker = new Worker(
-      new URL("./synth-waveform.worker.ts", import.meta.url),
-      { type: "module" },
-    );
-  } catch {
-    workerUnavailable = true;
-    return null;
-  }
-  worker.onmessage = (event: MessageEvent<SynthWaveformResponse>) => {
-    const resolve = pendingRequests.get(event.data.id);
-    pendingRequests.delete(event.data.id);
-    resolve?.(event.data.result);
-  };
-  // Without the worker, clips keep their note thumbnails.
-  worker.onerror = (event) => {
-    event.preventDefault();
-    worker?.terminate();
-    worker = null;
-    workerUnavailable = true;
-    for (const resolve of pendingRequests.values()) {
-      resolve(NO_WAVEFORM);
-    }
-    pendingRequests.clear();
-  };
-  return worker;
-}
-
-async function computePeaks(
-  entry: Entry,
+type RenderSynth = (
   synth: SynthClip,
   bpm: number,
-): Promise<WaveformPeaksResult> {
-  if (!entry.holders || !getWorker()) {
-    return NO_WAVEFORM;
-  }
-  entry.started = true;
-  const audio = await renderSynthClip(synth, bpm, SYNTH_WAVEFORM_SAMPLE_RATE);
-  const target = getWorker();
-  if (!target) {
-    return NO_WAVEFORM;
-  }
-  return new Promise((resolve) => {
-    const id = nextRequestId;
-    nextRequestId += 1;
-    pendingRequests.set(id, resolve);
-    target.postMessage(
-      {
-        id,
-        sampleRate: audio.sampleRate,
-        channels: audio.channels,
-      } satisfies SynthWaveformRequest,
-      { transfer: audio.channels.map((channel) => channel.buffer) },
-    );
+  sampleRate: number,
+) => Promise<DecodedAudio>;
+
+function createPeaksWorker() {
+  return new Worker(new URL("./synth-waveform.worker.ts", import.meta.url), {
+    type: "module",
   });
 }
 
-// Drops the least recently used settled peaks no clip holds past the limit.
-function evictIdleEntries() {
-  const idle = [...entries].filter(
-    ([, entry]) => entry.settled && !entry.holders,
-  );
-  for (const [mediaId] of idle.slice(0, -MAX_IDLE_ENTRIES)) {
-    entries.delete(mediaId);
-  }
-}
+export class SynthWaveformLoader {
+  private readonly entries = new Map<string, Entry>();
+  private readonly pendingRequests = new Map<
+    number,
+    (result: WaveformPeaksResult) => void
+  >();
+  private queue: Promise<unknown> = Promise.resolve();
+  private worker: Worker | null = null;
+  private workerUnavailable = false;
+  private nextRequestId = 1;
 
-/**
- * The peaks of `synth`, played as `mediaId` at `bpm`, rendering it unless
- * they are kept or already on their way. Call `release` once they are no
- * longer wanted: a render nothing holds is dropped before it starts.
- */
-export function requestSynthWaveformPeaks(
-  mediaId: string,
-  synth: SynthClip,
-  bpm: number,
-) {
-  let entry = entries.get(mediaId);
-  if (entry) {
+  private readonly render: RenderSynth;
+  private readonly createWorker: () => Worker;
+
+  constructor(
+    render: RenderSynth = renderSynthClip,
+    createWorker: () => Worker = createPeaksWorker,
+  ) {
+    this.render = render;
+    this.createWorker = createWorker;
+  }
+
+  /**
+   * The peaks of `synth`, played as `mediaId` at `bpm`, rendering it unless
+   * they are kept or already on their way. A render nothing holds any more
+   * is dropped before it starts.
+   */
+  request(
+    mediaId: string,
+    synth: SynthClip,
+    bpm: number,
+  ): SynthWaveformRequestHandle {
+    const entry =
+      this.entries.get(mediaId) ?? this.queueRender(mediaId, synth, bpm);
     // Most recently used last.
-    entries.delete(mediaId);
-  } else {
-    const created: Entry = {
+    this.entries.delete(mediaId);
+    this.entries.set(mediaId, entry);
+    entry.holders += 1;
+    let released = false;
+    return {
+      peaks: entry.peaks,
+      release: () => {
+        if (released) {
+          return;
+        }
+        released = true;
+        entry.holders -= 1;
+        if (!entry.holders && !entry.started) {
+          this.forget(mediaId, entry);
+        }
+      },
+    };
+  }
+
+  private queueRender(mediaId: string, synth: SynthClip, bpm: number) {
+    const entry: Entry = {
       peaks: Promise.resolve(NO_WAVEFORM),
       holders: 0,
       started: false,
       settled: false,
     };
-    created.peaks = queue.then(() => computePeaks(created, synth, bpm));
-    queue = created.peaks.catch(() => undefined);
-    created.peaks.then(
+    entry.peaks = this.queue.then(() => this.computePeaks(entry, synth, bpm));
+    this.queue = entry.peaks.catch(() => undefined);
+    entry.peaks.then(
       () => {
-        created.settled = true;
+        entry.settled = true;
         // A render dropped before it started is not kept.
-        if (!created.started && entries.get(mediaId) === created) {
-          entries.delete(mediaId);
+        if (!entry.started) {
+          this.forget(mediaId, entry);
         }
-        evictIdleEntries();
+        this.evictIdleEntries();
       },
-      () => {
-        if (entries.get(mediaId) === created) {
-          entries.delete(mediaId);
-        }
-      },
+      () => this.forget(mediaId, entry),
     );
-    entry = created;
+    return entry;
   }
-  entries.set(mediaId, entry);
-  const held = entry;
-  held.holders += 1;
-  let released = false;
-  return {
-    peaks: held.peaks,
-    release() {
-      if (released) {
-        return;
+
+  private forget(mediaId: string, entry: Entry) {
+    if (this.entries.get(mediaId) === entry) {
+      this.entries.delete(mediaId);
+    }
+  }
+
+  // Drops the least recently used settled peaks no clip holds past the limit.
+  private evictIdleEntries() {
+    const idle = [...this.entries].filter(
+      ([, entry]) => entry.settled && !entry.holders,
+    );
+    for (const [mediaId] of idle.slice(0, -MAX_IDLE_ENTRIES)) {
+      this.entries.delete(mediaId);
+    }
+  }
+
+  private async computePeaks(
+    entry: Entry,
+    synth: SynthClip,
+    bpm: number,
+  ): Promise<WaveformPeaksResult> {
+    if (!entry.holders || !this.getWorker()) {
+      return NO_WAVEFORM;
+    }
+    entry.started = true;
+    const audio = await this.render(synth, bpm, SYNTH_WAVEFORM_SAMPLE_RATE);
+    const target = this.getWorker();
+    if (!target) {
+      return NO_WAVEFORM;
+    }
+    return new Promise((resolve) => {
+      const id = this.nextRequestId;
+      this.nextRequestId += 1;
+      this.pendingRequests.set(id, resolve);
+      target.postMessage(
+        {
+          id,
+          sampleRate: audio.sampleRate,
+          channels: audio.channels,
+        } satisfies SynthWaveformRequest,
+        { transfer: audio.channels.map((channel) => channel.buffer) },
+      );
+    });
+  }
+
+  private getWorker() {
+    if (this.worker || this.workerUnavailable) {
+      return this.worker;
+    }
+    let worker: Worker;
+    try {
+      worker = this.createWorker();
+    } catch {
+      this.workerUnavailable = true;
+      return null;
+    }
+    worker.onmessage = (event: MessageEvent<SynthWaveformResponse>) => {
+      const resolve = this.pendingRequests.get(event.data.id);
+      this.pendingRequests.delete(event.data.id);
+      resolve?.(event.data.result);
+    };
+    // Without the worker, clips keep their note thumbnails.
+    worker.onerror = (event) => {
+      event.preventDefault();
+      worker.terminate();
+      this.worker = null;
+      this.workerUnavailable = true;
+      for (const resolve of this.pendingRequests.values()) {
+        resolve(NO_WAVEFORM);
       }
-      released = true;
-      held.holders -= 1;
-      if (!held.holders && !held.started && entries.get(mediaId) === held) {
-        entries.delete(mediaId);
-      }
-    },
-  };
+      this.pendingRequests.clear();
+    };
+    this.worker = worker;
+    return worker;
+  }
+}
+
+let shared: SynthWaveformLoader | null = null;
+
+/** The loader every timeline clip shares. */
+export function sharedSynthWaveformLoader() {
+  shared ??= new SynthWaveformLoader();
+  return shared;
 }
