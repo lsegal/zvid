@@ -237,7 +237,7 @@ export function FxAnimationPanel({
   );
 }
 
-// Reactivity is the weakest hit that triggers a swing.
+// Reactivity is the share of hits that trigger a swing, weakest last.
 function formatThreshold(value: number) {
   return `${Math.round(value * 100)}%`;
 }
@@ -248,8 +248,9 @@ function formatAmplitude(value: number | undefined) {
   return `${(value ?? 1).toFixed(1)}x`;
 }
 
-// Reactive mode's knobs: Reactivity, the threshold a hit must reach to
-// swing the parameters, and Amplitude, how far it swings them. An audio
+// Reactive mode's knobs: Reactivity, how many hits swing the parameters
+// (none at 0%, every hit at 100%), and Amplitude, how far and which way it
+// swings them. An audio
 // device's Transient modulation passes its own defaults.
 export function FxReactiveKnobs({
   device,
@@ -267,7 +268,7 @@ export function FxReactiveKnobs({
       <div className="fx-animation-panel__knob">
         <Knob
           accent={device.accent}
-          defaultValue={defaults?.reactivity ?? 0}
+          defaultValue={defaults?.reactivity ?? 1}
           format={formatThreshold}
           label="Reactivity"
           max={1}
@@ -275,7 +276,7 @@ export function FxReactiveKnobs({
           onChange={(reactivity) => onChange({ reactivity }, "transient")}
           onCommit={(reactivity) => onChange({ reactivity })}
           step={REACTIVITY_STEP}
-          value={reactive.reactivity ?? defaults?.reactivity ?? 0}
+          value={reactive.reactivity ?? defaults?.reactivity ?? 1}
         />
       </div>
       <div className="fx-animation-panel__knob">
@@ -285,7 +286,7 @@ export function FxReactiveKnobs({
           format={formatAmplitude}
           label="Amplitude"
           max={MAX_REACTIVE_AMPLITUDE}
-          min={0}
+          min={-MAX_REACTIVE_AMPLITUDE}
           onChange={(amplitude) => onChange({ amplitude }, "transient")}
           onCommit={(amplitude) => onChange({ amplitude })}
           step={AMPLITUDE_STEP}

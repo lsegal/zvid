@@ -199,9 +199,10 @@ export function reactiveOffset(effectId: string, key: string, seed: number) {
 export type ReactiveSwing = { seed: number; amount: number };
 
 // The hit moving the knobs at `time` under Reactive settings, and how hard:
-// only hits at or above the Reactivity threshold trigger, and `amount` is
-// the Motion envelope scaled by Amplitude and the hit's strength. Undefined
-// while nothing moves. With `into`, it fills that and
+// Reactivity `r` lets through hits of strength `1 - r` and up, so 0 lets
+// none through and 1 every hit, and `amount` is the Motion envelope scaled
+// by Amplitude and the hit's strength; a negative Amplitude swings the other
+// way. Undefined while nothing moves. With `into`, it fills that and
 // `impulse` rather than making new objects, for the audio thread.
 export function reactiveSwingAt(
   reactive: { motion: ReactiveMotion; reactivity: number; amplitude: number },
@@ -211,7 +212,11 @@ export function reactiveSwingAt(
   fps = REACTIVE_FRAME_RATE,
   into?: { swing: ReactiveSwing; impulse: ReactiveImpulse },
 ): ReactiveSwing | undefined {
-  if (reactive.motion === "None" || !(reactive.amplitude > 0)) {
+  if (
+    reactive.motion === "None" ||
+    !reactive.amplitude ||
+    !(reactive.reactivity > 0)
+  ) {
     return undefined;
   }
   const impulse = findReactiveImpulse(
@@ -220,7 +225,7 @@ export function reactiveSwingAt(
     lengthFrames,
     fps,
     into?.impulse,
-    reactive.reactivity,
+    1 - reactive.reactivity,
   );
   if (!impulse) {
     return undefined;
