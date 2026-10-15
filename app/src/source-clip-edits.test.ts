@@ -206,6 +206,20 @@ describe("duplicateSourceSpan", () => {
       [sourceClipEffectTrackId("a"), sourceClipEffectTrackId("copy")],
     );
   });
+
+  it("places the copy where it was dragged, overwriting what is there", () => {
+    const patch = duplicateSourceSpan(
+      project([span("a", 0, 4), span("other", 0, 4, { trackId: "t2" })]),
+      "a",
+      "copy",
+      { startQ: 2, sourceTrackId: "t2" },
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+4q from 10s",
+      "other@t2:0+2q from 10s",
+      "copy@t2:2+4q from 10s",
+    ]);
+  });
 });
 
 describe("pasteIntoSourceTrack", () => {

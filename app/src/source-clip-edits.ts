@@ -145,12 +145,13 @@ export function pasteIntoSourceTrack(
 
 /**
  * A copy of source clip `spanId`, with its stack, right after it in its
- * source track, overwriting what it lands on.
+ * source track or at `placement`, overwriting what it lands on.
  */
 export function duplicateSourceSpan(
   current: SourceClipProject,
   spanId: string,
   id: string,
+  placement?: Pick<SourceSpan, "startQ" | "sourceTrackId">,
 ): SourceClipPatch | undefined {
   const span = current.sourceSpans.find((item) => item.id === spanId);
   if (!span) {
@@ -160,7 +161,7 @@ export function duplicateSourceSpan(
   return placeSourceSpans(
     current,
     current.sourceSpans,
-    [{ ...span, id, startQ: getClipEndQ(span, current.bpm) }],
+    [{ ...span, id, startQ: getClipEndQ(span, current.bpm), ...placement }],
     [[sourceClipEffectTrackId(spanId), sourceClipEffectTrackId(id)]],
   );
 }

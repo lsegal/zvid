@@ -86,8 +86,8 @@ type SourceSpanProps = {
 // A span of a source track's media: its filmstrip, thumbnail or waveform and
 // name. A click selects it, dragging it moves it in its track and dragging an
 // edge trims it, like an arrangement clip, unless the source tracks are
-// locked; Ctrl/Cmd-click adds it to the arrangement, and a right-click
-// selects it and opens its menu.
+// locked; Ctrl/Cmd-dragging it drags a copy, Ctrl/Cmd-click adds it to the
+// arrangement, and a right-click selects it and opens its menu.
 export const SourceSpan = memo(function SourceSpan({
   clip,
   collapsed = false,
@@ -175,13 +175,15 @@ export const SourceSpan = memo(function SourceSpan({
     event: ReactPointerEvent,
     kind: SourceSpanDragState["kind"],
   ) {
-    // Right-click and Ctrl/Cmd-click keep opening the menu and adding the
-    // span to the arrangement.
+    // Right-click keeps opening the menu. Ctrl/Cmd on the body drags a copy,
+    // and still adds the span to the arrangement when released without
+    // dragging; on an edge it only adds it.
+    const duplicate = isSourceClipDropClick(event);
     if (
       locked ||
       event.button !== 0 ||
       isContextMenuPress(event, shortcutLabels.mac) ||
-      isSourceClipDropClick(event)
+      (duplicate && kind !== "move")
     ) {
       return;
     }
@@ -194,6 +196,9 @@ export const SourceSpan = memo(function SourceSpan({
       spanId: clip.id,
       pointerStartX: event.clientX,
       pointerStartY: event.clientY,
+      ...(duplicate
+        ? { duplicateId: `source-span-${crypto.randomUUID()}` }
+        : {}),
     });
   }
 
