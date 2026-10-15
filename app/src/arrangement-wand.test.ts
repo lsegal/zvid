@@ -4,6 +4,7 @@ import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
+  getWandSourceSpans,
   type WandSourceSpan,
 } from "./arrangement-wand.ts";
 import type { SessionEffect } from "./fx-stack.ts";
@@ -41,6 +42,18 @@ const span = (
   mediaId,
   startQ,
   durationSeconds: (endQ - startQ) / 2,
+});
+
+// A MIDI clip, which has notes and no media.
+const midiSpan = (
+  sourceTrackId: string,
+  startQ: number,
+  endQ: number,
+): WandSourceSpan & { sourceTrackId: string } => ({
+  sourceTrackId,
+  startQ,
+  durationSeconds: (endQ - startQ) / 2,
+  notes: [{ pitch: 60, start: 0, length: 1, velocity: 100 }],
 });
 
 const layoutEffect = (id: string, trackId: string): SessionEffect => ({
@@ -106,6 +119,54 @@ describe("getWandEndQ", () => {
       }),
       124,
     );
+  });
+  it("ignores MIDI clips, even when no span has video", () => {
+    const withMidi = [...spans, midiSpan("bass", 0, 200)];
+    assert.equal(
+      getWandEndQ({
+        fps: FPS,
+        bpm: BPM,
+        barLength: BAR,
+        sourceSpans: withMidi,
+        isVideoSpan,
+      }),
+      48,
+    );
+    assert.equal(
+      getWandEndQ({
+        fps: FPS,
+        bpm: BPM,
+        barLength: BAR,
+        sourceSpans: withMidi,
+        isVideoSpan: () => true,
+      }),
+      124,
+    );
+    assert.equal(
+      getWandEndQ({
+        fps: FPS,
+        bpm: BPM,
+        barLength: BAR,
+        sourceSpans: withMidi,
+        isVideoSpan: () => false,
+      }),
+      124,
+    );
+  });
+});
+
+describe("getWandSourceSpans", () => {
+  it("leaves out MIDI clips, empty ones included", () => {
+    const video = span("video", 0, 48);
+    const empty = { ...midiSpan("keys", 0, 8), notes: [] };
+    assert.deepEqual(
+      getWandSourceSpans([video, midiSpan("bass", 0, 16), empty]),
+      [video],
+    );
+  });
+
+  it("leaves nothing to arrange in a MIDI-only session", () => {
+    assert.deepEqual(getWandSourceSpans([midiSpan("bass", 0, 16)]), []);
   });
 });
 
@@ -181,6 +242,27 @@ describe("the wand on an imported set", () => {
           assert.ok(laneIds.has(window.laneId));
         }
       }
+    }
+  });
+
+  it("never places a window on a MIDI clip", () => {
+    const withMidi = [...sourceSpans, midiSpan("bass", 0, 48)];
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const windows = buildRandomArrangement({
+        laneIds: wandLanes.videoLanes.map((lane) => lane.id),
+        audioLaneId: wandLanes.audioLane.id,
+        isAudioOnly: (candidate) => candidate.mediaId === "frozen.wav",
+        sourceTrackIds: ["video-a", "video-b", "frozen", "bass"],
+        spans: getWandSourceSpans(withMidi),
+        spanEndQ: (candidate) =>
+          candidate.startQ + candidate.durationSeconds * 2,
+        timelineEndQ: endQ,
+        stepQ: BAR / 4,
+        durationSteps: [1, 2, 3, 4, 5, 6, 7, 8],
+        random: seededRandom(seed),
+      });
+      assert.ok(windows.length > 0);
+      assert.ok(windows.every((window) => !window.span.notes));
     }
   });
 
