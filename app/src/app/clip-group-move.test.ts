@@ -98,9 +98,7 @@ describe("moveClipGroup", () => {
   it("trims clips outside the group that the members land on", () => {
     const clips = [fill("a", "1", 0), fill("b", "2", 0), fill("x", "2", 4)];
     assert.deepEqual(
-      placed(
-        moveClipGroup(clips, members("a", "b"), { ...MOVE, deltaQ: 2 }),
-      ),
+      placed(moveClipGroup(clips, members("a", "b"), { ...MOVE, deltaQ: 2 })),
       [
         ["a", "1", 2, 4],
         ["b", "2", 2, 4],

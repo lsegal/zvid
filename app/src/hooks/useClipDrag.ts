@@ -1,8 +1,5 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
-import {
-  type ClipGroupMember,
-  moveClipGroup,
-} from "../app/clip-group-move.ts";
+import { type ClipGroupMember, moveClipGroup } from "../app/clip-group-move.ts";
 import { cloneClipAtStartQ } from "../app/clip-ops.ts";
 import { TIMELINE_DRAG_EPSILON } from "../app/constants.ts";
 import type { SelectionItem } from "../app/multi-selection.ts";
@@ -277,7 +274,8 @@ export function useClipDrag({
             : [];
           const deltaQ = nextStartQ - dragState.originStartQ;
           const laneShift =
-            laneIds.indexOf(nextLaneId) - laneIds.indexOf(dragState.originLaneId);
+            laneIds.indexOf(nextLaneId) -
+            laneIds.indexOf(dragState.originLaneId);
           setDragPreviewClips(
             laneShift === 0 && Math.abs(deltaQ) <= TIMELINE_DRAG_EPSILON
               ? null

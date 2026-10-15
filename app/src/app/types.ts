@@ -1,4 +1,3 @@
-import type { ClipGroupMember } from "./clip-group-move.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
@@ -11,6 +10,7 @@ import type { MidiNote } from "../midi-clip.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
+import type { ClipGroupMember } from "./clip-group-move.ts";
 import type { LoopRegion } from "./loop-region.ts";
 
 export type TimelineMode = "musical" | "timecode";

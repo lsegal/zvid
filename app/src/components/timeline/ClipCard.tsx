@@ -319,7 +319,9 @@ export const ClipCard = memo(function ClipCard({
                 .filter((id) => id !== clip.id)
                 .map((id) => ({
                   sourceClipId: id,
-                  clipId: duplicateOnDrag ? `window-${crypto.randomUUID()}` : id,
+                  clipId: duplicateOnDrag
+                    ? `window-${crypto.randomUUID()}`
+                    : id,
                 }))
             : undefined;
           if (!toggleOnClick && !group) {
