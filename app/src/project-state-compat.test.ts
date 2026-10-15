@@ -318,7 +318,7 @@ describe("migrateColorizeReactivity", () => {
       mode: "reactive",
       reactive: {
         ...defaults.reactive,
-        reactivity: 0,
+        reactivity: 1,
         amplitude: 0.4,
         parameters: ["_HueOffset"],
       },
@@ -670,14 +670,15 @@ describe("migrateEffectAnimation", () => {
     assert.equal(migrateEffectAnimation(effects), effects);
   });
 
-  it("opens old reactive settings at threshold 0 with their Amplitude", () => {
+  it("opens old reactive settings with every hit triggering and their Amplitude", () => {
     const [migrated] = migrateEffectAnimation([legacy]);
     assert.deepEqual(migrated.animation?.reactive, {
       motion: "Wobble",
       timing: "Fast",
-      reactivity: 0,
+      reactivity: 1,
       amplitude: 0.6,
       parameters: ["_HueOffset"],
+      version: 2,
     });
     assert.equal(migrated.animation?.enabled, true);
     assert.equal(migrated.animation?.mode, "reactive");

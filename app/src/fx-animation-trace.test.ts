@@ -97,7 +97,7 @@ describe("sampleReactiveTrace", () => {
   };
 
   it("spikes on each hit and falls back along the Motion envelope", () => {
-    const trace = sample({ motion: "Bounce", reactivity: 0, amplitude: 1 }, 2);
+    const trace = sample({ motion: "Bounce", reactivity: 1, amplitude: 1 }, 2);
     // Flat before the hit at 1s, which runs until 2s.
     for (let index = 0; index <= 10; index++) {
       const u = index / 10;
@@ -108,7 +108,7 @@ describe("sampleReactiveTrace", () => {
     assert.deepEqual(
       [
         ...new Set(
-          sample({ motion: "Bounce", reactivity: 0, amplitude: 1 }, 2.9),
+          sample({ motion: "Bounce", reactivity: 1, amplitude: 1 }, 2.9),
         ),
       ].slice(-1),
       [0],
@@ -116,13 +116,13 @@ describe("sampleReactiveTrace", () => {
   });
 
   it("swings either side of zero for Wobble", () => {
-    const trace = sample({ motion: "Wobble", reactivity: 0, amplitude: 1 }, 2);
+    const trace = sample({ motion: "Wobble", reactivity: 1, amplitude: 1 }, 2);
     assert.ok(Math.min(...trace) < 0);
     assert.ok(Math.max(...trace) > 0);
   });
 
   it("draws one full sine cycle for Single", () => {
-    const trace = sample({ motion: "Single", reactivity: 0, amplitude: 1 }, 2);
+    const trace = sample({ motion: "Single", reactivity: 1, amplitude: 1 }, 2);
     for (let index = 0; index <= 10; index++) {
       const u = index / 10;
       close(trace[index], Math.sin(2 * Math.PI * u));
@@ -130,10 +130,10 @@ describe("sampleReactiveTrace", () => {
   });
 
   it("scales by Amplitude and the hit's strength", () => {
-    const full = sample({ motion: "Bounce", reactivity: 0, amplitude: 1 }, 2);
-    const half = sample({ motion: "Bounce", reactivity: 0, amplitude: 0.5 }, 2);
+    const full = sample({ motion: "Bounce", reactivity: 1, amplitude: 1 }, 2);
+    const half = sample({ motion: "Bounce", reactivity: 1, amplitude: 0.5 }, 2);
     const weakHit = sample(
-      { motion: "Bounce", reactivity: 0, amplitude: 1 },
+      { motion: "Bounce", reactivity: 1, amplitude: 1 },
       4,
     );
     for (let index = 0; index < COUNT; index++) {
@@ -142,19 +142,20 @@ describe("sampleReactiveTrace", () => {
     }
   });
 
-  it("ignores hits below the Reactivity threshold", () => {
-    const strong = { motion: "Bounce", reactivity: 0.6, amplitude: 1 } as const;
+  it("ignores hits the Reactivity drops", () => {
+    const strong = { motion: "Bounce", reactivity: 0.4, amplitude: 1 } as const;
     assert.deepEqual([...new Set(sample(strong, 4))], [0]);
     assert.deepEqual(
       sample(strong, 2),
-      sample({ ...strong, reactivity: 0 }, 2),
+      sample({ ...strong, reactivity: 1 }, 2),
     );
   });
 
-  it("is flat with no Motion or no Amplitude", () => {
+  it("is flat with no Motion, no Amplitude or no Reactivity", () => {
     for (const reactive of [
-      { motion: "None", reactivity: 0, amplitude: 1 },
-      { motion: "Bounce", reactivity: 0, amplitude: 0 },
+      { motion: "None", reactivity: 1, amplitude: 1 },
+      { motion: "Bounce", reactivity: 1, amplitude: 0 },
+      { motion: "Bounce", reactivity: 0, amplitude: 1 },
     ] as const) {
       assert.deepEqual([...new Set(sample(reactive, 2))], [0]);
     }
@@ -162,7 +163,7 @@ describe("sampleReactiveTrace", () => {
 
   it("spans the default window", () => {
     const trace = sampleReactiveTrace(
-      { motion: "Bounce", reactivity: 0, amplitude: 1 },
+      { motion: "Bounce", reactivity: 1, amplitude: 1 },
       onsets,
       30,
       30,

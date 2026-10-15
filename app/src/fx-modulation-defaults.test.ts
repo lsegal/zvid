@@ -79,7 +79,7 @@ describe("normalizeEffectModulation", () => {
         {
           enabled: true,
           mode: "LFO",
-          transient: { reactivity: 4, amplitude: -1 },
+          transient: { reactivity: 4, amplitude: -40, version: 2 },
           lfo: { shape: "saw up", rate: 500, phase: -10, syncRate: "1/7" },
         },
         "Delay",
@@ -87,7 +87,7 @@ describe("normalizeEffectModulation", () => {
       {
         enabled: true,
         mode: "lfo",
-        transient: { ...defaults.transient, reactivity: 1, amplitude: 0 },
+        transient: { ...defaults.transient, reactivity: 1, amplitude: -10 },
         lfo: {
           ...defaults.lfo,
           shape: "Saw Up",

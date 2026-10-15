@@ -626,7 +626,12 @@ export function normalizeReactive(
   return {
     motion: readOption(reactive.motion, REACTIVE_MOTIONS, fallback.motion),
     timing: readOption(reactive.timing, ANIMATION_TIMINGS, fallback.timing),
-    reactivity: legacy ? 1 : threshold ? 1 - reactivity : reactivity,
+    reactivity: legacy
+      ? 1
+      : threshold
+        ? // Rounded so 0.7 opens at 0.3, not 0.30000000000000004.
+          Math.round((1 - reactivity) * 1e6) / 1e6
+        : reactivity,
     amplitude: legacy
       ? readReactivity(reactive.reactivity, fallback.amplitude)
       : readAmplitude(reactive.amplitude, fallback.amplitude),

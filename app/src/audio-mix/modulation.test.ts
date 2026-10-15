@@ -37,7 +37,7 @@ function transient(
   return {
     mode: "transient",
     motion: "Bounce",
-    reactivity: 0,
+    reactivity: 1,
     amplitude: 1,
     lengthFrames: 12,
     parameters: [{ key: "Level", min: 0, max: 1 }],
@@ -210,7 +210,7 @@ describe("modulatedValue", () => {
 
 describe("transientSwing", () => {
   it("moves a knob exactly as Reactive does for the same settings and hits", () => {
-    // The 0.5 hit is under the Reactivity threshold and moves nothing.
+    // Reactivity 40% drops the 0.5 hit, so it moves nothing.
     const onsets = [
       { time: 1, strength: 0.8 },
       { time: 1.25, strength: 0.5 },
@@ -221,13 +221,13 @@ describe("transientSwing", () => {
         const reactive = {
           motion,
           timing,
-          reactivity: 0.6,
+          reactivity: 0.4,
           amplitude: 1.5,
           parameters: ["_HueOffset"],
         };
         const settings = transient({
           motion,
-          reactivity: 0.6,
+          reactivity: 0.4,
           amplitude: 1.5,
           lengthFrames: getReactiveTimingFrames("Colorize", timing),
           parameters: [{ key: "_HueOffset", min: -1, max: 1 }],

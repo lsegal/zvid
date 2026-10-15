@@ -57,7 +57,7 @@ describe("audioStageOf modulation", () => {
     assert.deepEqual(audioStageOf(highCut(), "a").modulation, {
       mode: "transient",
       motion: "Single",
-      reactivity: 0,
+      reactivity: 1,
       amplitude: 0.5,
       lengthFrames: 12,
       parameters: [{ key: "Frequency", min: 20, max: 20000, taper: "log" }],
