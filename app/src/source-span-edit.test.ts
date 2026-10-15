@@ -7,6 +7,7 @@ import {
   dragSourceSpan,
   dragSourceSpanInSpans,
   getDroppedSourceSpanStartQ,
+  moveSourceSpanGroup,
   placeDroppedSourceSpans,
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
@@ -320,6 +321,71 @@ describe("dragSourceSpanInSpans", () => {
         ["m", 4, 8],
       ],
     );
+  });
+});
+
+describe("moveSourceSpanGroup", () => {
+  const TRACKS = ["t1", "t2", "t3"];
+  const spans = [
+    span("a", 2, 2),
+    span("b", 6, 2),
+    span("c", 4, 2, { trackId: "t2" }),
+    span("x", 10, 4),
+  ];
+  const members = new Set(["a", "b", "c"]);
+  const move = (deltaQ: number, trackShift = 0) =>
+    moveSourceSpanGroup(spans, members, {
+      deltaQ,
+      trackShift,
+      trackIds: TRACKS,
+      bpm: BPM,
+    });
+
+  it("moves every member by the same offset, with its content", () => {
+    assert.deepEqual(layout(move(1)), [
+      ["a", "t1", 3, 5, 10],
+      ["b", "t1", 7, 9, 10],
+      ["c", "t2", 5, 7, 10],
+      ["x", "t1", 10, 14, 10],
+    ]);
+  });
+
+  it("stops the group where its earliest member reaches the start", () => {
+    assert.deepEqual(
+      layout(move(-5)).map(([id, , startQ]) => [id, startQ]),
+      [
+        ["a", 0],
+        ["b", 4],
+        ["c", 2],
+        ["x", 10],
+      ],
+    );
+  });
+
+  it("shifts every member across source tracks, keeping them on the tracks", () => {
+    assert.deepEqual(
+      layout(move(0, 1)).map(([id, trackId]) => [id, trackId]),
+      [
+        ["a", "t2"],
+        ["b", "t2"],
+        ["c", "t3"],
+        ["x", "t1"],
+      ],
+    );
+    assert.deepEqual(
+      layout(move(0, 5)).map(([id, trackId]) => [id, trackId]),
+      layout(move(0, 1)).map(([id, trackId]) => [id, trackId]),
+    );
+  });
+
+  it("overwrites the spans it lands on, but never another member", () => {
+    // a lands where b was, and b on the start of x.
+    assert.deepEqual(layout(move(4)), [
+      ["a", "t1", 6, 8, 10],
+      ["b", "t1", 10, 12, 10],
+      ["c", "t2", 8, 10, 10],
+      ["x", "t1", 12, 14, 11],
+    ]);
   });
 });
 

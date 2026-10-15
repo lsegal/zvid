@@ -1,14 +1,21 @@
 import { type Dispatch, type SetStateAction, useEffect } from "react";
+import { moveClipGroup } from "../app/clip-group-move.ts";
+import type { SelectionItem } from "../app/multi-selection.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import { findSourceTrackIdAt } from "../app/timeline-math.ts";
 import type {
+  ArrangementClip,
   ProjectState,
   SourceSpan,
   SourceSpanDragState,
 } from "../app/types.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
 import { duplicateSourceSpan } from "../source-clip-edits.ts";
-import { dragSourceSpanInSpans } from "../source-span-edit.ts";
+import {
+  dragSourceSpan,
+  dragSourceSpanInSpans,
+  moveSourceSpanGroup,
+} from "../source-span-edit.ts";
 import { syncClipsToSourceSpans } from "../source-track-content.ts";
 
 export type SourceSpanDragInputs = {
@@ -16,8 +23,15 @@ export type SourceSpanDragInputs = {
   setSourceSpanDrag: Dispatch<SetStateAction<SourceSpanDragState | null>>;
   dragPreviewSourceSpans: SourceSpan[] | null;
   setDragPreviewSourceSpans: Dispatch<SetStateAction<SourceSpan[] | null>>;
+  dragPreviewClips: ArrangementClip[] | null;
+  setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
   sourceSpans: SourceSpan[];
+  clips: ArrangementClip[];
+  // Every selected clip and source clip.
+  selectionItems: readonly SelectionItem[];
   bpm: number;
+  beatUnit: number;
+  totalQuarters: number;
   fps: number;
   snapUnit: number;
   snapEnabled: boolean;
@@ -67,13 +81,22 @@ function swallowNextClick() {
 // onto other layers. A Ctrl/Cmd-drag moves a copy, with the span's stack,
 // instead, and swallows the click that would add the span to the
 // arrangement. A press released before the click threshold changes nothing.
+// Moving one of several selected items moves them all by its offset
+// (#1483): the selected source clips across source tracks, the selected
+// layer clips in time only. Clips that aren't selected stay where they are.
 export function useSourceSpanDrag({
   sourceSpanDrag,
   setSourceSpanDrag,
   dragPreviewSourceSpans,
   setDragPreviewSourceSpans,
+  dragPreviewClips,
+  setDragPreviewClips,
   sourceSpans,
+  clips,
+  selectionItems,
   bpm,
+  beatUnit,
+  totalQuarters,
   fps,
   snapUnit,
   snapEnabled,
@@ -92,6 +115,7 @@ export function useSourceSpanDrag({
     // progress without changing anything.
     if (sourceTracksLocked) {
       setDragPreviewSourceSpans(null);
+      setDragPreviewClips(null);
       setSourceSpanDrag(null);
       return;
     }
@@ -102,6 +126,20 @@ export function useSourceSpanDrag({
     const origin = span && duplicateId ? { ...span, id: duplicateId } : span;
     const dragSpans =
       origin && duplicateId ? [...sourceSpans, origin] : sourceSpans;
+    // Everything selected, when a move, not a copy, grabs one of several
+    // selected items.
+    const group =
+      sourceSpanDrag.kind === "move" &&
+      !duplicateId &&
+      selectionItems.length > 1 &&
+      selectionItems.some(
+        (item) => item.kind === "span" && item.id === sourceSpanDrag.spanId,
+      )
+        ? selectionItems
+        : undefined;
+    const groupClipIds = (group ?? []).flatMap((item) =>
+      item.kind === "clip" ? [item.id] : [],
+    );
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== sourceSpanDrag.pointerId || !origin) {
@@ -127,14 +165,53 @@ export function useSourceSpanDrag({
         return;
       }
 
+      const rows = getSourceTrackRows();
       const sourceTrackId =
         sourceSpanDrag.kind === "move"
-          ? findSourceTrackIdAt(
-              getSourceTrackRows(),
-              event.clientY,
-              origin.sourceTrackId,
-            )
+          ? findSourceTrackIdAt(rows, event.clientY, origin.sourceTrackId)
           : origin.sourceTrackId;
+      if (group) {
+        // The others follow the grabbed span's snapped offset.
+        const deltaQ =
+          dragSourceSpan(origin, "move", deltaX / quarterPx, {
+            bpm,
+            fps,
+            snapUnit,
+            snap: snapEnabled && !event.shiftKey,
+          }).startQ - origin.startQ;
+        const trackIds = rows.map((row) => row.id);
+        const trackShift = trackIds.includes(origin.sourceTrackId)
+          ? trackIds.indexOf(sourceTrackId) -
+            trackIds.indexOf(origin.sourceTrackId)
+          : 0;
+        setDragPreviewSourceSpans(
+          moveSourceSpanGroup(
+            sourceSpans,
+            new Set(
+              group.flatMap((item) => (item.kind === "span" ? [item.id] : [])),
+            ),
+            { deltaQ, trackShift, trackIds, bpm },
+          ),
+        );
+        if (groupClipIds.length) {
+          setDragPreviewClips(
+            moveClipGroup(
+              clips,
+              groupClipIds.map((id) => ({ clipId: id, sourceClipId: id })),
+              {
+                deltaQ,
+                laneShift: 0,
+                laneIds: [],
+                totalQuarters,
+                beatUnit,
+                bpm,
+                duplicate: false,
+              },
+            ),
+          );
+        }
+        return;
+      }
       setDragPreviewSourceSpans(
         dragSourceSpanInSpans(
           dragSpans,
@@ -177,6 +254,24 @@ export function useSourceSpanDrag({
           });
         }
         swallowNextClick();
+      } else if (group && dragPreviewSourceSpans) {
+        // Unselected clips keep their place; only what their windows hold
+        // changes.
+        const spans = dragPreviewSourceSpans;
+        const movedClips = groupClipIds.length ? dragPreviewClips : null;
+        commitProjectChange(`Move ${group.length} clips`, (current) =>
+          patchProjectState(current, {
+            sourceSpans: spans,
+            clips: syncClipsToSourceSpans(
+              movedClips ?? current.clips,
+              current.sourceSpans,
+              spans,
+              bpm,
+            ),
+          }),
+        );
+        // The group stays selected.
+        swallowNextClick();
       } else if (dragPreviewSourceSpans) {
         const spans = dragPreviewSourceSpans;
         commitProjectChange(
@@ -197,6 +292,9 @@ export function useSourceSpanDrag({
       }
 
       setDragPreviewSourceSpans(null);
+      if (groupClipIds.length) {
+        setDragPreviewClips(null);
+      }
       setSourceSpanDrag(null);
     };
 
@@ -206,6 +304,9 @@ export function useSourceSpanDrag({
       }
 
       setDragPreviewSourceSpans(null);
+      if (groupClipIds.length) {
+        setDragPreviewClips(null);
+      }
       setSourceSpanDrag(null);
     };
 
@@ -219,19 +320,25 @@ export function useSourceSpanDrag({
       window.removeEventListener("pointercancel", onPointerCancel);
     };
   }, [
+    beatUnit,
     bpm,
+    clips,
     commitProjectChange,
+    dragPreviewClips,
     dragPreviewSourceSpans,
     fps,
     isWorkspaceReadOnlyRef,
     quarterPx,
     refuseReadOnlyEdit,
+    setDragPreviewClips,
     setDragPreviewSourceSpans,
+    selectionItems,
     setSourceSpanDrag,
     snapEnabled,
     snapUnit,
     sourceSpanDrag,
     sourceSpans,
     sourceTracksLocked,
+    totalQuarters,
   ]);
 }
