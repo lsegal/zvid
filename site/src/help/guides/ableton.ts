@@ -44,19 +44,32 @@ export const ableton: Guide = {
           ],
         },
         {
-          type: "steps",
+          type: "installer",
           items: [
-            "In zvid, choose **Help › Install Capture Plugin** and download the installer for your computer.",
-            "Run it. On macOS it installs into `/Library/Audio/Plug-Ins`; on Windows into `Common Files\\VST3`.",
-            "In Live, open **Settings › Plug-Ins**, turn on the system folders (**Use Audio Units** or **Use VST3 Plug-In System Folders**) and click **Rescan**.",
-            "Drag **ZVID Capture** onto an audio track and pick your camera.",
+            {
+              platform: "macos",
+              label: "macOS (Apple Silicon)",
+              file: "zvid-capture-macos.pkg",
+            },
+            {
+              platform: "windows",
+              label: "Windows",
+              file: "zvid-capture-windows-setup.exe",
+            },
           ],
         },
         {
-          type: "figure",
-          shot: "ableton-installer",
-          alt: "The Install ZVID Capture dialog with a Download for Windows button, a macOS link and setup steps.",
-          width: 560,
+          type: "steps",
+          items: [
+            "Download and run the installer. On macOS it installs the VST3 and Audio Unit plug-ins into `/Library/Audio/Plug-Ins`; on Windows it installs the VST3 plug-in into `Common Files\\VST3`.",
+            "In Live, open **Settings › Plug-Ins**, turn on **Use Audio Units** or **Use VST3 Plug-In System Folders**, then click **Rescan**.",
+            "Drag **ZVID Capture** from Plug-Ins onto an audio track, pick your camera in the plug-in window and record.",
+            "Optional: click **Install Live companion** in the plug-in window and choose **ZVID Capture** as a Control Surface, so Live's record buttons start capture and takes save beside your set. See [The Live companion](#companion).",
+          ],
+        },
+        {
+          type: "p",
+          text: "The same downloads are in the app under **Help › Install Capture Plugin**. Each one is the latest build.",
         },
         {
           type: "note",

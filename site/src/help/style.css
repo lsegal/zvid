@@ -145,13 +145,22 @@ kbd {
   justify-content: space-between;
 }
 
+/* The logo goes home to the landing page; the HELP tag to the docs. */
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-home {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   font-size: 20px;
   font-weight: 700;
   text-decoration: none;
+}
+.brand-home:hover span {
+  color: var(--brand-purple);
 }
 .brand svg {
   width: auto;
@@ -169,6 +178,11 @@ kbd {
   letter-spacing: 0.08em;
   line-height: 20px;
   text-transform: uppercase;
+  text-decoration: none;
+}
+a.brand-tag:hover {
+  border-color: var(--muted);
+  color: var(--ink);
 }
 
 .menu-toggle {

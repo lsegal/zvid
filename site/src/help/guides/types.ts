@@ -27,7 +27,13 @@ export type Block =
       width?: number;
     }
   | { type: "video"; id: string; caption?: string }
-  | { type: "keys"; rows: { keys: string[]; action: string }[] };
+  | { type: "keys"; rows: { keys: string[]; action: string }[] }
+  | {
+      // The ZVID Capture download button, as the app's Install Capture
+      // Plugin dialog shows it: the visitor's platform first.
+      type: "installer";
+      items: { platform: "macos" | "windows"; label: string; file: string }[];
+    };
 
 export type Section = {
   id: string;

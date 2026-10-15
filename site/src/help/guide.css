@@ -278,3 +278,82 @@
     text-align: left;
   }
 }
+
+/* The ZVID Capture download, styled like the app's Install Capture Plugin
+   dialog: one gold button for the visitor's platform, the rest as links. */
+
+.prose > .g-installer {
+  margin: 28px 0;
+}
+.g-installer {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 72ch;
+  padding: 26px 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(12, 14, 20, 0.26);
+}
+.g-installer__notice {
+  color: #ffd56a;
+  font-size: 14px;
+  text-align: center;
+}
+.g-installer__download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 260px;
+  padding: 13px 22px;
+  border: 1px solid rgba(255, 213, 106, 0.6);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffd56a 0%, var(--amber) 100%);
+  box-shadow:
+    0 10px 24px rgba(246, 183, 60, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: var(--ink-on-accent);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    transform 160ms ease;
+}
+.prose .g-installer__download {
+  color: var(--ink-on-accent);
+}
+.g-installer__download:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    0 14px 30px rgba(246, 183, 60, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+.g-installer__download:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.g-installer__download svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.g-installer__alternates {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.prose .g-installer__link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: rgba(238, 242, 255, 0.35);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.prose .g-installer__link:hover {
+  text-decoration-color: currentColor;
+}

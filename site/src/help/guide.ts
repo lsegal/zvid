@@ -16,14 +16,19 @@ const BRAND_PATHS = `
   <path fill-rule="evenodd" d="M 4,144 C 8,140 15,145 26,145 H 236 Q 241,145 240,149 C 234,171 221,194 198,194 H 25 C 10,194 2,185 2,173 V 157 Q 2,149 4,144 Z M 78,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 121,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 163,169 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 203,169 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z" />`;
 
 const guideUrl = (id: string) => `${BASE}${id}/`;
+// The site root, where the landing page lives.
+const SITE = import.meta.env.BASE_URL;
 
 function renderSidebar(guide: Guide) {
   el(".sidebar").innerHTML = `
     <div class="sidebar-top">
-      <a class="brand" href="${BASE}" aria-label="zvid Help home">
-        <svg viewBox="-8 -8 258 212" aria-hidden="true">${BRAND_PATHS}</svg>
-        <span>zvid</span><span class="brand-tag">help</span>
-      </a>
+      <div class="brand">
+        <a class="brand-home" href="${SITE}" aria-label="zvid home">
+          <svg viewBox="-8 -8 258 212" aria-hidden="true">${BRAND_PATHS}</svg>
+          <span>zvid</span>
+        </a>
+        <a class="brand-tag" href="${BASE}" aria-label="zvid Help home">help</a>
+      </div>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="sidebar-body">Contents</button>
     </div>
     <div id="sidebar-body" class="sidebar-body">
@@ -48,6 +53,53 @@ function renderSidebar(guide: Guide) {
       </nav>
       <a class="open-app" href="${APP_URL}">Launch zvid <span aria-hidden="true">→</span></a>
     </div>`;
+}
+
+const DOWNLOAD_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" /></svg>';
+
+// The platform a browser runs on, as the app's Install Capture Plugin dialog
+// detects it (app/src/capture-installers.ts). Phones, tablets and Chromebooks
+// can't run Live.
+function detectPlatform(): "macos" | "windows" | null {
+  const nav = navigator as Navigator & {
+    userAgentData?: { platform?: string };
+  };
+  const hint = [nav.userAgentData?.platform, nav.platform, nav.userAgent]
+    .filter(Boolean)
+    .join(" ");
+  if (/android|iphone|ipad|ipod|cros/i.test(hint)) return null;
+  if (/\bwin/i.test(hint)) return "windows";
+  if (/mac/i.test(hint)) return nav.maxTouchPoints > 1 ? null : "macos";
+  return null;
+}
+
+function renderInstaller(
+  items: Extract<Block, { type: "installer" }>["items"],
+): string {
+  const platform = detectPlatform();
+  const primary = items.find((item) => item.platform === platform);
+  const others = items.filter((item) => item !== primary);
+  const url = (file: string) => `${APP_URL}downloads/capture/${file}`;
+  const notice = !platform
+    ? "ZVID Capture runs in Ableton Live on macOS and Windows only. Download the installer on the computer you run Live on."
+    : platform === "macos"
+      ? "ZVID Capture needs a Mac with Apple silicon. Intel Macs aren't supported."
+      : "";
+  return `<div class="g-installer">
+    ${notice ? `<p class="g-installer__notice" role="note">${escapeHtml(notice)}</p>` : ""}
+    ${
+      primary
+        ? `<a class="g-installer__download" href="${url(primary.file)}" download="${primary.file}">${DOWNLOAD_ICON}<span>Download for ${escapeHtml(primary.label)}</span></a>`
+        : ""
+    }
+    <p class="g-installer__alternates">${primary ? "Also available for " : "Download for "}${others
+      .map(
+        (item) =>
+          `<a class="g-installer__link" href="${url(item.file)}" download="${item.file}">${escapeHtml(item.label)}</a>`,
+      )
+      .join(" · ")}</p>
+  </div>`;
 }
 
 function renderBlock(block: Block): string {
@@ -99,6 +151,8 @@ function renderBlock(block: Block): string {
         <figcaption>${inline(block.caption ?? demo.body)}</figcaption>
       </figure>`;
     }
+    case "installer":
+      return renderInstaller(block.items);
     case "keys":
       return `<dl class="keys g-keys">${block.rows
         .map(
