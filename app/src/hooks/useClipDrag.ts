@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { cloneClipAtStartQ } from "../app/clip-ops.ts";
 import { TIMELINE_DRAG_EPSILON } from "../app/constants.ts";
+import type { SelectionItem } from "../app/multi-selection.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
   findClosestTimelineLaneId,
@@ -24,6 +25,7 @@ import {
   releaseLaneSelectionGesture,
 } from "../lane-selection-gesture.ts";
 import { createSnapFeedback } from "../mobile/snap-feedback.ts";
+import type { MarqueeSelection } from "./useMarqueeSelection.ts";
 
 export type ClipDragInputs = {
   dragState: DragState | null;
@@ -32,6 +34,10 @@ export type ClipDragInputs = {
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  toggleSelection: (item: SelectionItem) => void;
+  applySelection: (items: readonly SelectionItem[]) => void;
+  setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  marquee: Pick<MarqueeSelection, "show" | "hide">;
   clips: ArrangementClip[];
   bpm: number;
   beatUnit: number;
@@ -63,6 +69,10 @@ export function useClipDrag({
   setDragPreviewClips,
   setPendingSelection,
   setSelectedClipId,
+  toggleSelection,
+  applySelection,
+  setSelectedLaneId,
+  marquee,
   clips,
   bpm,
   beatUnit,
@@ -82,6 +92,9 @@ export function useClipDrag({
 }: ClipDragInputs) {
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
   const snapFeedbackRef = useRef(createSnapFeedback());
+  const { show: showMarquee, hide: hideMarquee } = marquee;
+  // Whether the lane selection drag left its layer and draws a marquee.
+  const laneMarqueeRef = useRef(false);
 
   useEffect(() => {
     if (!dragState) {
@@ -99,6 +112,33 @@ export function useClipDrag({
         const timelineScroll = timelineScrollRef.current;
         if (!timelineScroll) {
           return;
+        }
+
+        // Off its layer, the drag drops the range and draws a marquee from
+        // the press instead; back on it, the range returns.
+        const laneBounds = timelineScroll
+          .querySelector(
+            `[data-timeline-lane-id="${CSS.escape(dragState.laneId)}"]`,
+          )
+          ?.getBoundingClientRect();
+        const offLane =
+          dragState.pointerStartY !== undefined &&
+          laneBounds !== undefined &&
+          (event.clientY < laneBounds.top || event.clientY > laneBounds.bottom);
+        if (offLane && dragState.pointerStartY !== undefined) {
+          laneMarqueeRef.current = true;
+          setPendingSelection(null);
+          showMarquee(
+            { x: dragState.gesture.pointerStartX, y: dragState.pointerStartY },
+            { x: event.clientX, y: event.clientY },
+          );
+          return;
+        }
+        if (laneMarqueeRef.current) {
+          laneMarqueeRef.current = false;
+          hideMarquee();
+          applySelection([]);
+          setSelectedLaneId(dragState.laneId);
         }
 
         const pointerX = getTimelinePointerX(timelineScroll, event.clientX);
@@ -322,10 +362,14 @@ export function useClipDrag({
         return;
       }
 
-      // A press released before it became a drag is a click: it stops
-      // playback and seeks instead of leaving a selection behind. A drag
-      // leaves playback running (#1447).
-      if (dragState.kind === "selection") {
+      // A drag released off its layer keeps what its marquee selected.
+      // Otherwise a press released before it became a drag is a click: it
+      // stops playback and seeks instead of leaving a selection behind. A
+      // drag leaves playback running (#1447).
+      if (dragState.kind === "selection" && laneMarqueeRef.current) {
+        laneMarqueeRef.current = false;
+        hideMarquee();
+      } else if (dragState.kind === "selection") {
         const release = releaseLaneSelectionGesture(dragState.gesture);
         if (release.kind === "click") {
           setPendingSelection(null);
@@ -363,6 +407,16 @@ export function useClipDrag({
         );
       }
 
+      // A Shift-press selects the clip it moved, or toggles it when it
+      // never moved.
+      if (dragState.kind === "move" && dragState.toggleOnClick) {
+        if (dragPreviewClips) {
+          setSelectedClipId(dragState.clipId);
+        } else {
+          toggleSelection({ kind: "clip", id: dragState.clipId });
+        }
+      }
+
       if (
         dragState.kind === "move" &&
         dragState.duplicateOnDrag &&
@@ -387,6 +441,11 @@ export function useClipDrag({
     const onPointerCancel = (event: PointerEvent) => {
       if (event.pointerId !== dragState.pointerId) {
         return;
+      }
+
+      if (laneMarqueeRef.current) {
+        laneMarqueeRef.current = false;
+        hideMarquee();
       }
 
       if (
@@ -435,5 +494,10 @@ export function useClipDrag({
     setPendingSelection,
     setSelectedClipId,
     timelineScrollRef,
+    toggleSelection,
+    applySelection,
+    setSelectedLaneId,
+    showMarquee,
+    hideMarquee,
   ]);
 }

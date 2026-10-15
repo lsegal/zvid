@@ -30,6 +30,7 @@ const BASE: StatusItemsState = {
   audio: { sampleRate: 48000, channels: 2, hasAudio: true },
   collaboration: { mode: "idle", connected: false, peerCount: 0 },
   clipCount: 3,
+  selectedClipCount: 0,
   trackCount: 2,
   offlineCount: 0,
 };
@@ -226,6 +227,18 @@ describe("buildStatusItems", () => {
     const media = itemsById({ ...BASE, offlineCount: 1 }).get("media");
     assert.equal(media?.value, "1 offline");
     assert.equal(media?.title, "1 media file offline");
+  });
+
+  it("reports the selection only while several clips are selected", () => {
+    assert.equal(
+      itemsById({ ...BASE, selectedClipCount: 1 }).has("selection"),
+      false,
+    );
+    const selection = itemsById({ ...BASE, selectedClipCount: 3 }).get(
+      "selection",
+    );
+    assert.equal(selection?.value, "3");
+    assert.equal(selection?.title, "3 clips selected");
   });
 
   it("pluralizes clip and track counts in the title", () => {

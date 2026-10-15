@@ -7,6 +7,7 @@ import { contentStatusItem } from "./items/content.ts";
 import { mediaStatusItem } from "./items/media.ts";
 import { playheadStatusItem } from "./items/playhead.ts";
 import { resolutionStatusItem } from "./items/resolution.ts";
+import { selectionStatusItem } from "./items/selection.ts";
 import { sessionStatusItem } from "./items/session.ts";
 import { timelineStatusItem } from "./items/timeline.ts";
 import { versionStatusItem } from "./items/version.ts";
@@ -27,6 +28,7 @@ export const statusItemProviders: readonly StatusItemProvider[] = [
   audioStatusItem,
   collaborationStatusItem,
   contentStatusItem,
+  selectionStatusItem,
   mediaStatusItem,
 ];
 

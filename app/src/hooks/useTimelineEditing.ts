@@ -24,7 +24,9 @@ import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
+import { useMarqueeSelection } from "./useMarqueeSelection.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
+import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {
   ProjectStore,
@@ -79,6 +81,11 @@ export type TimelineEditingInputs = {
     | "focusLaneLabel"
     | "sourceSelection"
     | "selectSource"
+    | "selectionItems"
+    | "applySelection"
+    | "isInMultiSelection"
+    | "toggleSelection"
+    | "selectionItemsRef"
   >;
   viewport: Pick<
     ReturnType<typeof useTimelineViewport>,
@@ -202,6 +209,11 @@ export function useTimelineEditing({
     setDragPreviewSourceSpans,
     sourceSelection,
     selectSource,
+    selectionItems,
+    applySelection,
+    isInMultiSelection,
+    toggleSelection,
+    selectionItemsRef,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -279,6 +291,21 @@ export function useTimelineEditing({
     timelineScrollRef,
   });
 
+  const multi = useMultiSelectionActions({
+    bpm,
+    clipClipboardRef,
+    commitProjectChange,
+    effects,
+    playheadQRef,
+    selectionItems,
+    applySelection,
+    setPendingSelection,
+    setStatus,
+    sourceSpans,
+    sourceTracksLocked,
+    timelineClips,
+  });
+
   const {
     copyArrangementClip,
     cutArrangementClip,
@@ -303,6 +330,7 @@ export function useTimelineEditing({
     dispatchProject,
     effects,
     lanes,
+    multi,
     playheadQRef,
     selectedClip,
     selectedLaneId,
@@ -318,6 +346,7 @@ export function useTimelineEditing({
     commitProjectChange,
     copySourceSpan,
     jumpPlayheadTo,
+    multi,
     playheadQRef,
     selectSource,
     setStatus,
@@ -419,6 +448,7 @@ export function useTimelineEditing({
     handleRedo,
     handleUndo,
     insertFillClip,
+    isInMultiSelection,
     insertFxClip,
     insertLayer,
     insertTextClip,
@@ -495,6 +525,13 @@ export function useTimelineEditing({
     totalQuarters,
   });
 
+  const marquee = useMarqueeSelection({
+    timelineScrollRef,
+    sourceSpans,
+    selectionItemsRef,
+    applySelection,
+  });
+
   useClipDrag({
     dragState,
     setDragState,
@@ -502,6 +539,10 @@ export function useTimelineEditing({
     setDragPreviewClips,
     setPendingSelection,
     setSelectedClipId,
+    toggleSelection,
+    applySelection,
+    setSelectedLaneId,
+    marquee,
     clips,
     bpm,
     beatUnit,
@@ -559,6 +600,7 @@ export function useTimelineEditing({
 
   return {
     ...rowHandlers,
+    marqueeRect: marquee.marqueeRect,
     handleRandomizeTimeline,
     handleCreateLayer,
     layerReorder,

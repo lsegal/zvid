@@ -1,0 +1,14 @@
+/* Above the timeline and its clips, under menus and collaborators' cursors. */
+.marquee-box {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  border: 1px solid var(--lane-selected-accent);
+  border-radius: 2px;
+  background: rgba(246, 183, 60, 0.12);
+}
+
+body.is-marquee-selecting,
+body.is-marquee-selecting * {
+  cursor: crosshair !important;
+}

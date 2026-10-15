@@ -130,7 +130,7 @@ async function renderSpan(item: MediaItem, filmstrip?: Filmstrip) {
     prefersReducedMotion: true,
     revealedMediaIds: new Set(),
     clipMenu: null,
-    sourceSelection: undefined,
+    selectedSourceSpanIds: new Set(),
     selectSourceSpan: noop,
     shortcutLabels: getShortcutLabels(),
     addSourceSpanToArrangement: noop,

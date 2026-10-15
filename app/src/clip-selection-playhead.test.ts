@@ -59,8 +59,11 @@ describe("clip selection keeps the playhead", () => {
     const body = sliceFrom("const selectSource = useCallback(", "\n  );\n");
     assert.match(body, /setSourceSelection\(selection\);/);
     assertNoSeek(body);
-    const onClick = sliceFrom("onClick={(event) => {", "onContextMenu=");
-    assert.match(onClick, /selectSourceSpan\(clip\);/);
+    const onClick = sliceFrom(
+      "// Ctrl-click on macOS opens the menu instead.",
+      "onContextMenu=",
+    );
+    assert.match(onClick, /selectSourceSpan\(clip, /);
     assertNoSeek(onClick);
   });
 

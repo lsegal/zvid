@@ -10,6 +10,7 @@ import {
   duplicateClip,
   withClipStacks,
 } from "../app/clip-ops.ts";
+import { isMultiClipboard } from "../app/multi-selection.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
   getClipDurationQ,
@@ -47,6 +48,7 @@ import {
   resolveClipOverlaps,
   withWindowTiming,
 } from "../range-edit.ts";
+import type { MultiSelectionActions } from "./useMultiSelectionActions.ts";
 
 export type ClipActionsInputs = {
   addSourceSpanToArrangement: (sourceSpan: SourceSpan) => void;
@@ -64,6 +66,7 @@ export type ClipActionsInputs = {
   dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
   effects: SessionEffect[];
   lanes: Lane[];
+  multi: MultiSelectionActions;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
   selectedLaneId: string | undefined;
@@ -86,6 +89,7 @@ export function useClipActions({
   dispatchProject,
   effects,
   lanes,
+  multi,
   playheadQRef,
   selectedClip,
   selectedLaneId,
@@ -95,8 +99,16 @@ export function useClipActions({
   timelineClips,
 }: ClipActionsInputs) {
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
-  // menus. Each is one undo step.
+  // menus. Each is one undo step. A clip that is one of several selected
+  // copies, cuts, deletes or duplicates the whole selection.
+  const isMulti = (clip: ArrangementClip) =>
+    multi.covers({ kind: "clip", id: clip.id });
+
   function copyArrangementClip(clip: ArrangementClip) {
+    if (isMulti(clip)) {
+      multi.copy();
+      return;
+    }
     clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     setStatus(`Copied ${clip.label}.`);
   }
@@ -120,12 +132,20 @@ export function useClipActions({
   }
 
   function cutArrangementClip(clip: ArrangementClip) {
+    if (isMulti(clip)) {
+      multi.cut();
+      return;
+    }
     clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     removeArrangementClip(clip, "Cut clip");
     setStatus(`Cut ${clip.label}.`);
   }
 
   function deleteArrangementClip(clip: ArrangementClip) {
+    if (isMulti(clip)) {
+      multi.remove();
+      return;
+    }
     removeArrangementClip(clip, "Delete clip");
     setStatus(`Deleted ${clip.label}.`);
   }
@@ -212,6 +232,12 @@ export function useClipActions({
   function pasteArrangementClip(laneId?: string) {
     const clipboard = clipClipboardRef.current;
     if (!clipboard) {
+      return;
+    }
+    // Copied clips from several rows go back to their kinds of row, the
+    // topmost layer's onto this one.
+    if (isMultiClipboard(clipboard)) {
+      multi.paste({ laneId: laneId ?? selectedClip?.laneId ?? selectedLaneId });
       return;
     }
     if (!canPasteOntoLayer(clipboard)) {
@@ -327,6 +353,10 @@ export function useClipActions({
   }
 
   function duplicateArrangementClip(clip: ArrangementClip) {
+    if (isMulti(clip)) {
+      multi.duplicate();
+      return;
+    }
     const duplicatedClipId = `window-${crypto.randomUUID()}`;
     dispatchProject({
       type: "commit",
@@ -362,6 +392,10 @@ export function useClipActions({
   // A copied source clip pastes only into a source track, as the source clip
   // with its stack.
   function copySourceSpan(span: SourceSpan) {
+    if (multi.covers({ kind: "span", id: span.id })) {
+      multi.copy();
+      return;
+    }
     const stackId = sourceClipEffectTrackId(span.id);
     clipClipboardRef.current = {
       fragments: [],

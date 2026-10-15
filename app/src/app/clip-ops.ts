@@ -70,6 +70,9 @@ export type ClipClipboard = ClipboardContent<ArrangementClip> & {
   // recreates it with its stack (in `effects`). Set only on content copied
   // from a source clip; layer content leaves it out.
   sourceSpan?: SourceSpan;
+  // The source clips of a copied multi-selection, placed like `fragments`
+  // (see multi-selection.ts). Set only on content copied from one.
+  sourceFragments?: Array<{ span: SourceSpan; offsetQ: number }>;
 };
 
 // Where clipboard content was copied from. Source clips paste only into
