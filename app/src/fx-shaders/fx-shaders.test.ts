@@ -88,8 +88,8 @@ function kickOverBassTrack(seconds: number) {
   for (let index = 0; index < samples.length; index++) {
     const time = index / SAMPLE_RATE;
     const sinceKick = (time + 0.25) % 0.5;
-    kickPhase += (2 * Math.PI * (50 + 100 * Math.exp(-sinceKick / 0.03))) /
-      SAMPLE_RATE;
+    kickPhase +=
+      (2 * Math.PI * (50 + 100 * Math.exp(-sinceKick / 0.03))) / SAMPLE_RATE;
     if (sinceKick < 1 / SAMPLE_RATE) {
       kickPhase = 0;
     }
@@ -124,7 +124,9 @@ function toneTrack(seconds: number) {
 
 // An analyser spectrum, in decibels, silent but for `bands`: each fills
 // bins `from` up to `to` at `decibels`.
-function spectrum(...bands: Array<[from: number, to: number, decibels: number]>) {
+function spectrum(
+  ...bands: Array<[from: number, to: number, decibels: number]>
+) {
   const decibels = new Float32Array(512).fill(Number.NEGATIVE_INFINITY);
   for (const [from, to, level] of bands) {
     decibels.fill(level, from, to);

@@ -156,7 +156,9 @@ function byteBins(decibels: Float32Array, into: Uint8Array) {
   const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
   for (let index = 0; index < into.length; index++) {
     const value = Math.floor(scale * (decibels[index] - MIN_DECIBELS));
-    into[index] = Number.isFinite(value) ? Math.max(0, Math.min(255, value)) : 0;
+    into[index] = Number.isFinite(value)
+      ? Math.max(0, Math.min(255, value))
+      : 0;
   }
   return into;
 }
