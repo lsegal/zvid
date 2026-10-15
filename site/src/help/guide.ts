@@ -46,7 +46,7 @@ function renderSidebar(guide: Guide) {
           )
           .join("")}</ol>
       </nav>
-      <a class="open-app" href="${APP_URL}">Open zvid <span aria-hidden="true">→</span></a>
+      <a class="open-app" href="${APP_URL}">Launch zvid <span aria-hidden="true">→</span></a>
     </div>`;
 }
 
