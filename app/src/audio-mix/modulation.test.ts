@@ -216,7 +216,7 @@ describe("transientSwing", () => {
       { time: 1.25, strength: 0.5 },
       { time: 2, strength: 1 },
     ];
-    for (const motion of ["Bounce", "Wobble"] as const) {
+    for (const motion of ["Bounce", "Wobble", "Single"] as const) {
       for (const timing of ["Slow", "Normal", "Fast"] as const) {
         const reactive = {
           motion,

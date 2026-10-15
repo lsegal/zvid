@@ -155,7 +155,7 @@ describe("scrollTrace", () => {
 
 describe("transientTraceValue", () => {
   it("fills the trace at the envelope's peak and scales below it", () => {
-    for (const motion of ["Bounce", "Wobble"] as const) {
+    for (const motion of ["Bounce", "Wobble", "Single"] as const) {
       let peak = 0;
       for (let u = 0; u < 1; u += 0.0005) {
         peak = Math.max(peak, Math.abs(reactiveEnvelope(motion, u)));

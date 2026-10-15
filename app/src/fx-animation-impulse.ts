@@ -19,7 +19,8 @@ const ONSET_GRID_RATE = 60;
 const FRAME_EPSILON = 1e-6;
 
 // The Motion curve over the envelope's normalized time `u` (0..1). Bounce is
-// a single push that settles; Wobble is a damped swing either side of zero.
+// a single push that settles; Wobble is a damped swing either side of zero;
+// Single is one undamped sine cycle, up and back down.
 export function reactiveEnvelope(motion: ReactiveMotion, u: number) {
   if (u < 0 || u >= 1) {
     return 0;
@@ -29,6 +30,8 @@ export function reactiveEnvelope(motion: ReactiveMotion, u: number) {
       return Math.sin(Math.PI * u) * (1 - u) ** 1.5;
     case "Wobble":
       return Math.sin(3 * 2 * Math.PI * u) * (1 - u) ** 2;
+    case "Single":
+      return Math.sin(2 * Math.PI * u);
     default:
       return 0;
   }

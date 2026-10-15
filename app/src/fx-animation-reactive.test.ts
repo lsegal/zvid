@@ -106,6 +106,19 @@ describe("reactiveEnvelope", () => {
     assert.ok(values.some((value) => value < -0.1));
   });
 
+  it("plays one full sine cycle for Single", () => {
+    for (let step = 0; step < 100; step++) {
+      const u = step / 100;
+      assert.ok(
+        Math.abs(reactiveEnvelope("Single", u) - Math.sin(2 * Math.PI * u)) <
+          1e-12,
+      );
+    }
+    assert.equal(reactiveEnvelope("Single", 0.25), 1);
+    assert.equal(reactiveEnvelope("Single", 0.75), -1);
+    assert.equal(reactiveEnvelope("Single", 1), 0);
+  });
+
   it("is flat for None and outside the envelope", () => {
     assert.equal(reactiveEnvelope("None", 0.3), 0);
     assert.equal(reactiveEnvelope("Bounce", -0.1), 0);
