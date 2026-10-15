@@ -30,6 +30,7 @@ import {
 } from "../recording/track-record-device.ts";
 import { useMediaInputDevices } from "../recording/use-media-input-devices.ts";
 import "./fx/fx-chain.css";
+import "./fx/fx-device-title.css";
 import "./track-record-device.css";
 
 type TrackRecordDeviceProps = {
@@ -171,6 +172,7 @@ export function TrackRecordDevice({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-clicking the title folds the device; its collapse button is the keyboard equivalent */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onDoubleClick={(event) => {
           if (!(event.target as HTMLElement).closest("button")) {
             toggleFold();

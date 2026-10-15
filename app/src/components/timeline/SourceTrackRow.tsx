@@ -133,6 +133,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
     <section
       className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""} ${getRowSizeClassName(height, DEFAULT_ROW_METRICS.source.height)}`}
       data-source-track-drop-target="track"
+      data-theme="dark"
       data-source-track-id={track.id}
       data-source-track-drop-at-pointer
       style={getRowHeightStyle("source", height)}

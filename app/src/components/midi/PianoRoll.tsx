@@ -51,6 +51,7 @@ import { ContextMenu } from "../ContextMenu";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
+import "../fx/fx-device-title.css";
 import "./midi-devices.css";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
@@ -477,6 +478,7 @@ export function PianoRoll({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the collapse button is its keyboard equivalent */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onDoubleClick={(event) => {
           if (!(event.target as HTMLElement).closest("button")) {
             onToggleCollapsed();

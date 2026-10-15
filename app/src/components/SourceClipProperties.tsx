@@ -13,6 +13,7 @@ import { MidiClipTimelineFields } from "./MidiClipTimelineFields";
 import type { SetMidiClipTimeline } from "./midi/PianoRoll";
 import { TimeValueControl } from "./ui/TimeValueControl";
 import "./fx/fx-chain.css";
+import "./fx/fx-device-title.css";
 import "./source-clip-properties.css";
 
 type SourceClipPropertiesProps = {
@@ -85,6 +86,7 @@ export function SourceClipProperties({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the collapse button is its keyboard equivalent */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onDoubleClick={handleTitleDoubleClick}
       >
         {info}
