@@ -12,8 +12,12 @@ function layersToggle() {
 }
 
 async function openSample(name: string) {
-  await userEvent.click(page.getByRole("menuitem", { name: "File", exact: true }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Open", exact: true }));
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "File", exact: true }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "Open", exact: true }),
+  );
   await userEvent.click(
     page.getByRole("menuitem", { name: "Samples", exact: true }),
   );
