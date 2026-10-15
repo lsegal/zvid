@@ -421,6 +421,13 @@ test(
   "clicking the piano roll adds a note, and undo removes it",
   async () => {
     const { grid, notes } = await openPianoRoll();
+    // The clip's waveform, as drawn.
+    const drawn = () =>
+      midiSpan()
+        ?.querySelector<HTMLCanvasElement>("canvas.source-span__waveform")
+        ?.toDataURL();
+    await expect.poll(drawn).toBeTruthy();
+    const before = drawn();
     const point = cell(grid, 6, 52);
     await click(point.x, point.y);
     await expect.poll(() => notes()?.length).toBe(4);
@@ -430,12 +437,15 @@ test(
       length: 1,
       velocity: 100,
     });
-    // The lane's thumbnail follows.
+    // The lane's clip follows: its waveform renders again, sounding the new
+    // note where it was silent.
+    await expect.poll(() => midiSpan()?.textContent).toContain("4 notes");
     await expect
-      .poll(
-        () => midiSpan()?.querySelectorAll(".source-span__midi-note").length,
-      )
-      .toBe(4);
+      .poll(() => {
+        const after = drawn();
+        return Boolean(after) && after !== before;
+      })
+      .toBe(true);
 
     await undo();
     await expect.poll(() => notes()).toEqual(NOTES);
