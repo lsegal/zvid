@@ -138,20 +138,24 @@ describe("MIDI sample", () => {
     assert.equal((lead?.notes?.at(-1)?.pitch ?? 0) % 12, 2);
   });
 
-  it("pulses the fill clip's hue once per hit and names the swaps layer (#1448)", () => {
+  it("pulses the fill clip's hue once per hit and names the swaps layer (#1448, #1463)", () => {
     const colorize = (session.effects ?? []).find(
       (effect) =>
         effect.trackId === "clip:fill-e56679bc-590c-4bad-822d-611dbfaa8366" &&
         effect.effectName === "Colorize",
     );
     assert.ok(colorize);
+    assert.equal(
+      formatHueDegrees(colorize.parameters?._HueOffset?.floatValue ?? 0),
+      "+142°",
+    );
     const animation = normalizeEffectAnimation(colorize.animation, "Colorize");
     assert.equal(animation?.mode, "reactive");
     assert.deepEqual(animation?.reactive, {
       motion: "Single",
-      timing: "Fast",
-      reactivity: 0.9,
-      amplitude: 6.9,
+      timing: "Normal",
+      reactivity: 0.7,
+      amplitude: 1,
       parameters: ["_HueOffset"],
       version: 2,
     });
