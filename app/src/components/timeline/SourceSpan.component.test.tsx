@@ -126,6 +126,7 @@ async function renderSpan(item: MediaItem, filmstrip?: Filmstrip) {
     mediaItemsById: new Map([[item.id, item]]),
     thumbnails: { get: () => undefined },
     spanFilmstrips: new Map(filmstrip ? [[clip.id, filmstrip]] : []),
+    synths: new Map(),
     remoteMediaProgress: new Map(),
     prefersReducedMotion: true,
     revealedMediaIds: new Set(),

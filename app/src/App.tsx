@@ -660,6 +660,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     mediaItemsById,
                     thumbnails: timeline.thumbnails,
                     spanFilmstrips: timeline.spanFilmstrips,
+                    synths: preview.sourceSpanSynths,
                     remoteMediaProgress: media.remoteMediaProgress,
                     prefersReducedMotion,
                     revealedMediaIds: media.revealedMediaIds,

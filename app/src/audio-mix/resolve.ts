@@ -188,6 +188,83 @@ function mediaDurationOf(
   return duration !== undefined && duration > 0 ? duration : 0;
 }
 
+// The effects of each stack, by track id, whose name passes `keep`.
+function groupByTrack<Effect extends AudioEffect>(
+  effects: readonly Effect[],
+  keep: (effectName: string) => boolean,
+) {
+  const stacks = new Map<string, Effect[]>();
+  for (const effect of effects) {
+    if (!keep(effect.effectName)) {
+      continue;
+    }
+    const stack = stacks.get(effect.trackId);
+    if (stack) {
+      stack.push(effect);
+    } else {
+      stacks.set(effect.trackId, [effect]);
+    }
+  }
+  return stacks;
+}
+
+// A source clip's performance: what it plays, and the media id it plays as.
+export type SourceSpanSynth = { synth: SynthClip; mediaId: string };
+
+/**
+ * What each MIDI clip with notes and an enabled instrument plays, by source
+ * clip id, whether or not the mix plays it. The mix plays these, and the
+ * timeline draws their waveforms from them, so both render the same audio.
+ */
+export function resolveSourceSpanSynths({
+  sourceTracks,
+  sourceSpans,
+  effects,
+  bpm,
+}: Pick<
+  AudioMixInputs,
+  "sourceTracks" | "sourceSpans" | "effects" | "bpm"
+>): ReadonlyMap<string, SourceSpanSynth> {
+  const midiEffects = groupByTrack(effects, isMidiEffectName);
+  const bypassed = new Set(
+    sourceTracks
+      .filter((track) => track.fxEnabled === false)
+      .map((track) => track.id),
+  );
+  // A bypassed track's clips play no MIDI effects.
+  return new Map(
+    sourceSpans.flatMap((span) => {
+      const chain = bypassed.has(span.sourceTrackId)
+        ? undefined
+        : midiChainOf(midiEffects.get(sourceClipEffectTrackId(span.id)) ?? []);
+      if (!span.notes?.length || !chain) {
+        return [];
+      }
+      const durationSeconds = span.trimStartSeconds + span.durationSeconds;
+      // The notes its timeline plays to its end, its loop repeated (see
+      // midi-clip-timeline.ts). Generators step on the track's beat grid,
+      // where the clip's quarter 0 falls trimmed-start quarters before the
+      // clip.
+      const notes = applyNoteGenerators(
+        performMidiNotes(
+          span.notes,
+          span.midiTimeline,
+          secondsToQuarters(durationSeconds, bpm),
+        ),
+        chain.generators,
+        span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
+      );
+      const synth: SynthClip = {
+        notes,
+        instrument: chain.instrument,
+        durationSeconds,
+      };
+      const mediaId = synthMediaId(span.id, synth, bpm);
+      return [[span.id, { synth, mediaId }] as const];
+    }),
+  );
+}
+
 export function resolveAudioClips<Effect extends AudioEffect>({
   clips,
   lanes,
@@ -198,24 +275,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   bpm,
   signature = DEFAULT_TIME_SIGNATURE,
 }: AudioMixInputs<Effect>): AudioMix<Effect> {
-  const audioEffects = new Map<string, Effect[]>();
-  const midiEffects = new Map<string, Effect[]>();
-  for (const effect of effects) {
-    const stacks = isAudioEffectName(effect.effectName)
-      ? audioEffects
-      : isMidiEffectName(effect.effectName)
-        ? midiEffects
-        : undefined;
-    if (!stacks) {
-      continue;
-    }
-    const stack = stacks.get(effect.trackId);
-    if (stack) {
-      stack.push(effect);
-    } else {
-      stacks.set(effect.trackId, [effect]);
-    }
-  }
+  const audioEffects = groupByTrack(effects, isAudioEffectName);
   const stackOf = (trackId: string) => audioEffects.get(trackId) ?? [];
   const global = stackOf(GLOBAL_EFFECT_TRACK_ID);
   const bypassed = new Set(
@@ -294,39 +354,12 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
-  // What each MIDI clip with notes and an enabled instrument plays, and the media
-  // id it plays as. A bypassed track's clips play no MIDI effects.
-  const synthById = new Map(
-    sourceSpans.flatMap((span) => {
-      const chain = bypassed.has(span.sourceTrackId)
-        ? undefined
-        : midiChainOf(midiEffects.get(sourceClipEffectTrackId(span.id)) ?? []);
-      if (!span.notes?.length || !chain) {
-        return [];
-      }
-      const durationSeconds = span.trimStartSeconds + span.durationSeconds;
-      // The notes its timeline plays to its end, its loop repeated (see
-      // midi-clip-timeline.ts). Generators step on the track's beat grid,
-      // where the clip's quarter 0 falls trimmed-start quarters before the
-      // clip.
-      const notes = applyNoteGenerators(
-        performMidiNotes(
-          span.notes,
-          span.midiTimeline,
-          secondsToQuarters(durationSeconds, bpm),
-        ),
-        chain.generators,
-        span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
-      );
-      const synth: SynthClip = {
-        notes,
-        instrument: chain.instrument,
-        durationSeconds,
-      };
-      const mediaId = synthMediaId(span.id, synth, bpm);
-      return [[span.id, { synth, mediaId }] as const];
-    }),
-  );
+  const synthById = resolveSourceSpanSynths({
+    sourceTracks,
+    sourceSpans,
+    effects,
+    bpm,
+  });
   // The media fields a piece of `spanId` plays from: a MIDI clip's
   // performance, or else its media when that has audio.
   const soundOf = (spanId: string, mediaId: string | undefined) => {

@@ -10,7 +10,10 @@ import {
 import { signatureById } from "../app/constants.ts";
 import { findClipAtPlayhead, isClipAtPlayhead } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
-import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import {
+  resolveAudioClips,
+  resolveSourceSpanSynths,
+} from "../audio-mix/resolve.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -144,6 +147,18 @@ export function usePreview({
     timelineClips,
     timelineEffects,
   ]);
+  // What each MIDI clip plays, whether or not the mix plays it, which the
+  // timeline draws as its waveform.
+  const sourceSpanSynths = useMemo(
+    () =>
+      resolveSourceSpanSynths({
+        sourceTracks,
+        sourceSpans,
+        bpm,
+        effects: timelineEffects,
+      }),
+    [bpm, sourceSpans, sourceTracks, timelineEffects],
+  );
   const renderLanePriority = useMemo(
     () =>
       render.fromSourceTracks
@@ -250,6 +265,7 @@ export function usePreview({
     renderEffects: render.effects,
     renderFromSourceTracks: render.fromSourceTracks,
     audioMix,
+    sourceSpanSynths,
     refreshAudioMix,
     previewMedia,
     previewMediaState,

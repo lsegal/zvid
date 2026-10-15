@@ -17,6 +17,7 @@ import type {
   SourceSpanDragState,
 } from "../../app/types.ts";
 import { pluralize } from "../../app/util.ts";
+import type { SourceSpanSynth } from "../../audio-mix/resolve.ts";
 import {
   describeClipMediaState,
   formatClipMediaState,
@@ -24,6 +25,7 @@ import {
 import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
+import { useSynthClipPeaks } from "../../hooks/useSynthClipPeaks.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../../lane-selection-gesture.ts";
 import { type MediaItem, showsPicture } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
@@ -57,6 +59,8 @@ export type SourceSpanContext = {
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
   spanFilmstrips: ReadonlyMap<string, Filmstrip>;
+  // What each MIDI clip plays, which draws as its waveform once rendered.
+  synths: ReadonlyMap<string, SourceSpanSynth>;
   remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
   revealedMediaIds: ReadonlySet<string>;
@@ -100,6 +104,7 @@ export const SourceSpan = memo(function SourceSpan({
   mediaItemsById,
   thumbnails,
   spanFilmstrips,
+  synths,
   remoteMediaProgress,
   prefersReducedMotion,
   revealedMediaIds,
@@ -162,6 +167,10 @@ export const SourceSpan = memo(function SourceSpan({
     media,
     waveformKind === "overlay" && !inView ? "none" : waveformKind,
   );
+  // A MIDI clip draws its notes until its performance's waveform renders,
+  // which starts once it is in view.
+  const synth = midiNotes && !collapsed ? synths.get(clip.id) : undefined;
+  const synthPeaks = useSynthClipPeaks(synth, bpm, Boolean(inView));
   const audio =
     !mediaSync && waveformKind === "audio" && audioPeaks.status !== "none";
   const waveformOverlay =
@@ -267,6 +276,21 @@ export const SourceSpan = memo(function SourceSpan({
     >
       {mediaSync ? (
         <MediaSyncSkeleton variant="span" view={mediaSync} />
+      ) : midiNotes && synthPeaks.status === "ready" ? (
+        <ClipWaveform
+          className="source-span__waveform"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={widthPx}
+          peaks={synthPeaks}
+          range={getSourceSpanWaveformRange(
+            clip,
+            bpm,
+            quarterPx,
+            synth?.synth.durationSeconds,
+          )}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
       ) : midiNotes ? (
         collapsed ? null : (
           <MidiClipThumbnail

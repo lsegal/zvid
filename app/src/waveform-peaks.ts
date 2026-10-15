@@ -20,7 +20,7 @@ type AudioChunk = {
   timestamp: number;
   sampleRate: number;
   frameCount: number;
-  channels: Float32Array[];
+  channels: readonly Float32Array[];
 };
 
 export class PeakAccumulator {
@@ -99,6 +99,21 @@ export class PeakAccumulator {
     this.min = min;
     this.max = max;
   }
+}
+
+// The peaks of decoded `channels` at `sampleRate`, from their first sample.
+export function peaksOfChannels(
+  sampleRate: number,
+  channels: readonly Float32Array[],
+): WaveformPeaksResult {
+  const frameCount = channels[0]?.length ?? 0;
+  const accumulator = new PeakAccumulator(
+    PEAK_BUCKETS_PER_SECOND,
+    frameCount / sampleRate,
+  );
+  accumulator.add({ timestamp: 0, sampleRate, frameCount, channels });
+  const peaks = accumulator.finish();
+  return peaks.min.length ? { status: "ready", peaks } : { status: "no-audio" };
 }
 
 // Decodes the whole primary audio track. Runs in the peaks worker, and on the

@@ -10,7 +10,10 @@ import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { Lane, ProjectState } from "../app/types.ts";
 import type { WorkspaceAccess } from "../app/workspace-types.ts";
-import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import {
+  resolveAudioClips,
+  resolveSourceSpanSynths,
+} from "../audio-mix/resolve.ts";
 import type { CompositionPlayerHandle } from "../CompositionPlayer";
 import { FxPanel } from "../components/FxPanel";
 import {
@@ -260,6 +263,16 @@ export function Editor({
     timelineClips,
     timelineEffects,
   ]);
+  const sourceSpanSynths = useMemo(
+    () =>
+      resolveSourceSpanSynths({
+        sourceTracks,
+        sourceSpans: project.sourceSpans,
+        bpm,
+        effects: timelineEffects,
+      }),
+    [bpm, project.sourceSpans, sourceTracks, timelineEffects],
+  );
   const audioMix = useAudioMix({
     mix: resolvedAudioMix,
     mediaItemsById,
@@ -577,6 +590,7 @@ export function Editor({
                     mediaItemsById,
                     thumbnails: timeline.thumbnails,
                     spanFilmstrips: timeline.spanFilmstrips,
+                    synths: sourceSpanSynths,
                     remoteMediaProgress: NO_REMOTE_PROGRESS,
                     prefersReducedMotion,
                     revealedMediaIds: NO_IDS,
