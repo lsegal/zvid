@@ -313,7 +313,7 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   // Dragging the readout zooms along the slider's travel, 200px for the
-  // whole range: 50px up from 100% lands near 186%, and down near 54%.
+  // whole range: 50px up from 100% lands near 238%, and down near 42%.
   async function dragReadout(dy: number) {
     const { x, y } = center(
       screen.container.querySelector(".zoom-control__readout") as Element,
@@ -330,9 +330,9 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
   test("dragging the readout up zooms in, live, and commits one undo step", async () => {
     const during = await dragReadout(-50);
-    expect(Number.parseInt(during ?? "", 10)).toBeGreaterThan(170);
+    expect(Number.parseInt(during ?? "", 10)).toBeGreaterThan(220);
     // The release keeps the dragged zoom rather than clicking it back.
-    await expect.poll(percent).toBeGreaterThan(170);
+    await expect.poll(percent).toBeGreaterThan(220);
     expect(readout()).toBe(during);
 
     await undo();
@@ -341,8 +341,8 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
   test("dragging the readout down zooms out", async () => {
     await dragReadout(50);
-    await expect.poll(percent).toBeLessThan(60);
-    expect(percent()).toBeGreaterThan(45);
+    await expect.poll(percent).toBeLessThan(47);
+    expect(percent()).toBeGreaterThan(37);
   });
 
   test("Shift-dragging the readout zooms ten times finer", async () => {
