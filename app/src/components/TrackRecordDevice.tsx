@@ -30,6 +30,7 @@ import {
 } from "../recording/track-record-device.ts";
 import { useMediaInputDevices } from "../recording/use-media-input-devices.ts";
 import "./fx/fx-chain.css";
+import "./fx/fx-device-title.css";
 import "./track-record-device.css";
 
 type TrackRecordDeviceProps = {

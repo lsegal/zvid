@@ -1,0 +1,7 @@
+/* Device titles keep the dark theme (#1492). In the light theme they need
+ * their own surface: the dark theme's device wash over the FX panel. */
+[data-theme='light'] :is(.fx-device-panel__title, .fx-animation-panel__title) {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  background: color-mix(in srgb, var(--fx-accent) 9%, #191b27);
+}

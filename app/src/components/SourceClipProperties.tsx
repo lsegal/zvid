@@ -13,6 +13,7 @@ import { MidiClipTimelineFields } from "./MidiClipTimelineFields";
 import type { SetMidiClipTimeline } from "./midi/PianoRoll";
 import { TimeValueControl } from "./ui/TimeValueControl";
 import "./fx/fx-chain.css";
+import "./fx/fx-device-title.css";
 import "./source-clip-properties.css";
 
 type SourceClipPropertiesProps = {

@@ -99,7 +99,7 @@ export function AudioRow({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-clicking the label is a pointer shortcut for the toggle */}
       <div
         className="track-label"
-      data-theme="dark"
+        data-theme="dark"
         onMouseDown={(event) => {
           if (event.detail <= 1) {
             toggledByClickRef.current = false;

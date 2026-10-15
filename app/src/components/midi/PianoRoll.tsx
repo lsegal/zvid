@@ -51,6 +51,7 @@ import { ContextMenu } from "../ContextMenu";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
+import "../fx/fx-device-title.css";
 import "./midi-devices.css";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
