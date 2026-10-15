@@ -269,16 +269,19 @@ describe("getInheritedSourceStacks", () => {
       [
         {
           stackId: sourceTrackEffectTrackId("track"),
+          kind: "track",
           name: "Vocals",
           effects: [{ id: "r", name: "Reverb", enabled: true }],
         },
         {
           stackId: sourceClipEffectTrackId("span"),
+          kind: "clip",
           name: "Span span",
           effects: [{ id: "c", name: "Colorize", enabled: false }],
         },
         {
           stackId: sourceClipEffectTrackId("later"),
+          kind: "clip",
           name: "Span later",
           effects: [{ id: "p", name: "Pixelate", enabled: true }],
         },

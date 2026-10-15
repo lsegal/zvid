@@ -171,6 +171,7 @@ export function getSourceFxStacks(
 // One source stack a layer clip inherits, as the FX panel lists it.
 export type InheritedSourceStack = {
   stackId: string;
+  kind: "track" | "clip";
   name: string;
   effects: { id: string; name: string; enabled: boolean }[];
 };
@@ -200,8 +201,13 @@ export function getInheritedSourceStacks(
   const spans = getClipSourcePieces(selectedClip, sourceSpans, bpm)
     .map((piece) => piece.span)
     .filter((span, index, all) => all.indexOf(span) === index);
-  const stackOf = (stackId: string, name: string): InheritedSourceStack => ({
+  const stackOf = (
+    stackId: string,
+    kind: InheritedSourceStack["kind"],
+    name: string,
+  ): InheritedSourceStack => ({
     stackId,
+    kind,
     name,
     effects: effects
       .filter(
@@ -217,10 +223,15 @@ export function getInheritedSourceStacks(
   const stacks = [
     stackOf(
       sourceTrackEffectTrackId(selectedClip.sourceTrackId),
+      "track",
       track?.name ?? "Source track",
     ),
     ...spans.map((span) =>
-      stackOf(sourceClipEffectTrackId(span.id), getFxClipName(span.label)),
+      stackOf(
+        sourceClipEffectTrackId(span.id),
+        "clip",
+        getFxClipName(span.label),
+      ),
     ),
   ].filter((stack) => stack.effects.length > 0);
   return stacks.length ? stacks : undefined;

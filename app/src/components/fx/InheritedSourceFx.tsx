@@ -19,7 +19,9 @@ export function InheritedSourceFx({
       <h3 className="fx-inherited__title">From source</h3>
       {stacks.map((stack) => (
         <div className="fx-inherited__stack" key={stack.stackId}>
-          <h4 className="fx-inherited__name">{stack.name}</h4>
+          <h4 className="fx-inherited__name">
+            {stack.kind === "track" ? "Track" : "Clip"} · {stack.name}
+          </h4>
           <ul aria-label={`${stack.name} effects`}>
             {stack.effects.map((effect) => (
               <li
@@ -30,10 +32,8 @@ export function InheritedSourceFx({
                 }
                 key={effect.id}
               >
-                {effect.name}
-                {effect.enabled ? null : (
-                  <span className="fx-inherited__off"> (off)</span>
-                )}
+                <span className="fx-inherited__effect-name">{effect.name}</span>
+                {effect.enabled ? null : " (off)"}
               </li>
             ))}
           </ul>
