@@ -365,6 +365,12 @@ test("draws a Lottie's middle frame when it has no thumbnail", async () => {
       diag.push(`${(performance.now() - start).toFixed(0)}ms ${JSON.stringify(args)}`);
       info(...args);
     };
+    const toBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb, ...rest) {
+      const at = performance.now() - start;
+      diag.push(`toBlob ${this.width}x${this.height} at ${at.toFixed(0)}ms ${new Error().stack?.split("\n").slice(2, 5).join(" | ")}`);
+      return toBlob.call(this, (b) => { diag.push(`toBlob done ${(performance.now() - start).toFixed(0)}ms`); cb(b); }, ...rest);
+    };
     await render(<Editor mediaItems={[lottie]} />);
     await toggle().click();
     diag.push(`clicked ${(performance.now() - start).toFixed(0)}ms`);

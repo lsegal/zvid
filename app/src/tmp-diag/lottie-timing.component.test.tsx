@@ -39,6 +39,19 @@ test("DIAG lottie timing", async () => {
     lap("downscale 160");
     const sb = await blobOf(small);
     lap(`small toBlob ${sb?.size}`);
+    const off = new OffscreenCanvas(canvas.width, canvas.height);
+    off.getContext("2d")?.drawImage(canvas, 0, 0);
+    lap("offscreen copy");
+    const ob = await off.convertToBlob({ type: "image/png" });
+    lap(`convertToBlob ${ob.size}`);
+    const bmp = await createImageBitmap(canvas);
+    lap("bitmap");
+    const off2 = new OffscreenCanvas(bmp.width, bmp.height);
+    off2.getContext("bitmaprenderer")?.transferFromImageBitmap(bmp);
+    const ob2 = await off2.convertToBlob({ type: "image/png" });
+    lap(`bitmaprenderer convertToBlob ${ob2.size}`);
+    const d = canvas.toDataURL("image/png");
+    lap(`toDataURL ${d.length}`);
     const raf = await new Promise<number>((r) => { const s = performance.now(); requestAnimationFrame(() => r(performance.now() - s)); });
     out.push(`DIAG r${round} raf ${raf.toFixed(1)}`);
   }
