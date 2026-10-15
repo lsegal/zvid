@@ -9,7 +9,14 @@ import {
   sessionWithLayers,
   withTestPatternTrack,
 } from "../../component-test/editor.tsx";
-import { center, click, down, move, undo, up } from "../../component-test/input.ts";
+import {
+  center,
+  click,
+  down,
+  move,
+  undo,
+  up,
+} from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import { createFillClip } from "../../fill-clip.ts";
 import { ClipCard } from "./ClipCard";
@@ -49,7 +56,7 @@ function project(): ProjectState {
       accent: "#8d93a8",
     });
   const window = createWindowClip(
-    { laneId: "3", startQ: 12, durationQ: 8 },
+    { id: "w-range", laneId: "3", startQ: 12, durationQ: 8 },
     base.sourceTracks[0],
     sourceSpans[1],
     sourceSpans,

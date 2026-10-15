@@ -127,8 +127,7 @@ export const ClipCard = memo(function ClipCard({
   // One of several selected clips and source clips, which a drag moves
   // together (#1470, #1483).
   const inGroup =
-    selected &&
-    selectedClipIds.size + (selectedSourceSpanIds?.size ?? 0) > 1;
+    selected && selectedClipIds.size + (selectedSourceSpanIds?.size ?? 0) > 1;
   // Keeps the trimmed edge's handle shown while the pointer
   // strays off it mid-drag.
   const trimming =
@@ -327,15 +326,15 @@ export const ClipCard = memo(function ClipCard({
           // The other selected clips move, or duplicate, along with it.
           const group =
             inGroup && (selectedClipIds.size > 1 || spanGroup)
-            ? [...selectedClipIds]
-                .filter((id) => id !== clip.id)
-                .map((id) => ({
-                  sourceClipId: id,
-                  clipId: duplicateOnDrag
-                    ? `window-${crypto.randomUUID()}`
-                    : id,
-                }))
-            : undefined;
+              ? [...selectedClipIds]
+                  .filter((id) => id !== clip.id)
+                  .map((id) => ({
+                    sourceClipId: id,
+                    clipId: duplicateOnDrag
+                      ? `window-${crypto.randomUUID()}`
+                      : id,
+                  }))
+              : undefined;
           if (!toggleOnClick && !group) {
             setSelectedClipId(dragClipId);
           }
