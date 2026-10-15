@@ -7,6 +7,7 @@ import type {
   SourceSpanDragState,
 } from "../app/types.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
+import { duplicateSourceSpan } from "../source-clip-edits.ts";
 import { dragSourceSpanInSpans } from "../source-span-edit.ts";
 import { syncClipsToSourceSpans } from "../source-track-content.ts";
 
@@ -47,11 +48,25 @@ function getSourceTrackRows() {
   );
 }
 
+// Swallows the click that follows this pointer release, if any, so a
+// Ctrl/Cmd-drag doesn't also Ctrl/Cmd-click the span it started on.
+function swallowNextClick() {
+  const swallow = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener("click", swallow, { capture: true, once: true });
+  window.setTimeout(() => {
+    window.removeEventListener("click", swallow, { capture: true });
+  });
+}
+
 // Follows the pointer through a source clip move or edge trim, previewing it
 // and the clips it overlaps until the release commits it as one undo step.
 // A move follows the pointer onto other source track rows, like a layer clip
-// onto other layers. A press released before the click threshold changes
-// nothing.
+// onto other layers. A Ctrl/Cmd-drag moves a copy, with the span's stack,
+// instead, and swallows the click that would add the span to the
+// arrangement. A press released before the click threshold changes nothing.
 export function useSourceSpanDrag({
   sourceSpanDrag,
   setSourceSpanDrag,
@@ -81,9 +96,12 @@ export function useSourceSpanDrag({
       return;
     }
 
-    const origin = sourceSpans.find(
-      (span) => span.id === sourceSpanDrag.spanId,
-    );
+    const { duplicateId } = sourceSpanDrag;
+    const span = sourceSpans.find((item) => item.id === sourceSpanDrag.spanId);
+    // A copy drags as a new span over the unchanged original.
+    const origin = span && duplicateId ? { ...span, id: duplicateId } : span;
+    const dragSpans =
+      origin && duplicateId ? [...sourceSpans, origin] : sourceSpans;
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== sourceSpanDrag.pointerId || !origin) {
@@ -119,7 +137,7 @@ export function useSourceSpanDrag({
           : origin.sourceTrackId;
       setDragPreviewSourceSpans(
         dragSourceSpanInSpans(
-          sourceSpans,
+          dragSpans,
           origin,
           sourceSpanDrag.kind,
           deltaX / quarterPx,
@@ -139,7 +157,27 @@ export function useSourceSpanDrag({
         return;
       }
 
-      if (dragPreviewSourceSpans) {
+      if (duplicateId && dragPreviewSourceSpans) {
+        const copy = dragPreviewSourceSpans.find(
+          (item) => item.id === duplicateId,
+        );
+        if (copy) {
+          const placement = {
+            startQ: copy.startQ,
+            sourceTrackId: copy.sourceTrackId,
+          };
+          commitProjectChange("Duplicate source clip", (current) => {
+            const patch = duplicateSourceSpan(
+              current,
+              sourceSpanDrag.spanId,
+              duplicateId,
+              placement,
+            );
+            return patch ? patchProjectState(current, patch) : current;
+          });
+        }
+        swallowNextClick();
+      } else if (dragPreviewSourceSpans) {
         const spans = dragPreviewSourceSpans;
         commitProjectChange(
           sourceSpanDrag.kind === "move"

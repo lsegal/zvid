@@ -186,6 +186,9 @@ export type SourceSpanDragState = {
   spanId: string;
   pointerStartX: number;
   pointerStartY: number;
+  // A Ctrl/Cmd-drag moves a copy with this id instead, leaving the span in
+  // place.
+  duplicateId?: string;
 };
 
 export type TimelineDragState = {
