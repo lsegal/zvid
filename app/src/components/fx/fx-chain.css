@@ -85,7 +85,7 @@
   margin-left: -1.5px;
   border-radius: 999px;
   background: var(--ink);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 10px rgb(var(--tint) / 0.45);
   pointer-events: none;
 }
 
@@ -175,7 +175,7 @@ body.fx-chain-dragging * {
       color-mix(in srgb, var(--fx-accent) 10%, transparent),
       transparent 60%
     ),
-    rgba(11, 13, 19, 0.32);
+    light-dark(rgba(40, 48, 80, 0.02), rgba(11, 13, 19, 0.32));
   transition:
     opacity 160ms ease,
     border-color 160ms ease;
@@ -323,7 +323,7 @@ body.fx-chain-dragging * {
   border: 1px solid rgba(246, 183, 60, 0.5);
   border-radius: 999px;
   background: rgba(246, 183, 60, 0.1);
-  color: #f6b73c;
+  color: var(--amber);
   font-size: 0.68rem;
   white-space: nowrap;
 }
@@ -477,7 +477,7 @@ body.fx-chain-dragging * {
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
 }
 
 .fx-segmented__options button {
@@ -522,7 +522,7 @@ body.fx-chain-dragging * {
   border: 1px solid var(--line);
   border-radius: 8px;
   /* Checks show through a translucent color. */
-  background: repeating-conic-gradient(#3a3d4a 0% 25%, #2a2d38 0% 50%) 50% /
+  background: repeating-conic-gradient(light-dark(rgb(244, 244, 246), #3a3d4a) 0% 25%, light-dark(rgb(247, 248, 249), #2a2d38) 0% 50%) 50% /
     10px 10px;
 }
 
@@ -575,7 +575,7 @@ body.fx-chain-dragging * {
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font: inherit;
   font-size: 0.82rem;
@@ -595,7 +595,7 @@ body.fx-chain-dragging * {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.82rem;
 }
@@ -647,7 +647,7 @@ body.fx-chain-dragging * {
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.85rem;
 }
@@ -684,7 +684,7 @@ body.fx-chain-dragging * {
 }
 
 .font-picker__item[data-selected="true"] {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tint) / 0.08);
 }
 
 .font-picker__preview {
@@ -714,7 +714,7 @@ body.fx-chain-dragging * {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.82rem;
   white-space: nowrap;
@@ -849,7 +849,7 @@ body.fx-chain-dragging * {
       color-mix(in srgb, var(--fx-accent) 10%, transparent),
       transparent 60%
     ),
-    rgba(11, 13, 19, 0.32);
+    light-dark(rgba(40, 48, 80, 0.02), rgba(11, 13, 19, 0.32));
   transition:
     opacity 160ms ease,
     border-color 160ms ease;

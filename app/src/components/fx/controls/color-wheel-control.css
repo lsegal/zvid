@@ -65,7 +65,7 @@
   border: 1px solid transparent;
   border-radius: 50%;
   background:
-    radial-gradient(circle closest-side, #2a2c38 0%, rgba(42, 44, 56, 0.55) 55%, transparent 100%),
+    radial-gradient(circle closest-side, light-dark(rgb(248, 248, 250), #2a2c38) 0%, light-dark(rgba(40, 48, 80, 0.035), rgba(42, 44, 56, 0.55)) 55%, transparent 100%),
     conic-gradient(#e0484c, #d8c640, #4ccc5a, #3fc6c8, #4a62e0, #c84ad6, #e0484c);
   background-origin: border-box;
   background-repeat: no-repeat;
@@ -81,7 +81,7 @@
 .fx-wheel__disc::before,
 .fx-wheel__disc::after {
   position: absolute;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgb(var(--tint) / 0.18);
   content: "";
   pointer-events: none;
 }
@@ -134,7 +134,7 @@
 }
 
 .fx-wheel__channel--R {
-  color: #f87171;
+  color: light-dark(#b3264f, #f87171);
 }
 
 .fx-wheel__channel--G {
@@ -142,7 +142,7 @@
 }
 
 .fx-wheel__channel--B {
-  color: #60a5fa;
+  color: light-dark(#2f55c4, #60a5fa);
 }
 
 .fx-wheel__field input {
@@ -151,7 +151,7 @@
   padding: 1px 0;
   border: 1px solid transparent;
   border-radius: 3px;
-  background: rgba(11, 13, 19, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font: inherit;
   font-size: 0.62rem;
@@ -172,7 +172,7 @@
   border-radius: 6px;
   background: repeating-linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.16) 0 1px,
+    rgb(var(--tint) / 0.16) 0 1px,
     transparent 1px 6px
   );
   cursor: ew-resize;

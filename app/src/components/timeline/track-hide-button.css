@@ -31,7 +31,7 @@
 }
 
 .track-label__hide[aria-pressed="true"]:hover {
-  color: #ffd56a;
+  color: light-dark(#855800, #ffd56a);
 }
 
 .track-label__hide:focus-visible {

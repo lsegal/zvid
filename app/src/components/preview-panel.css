@@ -55,7 +55,7 @@
   padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(17, 19, 28, 0.4);
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(17, 19, 28, 0.4));
   font-size: 0.72rem;
   line-height: 1;
 }
@@ -115,7 +115,7 @@
   flex: none;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgb(var(--tint) / 0.14);
   background: transparent;
   color: var(--muted);
   font: inherit;
@@ -132,13 +132,13 @@
 
 .preview-panel__mode:hover {
   border-color: rgba(124, 161, 255, 0.4);
-  color: #b9cbff;
+  color: light-dark(#2f55c4, #b9cbff);
 }
 
 .preview-panel__mode[aria-pressed="true"] {
   border-color: rgba(124, 161, 255, 0.4);
   background: rgba(124, 161, 255, 0.12);
-  color: #b9cbff;
+  color: light-dark(#2f55c4, #b9cbff);
 }
 
 .preview-panel__mode:focus-visible {
@@ -154,7 +154,7 @@
   border-radius: 20px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 45%),
+    radial-gradient(circle at top, rgb(var(--tint) / 0.08), transparent 45%),
     linear-gradient(180deg, #d7d0c9 0%, #847567 100%);
   display: flex;
   align-items: stretch;
@@ -165,7 +165,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(12, 14, 20, 0.46), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(135deg, light-dark(rgba(40, 48, 80, 0.029), rgba(12, 14, 20, 0.46)), rgb(var(--tint) / 0.04));
 }
 
 .preview-placeholder__overlay {
@@ -173,7 +173,7 @@
   inset: auto 20px 20px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(12, 14, 20, 0.62);
+  background: light-dark(rgba(40, 48, 80, 0.077), rgba(12, 14, 20, 0.62));
   backdrop-filter: blur(12px);
 }
 
@@ -184,7 +184,7 @@
 
 .preview-placeholder__overlay span {
   margin-top: 8px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgb(var(--tint) / 0.72);
   font-size: 0.84rem;
   line-height: 1.45;
 }
@@ -241,5 +241,5 @@
 
 .preview-panel__scopes[aria-pressed='true'] {
   background: rgba(242, 209, 75, 0.18);
-  color: #f2d14b;
+  color: light-dark(#855800, #f2d14b);
 }

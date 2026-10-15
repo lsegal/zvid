@@ -1,7 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import type { Harness } from "../harness";
+import { setTheme, THEME_STORAGE_KEY } from "../theme.ts";
 import { TopBarHarness } from "./top-bar-test-harness.tsx";
 import "./TopBar";
 
@@ -35,6 +36,11 @@ async function renderTopBar() {
 }
 
 describe("TopBar menubar", () => {
+  afterEach(() => {
+    setTheme("dark");
+    localStorage.removeItem(THEME_STORAGE_KEY);
+  });
+
   test("has File, Edit and Help as adjacent compact items with chevrons", async () => {
     await renderTopBar();
     const items = menubar().getByRole("menuitem").elements();
@@ -159,6 +165,27 @@ describe("TopBar menubar", () => {
         }),
       )
       .toBeVisible();
+  });
+
+  test("File switches between the light and dark themes", async () => {
+    await renderTopBar();
+    const root = document.documentElement;
+    const surface = () => getComputedStyle(document.body).backgroundColor;
+    const dark = surface();
+
+    await trigger("File").click();
+    await page.getByRole("menuitem", { name: "Light Theme" }).click();
+    expect(root.dataset.theme).toBe("light");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    expect(getComputedStyle(root).colorScheme).toBe("light");
+    expect(surface()).not.toBe(dark);
+
+    await trigger("File").click();
+    await page.getByRole("menuitem", { name: "Dark Theme" }).click();
+    expect(root.dataset.theme).toBe("dark");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+    expect(getComputedStyle(root).colorScheme).toBe("dark");
+    expect(surface()).toBe(dark);
   });
 
   test("Help's menu opens under its trigger and its items still work", async () => {

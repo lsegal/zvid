@@ -8,7 +8,7 @@
 
 .status-bar__item--button:hover .status-bar__value,
 .status-bar__item--button:focus-visible .status-bar__value {
-  color: #ffe084;
+  color: light-dark(#855800, #ffe084);
 }
 
 .status-bar__item--button:focus-visible {

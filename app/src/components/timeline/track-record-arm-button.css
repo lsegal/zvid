@@ -21,7 +21,7 @@
 }
 
 .track-label__arm:focus-visible {
-  outline: 1px solid #ff5c5c;
+  outline: 1px solid light-dark(#b3264f, #ff5c5c);
   outline-offset: 1px;
   border-radius: 3px;
 }
@@ -39,11 +39,11 @@
 }
 
 .track-label__arm:hover .track-label__arm-dot {
-  border-color: #ff5c5c;
+  border-color: light-dark(#b3264f, #ff5c5c);
 }
 
 .track-label__arm[aria-pressed="true"] .track-label__arm-dot {
-  border-color: #ff5c5c;
+  border-color: light-dark(#b3264f, #ff5c5c);
   background: #ff5c5c;
   box-shadow: 0 0 6px rgba(255, 92, 92, 0.75);
 }

@@ -40,7 +40,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #ffdb7b, #f6b73c);
+  background: linear-gradient(180deg, #ffdb7b, var(--amber));
   box-shadow: 0 0 0 4px rgba(246, 183, 60, 0.14);
 }
 
@@ -66,7 +66,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  background: rgba(8, 9, 15, 0.28);
+  background: light-dark(rgba(40, 48, 80, 0.018), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);

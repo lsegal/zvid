@@ -10,7 +10,7 @@
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: rgba(12, 14, 20, 0.26);
+  background: light-dark(rgba(40, 48, 80, 0.017), rgba(12, 14, 20, 0.26));
 }
 
 .share-dialog__card strong {
@@ -45,7 +45,7 @@
   padding: 12px 16px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: rgba(12, 14, 20, 0.26);
+  background: light-dark(rgba(40, 48, 80, 0.017), rgba(12, 14, 20, 0.26));
   font-size: 0.84rem;
 }
 
@@ -68,11 +68,11 @@
 }
 
 .collaboration-diagnostics__row--ok dd {
-  color: #9affc0;
+  color: light-dark(#1c7442, #9affc0);
 }
 
 .collaboration-diagnostics__row--error dd {
-  color: #ff8fb2;
+  color: light-dark(#b3264f, #ff8fb2);
 }
 
 .connect-dialog__field {
@@ -87,14 +87,14 @@
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(12, 14, 20, 0.34);
+  background: light-dark(rgba(40, 48, 80, 0.021), rgba(12, 14, 20, 0.34));
   color: var(--ink);
   font: inherit;
   line-height: 1.5;
 }
 
 .connect-dialog__input::placeholder {
-  color: rgba(255, 255, 255, 0.32);
+  color: rgb(var(--tint) / 0.32);
 }
 
 .workspace-lock-banner {
@@ -108,7 +108,7 @@
   padding: 8px 8px 8px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: rgba(33, 35, 50, 0.98);
+  background: light-dark(rgba(249, 250, 251, 0.98), rgba(33, 35, 50, 0.98));
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   color: var(--ink);
   transform: translateX(-50%);

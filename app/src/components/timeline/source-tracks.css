@@ -90,7 +90,7 @@
 }
 
 .source-header__lock:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--tint) / 0.06);
 }
 
 .source-header__lock:focus-visible {
@@ -105,14 +105,14 @@
   align-items: center;
   padding: 0 16px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgb(var(--tint) / 0.02);
   border-bottom: 1px solid var(--line);
 }
 
 .track-label--source {
   width: 100%;
   cursor: pointer;
-  background: #313447;
+  background: var(--bg-panel);
 }
 
 /* The grip reorders source tracks exactly like layers (layer-header.css,
@@ -199,7 +199,7 @@
 .track-row__content--source.is-drop-target {
   background:
     linear-gradient(180deg, rgba(124, 161, 255, 0.14), rgba(124, 161, 255, 0.06)),
-    rgba(20, 21, 32, 0.3);
+    light-dark(rgba(40, 48, 80, 0.018), rgba(20, 21, 32, 0.3));
   box-shadow: inset 0 0 0 1px rgba(124, 161, 255, 0.34);
 }
 
@@ -210,17 +210,17 @@
 .track-label--source-drop {
   background:
     linear-gradient(180deg, rgba(124, 161, 255, 0.12), rgba(124, 161, 255, 0.05)),
-    #2d3143;
+    light-dark(rgb(246, 247, 248), #2d3143);
 }
 
 .track-label--source-drop .track-label__stripe {
-  background: linear-gradient(180deg, #7ca1ff, #7ee0a4);
+  background: linear-gradient(180deg, var(--blue), var(--mint));
 }
 
 .track-row__content--source-drop {
   background:
     linear-gradient(180deg, rgba(124, 161, 255, 0.08), rgba(124, 161, 255, 0.03)),
-    rgba(20, 21, 32, 0.3);
+    light-dark(rgba(40, 48, 80, 0.018), rgba(20, 21, 32, 0.3));
 }
 
 /* Where dropped media will start; the preview card begins at it. */
@@ -231,7 +231,7 @@
   z-index: 3;
   width: 2px;
   margin-left: -1px;
-  background: #7ca1ff;
+  background: var(--blue);
   box-shadow: 0 0 8px rgba(124, 161, 255, 0.6);
   pointer-events: none;
 }
@@ -251,8 +251,8 @@
   border: 1px dashed rgba(124, 161, 255, 0.64);
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(10, 13, 22, 0.88), rgba(18, 21, 32, 0.8)),
-    rgba(17, 19, 28, 0.82);
+    linear-gradient(180deg, light-dark(rgba(40, 48, 80, 0.11), rgba(10, 13, 22, 0.88)), light-dark(rgba(40, 48, 80, 0.1), rgba(18, 21, 32, 0.8))),
+    light-dark(rgba(40, 48, 80, 0.102), rgba(17, 19, 28, 0.82));
   box-shadow: 0 14px 32px rgba(4, 7, 14, 0.32);
   pointer-events: none;
 }
@@ -269,8 +269,8 @@
     linear-gradient(135deg, rgba(124, 161, 255, 0.26), rgba(126, 224, 164, 0.18)),
     repeating-linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.09) 0,
-      rgba(255, 255, 255, 0.09) 7px,
+      rgb(var(--tint) / 0.09) 0,
+      rgb(var(--tint) / 0.09) 7px,
       transparent 7px,
       transparent 14px
     );
@@ -303,7 +303,7 @@
 
 .source-drop-preview__body span {
   margin-top: 5px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgb(var(--tint) / 0.72);
   font-size: 0.68rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -313,7 +313,7 @@
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(124, 161, 255, 0.16);
-  color: #d5e2ff;
+  color: light-dark(#2f55c4, #d5e2ff);
   font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -357,11 +357,11 @@
   max-width: 100%;
   border-radius: 9px 0 0 9px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent),
+    linear-gradient(135deg, rgb(var(--tint) / 0.12), transparent),
     repeating-linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.06) 0,
-      rgba(255, 255, 255, 0.06) 6px,
+      rgb(var(--tint) / 0.06) 0,
+      rgb(var(--tint) / 0.06) 6px,
       transparent 6px,
       transparent 12px
     );
@@ -381,7 +381,7 @@
   max-width: 100%;
   height: 18px;
   align-self: center;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgb(var(--tint) / 0.72);
 }
 
 /* Narrower than its label, the clip lets the label run past its end, like a
@@ -410,7 +410,7 @@
 
 .source-drop-clip__body small {
   margin-top: 4px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(var(--tint) / 0.8);
   font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -472,7 +472,7 @@
     z-index: 5;
     border-left: none;
     padding-block: 10px;
-    background: #202230;
+    background: light-dark(rgb(250, 250, 252), #202230);
   }
 
   .source-header--empty .source-empty-state {

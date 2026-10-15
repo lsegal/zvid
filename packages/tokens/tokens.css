@@ -4,8 +4,12 @@
  * licensed under the SIL Open Font License 1.1 (see fonts/OFL-*.txt).
  */
 
-/* Defined on :root so portaled content (dropdown menus, dialogs) shares the palette. */
-:root {
+/* Defined on :root so portaled content (dropdown menus, dialogs) shares the
+ * palette. A `data-theme="dark"` element inside the light theme gets the dark
+ * palette back, for content that stays dark, like the video preview. */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
   --bg: #262839;
   --bg-elevated: #2d3044;
   --bg-panel: #313447;
@@ -21,6 +25,41 @@
   --mint: #7ee0a4;
   /* Neutral selection ring; no accent color, so it can't read as a clip's. */
   --selection-ring: #f4f6ff;
+  /* The ink's channels, for translucent ink washes: `rgb(var(--tint) / 0.08)`
+   * lightens a dark surface and darkens a light one. */
+  --tint: 255 255 255;
+  /* Waveforms' channels, drawn translucent over clips and rows. */
+  --waveform: 214 236 245;
+}
+
+/* The light theme (#1488). Text and accents keep at least 4:1 contrast on
+ * every surface; accents stay readable under --ink-on-accent too. One-off
+ * colors elsewhere pick their light value with light-dark(), which follows
+ * the color-scheme set here. */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f6f9;
+  --bg-elevated: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-soft: #eef0f4;
+  --ink: #1b1f33;
+  --muted: #545a72;
+  --ink-on-accent: #0f1220;
+  --line: rgba(22, 27, 48, 0.1);
+  --line-strong: rgba(22, 27, 48, 0.16);
+  --amber: #a06400;
+  --pink: #c8336a;
+  --blue: #3a63d8;
+  --mint: #18804a;
+  --selection-ring: #1b1f33;
+  --tint: 22 27 48;
+  --waveform: 36 52 88;
+}
+
+/* Inherited text colors are already resolved, so an element that switches
+ * theme sets its own. */
+[data-theme] {
+  color: var(--ink);
 }
 
 /* Space Grotesk 400/500/700 (latin, latin-ext) */

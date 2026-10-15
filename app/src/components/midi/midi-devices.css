@@ -54,7 +54,7 @@
 }
 
 .piano-roll__key--black {
-  background: #23262f;
+  background: light-dark(rgb(249, 250, 251), #23262f);
 }
 
 .piano-roll__key:hover {
@@ -62,7 +62,7 @@
 }
 
 .piano-roll__key--black:hover {
-  background: color-mix(in srgb, var(--fx-accent) 45%, #23262f);
+  background: color-mix(in srgb, var(--fx-accent) 45%, light-dark(rgb(249, 250, 251), #23262f));
 }
 
 .piano-roll__corner {
@@ -71,7 +71,7 @@
   left: 0;
   z-index: 3;
   height: var(--piano-roll-ruler);
-  background: #1b1e27;
+  background: light-dark(rgb(251, 251, 253), #1b1e27);
 }
 
 /* The ruler: bar numbers, the loop brace along its top, and the Start
@@ -82,8 +82,8 @@
   z-index: 2;
   height: var(--piano-roll-ruler);
   overflow: hidden;
-  background: #1b1e27;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  background: light-dark(rgb(251, 251, 253), #1b1e27);
+  border-bottom: 1px solid rgb(var(--tint) / 0.16);
   touch-action: none;
 }
 
@@ -91,7 +91,7 @@
   position: absolute;
   bottom: 1px;
   padding-left: 3px;
-  border-left: 1px solid rgba(255, 255, 255, 0.24);
+  border-left: 1px solid rgb(var(--tint) / 0.24);
   color: var(--muted);
   font-size: 8px;
   line-height: 10px;
@@ -166,15 +166,15 @@
 .piano-roll__grid {
   position: relative;
   flex: none;
-  background-color: #12141b;
+  background-color: light-dark(rgb(253, 254, 255), #12141b);
   background-image:
     linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.16) 1px,
+      rgb(var(--tint) / 0.16) 1px,
       transparent 1px
     ),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(90deg, rgb(var(--tint) / 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(var(--tint) / 0.05) 1px, transparent 1px);
   background-size:
     calc(var(--piano-roll-quarter) * 4) 100%,
     var(--piano-roll-quarter) 100%,
@@ -246,7 +246,7 @@
   left: 0;
   width: 2px;
   will-change: transform;
-  background: #f6b73c;
+  background: var(--amber);
   pointer-events: none;
   z-index: 1;
 }
@@ -261,8 +261,8 @@
   box-sizing: border-box;
   height: var(--piano-roll-velocity);
   padding: 7px 3px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  background: #1b1e27;
+  border-top: 1px solid rgb(var(--tint) / 0.16);
+  background: light-dark(rgb(251, 251, 253), #1b1e27);
   color: var(--muted);
   font-size: 8px;
   text-align: right;
@@ -274,11 +274,11 @@
   z-index: 2;
   box-sizing: border-box;
   height: var(--piano-roll-velocity);
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  background-color: #171a22;
+  border-top: 1px solid rgb(var(--tint) / 0.16);
+  background-color: light-dark(rgb(252, 252, 254), #171a22);
   background-image: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.1) 1px,
+    rgb(var(--tint) / 0.1) 1px,
     transparent 1px
   );
   background-size: calc(var(--piano-roll-quarter) * 4) 100%;

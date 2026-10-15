@@ -26,9 +26,9 @@ export const BPM_MIN = 60;
 export const BPM_MAX = 220;
 
 export const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
-  division: "rgba(255,255,255,0.04)",
-  beat: "rgba(255,255,255,0.08)",
-  bar: "rgba(255,255,255,0.16)",
+  division: "rgb(var(--tint) / 0.04)",
+  beat: "rgb(var(--tint) / 0.08)",
+  bar: "rgb(var(--tint) / 0.16)",
 };
 
 export const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;

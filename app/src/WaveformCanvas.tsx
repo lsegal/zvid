@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTheme } from "./hooks/useTheme.ts";
 import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 import {
   getWaveformSourceSpan,
@@ -59,8 +60,11 @@ export function WaveformCanvas({
     return () => observer.disconnect();
   }, []);
 
+  // Redraws in the new theme's color when the theme switches.
+  const theme = useTheme();
   useLayoutEffect(() => {
     void heightPx;
+    void theme;
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) {
@@ -91,7 +95,12 @@ export function WaveformCanvas({
     };
     const middle = height / 2;
     const amplitude = Math.max(1, middle - 4 * pixelRatio);
-    context.fillStyle = "rgba(214, 236, 245, 0.82)";
+    // The theme's waveform color (packages/tokens), read from the canvas so
+    // one in the dark-themed preview keeps the dark theme's.
+    const waveform =
+      getComputedStyle(canvas).getPropertyValue("--waveform").trim() ||
+      "214 236 245";
+    context.fillStyle = `rgb(${waveform} / 0.82)`;
 
     for (let column = 0; column < width; column += 1) {
       const span = getWaveformSourceSpan(
@@ -136,6 +145,7 @@ export function WaveformCanvas({
     secondsPerPx,
     startPx,
     startSeconds,
+    theme,
     warp,
     widthPx,
     windowEndSeconds,

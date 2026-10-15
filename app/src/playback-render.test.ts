@@ -156,7 +156,10 @@ describe("playback rendering", () => {
     const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
     const lane = cssRule(appCss, "track-row__content");
     assert.equal(background(ruler), "var(--bg-soft)");
-    assert.equal(background(lane), "rgba(20, 21, 32, 0.3)");
+    assert.equal(
+      background(lane),
+      "light-dark(rgba(40, 48, 80, 0.018), rgba(20, 21, 32, 0.3))",
+    );
   });
 
   it("anchors the playhead diamond below the timecodes of a short ruler", () => {

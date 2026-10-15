@@ -139,7 +139,7 @@ html[data-menu-sheet-nav]::view-transition-group(mobile-menu-level) {
 
 html[data-menu-sheet-nav]::view-transition-group(mobile-menu-sheet) {
   border-radius: 18px 18px 0 0;
-  background: var(--bg-panel, #262839);
+  background: var(--bg-panel, var(--bg));
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
 }
 

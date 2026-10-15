@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { SAMPLE_CHOICES, type SampleId } from "../sample/samples.ts";
+import { type Theme, themeMenuItem } from "../theme.ts";
 
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 
@@ -29,13 +30,20 @@ export type FileMenuInputs = {
   setIsSessionSettingsOpen: SetOpen;
 };
 
+// The app-wide theme, switched from the File menu since it isn't a session
+// setting (#1488).
+export type ThemeMenuInputs = {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+};
+
 /**
- * New Session, Open, Import Media and the media and session settings, then
- * Connect to Share, then Save and Export. `shortcuts` are the ones to show,
- * if any.
+ * New Session, Open, Import Media, the media and session settings and the
+ * theme, then Connect to Share, then Save and Export. `shortcuts` are the
+ * ones to show, if any.
  */
 export function buildFileMenuEntries(
-  inputs: FileMenuInputs,
+  inputs: FileMenuInputs & ThemeMenuInputs,
   shortcuts: { newSession?: string; save?: string } = {},
 ): ContextMenuEntry[] {
   const { collaboration, offlineMedia } = inputs;
@@ -107,6 +115,7 @@ export function buildFileMenuEntries(
           } as const,
         ]
       : []),
+    themeMenuItem(inputs.theme, inputs.setTheme),
     { type: "separator" },
     {
       type: "item",

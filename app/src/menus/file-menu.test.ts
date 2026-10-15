@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry } from "../context-menu.ts";
-import { buildFileMenuEntries, type FileMenuInputs } from "./file-menu.ts";
+import {
+  buildFileMenuEntries,
+  type FileMenuInputs,
+  type ThemeMenuInputs,
+} from "./file-menu.ts";
 
 const noop = () => {};
 
-function inputs(overrides: Partial<FileMenuInputs> = {}): FileMenuInputs {
+function inputs(
+  overrides: Partial<FileMenuInputs & ThemeMenuInputs> = {},
+): FileMenuInputs & ThemeMenuInputs {
   return {
     canStartNewSession: true,
     handleNewSession: noop,
@@ -27,6 +33,8 @@ function inputs(overrides: Partial<FileMenuInputs> = {}): FileMenuInputs {
     setIsOfflineMediaDialogOpen: noop,
     setIsProjectExportDialogOpen: noop,
     setIsSessionSettingsOpen: noop,
+    theme: "dark",
+    setTheme: noop,
     ...overrides,
   };
 }
@@ -58,6 +66,7 @@ describe("File menu", () => {
       "All Media Linked (disabled)",
       "Media Storage…",
       "Session Settings…",
+      "Light Theme",
       "---",
       "Connect to Share",
       "---",
@@ -87,12 +96,28 @@ describe("File menu", () => {
       "Media Storage…",
       "Session Settings…",
       "Media Sync Status…",
+      "Light Theme",
       "---",
       "Disconnect from Share",
       "---",
       "Save",
       { Export: ["Video… (disabled)", "Project…"] },
     ]);
+  });
+
+  it("switches to the other theme", () => {
+    const themes: string[] = [];
+    const setTheme = (theme: string) => {
+      themes.push(theme);
+    };
+    item(buildFileMenuEntries(inputs({ setTheme })), "theme").onSelect?.();
+    const light = item(
+      buildFileMenuEntries(inputs({ theme: "light", setTheme })),
+      "theme",
+    );
+    assert.equal(light.label, "Dark Theme");
+    light.onSelect?.();
+    assert.deepEqual(themes, ["light", "dark"]);
   });
 
   it("runs each item's action", () => {

@@ -10,7 +10,7 @@
   /* square and borderless where the labels column meets the window edge */
   border-left: 0;
   border-radius: 0 18px 18px 0;
-  background: rgba(17, 19, 28, 0.32);
+  background: light-dark(rgba(40, 48, 80, 0.02), rgba(17, 19, 28, 0.32));
 }
 
 .timeline-scroll {
@@ -78,7 +78,7 @@
   width: 2px;
   left: 0;
   will-change: transform;
-  background: #f6b73c;
+  background: var(--amber);
   pointer-events: none;
   z-index: var(--z-timeline-playhead);
 }
@@ -139,7 +139,7 @@
   border-radius: 999px;
   border: 1px solid rgba(246, 183, 60, 0.4);
   background: rgba(246, 183, 60, 0.14);
-  color: #ffe084;
+  color: light-dark(#855800, #ffe084);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;

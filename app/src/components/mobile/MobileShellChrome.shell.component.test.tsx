@@ -383,6 +383,7 @@ describe(MobileTopBar.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
         "All Media Linked",
         "Media Storage…",
         "Session Settings…",
+        "Light Theme",
         "Connect to Share",
         "Save",
         "Export",

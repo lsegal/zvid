@@ -10,7 +10,7 @@
 }
 
 .fx-curve--red {
-  --fx-curve-ink: #f87171;
+  --fx-curve-ink: light-dark(#b3264f, #f87171);
 }
 
 .fx-curve--green {
@@ -18,7 +18,7 @@
 }
 
 .fx-curve--blue {
-  --fx-curve-ink: #60a5fa;
+  --fx-curve-ink: light-dark(#2f55c4, #60a5fa);
 }
 
 .fx-curve__header {
@@ -59,7 +59,7 @@
 }
 
 .fx-curve__tab--red {
-  color: #f87171;
+  color: light-dark(#b3264f, #f87171);
 }
 
 .fx-curve__tab--green {
@@ -67,7 +67,7 @@
 }
 
 .fx-curve__tab--blue {
-  color: #60a5fa;
+  color: light-dark(#2f55c4, #60a5fa);
 }
 
 /* A dot on the tab of a channel whose curve isn't straight. */
@@ -109,13 +109,13 @@
   display: block;
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: rgba(11, 13, 19, 0.55);
+  background: light-dark(rgba(40, 48, 80, 0.035), rgba(11, 13, 19, 0.55));
   cursor: crosshair;
   touch-action: none;
 }
 
 .fx-curve__grid line {
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: rgb(var(--tint) / 0.08);
   stroke-width: 1;
 }
 
@@ -125,7 +125,7 @@
 }
 
 .fx-curve__diagonal {
-  stroke: rgba(255, 255, 255, 0.14);
+  stroke: rgb(var(--tint) / 0.14);
   stroke-dasharray: 3 3;
   stroke-width: 1;
 }
@@ -137,7 +137,7 @@
 }
 
 .fx-curve__point {
-  fill: var(--bg-soft, #383b50);
+  fill: var(--bg-soft, var(--bg-soft));
   stroke: var(--fx-curve-ink);
   stroke-width: 1.5;
   cursor: grab;

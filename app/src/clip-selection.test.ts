@@ -39,7 +39,7 @@ function zToken(name: string): number {
 
 describe("selected clip ring", () => {
   it("defines a neutral selection ring token", () => {
-    const ring = ruleBody(tokensCss, ":root").match(
+    const ring = ruleBody(tokensCss, ":root,\n[data-theme='dark']").match(
       /--selection-ring: #([0-9a-f]{6});/,
     );
     assert.ok(ring, "missing --selection-ring");
