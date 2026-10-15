@@ -10,6 +10,7 @@ import type { MidiNote } from "../midi-clip.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
+import type { ClipGroupMember } from "./clip-group-move.ts";
 import type { LoopRegion } from "./loop-region.ts";
 
 export type TimelineMode = "musical" | "timecode";
@@ -134,6 +135,9 @@ export type DragState =
       // A Shift-press released without dragging adds the clip to the
       // selection or takes it out (see multi-selection.ts).
       toggleOnClick?: boolean;
+      // The other selected clips, when the clip is one of several selected:
+      // they move, or duplicate, with it (see clip-group-move.ts).
+      group?: ClipGroupMember[];
     }
   | {
       kind: "resize-start";

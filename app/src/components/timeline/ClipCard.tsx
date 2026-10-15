@@ -121,6 +121,8 @@ export const ClipCard = memo(function ClipCard({
   setDragState,
 }: ClipCardProps) {
   const selected = selectedClipIds.has(clip.id);
+  // One of several selected clips, which a drag moves together (#1470).
+  const inGroup = selected && selectedClipIds.size > 1;
   // Keeps the trimmed edge's handle shown while the pointer
   // strays off it mid-drag.
   const trimming =
@@ -282,6 +284,11 @@ export const ClipCard = memo(function ClipCard({
           if (event.shiftKey) {
             return;
           }
+          // One of several selected clips keeps the selection, which a
+          // release without dragging narrows instead (useClipDrag).
+          if (inGroup) {
+            return;
+          }
           setPendingSelection(null);
           // Selecting never moves the playhead.
           setSelectedClipId(clip.id);
@@ -306,7 +313,18 @@ export const ClipCard = memo(function ClipCard({
           // A Shift-click adds the clip to the selection or takes it out
           // on release; dragging still moves it.
           const toggleOnClick = event.shiftKey && !duplicateOnDrag;
-          if (!toggleOnClick) {
+          // The other selected clips move, or duplicate, along with it.
+          const group = inGroup
+            ? [...selectedClipIds]
+                .filter((id) => id !== clip.id)
+                .map((id) => ({
+                  sourceClipId: id,
+                  clipId: duplicateOnDrag
+                    ? `window-${crypto.randomUUID()}`
+                    : id,
+                }))
+            : undefined;
+          if (!toggleOnClick && !group) {
             setSelectedClipId(dragClipId);
           }
           setDragState({
@@ -321,6 +339,7 @@ export const ClipCard = memo(function ClipCard({
             duplicateOnDrag,
             jumpOnClick: isClipJumpPress(event, shortcutLabels.mac),
             toggleOnClick,
+            group,
           });
         }}
         type="button"
