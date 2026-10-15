@@ -96,7 +96,7 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
       .toBeVisible();
     await expect
       .element(section().getByRole("slider", { name: "Reactivity" }))
-      .toHaveAttribute("aria-valuetext", "0%");
+      .toHaveAttribute("aria-valuetext", "100%");
     await expect
       .element(section().getByRole("slider", { name: "Amplitude" }))
       .toHaveAttribute("aria-valuetext", "0.3x");

@@ -13,6 +13,7 @@ import {
   type LfoAnimation,
   normalizeLfo,
   normalizeReactive,
+  REACTIVE_VERSION,
   type ReactiveAnimation,
   type ReactiveMotion,
   readOption,
@@ -54,9 +55,10 @@ function defaults(
     transient: {
       motion,
       timing: "Normal",
-      reactivity: 0,
+      reactivity: 1,
       amplitude: amount,
       parameters: [...parameters],
+      version: REACTIVE_VERSION,
     },
     lfo: {
       shape: "Sine",

@@ -150,9 +150,10 @@ describe("MIDI sample", () => {
     assert.deepEqual(animation?.reactive, {
       motion: "Single",
       timing: "Fast",
-      reactivity: 0.1,
+      reactivity: 0.9,
       amplitude: 6.9,
       parameters: ["_HueOffset"],
+      version: 2,
     });
     const { project } = openSample();
     assert.equal(

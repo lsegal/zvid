@@ -56,7 +56,7 @@ const ONSET_FULL_STRENGTH_FLUX = 0.2;
 const IMPULSE_DECAY_SECONDS = 0.15;
 // The high band's share of a combined onset's strength. Hats, clicks and
 // sibilance still register as hits, but weakly enough that a Reactivity
-// threshold a kick clears drops them.
+// that still lets kicks through drops them.
 export const HIGH_ONSET_WEIGHT = 0.35;
 // Offline envelopes are rebuilt from this much audio before a random seek.
 // It must cover the onset window so seeks detect the same hits.
