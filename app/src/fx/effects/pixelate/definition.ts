@@ -10,7 +10,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Pixelate",
   description: "Reduces the layer to large pixels.",
   accent: "#7ee0a4",
-  category: "stylize",
+  category: "distort",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

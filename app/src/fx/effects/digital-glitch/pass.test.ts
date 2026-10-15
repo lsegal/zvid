@@ -18,9 +18,9 @@ function numberParameter(key: string) {
 }
 
 describe("Digital Glitch definition", () => {
-  it("is a Stylize effect named DigitalGlitch", () => {
+  it("is a Glitch effect named DigitalGlitch", () => {
     assert.equal(definition.effectName, "DigitalGlitch");
-    assert.equal(definition.category, "stylize");
+    assert.equal(definition.category, "glitch");
     assert.equal(getEffectDefinition("DigitalGlitch"), definition);
   });
 

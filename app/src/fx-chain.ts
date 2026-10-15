@@ -117,6 +117,9 @@ export const FX_EFFECT_CATEGORIES: readonly {
 }[] = [
   { category: "transform", label: "Transform" },
   { category: "color", label: "Color" },
+  { category: "blur", label: "Blur" },
+  { category: "distort", label: "Distort" },
+  { category: "glitch", label: "Glitch" },
   { category: "stylize", label: "Stylize" },
   { category: "text", label: "Text" },
   { category: "volume", label: "Volume & Stereo" },

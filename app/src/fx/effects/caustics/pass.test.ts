@@ -29,7 +29,7 @@ const DEFAULTS: EffectParameter[] = definition.parameters.map((parameter) =>
 );
 
 describe("Caustics definition", () => {
-  it("lists Caustics under Stylize after Analog Glitch with its defaults", () => {
+  it("lists Caustics under Stylize, among the former Stylize effects, with its defaults", () => {
     assert.equal(definition.category, "stylize");
     assert.ok(menuOrder > 50 && menuOrder < 60);
     assert.deepEqual(

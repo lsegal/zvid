@@ -52,7 +52,7 @@ async function openLayer() {
 
 // Adds Pixelate to Layer 1 from the add menu.
 async function addPixelate() {
-  await addFromMenu("Add device to this layer", "Stylize", "Pixelate");
+  await addFromMenu("Add device to this layer", "Distort", "Pixelate");
   await expect.poll(() => sectionCount("Pixelate")).toBe(1);
 }
 
