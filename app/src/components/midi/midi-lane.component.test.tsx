@@ -140,7 +140,15 @@ function bassRow() {
 test(
   "MIDI clips draw piano-roll thumbnails, and track handles have no instrument button",
   async () => {
-    await open();
+    // Without an instrument, the clip has no performance to draw instead.
+    const project = midiProject();
+    await open({
+      ...project,
+      effects: project.effects.filter(
+        (effect) =>
+          effect.trackId !== sourceClipEffectTrackId("source-bassline"),
+      ),
+    });
     await expect.poll(midiSpan).toBeTruthy();
     const span = midiSpan() as HTMLElement;
     expect(span.querySelectorAll(".source-span__midi-note")).toHaveLength(3);
@@ -162,6 +170,30 @@ test(
     expect(
       bassRow()?.querySelector('.track-label button[aria-label$=" synth"]'),
     ).toBeNull();
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "a MIDI clip draws its performance's waveform once it renders, and its notes without an instrument",
+  async () => {
+    await open();
+    await expect.poll(midiSpan).toBeTruthy();
+    const waveform = () =>
+      midiSpan()?.querySelector("canvas.source-span__waveform") ?? null;
+    await expect.poll(waveform).toBeTruthy();
+    expect(midiSpan()?.querySelector("[data-midi-thumbnail]")).toBeNull();
+    expect(midiSpan()?.textContent).toContain("MIDI · 3 notes");
+
+    // Bypassing its only Synth leaves nothing to render: the notes return.
+    await selectBassline();
+    await userEvent.click(page.getByRole("button", { name: "Bypass Synth" }));
+    await expect
+      .poll(
+        () => midiSpan()?.querySelectorAll(".source-span__midi-note").length,
+      )
+      .toBe(3);
+    expect(waveform()).toBeNull();
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -1009,9 +1041,11 @@ test(
     await expect
       .poll(() => bassSpans().find((item) => item.id === clip.id)?.notes)
       .toEqual([{ pitch: 60, start: 1, length: 1, velocity: 100 }]);
+    // Its note plays through the Synth, so the clip draws its waveform.
+    await expect.poll(() => span()?.textContent).toContain("MIDI · 1 note");
     await expect
-      .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
-      .toBe(1);
+      .poll(() => span()?.querySelector("canvas.source-span__waveform"))
+      .toBeTruthy();
 
     // Right-clicking just left of the new clip snaps to its start, so Add
     // MIDI Clip adds nothing and says why.
