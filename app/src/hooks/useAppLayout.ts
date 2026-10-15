@@ -27,6 +27,10 @@ import {
   writeAudioRowCollapsed,
 } from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
+import {
+  readLayersCollapsed,
+  writeLayersCollapsed,
+} from "../layers-section.ts";
 import { isPhoneShell } from "../mobile/shell-kind.ts";
 import {
   COLLAPSED_ROW_METRICS,
@@ -50,7 +54,7 @@ export type AppLayoutInputs = {
 };
 
 // The editor's layout preferences: the FX panel's collapsed state, the
-// source tracks section, the Audio row, each row's height, the track label width, and the preview width with
+// source tracks section, the Layers area, the Audio row, each row's height, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference. On a phone it picks the mobile shell, where the FX
 // panel is a sheet and the track labels have their own, narrower width.
@@ -66,6 +70,11 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
       readSourceTracksCollapsed(
         typeof window === "undefined" ? undefined : window.localStorage,
       ),
+  );
+  const [isLayersCollapsed, setLayersCollapsedPref] = useState(() =>
+    readLayersCollapsed(
+      typeof window === "undefined" ? undefined : window.localStorage,
+    ),
   );
   const [isAudioRowCollapsed, setAudioRowCollapsedPref] = useState(() =>
     readAudioRowCollapsed(
@@ -97,6 +106,10 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
     setSourceTracksCollapsedPref(collapsed);
     writeSourceTracksCollapsed(window.localStorage, collapsed);
+  }, []);
+  const setLayersCollapsed = useCallback((collapsed: boolean) => {
+    setLayersCollapsedPref(collapsed);
+    writeLayersCollapsed(window.localStorage, collapsed);
   }, []);
   const setAudioRowCollapsed = useCallback((collapsed: boolean) => {
     setAudioRowCollapsedPref(collapsed);
@@ -265,6 +278,8 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     toggleInspectorCollapsed,
     isSourceTracksCollapsed,
     setSourceTracksCollapsed,
+    isLayersCollapsed,
+    setLayersCollapsed,
     isAudioRowCollapsed,
     setAudioRowCollapsed,
     audioRowHeight,

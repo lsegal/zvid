@@ -214,6 +214,41 @@
   font-size: 0.68rem;
 }
 
+/* Shows and hides the Layers area (#1453), right-aligned in the header cell:
+   dimmed while the layers are hidden, full opacity while they show. */
+.ruler-row__layers-toggle {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ruler-row__layers-toggle[aria-pressed='false'] {
+  opacity: 0.35;
+}
+
+.ruler-row__layers-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ruler-row__layers-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ruler-row__layers-toggle:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 1px;
+}
+
 .track-label__offline {
   display: block;
   max-width: 100%;

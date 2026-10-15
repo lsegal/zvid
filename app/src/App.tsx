@@ -515,6 +515,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 }
               >
                 <Ruler
+                  {...layout}
                   {...timeline}
                   {...mediaImport}
                   {...playback}
@@ -524,7 +525,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     dialogs.setIsOfflineMediaDialogOpen
                   }
                   timelineScrollRef={timelineScrollRef}
-                  shortcutLabels={shortcutLabels}
                   timelineDragState={selection.timelineDragState}
                   setTimelineDragState={selection.setTimelineDragState}
                   isPlaying={isPlaying}
@@ -532,7 +532,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   setPlayheadQ={setPlayheadQ}
                   playbackOriginRef={playbackOriginRef}
                   playheadSignal={playheadSignal}
-                  labelWidth={labelWidth}
                   timelineMode={timelineMode}
                   bpm={bpm}
                   fps={fps}
@@ -547,7 +546,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   fxLaneId={fxPanel.fxLaneId}
                   laneStatusById={timeline.laneStatusById}
                   clipsByLane={timeline.clipsByLane}
-                  rowHeights={layout.rowHeights}
+                  {...layout}
                   emptyState={
                     timeline.showArrangementEmptyState ? (
                       <ArrangementEmptyState

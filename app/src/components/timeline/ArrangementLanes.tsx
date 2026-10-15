@@ -1,6 +1,9 @@
+import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import type { ReactNode, RefObject } from "react";
 import type { ArrangementClip, Lane } from "../../app/types.ts";
+import { pluralize } from "../../app/util.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
+import { layersToggleLabel } from "../../layers-section.ts";
 import {
   DEFAULT_ROW_METRICS,
   getRowExpandedHeight,
@@ -33,11 +36,16 @@ type ArrangementLanesProps = {
   // A read-only tab can't add layers.
   readOnly: boolean;
   onCreateLayer: () => void;
+  // Hidden by the ruler's layers toggle, the layers give way to a collapsed
+  // header whose expander shows them again.
+  isLayersCollapsed: boolean;
+  setLayersCollapsed: (collapsed: boolean) => void;
 };
 
 // The arrangement's layers, each a header and a lane, with the drop
 // indicator and announcements that reordering them uses, ended by an empty
-// placeholder row whose [ + Layer ] button adds one.
+// placeholder row whose [ + Layer ] button adds one. Hidden, they're a
+// collapsed Layers header styled like the collapsed Source Tracks section's.
 export function ArrangementLanes({
   arrangementLanesRef,
   lanes,
@@ -50,8 +58,38 @@ export function ArrangementLanes({
   row,
   readOnly,
   onCreateLayer,
+  isLayersCollapsed,
+  setLayersCollapsed,
 }: ArrangementLanesProps) {
   const { layerReorder } = header;
+  if (isLayersCollapsed) {
+    return (
+      <div ref={arrangementLanesRef} className="arrangement-lanes">
+        <section aria-label="Layers" className="layers-header">
+          <div className="track-label track-label--header">
+            <button
+              aria-expanded="false"
+              className="layers-header__toggle"
+              onClick={() => setLayersCollapsed(false)}
+              title={layersToggleLabel(true)}
+              type="button"
+            >
+              <ChevronDownIcon aria-hidden="true" />
+              <span className="layers-header__title">
+                <span>Layers</span>
+                <small>{pluralize(lanes.length, "layer")} in session</small>
+              </span>
+            </button>
+          </div>
+          <div className="layers-header__content">
+            <span className="layers-header__summary">
+              {pluralize(lanes.length, "layer")} hidden
+            </span>
+          </div>
+        </section>
+      </div>
+    );
+  }
   return (
     <div
       ref={arrangementLanesRef}
