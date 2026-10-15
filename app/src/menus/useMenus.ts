@@ -37,7 +37,7 @@ import type { usePlayback } from "../hooks/usePlayback.ts";
 import type { useSourceClipActions } from "../hooks/useSourceClipActions.ts";
 import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 import { sourceTrackHasFootage } from "../random-arrangement.ts";
-import { canPasteIntoSourceTrack } from "../source-clip-edits.ts";
+import { hasSourceClipsToPaste } from "../source-clip-edits.ts";
 import { buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries } from "./clip-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -390,7 +390,7 @@ export function useMenus({
     return buildSourceSpanMenuEntries({
       lanes,
       mac: shortcutLabels.mac,
-      canPaste: canPasteIntoSourceTrack(clipClipboardRef.current),
+      canPaste: hasSourceClipsToPaste(clipClipboardRef.current),
       canSplit: canSplitAt(
         span.startQ,
         getClipEndQ(span, bpm),
@@ -426,7 +426,7 @@ export function useMenus({
     };
     return buildSourceLaneMenuEntries({
       hasClip: Boolean(span),
-      canPaste: canPasteIntoSourceTrack(clipClipboardRef.current),
+      canPaste: hasSourceClipsToPaste(clipClipboardRef.current),
       canSplit: span
         ? canSplitAt(span.startQ, getClipEndQ(span, bpm), playheadQRef.current)
         : false,
@@ -542,7 +542,7 @@ export function useMenus({
     return buildClipMenuEntries({
       hasClip: Boolean(clip),
       canPaste: pasteSourceTrackId
-        ? canPasteIntoSourceTrack(clipClipboardRef.current)
+        ? hasSourceClipsToPaste(clipClipboardRef.current)
         : canPasteOntoLayer(clipClipboardRef.current),
       canSplit: clip
         ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)

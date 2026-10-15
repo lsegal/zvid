@@ -39,6 +39,17 @@ export function canPasteIntoSourceTrack(
   return clipboard !== null && clipClipboardKind(clipboard) === "source";
 }
 
+/**
+ * Whether `clipboard` holds source clips to paste into a source track: a
+ * copied source clip, or a copied multi-selection with source clips in it.
+ */
+export function hasSourceClipsToPaste(clipboard: ClipClipboard | null) {
+  return (
+    canPasteIntoSourceTrack(clipboard) ||
+    Boolean(clipboard?.sourceFragments?.length)
+  );
+}
+
 // `spans` placed in order, each overwriting what it lands on in its track,
 // with the arrangement clips synced and each `[from, to]` stack copied
 // from `stackSource`.
