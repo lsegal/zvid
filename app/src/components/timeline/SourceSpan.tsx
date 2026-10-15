@@ -223,9 +223,9 @@ export const SourceSpan = memo(function SourceSpan({
           return;
         }
         if (!isSourceClipDropClick(event)) {
-          // A Shift-click, or a click on a selected span that never became
-          // a drag, adds it or takes it out (#1481). Selecting never moves
-          // the playhead.
+          // A Shift-click, or a click on a selected span, adds it or takes
+          // it out (#1481); one ending a drag selects the span it moved.
+          // Selecting never moves the playhead.
           const press = pressRef.current;
           const clicked =
             !press ||
@@ -235,7 +235,7 @@ export const SourceSpan = memo(function SourceSpan({
                 LANE_SELECTION_DRAG_THRESHOLD_PX);
           selectSourceSpan(
             clip,
-            event.shiftKey || (clicked && selectedSourceSpanIds.has(clip.id))
+            clicked && (event.shiftKey || selectedSourceSpanIds.has(clip.id))
               ? "toggle"
               : "select",
           );

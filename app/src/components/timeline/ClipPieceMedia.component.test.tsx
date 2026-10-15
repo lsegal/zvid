@@ -217,7 +217,8 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     // Deleting the source clip leaves the layer clip in place, showing
     // nothing; undo brings the source clip back and fills it again.
-    await page.elementLocator(query(".source-span__body", span())).click();
+    // The last drag left it selected.
+    await expect.poll(() => span().className).toMatch(/source-span--selected/);
     await userEvent.keyboard("{Delete}");
     await expect
       .poll(() => document.querySelectorAll(".source-span"))
@@ -286,7 +287,8 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     // Deleting the source clip leaves the layer clip in place, showing
     // nothing; undo brings back what it showed.
-    await page.elementLocator(query(".source-span__body", span())).click();
+    // The last drag left it selected.
+    await expect.poll(() => span().className).toMatch(/source-span--selected/);
     await userEvent.keyboard("{Delete}");
     await expect
       .poll(() => document.querySelectorAll(".source-span"))

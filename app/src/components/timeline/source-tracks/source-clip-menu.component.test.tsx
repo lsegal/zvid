@@ -292,8 +292,9 @@ test("a copied layer clip pastes onto a layer but not into the source track", {
   // The source clip's menu grays Paste out, and Mod+V does nothing there.
   await openMenu(firstSpan());
   await expectDisabled(menuItem(/^Paste/));
+  // Its menu left it selected.
   await userEvent.keyboard("{Escape}");
-  await userEvent.click(firstSpan());
+  await expectSelected(firstSpan);
   await pressMod("v");
   await expect
     .poll(() =>
@@ -377,7 +378,6 @@ test("after Cut, Mod+V and Edit > Paste go back into the source track", {
   await expectSelected(firstSpan);
   await expectCount(".clip-card", 0);
 
-  await userEvent.click(firstSpan());
   await pressMod("x");
   await expectCount(".source-span", 0);
   await editMenu().click();

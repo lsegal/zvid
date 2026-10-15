@@ -41,13 +41,12 @@ test("selects source tracks and source clips instead of layers and clips", async
   const span = () => query(".source-span");
   const clipBody = () => query(`${LAYER_CLIPS} .clip-card__body`);
 
-  // Put a clip on Layer 1 and select it.
+  // Put a clip on Layer 1, which selects it.
   await userEvent.click(span(), { button: "right" });
   await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
   await page.getByRole("menuitem", { name: "Layer 1" }).click();
   await expectCount(LAYER_CLIPS, 1);
   query(LAYER_CLIPS).scrollIntoView({ block: "center" });
-  await userEvent.click(clipBody());
   await expect.poll(classes(LAYER_CLIPS)).toContain("clip-card--selected");
   await expect
     .poll(classes(".source-span"))

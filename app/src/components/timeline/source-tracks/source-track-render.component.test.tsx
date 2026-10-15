@@ -56,8 +56,9 @@ test("the preview renders the source tracks until there is a layer clip", async 
   await expectCount(".clip-card", 1);
   await expectRenderSource("layers");
 
-  // Removing the last layer clip renders the source tracks again.
-  await userEvent.click(query(".clip-card"));
+  // Removing the last layer clip, which the drop selected, renders the
+  // source tracks again.
+  await expectCount(".clip-card--selected", 1);
   await userEvent.keyboard("{Delete}");
   await expectCount(".clip-card", 0);
   await expectRenderSource("source-tracks");

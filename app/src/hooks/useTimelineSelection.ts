@@ -237,6 +237,10 @@ export function useTimelineSelection({
       setPrimarySourceSelection(selectSourceSpan(primary));
     } else {
       setPrimaryClipId(primary?.id);
+      // Taking out the last item leaves nothing selected.
+      if (!primary) {
+        setPrimarySourceSelection(undefined);
+      }
     }
     setExtraSelection(unique.slice(0, -1));
   }, []);

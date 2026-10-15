@@ -90,13 +90,12 @@ describe("ClipCard trim handles in the editor", {
     const end = part(clip, ".clip-card__handle--end");
     const body = part(clip, ".clip-card__body");
 
-    // Select a second clip to leave this one idle.
+    // Copying a second clip selects it, leaving this one idle.
     await copySpanToLayer("Layer 2");
     await expect
       .poll(() => lane("2")?.querySelectorAll(".clip-card").length)
       .toBe(1);
     const other = clipIn("2");
-    await userEvent.click(page.elementLocator(part(other, ".clip-card__body")));
     await expect.poll(() => other.className).toMatch(/clip-card--selected/);
     // Keep the clip clear of the sticky ruler.
     clip.scrollIntoView({ block: "center" });
