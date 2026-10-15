@@ -124,18 +124,21 @@ export function useTimelineSelection({
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
   timelineClipsRef.current = timelineClips;
-  // A clip being Ctrl/Cmd-dragged to duplicate it is drawn with its source
-  // clip's stack; the drop commits the copy's own.
+  // Clips being Ctrl/Cmd-dragged to duplicate them are drawn with their
+  // source clips' stacks; the drop commits the copies' own.
   const isDuplicateDragging = Boolean(
     dragPreviewClips && dragState?.kind === "move" && dragState.duplicateOnDrag,
   );
   const timelineEffects = useMemo(
     () =>
       isDuplicateDragging && dragState?.kind === "move"
-        ? previewDuplicateClipEffects(
+        ? [
+            ...(dragState.group ?? []),
+            { sourceClipId: dragState.sourceClipId, clipId: dragState.clipId },
+          ].reduce(
+            (drawn, { sourceClipId, clipId }) =>
+              previewDuplicateClipEffects(drawn, sourceClipId, clipId),
             effects,
-            dragState.sourceClipId,
-            dragState.clipId,
           )
         : effects,
     [dragState, effects, isDuplicateDragging],

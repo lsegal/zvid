@@ -1,4 +1,8 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
+import {
+  type ClipGroupMember,
+  moveClipGroup,
+} from "../app/clip-group-move.ts";
 import { cloneClipAtStartQ } from "../app/clip-ops.ts";
 import { TIMELINE_DRAG_EPSILON } from "../app/constants.ts";
 import type { SelectionItem } from "../app/multi-selection.ts";
@@ -220,7 +224,11 @@ export function useClipDrag({
           Math.abs(event.clientX - dragState.pointerStartX) >
           LANE_SELECTION_DRAG_THRESHOLD_PX
         ) {
-          if (dragState.kind === "move" && dragState.duplicateOnDrag) {
+          if (
+            dragState.kind === "move" &&
+            dragState.duplicateOnDrag &&
+            !dragState.group
+          ) {
             setSelectedClipId(dragState.sourceClipId);
           }
           setDragState(null);
@@ -255,6 +263,36 @@ export function useClipDrag({
               dragState.originLaneId,
             )
           : dragState.originLaneId;
+
+        // Several selected clips follow the grabbed one by its offset, in
+        // time and in layers (#1470).
+        if (dragState.group) {
+          const laneIds = timelineScroll
+            ? Array.from(
+                timelineScroll.querySelectorAll<HTMLElement>(
+                  "[data-timeline-lane-id]",
+                ),
+                (lane) => lane.dataset.timelineLaneId ?? "",
+              )
+            : [];
+          const deltaQ = nextStartQ - dragState.originStartQ;
+          const laneShift =
+            laneIds.indexOf(nextLaneId) - laneIds.indexOf(dragState.originLaneId);
+          setDragPreviewClips(
+            laneShift === 0 && Math.abs(deltaQ) <= TIMELINE_DRAG_EPSILON
+              ? null
+              : moveClipGroup(clips, groupMembers(dragState), {
+                  deltaQ,
+                  laneShift,
+                  laneIds,
+                  totalQuarters,
+                  beatUnit,
+                  bpm,
+                  duplicate: dragState.duplicateOnDrag,
+                }),
+          );
+          return;
+        }
 
         if (dragState.duplicateOnDrag) {
           if (
@@ -385,26 +423,64 @@ export function useClipDrag({
         dragPreviewClips
       ) {
         const historyLabel =
-          dragState.kind === "move"
-            ? dragState.duplicateOnDrag
-              ? "Duplicate clip"
-              : "Move clip"
-            : dragState.kind === "resize-start"
-              ? "Trim clip start"
-              : "Trim clip end";
+          dragState.kind === "move" && dragState.group
+            ? `${dragState.duplicateOnDrag ? "Duplicate" : "Move"} ${
+                dragState.group.length + 1
+              } clips`
+            : dragState.kind === "move"
+              ? dragState.duplicateOnDrag
+                ? "Duplicate clip"
+                : "Move clip"
+              : dragState.kind === "resize-start"
+                ? "Trim clip start"
+                : "Trim clip end";
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
             clips: dragPreviewClips,
             // A clip duplicated by dragging gets a copy of the stack.
             ...(dragState.kind === "move" && dragState.duplicateOnDrag
               ? {
-                  effects: copyClipEffects(current.effects, [
-                    [dragState.sourceClipId, dragState.clipId],
-                  ]),
+                  effects: copyClipEffects(
+                    current.effects,
+                    groupMembers(dragState).map(
+                      ({ sourceClipId, clipId }) =>
+                        [sourceClipId, clipId] as const,
+                    ),
+                  ),
                 }
               : {}),
           }),
         );
+      }
+
+      // A group drag keeps its clips selected, or selects the duplicates,
+      // the grabbed one primary. Released without dragging, it is a click
+      // that selects just the grabbed clip, unless Shift toggles it.
+      if (dragState.kind === "move" && dragState.group) {
+        if (dragPreviewClips && dragState.duplicateOnDrag) {
+          applySelection(
+            groupMembers(dragState).map(({ clipId }) => ({
+              kind: "clip" as const,
+              id: clipId,
+            })),
+          );
+        } else if (!dragPreviewClips && !dragState.toggleOnClick) {
+          setSelectedClipId(dragState.sourceClipId);
+          if (
+            dragState.duplicateOnDrag &&
+            dragState.jumpOnClick &&
+            Math.abs(event.clientX - dragState.pointerStartX) <=
+              LANE_SELECTION_DRAG_THRESHOLD_PX
+          ) {
+            jumpToClipStart(dragState.sourceClipId);
+          }
+        } else if (!dragPreviewClips) {
+          toggleSelection({ kind: "clip", id: dragState.clipId });
+        }
+        snapFeedbackRef.current.reset();
+        setDragPreviewClips(null);
+        setDragState(null);
+        return;
       }
 
       // A Shift-press selects the clip it moved, or toggles it when it
@@ -451,6 +527,7 @@ export function useClipDrag({
       if (
         dragState.kind === "move" &&
         dragState.duplicateOnDrag &&
+        !dragState.group &&
         !dragPreviewClips
       ) {
         setSelectedClipId(dragState.sourceClipId);
@@ -500,4 +577,14 @@ export function useClipDrag({
     showMarquee,
     hideMarquee,
   ]);
+}
+
+// Every clip a move drags, the grabbed one last.
+function groupMembers(
+  dragState: Extract<DragState, { kind: "move" }>,
+): ClipGroupMember[] {
+  return [
+    ...(dragState.group ?? []),
+    { sourceClipId: dragState.sourceClipId, clipId: dragState.clipId },
+  ];
 }

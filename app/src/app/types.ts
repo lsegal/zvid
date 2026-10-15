@@ -1,3 +1,4 @@
+import type { ClipGroupMember } from "./clip-group-move.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
@@ -134,6 +135,9 @@ export type DragState =
       // A Shift-press released without dragging adds the clip to the
       // selection or takes it out (see multi-selection.ts).
       toggleOnClick?: boolean;
+      // The other selected clips, when the clip is one of several selected:
+      // they move, or duplicate, with it (see clip-group-move.ts).
+      group?: ClipGroupMember[];
     }
   | {
       kind: "resize-start";
