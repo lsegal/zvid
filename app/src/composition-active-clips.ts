@@ -100,6 +100,7 @@ import {
   type SessionEdges,
 } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import { isAudioEffectName, isMidiEffectName } from "./fx-registry.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   type EffectChainStep,
@@ -373,10 +374,13 @@ export function resolveVisualState(
     }
 
     // Shader-chain effects render their own passes, the Color and Text
-    // effects only style fill and text clips, and a bypassed effect
-    // contributes nothing.
+    // effects only style fill and text clips, audio and MIDI effects (a
+    // Reverb's Mix, say) process sound, and a bypassed effect contributes
+    // nothing.
     if (
       effect.enabled === false ||
+      isAudioEffectName(effect.effectName) ||
+      isMidiEffectName(effect.effectName) ||
       isChainEffectName(effect.effectName) ||
       isColorEffectName(effect.effectName) ||
       isTextEffectName(effect.effectName)
