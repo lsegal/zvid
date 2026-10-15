@@ -15,6 +15,7 @@ import type {
   ArrangementClip,
   DragState,
   ProjectState,
+  SourceSpan,
   TimelineSelection,
 } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
@@ -26,6 +27,8 @@ import {
   releaseLaneSelectionGesture,
 } from "../lane-selection-gesture.ts";
 import { createSnapFeedback } from "../mobile/snap-feedback.ts";
+import { moveSourceSpanGroup } from "../source-span-edit.ts";
+import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import type { MarqueeSelection } from "./useMarqueeSelection.ts";
 
 export type ClipDragInputs = {
@@ -33,6 +36,8 @@ export type ClipDragInputs = {
   setDragState: Dispatch<SetStateAction<DragState | null>>;
   dragPreviewClips: ArrangementClip[] | null;
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
+  dragPreviewSourceSpans: SourceSpan[] | null;
+  setDragPreviewSourceSpans: Dispatch<SetStateAction<SourceSpan[] | null>>;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   toggleSelection: (item: SelectionItem) => void;
@@ -40,6 +45,7 @@ export type ClipDragInputs = {
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
   marquee: Pick<MarqueeSelection, "show" | "hide">;
   clips: ArrangementClip[];
+  sourceSpans: SourceSpan[];
   bpm: number;
   beatUnit: number;
   snapUnit: number;
@@ -68,6 +74,8 @@ export function useClipDrag({
   setDragState,
   dragPreviewClips,
   setDragPreviewClips,
+  dragPreviewSourceSpans,
+  setDragPreviewSourceSpans,
   setPendingSelection,
   setSelectedClipId,
   toggleSelection,
@@ -75,6 +83,7 @@ export function useClipDrag({
   setSelectedLaneId,
   marquee,
   clips,
+  sourceSpans,
   bpm,
   beatUnit,
   snapUnit,
@@ -276,10 +285,11 @@ export function useClipDrag({
           const laneShift =
             laneIds.indexOf(nextLaneId) -
             laneIds.indexOf(dragState.originLaneId);
+          const moved =
+            laneShift !== 0 || Math.abs(deltaQ) > TIMELINE_DRAG_EPSILON;
           setDragPreviewClips(
-            laneShift === 0 && Math.abs(deltaQ) <= TIMELINE_DRAG_EPSILON
-              ? null
-              : moveClipGroup(clips, groupMembers(dragState), {
+            moved
+              ? moveClipGroup(clips, groupMembers(dragState), {
                   deltaQ,
                   laneShift,
                   laneIds,
@@ -287,8 +297,22 @@ export function useClipDrag({
                   beatUnit,
                   bpm,
                   duplicate: dragState.duplicateOnDrag,
-                }),
+                })
+              : null,
           );
+          // Selected source clips take the same time offset, clamped on
+          // their own, and stay on their source tracks (#1483).
+          if (dragState.spanGroup) {
+            setDragPreviewSourceSpans(
+              moved
+                ? moveSourceSpanGroup(
+                    sourceSpans,
+                    new Set(dragState.spanGroup),
+                    { deltaQ, trackShift: 0, trackIds: [], bpm },
+                  )
+                : null,
+            );
+          }
           return;
         }
 
@@ -423,7 +447,8 @@ export function useClipDrag({
         const historyLabel =
           dragState.kind === "move" && dragState.group
             ? `${dragState.duplicateOnDrag ? "Duplicate" : "Move"} ${
-                dragState.group.length + 1
+                groupMembers(dragState).length +
+                (dragState.spanGroup?.length ?? 0)
               } clips`
             : dragState.kind === "move"
               ? dragState.duplicateOnDrag
@@ -432,9 +457,22 @@ export function useClipDrag({
               : dragState.kind === "resize-start"
                 ? "Trim clip start"
                 : "Trim clip end";
+        const movedSpans = dragPreviewSourceSpans;
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
-            clips: dragPreviewClips,
+            // Moved source clips change only what the other clips'
+            // windows hold, never where those clips are.
+            ...(movedSpans
+              ? {
+                  sourceSpans: movedSpans,
+                  clips: syncClipsToSourceSpans(
+                    dragPreviewClips,
+                    current.sourceSpans,
+                    movedSpans,
+                    bpm,
+                  ),
+                }
+              : { clips: dragPreviewClips }),
             // A clip duplicated by dragging gets a copy of the stack.
             ...(dragState.kind === "move" && dragState.duplicateOnDrag
               ? {
@@ -477,6 +515,7 @@ export function useClipDrag({
         }
         snapFeedbackRef.current.reset();
         setDragPreviewClips(null);
+        setDragPreviewSourceSpans(null);
         setDragState(null);
         return;
       }
@@ -533,6 +572,9 @@ export function useClipDrag({
 
       snapFeedbackRef.current.reset();
       setDragPreviewClips(null);
+      if (dragState.kind === "move" && dragState.spanGroup) {
+        setDragPreviewSourceSpans(null);
+      }
       setDragState(null);
     };
 
@@ -551,6 +593,7 @@ export function useClipDrag({
     clips,
     commitProjectChange,
     dragPreviewClips,
+    dragPreviewSourceSpans,
     dragState,
     jumpToClipStart,
     minimumWindowQ,
@@ -565,6 +608,7 @@ export function useClipDrag({
     isWorkspaceReadOnlyRef,
     playbackOriginRef,
     setDragPreviewClips,
+    setDragPreviewSourceSpans,
     setDragState,
     setPendingSelection,
     setSelectedClipId,
@@ -574,6 +618,7 @@ export function useClipDrag({
     setSelectedLaneId,
     showMarquee,
     hideMarquee,
+    sourceSpans,
   ]);
 }
 
