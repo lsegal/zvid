@@ -46,12 +46,12 @@ button.brand-mark:focus-visible {
   flex-direction: column;
   gap: 2px;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgb(var(--tint) / 0.1);
   border-radius: 12px;
   background: linear-gradient(
     180deg,
-    rgba(39, 42, 59, 0.98),
-    rgba(26, 29, 40, 0.98)
+    light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)),
+    light-dark(rgba(241, 243, 248, 0.98), rgba(26, 29, 40, 0.98))
   );
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.38);
   color: var(--ink);

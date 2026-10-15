@@ -3,11 +3,11 @@
  * the app theme variables (with dark fallbacks), like the knob's.
  */
 .fader {
-  --fader-ink: var(--ink, #eef2ff);
-  --fader-muted: var(--muted, #a4a9bf);
-  --fader-body: var(--bg-soft, #383b50);
+  --fader-ink: var(--ink, var(--ink));
+  --fader-muted: var(--muted, var(--muted));
+  --fader-body: var(--bg-soft, var(--bg-soft));
   --fader-track: color-mix(in srgb, var(--fader-ink) 14%, transparent);
-  --fader-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  --fader-edge: var(--line-strong, rgb(var(--tint) / 0.14));
   display: flex;
   flex-direction: column;
   align-items: center;

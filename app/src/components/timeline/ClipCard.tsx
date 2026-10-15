@@ -231,7 +231,7 @@ export const ClipCard = memo(function ClipCard({
         left: clip.startQ * quarterPx,
         width: durationQ * quarterPx,
         ["--clip-accent" as string]: clip.accent,
-        backgroundColor: clip.tint,
+        ["--clip-tint" as string]: clip.tint,
         // The audio variant's border follows hover in CSS.
         borderColor: audio ? undefined : clip.accent,
         opacity: mediaState === "online" || mediaSync ? 1 : 0.62,

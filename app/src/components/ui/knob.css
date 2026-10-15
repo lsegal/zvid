@@ -3,11 +3,11 @@
  * variables (with dark fallbacks) so a theme only needs to redefine them.
  */
 .knob {
-  --knob-ink: var(--ink, #eef2ff);
-  --knob-muted: var(--muted, #a4a9bf);
-  --knob-body: var(--bg-soft, #383b50);
+  --knob-ink: var(--ink, var(--ink));
+  --knob-muted: var(--muted, var(--muted));
+  --knob-body: var(--bg-soft, var(--bg-soft));
   --knob-track: color-mix(in srgb, var(--knob-ink) 14%, transparent);
-  --knob-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  --knob-edge: var(--line-strong, rgb(var(--tint) / 0.14));
   display: flex;
   flex-direction: column;
   align-items: center;

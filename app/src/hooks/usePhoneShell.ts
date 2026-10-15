@@ -12,6 +12,7 @@ import {
   playheadLoopRange,
   quickLoopRegion,
 } from "../mobile/timeline-touch.ts";
+import { setTheme } from "../theme.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useCenterPlayhead } from "./useCenterPlayhead.ts";
 import { useMasterMeterTap } from "./useMasterMeterTap.ts";
@@ -24,6 +25,7 @@ import type { Recording } from "./useRecording.ts";
 import type { Timeline } from "./useTimeline.ts";
 import type { useTimelineEditing } from "./useTimelineEditing.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
+import { useTheme } from "./useTheme.ts";
 import { useTouchClipGestures } from "./useTouchClipGestures.ts";
 
 type TimelineEditing = ReturnType<typeof useTimelineEditing>;
@@ -109,6 +111,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
   // The phone transport's VU meter reads the same master tap as the desktop
   // transport bar's.
   const getMeterTap = useMasterMeterTap(inputs.compositionPlayerRef);
+  const theme = useTheme();
   const exportSupport = usePhoneExportSupport(
     isPhone,
     project.canvasWidth,
@@ -176,7 +179,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
         type: "item",
         id: "file",
         label: "File",
-        submenu: buildFileMenuEntries(fileMenu),
+        submenu: buildFileMenuEntries({ ...fileMenu, theme, setTheme }),
       },
       {
         type: "item",

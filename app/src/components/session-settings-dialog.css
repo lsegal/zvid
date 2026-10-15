@@ -35,7 +35,7 @@
   padding: 8px 14px 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(12, 14, 20, 0.26);
+  background: light-dark(rgba(60, 70, 110, 0.13), rgba(12, 14, 20, 0.26));
 }
 
 .session-settings__group legend {
@@ -78,7 +78,7 @@
   padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(12, 14, 20, 0.34);
+  background: light-dark(rgba(60, 70, 110, 0.17), rgba(12, 14, 20, 0.34));
   color: var(--ink);
   font: inherit;
   font-size: 0.9rem;
@@ -109,7 +109,7 @@
 
 .session-settings__icon-button:hover,
 .session-settings__icon-button.is-active {
-  color: #ffe084;
+  color: light-dark(#855800, #ffe084);
   background: rgba(246, 183, 60, 0.12);
 }
 
@@ -133,6 +133,6 @@
 }
 
 .session-settings__error {
-  color: #ff8a8a;
+  color: light-dark(#b3264f, #ff8a8a);
   font-size: 0.78rem;
 }

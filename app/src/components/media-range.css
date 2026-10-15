@@ -18,7 +18,7 @@
   height: 10px;
   margin-top: -5px;
   border-radius: 2px;
-  background: rgba(6, 8, 12, 0.72);
+  background: light-dark(rgba(60, 70, 110, 0.36), rgba(6, 8, 12, 0.72));
   pointer-events: none;
 }
 
@@ -99,21 +99,21 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px 6px;
-  background: rgba(17, 19, 28, 0.92);
+  background: light-dark(rgba(248, 250, 255, 0.92), rgba(17, 19, 28, 0.92));
 }
 
 .media-range-controls__button {
   padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: rgba(10, 12, 20, 0.36);
+  background: light-dark(rgba(60, 70, 110, 0.18), rgba(10, 12, 20, 0.36));
   color: var(--ink);
   font-size: 0.68rem;
 }
 
 .media-range-controls__button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgb(var(--tint) / 0.08);
+  border-color: rgb(var(--tint) / 0.2);
 }
 
 .media-range-controls__button:disabled {

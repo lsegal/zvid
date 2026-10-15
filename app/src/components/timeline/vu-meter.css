@@ -20,7 +20,7 @@
   height: 5px;
   overflow: hidden;
   border-radius: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tint) / 0.08);
 }
 
 .vu-meter__fill,
@@ -61,7 +61,7 @@
 .vu-meter__peak {
   left: calc(var(--vu-peak, 0) * 100% - 1px);
   width: 2px;
-  background: #f4f6ff;
+  background: var(--selection-ring);
   opacity: 0;
 }
 
@@ -76,7 +76,7 @@
   z-index: 1;
   width: 1px;
   margin-left: -1px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgb(var(--tint) / 0.16);
   pointer-events: none;
 }
 

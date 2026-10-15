@@ -46,7 +46,7 @@ function appStylesheets(dir: URL): string[] {
 
 describe("shared design tokens", () => {
   it("defines every shared token on :root in the tokens package", () => {
-    const root = ruleBody(tokensCss, ":root");
+    const root = ruleBody(tokensCss, ":root,\n[data-theme='dark']");
     for (const name of sharedTokens) {
       assert.match(root, new RegExp(`${name}:`), `missing ${name}`);
     }

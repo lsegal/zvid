@@ -22,7 +22,7 @@ function ruleBody(css: string, selector: string): string {
 
 describe("dropdown menu theme", () => {
   it("defines the palette on :root so portaled menus inherit it", () => {
-    const root = ruleBody(tokensCss, ":root");
+    const root = ruleBody(tokensCss, ":root,\n[data-theme='dark']");
     for (const name of ["--ink", "--muted", "--line"]) {
       assert.match(root, new RegExp(`${name}:`));
     }

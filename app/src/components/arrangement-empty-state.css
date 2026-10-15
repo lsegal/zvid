@@ -92,19 +92,19 @@
 }
 
 .arrangement-empty-state__dismiss:hover {
-  border-color: rgba(255, 255, 255, 0.34);
+  border-color: rgb(var(--tint) / 0.34);
   color: var(--ink);
 }
 
 .arrangement-empty-state__generate:focus-visible,
 .arrangement-empty-state__dismiss:focus-visible {
-  outline: 2px solid #ffe084;
+  outline: 2px solid light-dark(#855800, #ffe084);
   outline-offset: 3px;
 }
 
 .arrangement-empty-state__dismiss:focus-visible {
-  border-color: #ffe084;
-  color: #ffe084;
+  border-color: light-dark(#855800, #ffe084);
+  color: light-dark(#855800, #ffe084);
 }
 
 @media (max-width: 560px) {

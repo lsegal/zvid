@@ -1,12 +1,11 @@
 @import '@zvid/tokens/tokens.css';
 
 :root {
-  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
-  color-scheme: dark;
+  --scrollbar-thumb: rgb(var(--tint) / 0.22);
+  --scrollbar-thumb-hover: rgb(var(--tint) / 0.34);
   scrollbar-color: var(--scrollbar-thumb) transparent;
-  color: #eef2ff;
-  background: #232535;
+  color: var(--ink);
+  background: light-dark(rgb(234, 236, 241), #232535);
   font-family: 'Space Grotesk', sans-serif;
   line-height: 1.4;
   font-weight: 400;
@@ -29,7 +28,7 @@ body,
 
 body {
   min-height: 100vh;
-  background: #232535;
+  background: light-dark(rgb(234, 236, 241), #232535);
 }
 
 /* UI text isn't selectable; only text fields are. The field rule has zero

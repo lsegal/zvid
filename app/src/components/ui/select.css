@@ -43,10 +43,10 @@
   overflow: hidden;
   padding: 6px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgb(var(--tint) / 0.1);
   background:
     radial-gradient(circle at top left, rgba(246, 183, 60, 0.14), transparent 34%),
-    linear-gradient(180deg, rgb(39, 42, 59), rgb(26, 29, 40));
+    linear-gradient(180deg, light-dark(rgb(230, 232, 237), rgb(39, 42, 59)), light-dark(rgb(241, 243, 248), rgb(26, 29, 40)));
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
   color: var(--ink);
   z-index: 70;
@@ -75,7 +75,7 @@
 
 .select-item[data-highlighted] {
   background: rgba(124, 161, 255, 0.14);
-  color: #f8fbff;
+  color: light-dark(#2a2f45, #f8fbff);
 }
 
 .select-item[data-state='checked'] {

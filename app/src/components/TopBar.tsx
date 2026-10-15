@@ -13,11 +13,13 @@ import type {
   useCollaboration,
 } from "../hooks/useCollaboration.ts";
 import { useMenubar } from "../hooks/useMenubar.ts";
+import { useTheme } from "../hooks/useTheme.ts";
 import {
   buildFileMenuEntries,
   type FileMenuInputs,
 } from "../menus/file-menu.ts";
 import { shareLinkVisible } from "../share-link";
+import { setTheme } from "../theme.ts";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
 import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
@@ -78,6 +80,7 @@ export function TopBar(props: TopBarProps) {
   const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
   const menu = useMenubar(MENUS);
   const fileMenu = menu("file");
+  const theme = useTheme();
   const editMenu = menu("edit");
   const helpMenu = menu("help");
 
@@ -99,7 +102,7 @@ export function TopBar(props: TopBarProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" {...fileMenu.content}>
               <DropdownMenuEntries
-                entries={buildFileMenuEntries(props, {
+                entries={buildFileMenuEntries({ ...props, theme, setTheme }, {
                   // Browsers keep the shortcut for a new window.
                   newSession: supportsHarnessCapability("native-dialogs")
                     ? getShortcutLabels().newSession

@@ -259,7 +259,7 @@ export const SourceSpan = memo(function SourceSpan({
         left: clip.startQ * quarterPx,
         width: widthPx,
         ["--clip-accent" as string]: clip.accent,
-        backgroundColor: clip.tint,
+        ["--clip-tint" as string]: clip.tint,
         // The audio variant's border follows hover in CSS.
         borderColor: audio ? undefined : clip.accent,
         opacity: mediaState === "online" || mediaSync ? 1 : 0.56,

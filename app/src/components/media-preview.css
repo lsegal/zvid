@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #07080d;
+  background: light-dark(rgb(248, 250, 255), #07080d);
 }
 
 .media-preview--empty {
@@ -62,7 +62,7 @@
   gap: 8px;
   padding: 6px 10px;
   border-top: 1px solid var(--line);
-  background: rgba(17, 19, 28, 0.92);
+  background: light-dark(rgba(248, 250, 255, 0.92), rgba(17, 19, 28, 0.92));
 }
 
 .media-preview__play {
@@ -75,13 +75,13 @@
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(10, 12, 20, 0.36);
+  background: light-dark(rgba(60, 70, 110, 0.18), rgba(10, 12, 20, 0.36));
   color: var(--ink);
 }
 
 .media-preview__play:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgb(var(--tint) / 0.08);
+  border-color: rgb(var(--tint) / 0.2);
 }
 
 .media-preview__play > svg {
@@ -91,7 +91,7 @@
 
 /* The scrub bar's thumb is the media playhead. */
 .media-preview__scrub {
-  --scrub-track: rgba(255, 255, 255, 0.12);
+  --scrub-track: rgb(var(--tint) / 0.12);
   flex: 1;
   min-width: 40px;
   height: 18px;

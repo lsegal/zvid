@@ -4,12 +4,12 @@
  * the app theme variables with dark fallbacks.
  */
 .time-value {
-  --time-value-accent: var(--blue, #7ca1ff);
-  --time-value-ink: var(--ink, #eef2ff);
-  --time-value-muted: var(--muted, #a4a9bf);
-  --time-value-body: var(--bg-soft, #383b50);
+  --time-value-accent: var(--blue, var(--blue));
+  --time-value-ink: var(--ink, var(--ink));
+  --time-value-muted: var(--muted, var(--muted));
+  --time-value-body: var(--bg-soft, var(--bg-soft));
   --time-value-track: color-mix(in srgb, var(--time-value-ink) 14%, transparent);
-  --time-value-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  --time-value-edge: var(--line-strong, rgb(var(--tint) / 0.14));
   display: flex;
   flex-direction: column;
   align-items: center;

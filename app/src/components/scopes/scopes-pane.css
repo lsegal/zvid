@@ -9,7 +9,7 @@
   min-height: 96px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(7, 8, 13, 0.94);
+  background: light-dark(rgba(248, 250, 255, 0.94), rgba(7, 8, 13, 0.94));
 }
 
 /* The splitter, filling the panel's gap below the monitor. */

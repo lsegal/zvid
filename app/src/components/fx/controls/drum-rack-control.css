@@ -51,7 +51,7 @@
   padding: 4px 5px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: rgba(11, 13, 19, 0.55);
+  background: light-dark(rgba(60, 70, 110, 0.275), rgba(11, 13, 19, 0.55));
   color: var(--ink);
   text-align: left;
   transition:
@@ -128,7 +128,7 @@
 .fx-drum-pad__menu:hover,
 .fx-drum-pad__menu:focus-visible,
 .fx-drum-pad__menu[data-state="open"] {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgb(var(--tint) / 0.1);
   color: var(--ink);
   outline: none;
 }

@@ -81,7 +81,7 @@
   height: 4px;
   border-radius: 2px;
   transform: none;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgb(var(--tint) / 0.22);
 }
 
 /* The kind buttons keep their small size rather than the 44px touch
@@ -157,7 +157,7 @@
   padding: 8px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: rgba(17, 19, 28, 0.94);
+  background: light-dark(rgba(248, 250, 255, 0.94), rgba(17, 19, 28, 0.94));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   font-size: 0.8rem;
   line-height: 1.2;
