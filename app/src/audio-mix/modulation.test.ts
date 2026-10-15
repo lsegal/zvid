@@ -387,6 +387,28 @@ describe("StageModulator", () => {
     }
   });
 
+  it("runs an LFO with a time offset that many seconds later", () => {
+    const parameters = [{ key: "Level", min: 0, max: 1 }];
+    const settings = lfo({ sync: false, rate: 0.7, depth: 1, parameters });
+    const shifted = { ...settings, timeOffsetSeconds: 1.25 };
+    const swings = new StageModulator(SAMPLE_RATE).advance(
+      shifted,
+      "fx",
+      [new Float32Array(BLOCK_FRAMES)],
+      BLOCK_FRAMES,
+      { ...TEMPO, sampleRate: SAMPLE_RATE, timeSeconds: 0.5 },
+    );
+    const end = 0.5 + BLOCK_FRAMES / SAMPLE_RATE;
+    assert.equal(
+      swings.get("Level"),
+      lfoSwing(settings, "fx", "Level", end + 1.25, TEMPO),
+    );
+    assert.notEqual(
+      swings.get("Level"),
+      lfoSwing(settings, "fx", "Level", end, TEMPO),
+    );
+  });
+
   it("drops a knob no longer modulated from its swings", () => {
     const modulator = new StageModulator(SAMPLE_RATE);
     const time = { ...TEMPO, sampleRate: SAMPLE_RATE, timeSeconds: 0.5 };

@@ -5,6 +5,7 @@ import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
+import { InheritedSourceFx } from "./fx/InheritedSourceFx";
 import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";
 import { TrackRecordDevice } from "./TrackRecordDevice";
@@ -19,6 +20,7 @@ export type FxPanelProps = Pick<
   | "fxClipScope"
   | "fxClipTrackId"
   | "fxDevices"
+  | "fxInheritedSource"
   | "fxKind"
   | "fxLaneId"
   | "fxLayerFxEnabled"
@@ -79,6 +81,7 @@ export function FxPanel({
   fxClipScope,
   fxClipTrackId,
   fxDevices,
+  fxInheritedSource,
   fxKind,
   fxLaneId,
   fxLayerFxEnabled,
@@ -174,6 +177,11 @@ export function FxPanel({
           layerTrackId={fxLayerTrackId}
           clipTrackId={fxClipTrackId}
           clipScope={fxClipScope}
+          clipLeading={
+            fxInheritedSource ? (
+              <InheritedSourceFx stacks={fxInheritedSource} />
+            ) : null
+          }
           onAdd={addFxDevice}
           clipboardEffectName={fxClipboard?.effectName}
           onClearAll={clearFxDevices}

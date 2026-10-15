@@ -3,6 +3,7 @@
 import { describeMediaAvailability } from "../clip-media-state.ts";
 import { type FxLayerOption, getFxClipName } from "../fx-chain.ts";
 import { FX_CLIP_LABEL, isFxClip } from "../fx-clip.ts";
+import { getEffectDefinition, isMidiEffectName } from "../fx-registry.ts";
 import {
   clipEffectTrackId,
   isLayerFxEnabled,
@@ -11,6 +12,7 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
+import { getClipSourcePieces } from "../source-track-content.ts";
 import { isTextClip } from "../text-clip.ts";
 import { getTextPreview, resolveTextStyle } from "../text-style.ts";
 import type { SourceSelection } from "./source-selection.ts";
@@ -164,4 +166,62 @@ export function getSourceFxStacks(
     // A MIDI clip's stack is the only one offering MIDI effects.
     midi: span?.notes !== undefined,
   };
+}
+
+// One source stack a layer clip inherits, as the FX panel lists it.
+export type InheritedSourceStack = {
+  stackId: string;
+  name: string;
+  effects: { id: string; name: string; enabled: boolean }[];
+};
+
+// The source stacks the selected media layer clip inherits, ahead of its
+// own (see composition-source-effects.ts): its source track's, then those
+// of the source clips its window shows, in time order. Their MIDI effects
+// make the source clip's sound rather than process it, so they are left
+// out. Undefined when nothing is inherited, or the source track's FX
+// switch bypasses it all.
+export function getInheritedSourceStacks(
+  selectedClip: ArrangementClip | undefined,
+  sourceTracks: readonly Pick<SourceTrack, "id" | "name" | "fxEnabled">[],
+  sourceSpans: readonly SourceSpan[],
+  effects: readonly SessionEffect[],
+  bpm: number,
+): InheritedSourceStack[] | undefined {
+  if (!selectedClip || selectedClip.kind) {
+    return undefined;
+  }
+  const track = sourceTracks.find(
+    (candidate) => candidate.id === selectedClip.sourceTrackId,
+  );
+  if (track && !isLayerFxEnabled(track)) {
+    return undefined;
+  }
+  const spans = getClipSourcePieces(selectedClip, sourceSpans, bpm)
+    .map((piece) => piece.span)
+    .filter((span, index, all) => all.indexOf(span) === index);
+  const stackOf = (stackId: string, name: string): InheritedSourceStack => ({
+    stackId,
+    name,
+    effects: effects
+      .filter(
+        (effect) =>
+          effect.trackId === stackId && !isMidiEffectName(effect.effectName),
+      )
+      .map((effect) => ({
+        id: effect.id,
+        name: getEffectDefinition(effect.effectName).displayName,
+        enabled: effect.enabled !== false,
+      })),
+  });
+  const stacks = [
+    stackOf(
+      sourceTrackEffectTrackId(selectedClip.sourceTrackId),
+      track?.name ?? "Source track",
+    ),
+    ...spans.map((span) =>
+      stackOf(sourceClipEffectTrackId(span.id), getFxClipName(span.label)),
+    ),
+  ].filter((stack) => stack.effects.length > 0);
+  return stacks.length ? stacks : undefined;
 }

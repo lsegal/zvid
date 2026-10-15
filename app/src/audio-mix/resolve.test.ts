@@ -9,6 +9,7 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { createEffect } from "../fx/stack/ops.ts";
+import { createDefaultModulation } from "../fx-modulation-defaults.ts";
 import {
   DEFAULT_GRANULAR_PARAMS,
   DEFAULT_SYNTH_PARAMS,
@@ -639,6 +640,113 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.deepEqual(
       mix.clips.map((item) => [item.id, item.synth?.durationSeconds]),
       [["video", 4]],
+    );
+  });
+});
+
+describe("layer clips inherit their source's audio effects", () => {
+  // A layer clip at 1 s showing source clip "a" of track-1 from its start.
+  const clip = {
+    ...layerClip("c", "lane-1", "tone", 2),
+    sourceSpanId: "a",
+    sourceTrackId: "track-1",
+    trimStartSeconds: 0.5,
+    sourceOffsetSeconds: -0.5,
+    sourceWindowStartSeconds: 0.5,
+    sourceWindowEndSeconds: 3.5,
+  };
+  // Source clip "a" sits at 0 s, so the clip shows the track 1 s early.
+  const sessionOf = (overrides: Partial<AudioMixInputs> = {}) =>
+    resolveAudioClips({
+      clips: [clip],
+      lanes: [{ id: "lane-1" }],
+      sourceTracks: [{ id: "track-1" }],
+      sourceSpans: [span("a", "track-1", "tone")],
+      mediaById: MEDIA,
+      effects: [],
+      bpm: BPM,
+      ...overrides,
+    });
+
+  it("runs the source track's and source clip's stacks ahead of the clip's own", () => {
+    const [mixed] = sessionOf({
+      effects: [
+        createEffect(clipEffectTrackId("c"), "Delay", "own"),
+        createEffect(sourceClipEffectTrackId("a"), "Reverb", "source-clip"),
+        createEffect(sourceTrackEffectTrackId("track-1"), "Chorus", "track"),
+        createEffect("lane-1", "Phaser", "layer"),
+      ],
+    }).clips;
+
+    assert.deepEqual(
+      mixed.stages.map((stage) => stage.id),
+      ["track", "source-clip", "own"],
+    );
+    assert.deepEqual(
+      mixed.effects.map((effect) => effect.id),
+      ["layer", "track", "source-clip", "own"],
+    );
+  });
+
+  it("multiplies the source's Gains into the clip's", () => {
+    const [mixed] = sessionOf({
+      effects: [
+        gain(clipEffectTrackId("c"), -6),
+        gain(sourceClipEffectTrackId("a"), -6),
+      ],
+    }).clips;
+
+    assert.ok(Math.abs(mixed.amplitude - dbToAmplitude(-12)) < 1e-9);
+    assert.equal(mixed.hasGain, true);
+  });
+
+  it("runs an inherited LFO on the source track's time", () => {
+    const modulation = createDefaultModulation("Reverb");
+    assert.ok(modulation);
+    const reverb = {
+      ...createEffect(sourceClipEffectTrackId("a"), "Reverb", "source-clip"),
+      modulation: { ...modulation, mode: "lfo" as const },
+    };
+    const [mixed] = sessionOf({ effects: [reverb] }).clips;
+    const [stage] = mixed.stages;
+
+    assert.equal(stage.modulation?.mode, "lfo");
+    assert.equal(
+      stage.modulation?.mode === "lfo"
+        ? stage.modulation.timeOffsetSeconds
+        : undefined,
+      -1,
+    );
+  });
+
+  it("inherits nothing from a source track whose FX are off", () => {
+    const [mixed] = sessionOf({
+      sourceTracks: [{ id: "track-1", fxEnabled: false }],
+      effects: [
+        gain(clipEffectTrackId("c")),
+        createEffect(sourceClipEffectTrackId("a"), "Reverb", "source-clip"),
+        gain(sourceClipEffectTrackId("a"), -6),
+      ],
+    }).clips;
+
+    assert.deepEqual(
+      mixed.stages.map((stage) => stage.effectName),
+      ["Gain"],
+    );
+    assert.equal(mixed.amplitude, 1);
+  });
+
+  it("applies source stacks once when the source tracks play in place", () => {
+    const [mixed] = sessionOf({
+      clips: [],
+      effects: [
+        createEffect(sourceClipEffectTrackId("a"), "Reverb", "source-clip"),
+      ],
+    }).clips;
+
+    assert.deepEqual(
+      mixed.stages.map((stage) => stage.id),
+      ["source-clip"],
     );
   });
 });
