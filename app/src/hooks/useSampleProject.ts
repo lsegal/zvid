@@ -6,10 +6,16 @@ import {
   buildSampleOpenPayload,
   shouldAutoOpenSample,
 } from "../sample/sample-loader";
+import type { SampleManifest } from "../sample/sample-manifest";
 import type { SampleId } from "../sample/samples";
 import type { SessionOpenResponse } from "../session";
 
-const SAMPLES = { default: OPENING_SAMPLE, midi: MIDI_SAMPLE };
+// A sample with `layersCollapsed` collapses the Layers section when it
+// opens; the others leave the user's choice as it is.
+const SAMPLES: Record<
+  SampleId,
+  { manifest: SampleManifest; sessionText: string; layersCollapsed?: boolean }
+> = { default: OPENING_SAMPLE, midi: MIDI_SAMPLE };
 
 type SampleProjectInputs = {
   boot: Pick<WorkspaceBoot, "access" | "session" | "corruptKey">;
@@ -21,6 +27,7 @@ type SampleProjectInputs = {
     payload: SessionOpenResponse,
     record: boolean,
   ) => Promise<void>;
+  setLayersCollapsed: (collapsed: boolean) => void;
   setStatus: (message: string) => void;
 };
 
@@ -32,22 +39,32 @@ export function useSampleProject({
   isPristine,
   refuseReadOnlyEdit,
   openSamplePayload,
+  setLayersCollapsed,
   setStatus,
 }: SampleProjectInputs) {
   const autoRef = useRef(false);
-  const inputsRef = useRef({ isPristine, openSamplePayload, setStatus });
-  inputsRef.current = { isPristine, openSamplePayload, setStatus };
+  const inputs = {
+    isPristine,
+    openSamplePayload,
+    setLayersCollapsed,
+    setStatus,
+  };
+  const inputsRef = useRef(inputs);
+  inputsRef.current = inputs;
 
   const open = useCallback(async (automatic: boolean, id: SampleId) => {
     if (automatic && !inputsRef.current.isPristine()) {
       return;
     }
-    const { manifest, sessionText } = SAMPLES[id];
+    const { manifest, sessionText, layersCollapsed } = SAMPLES[id];
     try {
       await inputsRef.current.openSamplePayload(
         buildSampleOpenPayload(manifest, sessionText),
         !automatic,
       );
+      if (layersCollapsed) {
+        inputsRef.current.setLayersCollapsed(true);
+      }
     } catch (error) {
       inputsRef.current.setStatus(
         `Could not open the sample: ${error instanceof Error ? error.message : String(error)}`,

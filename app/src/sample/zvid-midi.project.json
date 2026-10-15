@@ -5610,6 +5610,7 @@
     "canvasHeight": 1080,
     "displaySeconds": false,
     "snapToBeat": true,
+    "zoom": 0.9,
     "projectDuration": 576
   },
   "playPosition": 0,

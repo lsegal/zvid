@@ -212,6 +212,11 @@ test("File → Open → Samples → MIDI opens the generated-audio sample", asyn
   await expect(
     page.getByText("zvid MIDI sample", { exact: true }).first(),
   ).toBeVisible();
+  // It opens at 90% zoom with the Layers section collapsed (#1467).
+  await expect(
+    page.getByRole("button", { name: "Zoom 90%, reset to 100%" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show layers", exact: true }).click();
   for (const id of ["titles", "logo", "forest", "forest-echo", "dots"]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
