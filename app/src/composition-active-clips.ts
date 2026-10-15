@@ -7,7 +7,8 @@
 //
 // Effects come from three stacks, resolved Global -> Layer -> Clip: the
 // clip's own stack (`clip:<clipId>`), its layer's stack and the Global
-// stack. A clip is rendered in this order (preview and export alike):
+// stack. A media clip's own stack starts with its source's (see
+// composition-source-effects.ts). A clip is rendered in this order (preview and export alike):
 //
 //   1. its source: the media frame, the fill's paint or the text raster;
 //      content effects (Text, Color) on the clip win over the layer's;
@@ -58,6 +59,7 @@ import {
 } from "./composition-order.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
 import { findClipRetimes } from "./composition-retime.ts";
+import { withInheritedSourceEffects } from "./composition-source-effects.ts";
 import {
   isMoveEffectName,
   isTransformEffectName,
@@ -622,10 +624,16 @@ export function computeActiveClips(
     // The parameters the clip's stacks are drawn with for this clip and
     // frame, so a layer or Global effect animates with each clip on its own.
     // Other clips' and layers' stacks never apply to it.
-    const effects = resolveAnimatedEffects(
-      clipStackEffects(effectIndex, clip.laneId, clipTrackId),
-      clipContext,
+    const effects = withInheritedSourceEffects(
+      resolveAnimatedEffects(
+        clipStackEffects(effectIndex, clip.laneId, clipTrackId),
+        clipContext,
+        frameContext,
+      ),
+      effectIndex,
+      clip,
       frameContext,
+      sessionEndSeconds,
     );
     const resolved = {
       ...timing,

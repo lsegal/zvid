@@ -9,7 +9,9 @@
 // own stack, summed into its layer's or source track's bus, which runs that
 // track's stack, then summed into the master, which runs the Global stack,
 // then the limiter. Gain is one stage among them; a clip with no enabled
-// Gain on its track's stack or its own stays silent.
+// Gain on its track's stack or its own stays silent. A layer clip's own
+// chain starts with the stacks of the source track and source clip it
+// plays, which it inherits (see composition-source-effects.ts).
 //
 // A source clip with MIDI notes sounds like one with audio: it plays its
 // notes through the MIDI effects on its own stack, its Arpeggiators and
@@ -39,6 +41,7 @@ import { applyNoteGenerators } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
   getClipPieceClips,
+  getClipTrackOffsetSeconds,
   type TrackContentClip,
   type TrackContentSpan,
 } from "../source-track-content.ts";
@@ -51,6 +54,18 @@ import { type AudioStageEffect, audioStageOf } from "./stages.ts";
 import { type SynthClip, synthMediaId } from "./synth.ts";
 
 type AudioEffect = AudioStageEffect;
+
+// The source stacks a piece of a layer clip inherits, and its source track
+// second minus its song second, which their LFOs run on.
+type InheritedSource = {
+  stackIds: readonly string[];
+  timeOffsetSeconds: number;
+};
+
+const NO_INHERITED_SOURCE: InheritedSource = {
+  stackIds: [],
+  timeOffsetSeconds: 0,
+};
 
 // A media layer clip plays its source track window piece by piece (see
 // source-track-content.ts).
@@ -226,7 +241,25 @@ export function resolveAudioClips<Effect extends AudioEffect>({
     return bus;
   };
 
-  // A clip's chain below Global: its track's stack, then its own.
+  // The stages of the source stacks a piece of a layer clip inherits (see
+  // composition-source-effects.ts), their LFOs on its source track's time.
+  const inheritedStagesOf = (source: InheritedSource, enabled: boolean) =>
+    source.stackIds.flatMap((stackId) =>
+      stagesOf(stackId, enabled).map((stage) =>
+        stage.modulation?.mode === "lfo" && source.timeOffsetSeconds
+          ? {
+              ...stage,
+              modulation: {
+                ...stage.modulation,
+                timeOffsetSeconds: source.timeOffsetSeconds,
+              },
+            }
+          : stage,
+      ),
+    );
+
+  // A clip's chain below Global: its track's stack, then the source stacks
+  // it inherits, if any, then its own.
   const mixClip = (
     clip: Omit<
       AudioMixClip<Effect>,
@@ -235,10 +268,15 @@ export function resolveAudioClips<Effect extends AudioEffect>({
     trackId: string,
     trackStackId: string,
     clipStackId: string,
+    inherited: InheritedSource = NO_INHERITED_SOURCE,
   ): AudioMixClip<Effect> => {
     const own = bypassed.has(trackId)
       ? []
-      : [...stackOf(trackStackId), ...stackOf(clipStackId)];
+      : [
+          ...stackOf(trackStackId),
+          ...inherited.stackIds.flatMap(stackOf),
+          ...stackOf(clipStackId),
+        ];
     return {
       ...clip,
       effects: [...global, ...own],
@@ -248,7 +286,10 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           effect.enabled !== false && isGainEffectName(effect.effectName),
       ),
       busId: busOf(trackId, trackStackId).id,
-      stages: stagesOf(clipStackId, !bypassed.has(trackId)),
+      stages: [
+        ...inheritedStagesOf(inherited, !bypassed.has(trackId)),
+        ...stagesOf(clipStackId, !bypassed.has(trackId)),
+      ],
     };
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
@@ -338,6 +379,15 @@ export function resolveAudioClips<Effect extends AudioEffect>({
         clip.laneId,
         clip.laneId,
         clipEffectTrackId(clip.id),
+        bypassed.has(clip.sourceTrackId)
+          ? NO_INHERITED_SOURCE
+          : {
+              stackIds: [
+                sourceTrackEffectTrackId(clip.sourceTrackId),
+                sourceClipEffectTrackId(clip.sourceSpanId),
+              ],
+              timeOffsetSeconds: getClipTrackOffsetSeconds(clip, [], bpm),
+            },
       ),
     );
     return {

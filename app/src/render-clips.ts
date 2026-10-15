@@ -5,6 +5,8 @@
 // were layers instead, so a session with only source tracks still previews
 // and exports. Preview, the transform overlay and export all resolve their
 // clips, and the effects they render with, here, so they always agree.
+// A media layer clip's pieces inherit their source track's and source
+// clip's stacks (see composition-source-effects.ts).
 //
 // A hidden source track's video is drawn nowhere: neither the media clips
 // that show it nor its own spans render. A hidden layer's clips are kept,
@@ -119,7 +121,7 @@ export function resolveRenderClips<Effect extends RenderEffect>({
           : pieces;
       }),
       lanes,
-      effects,
+      effects: withoutBypassedSourceEffects(effects, sourceTracks, sourceSpans),
       fromSourceTracks: false,
     };
   }
@@ -198,6 +200,34 @@ function resolveLayerClipPieces(
     layerClipStartQ: clip.startQ,
     layerClipDurationSeconds: clip.durationSeconds,
   }));
+}
+
+// The effects layer clips render with: a source track whose FX are off
+// bypasses its own stack and its clips' stacks, which its layer clips
+// inherit (see composition-source-effects.ts). Returns `effects` itself
+// when no source track is bypassed.
+function withoutBypassedSourceEffects<Effect extends RenderEffect>(
+  effects: Effect[],
+  sourceTracks: SourceTrack[],
+  sourceSpans: SourceSpan[],
+) {
+  const bypassed = new Set(
+    sourceTracks
+      .filter((track) => track.fxEnabled === false)
+      .map((track) => track.id),
+  );
+  if (!bypassed.size) {
+    return effects;
+  }
+  const spanTrackIds = new Map(
+    sourceSpans.map((span) => [span.id, span.sourceTrackId]),
+  );
+  return effects.filter((effect) => {
+    const trackId =
+      getEffectSourceTrackId(effect.trackId) ??
+      spanTrackIds.get(getEffectSourceSpanId(effect.trackId) ?? "");
+    return trackId === undefined || !bypassed.has(trackId);
+  });
 }
 
 // The effects source tracks render with in place of layers: each source
