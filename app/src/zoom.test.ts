@@ -27,17 +27,18 @@ describe("formatZoomFactor", () => {
   it("formats the factor as a whole percentage", () => {
     assert.equal(formatZoomFactor(1), "100%");
     assert.equal(formatZoomFactor(0.25), "25%");
-    assert.equal(formatZoomFactor(3), "300%");
+    assert.equal(formatZoomFactor(8), "800%");
     assert.equal(formatZoomFactor(1.234), "123%");
   });
 });
 
 describe("clampZoom", () => {
-  it("keeps the zoom within 25% to 300%", () => {
+  it("keeps the zoom within 25% to 800%", () => {
     assert.equal(ZOOM_MIN, 0.25);
-    assert.equal(ZOOM_MAX, 3);
+    assert.equal(ZOOM_MAX, 8);
     assert.equal(clampZoom(0.1), 0.25);
-    assert.equal(clampZoom(4), 3);
+    assert.equal(clampZoom(10), 8);
+    assert.equal(clampZoom(4), 4);
     assert.equal(clampZoom(0.65), 0.65);
     assert.equal(clampZoom(1.8), 1.8);
   });
@@ -63,6 +64,8 @@ describe("stepZoom", () => {
     assert.equal(stepZoom(0.73, -1), 0.67);
     assert.equal(stepZoom(1.8, 1), 2);
     assert.equal(stepZoom(1.8, -1), 1.5);
+    assert.equal(stepZoom(5.8, 1), 6.5);
+    assert.equal(stepZoom(5.8, -1), 5);
     assert.equal(stepZoom(0.6700000001, -1), 0.5);
   });
 
@@ -77,7 +80,7 @@ describe("stepZoom", () => {
     assert.equal(stepZoom(ZOOM_MIN, -1), ZOOM_MIN);
     assert.equal(stepZoom(ZOOM_MAX, 1), ZOOM_MAX);
     assert.equal(stepZoom(0.2, -1), ZOOM_MIN);
-    assert.equal(stepZoom(5, 1), ZOOM_MAX);
+    assert.equal(stepZoom(12, 1), ZOOM_MAX);
   });
 });
 
@@ -86,7 +89,7 @@ describe("slider mapping", () => {
     assert.equal(zoomToSliderPosition(ZOOM_MIN), 0);
     assert.equal(zoomToSliderPosition(ZOOM_MAX), 1);
     assert.equal(zoomToSliderPosition(0.1), 0);
-    assert.equal(zoomToSliderPosition(10), 1);
+    assert.equal(zoomToSliderPosition(12), 1);
     assert.equal(sliderPositionToZoom(0), ZOOM_MIN);
     assert.equal(sliderPositionToZoom(1), ZOOM_MAX);
     assert.equal(sliderPositionToZoom(-1), ZOOM_MIN);
@@ -103,7 +106,7 @@ describe("slider mapping", () => {
   });
 
   it("maps both ways", () => {
-    for (const zoom of [...ZOOM_LADDER, 0.42, 1.8, 2.73]) {
+    for (const zoom of [...ZOOM_LADDER, 0.42, 1.8, 2.73, 7.2]) {
       assert.equal(sliderPositionToZoom(zoomToSliderPosition(zoom)), zoom);
     }
   });
@@ -137,7 +140,7 @@ describe("timelineDragZoom", () => {
   it("scales by the same factor at any zoom", () => {
     const past = TIMELINE_DRAG_ZOOM_THRESHOLD_PX + 80;
     const factor = timelineDragZoom(1, past);
-    for (const origin of [0.5, 1, 2]) {
+    for (const origin of [0.5, 1, 2, 4]) {
       assertClose(timelineDragZoom(origin, past) / origin, factor);
       assertClose(origin / timelineDragZoom(origin, -past), factor);
     }

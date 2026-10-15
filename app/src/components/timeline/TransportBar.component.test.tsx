@@ -238,7 +238,7 @@ describe("the transport bar's VU meter", () => {
 });
 
 // The transport bar's zoom control: the -/+ buttons step along a ladder from
-// 25% to 300%, and the ruler thins its labels when zoomed far out.
+// 25% to 800%, and the ruler thins its labels when zoomed far out.
 
 let screen: RenderResult;
 
@@ -265,7 +265,7 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(readout).toBe("100%");
   });
 
-  test("the zoom buttons step along the ladder to 25% and 300%", async () => {
+  test("the zoom buttons step along the ladder to 25% and 800%", async () => {
     expect(await stepUntilDisabled("Zoom out")).toEqual([
       "80%",
       "67%",
@@ -284,6 +284,10 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       "200%",
       "250%",
       "300%",
+      "400%",
+      "500%",
+      "650%",
+      "800%",
     ]);
   });
 
@@ -293,7 +297,7 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await userEvent.keyboard("{Home}");
     await expect.poll(readout).toBe("25%");
     await userEvent.keyboard("{End}");
-    await expect.poll(readout).toBe("300%");
+    await expect.poll(readout).toBe("800%");
   });
 
   test("the ruler labels fewer bars at 25%", async () => {
