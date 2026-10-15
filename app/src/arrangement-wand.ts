@@ -14,6 +14,8 @@ export type WandSourceSpan = {
   mediaId?: string;
   startQ: number;
   durationSeconds: number;
+  // Set on a MIDI clip, which has no footage or sound of its own.
+  notes?: readonly unknown[];
 };
 
 export const WAND_AUDIO_LANE_NAME = "Audio";
@@ -22,10 +24,18 @@ function secondsToQuarters(seconds: number, bpm: number) {
   return (seconds * bpm) / 60;
 }
 
+// The spans the wand arranges: every source span except MIDI clips.
+export function getWandSourceSpans<Span extends WandSourceSpan>(
+  sourceSpans: readonly Span[],
+) {
+  return sourceSpans.filter((span) => !span.notes);
+}
+
 // Where the wand stops: the session length (Live's loop end or the last clip
 // end from an import) when the session has one, otherwise the end of the
 // last video source span. Audio-only spans, such as frozen tracks or an old
 // session's main audio, can run far past the song, so they do not count.
+// MIDI clips never count.
 export function getWandEndQ<Span extends WandSourceSpan>(options: {
   projectDurationFrames?: number;
   fps: number;
@@ -34,11 +44,12 @@ export function getWandEndQ<Span extends WandSourceSpan>(options: {
   sourceSpans: readonly Span[];
   isVideoSpan: (span: Span) => boolean;
 }) {
-  const { projectDurationFrames, fps, bpm, barLength, sourceSpans } = options;
+  const { projectDurationFrames, fps, bpm, barLength } = options;
   if (projectDurationFrames && projectDurationFrames > 0 && fps > 0) {
     return secondsToQuarters(projectDurationFrames / fps, bpm);
   }
 
+  const sourceSpans = getWandSourceSpans(options.sourceSpans);
   const videoSpans = sourceSpans.filter(options.isVideoSpan);
   const spans = videoSpans.length ? videoSpans : sourceSpans;
   const spanEndQ = spans.reduce(

@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
+import { INITIAL_PROJECT_STATE } from "./app/constants.ts";
+import type { ProjectState } from "./app/types.ts";
 import type { MediaItem } from "./media";
 // The arrangement the wand builds; importing it ties this test to it.
 import "./random-arrangement.ts";
@@ -12,7 +14,8 @@ import {
 
 // The arrangement wand builds its video layers from video sources only and
 // puts audio-only sources on a separate Audio layer after them. A song that
-// runs the whole arrangement becomes one uncut clip there.
+// runs the whole arrangement becomes one uncut clip there. MIDI clips are
+// left out (#1490).
 
 // A 440 Hz tone as a 16-bit mono WAV.
 function toneWav(seconds: number) {
@@ -98,4 +101,77 @@ test("the wand adds an Audio layer holding a full-length song uncut", {
       ),
     ).toHaveLength(0);
   }
+});
+
+// `project` with a Bass track holding a 16-quarter MIDI clip.
+function withMidiClip(project: ProjectState): ProjectState {
+  return {
+    ...project,
+    sourceTracks: [
+      ...project.sourceTracks,
+      { id: "bass", name: "Bass", colorIndex: 2, recordingPaths: [] },
+    ],
+    sourceSpans: [
+      ...project.sourceSpans,
+      {
+        id: "source-bassline",
+        sourceTrackId: "bass",
+        label: "Bassline",
+        mediaPath: "",
+        startQ: 0,
+        durationSeconds: (16 * 60) / project.bpm,
+        trimStartSeconds: 0,
+        notes: [{ pitch: 48, start: 0, length: 1, velocity: 100 }],
+        tint: "#1c2340",
+        accent: "#7ca1ff",
+      },
+    ],
+  };
+}
+
+async function openWithState(project: ProjectState) {
+  let state = project;
+  let status = "";
+  await renderEditor({
+    project,
+    onState: (next) => {
+      state = next.project;
+      status = next.status;
+    },
+  });
+  return { project: () => state, status: () => status };
+}
+
+test("the wand builds no windows onto MIDI clips", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
+  const editor = await openWithState(
+    withMidiClip(withMedia([testPatternVideo()])),
+  );
+
+  await page.getByRole("button", { name: "Randomize arrangement" }).click();
+
+  await expect
+    .poll(() => editor.project().lanes.map((lane) => lane.name))
+    .toEqual(["Layer 1", "Layer 2", "Layer 3", "Audio"]);
+  const clips = editor.project().clips;
+  expect(clips.length).toBeGreaterThan(0);
+  expect(clips.filter((clip) => clip.sourceTrackId === "bass")).toEqual([]);
+});
+
+test("the wand has nothing to randomize in a MIDI-only session", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
+  const initial = withMidiClip(INITIAL_PROJECT_STATE);
+  const editor = await openWithState(initial);
+
+  await page.getByRole("button", { name: "Randomize arrangement" }).click();
+
+  await expect
+    .poll(editor.status)
+    .toBe(
+      "Open a session or import source media before randomizing the arrangement.",
+    );
+  expect(editor.project().lanes).toEqual(initial.lanes);
+  expect(editor.project().clips).toEqual(initial.clips);
 });

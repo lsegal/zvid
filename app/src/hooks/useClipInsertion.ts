@@ -31,6 +31,7 @@ import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
+  getWandSourceSpans,
 } from "../arrangement-wand.ts";
 import { addDefaultGain } from "../default-gain.ts";
 import { addFillClip, getDefaultFillColor } from "../fill-clip.ts";
@@ -403,7 +404,7 @@ export function useClipInsertion({
       audioLaneId: wandLanes.audioLane.id,
       isAudioOnly,
       sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
-      spans: sourceSpans,
+      spans: getWandSourceSpans(sourceSpans),
       spanEndQ: (span) => getClipEndQ(span, bpm),
       timelineEndQ: getRandomizationTimelineEndQ(),
       stepQ,
@@ -433,7 +434,7 @@ export function useClipInsertion({
   }
 
   function handleRandomizeTimeline() {
-    if (!sourceTracks.length || !sourceSpans.length) {
+    if (!sourceTracks.length || !getWandSourceSpans(sourceSpans).length) {
       setStatus(
         "Open a session or import source media before randomizing the arrangement.",
       );
