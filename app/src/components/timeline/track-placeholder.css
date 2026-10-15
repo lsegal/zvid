@@ -3,13 +3,13 @@
    label. Media dragged over the source tracks turns the source one into the
    new-track drop row (source-tracks.css). */
 .track-placeholder:not(.track-placeholder--drag) .track-label {
-  background: light-dark(rgba(40, 48, 80, 0.06), rgba(48, 51, 70, 0.55));
+  background: light-dark(rgba(40, 48, 80, 0.03), rgba(48, 51, 70, 0.55));
   border-bottom-style: dashed;
 }
 
 .track-placeholder:not(.track-placeholder--drag) .track-row__content {
   border-bottom-style: dashed;
-  background-color: light-dark(rgba(40, 48, 80, 0.03), rgba(20, 21, 32, 0.12));
+  background-color: light-dark(rgba(40, 48, 80, 0.015), rgba(20, 21, 32, 0.12));
 }
 
 .track-placeholder__add {

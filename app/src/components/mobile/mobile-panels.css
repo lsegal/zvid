@@ -157,7 +157,7 @@
   padding: 8px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: light-dark(rgba(248, 250, 255, 0.94), rgba(17, 19, 28, 0.94));
+  background: light-dark(rgba(253, 254, 255, 0.94), rgba(17, 19, 28, 0.94));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   font-size: 0.8rem;
   line-height: 1.2;

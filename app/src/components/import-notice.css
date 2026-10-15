@@ -13,8 +13,8 @@
   border-radius: 14px;
   background: linear-gradient(
     180deg,
-    light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)),
-    light-dark(rgba(240, 242, 247, 0.98), rgba(28, 30, 43, 0.98))
+    light-dark(rgba(248, 248, 250, 0.98), rgba(39, 42, 59, 0.98)),
+    light-dark(rgba(251, 251, 253, 0.98), rgba(28, 30, 43, 0.98))
   );
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   color: var(--ink);

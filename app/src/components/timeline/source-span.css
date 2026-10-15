@@ -9,7 +9,7 @@
   overflow: hidden;
   /* The clip's color, lightened in the light theme as on clip-card.css. */
   background-color: light-dark(
-    color-mix(in srgb, var(--clip-tint) 24%, white),
+    color-mix(in srgb, var(--clip-tint) 16%, white),
     var(--clip-tint)
   );
   /* After the loop overlay in the DOM, so at its depth it paints over it. */
@@ -116,9 +116,9 @@
   min-width: 0;
   background: linear-gradient(
     90deg,
-    light-dark(rgba(247, 248, 251, 0.82), rgba(8, 10, 20, 0.72)),
-    light-dark(rgba(247, 248, 251, 0.45), rgba(8, 10, 20, 0.4)) 60%,
-    light-dark(rgba(247, 248, 251, 0.1), rgba(8, 10, 20, 0.1))
+    light-dark(rgba(253, 253, 254, 0.82), rgba(8, 10, 20, 0.72)),
+    light-dark(rgba(253, 253, 254, 0.45), rgba(8, 10, 20, 0.4)) 60%,
+    light-dark(rgba(253, 253, 254, 0.1), rgba(8, 10, 20, 0.1))
   );
   text-shadow: 0 1px 2px light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.8));
 }
@@ -150,9 +150,9 @@
   min-width: 0;
   background: linear-gradient(
     90deg,
-    light-dark(rgba(247, 248, 251, 0.82), rgba(8, 10, 20, 0.72)),
-    light-dark(rgba(247, 248, 251, 0.45), rgba(8, 10, 20, 0.4)) 60%,
-    light-dark(rgba(247, 248, 251, 0.1), rgba(8, 10, 20, 0.1))
+    light-dark(rgba(253, 253, 254, 0.82), rgba(8, 10, 20, 0.72)),
+    light-dark(rgba(253, 253, 254, 0.45), rgba(8, 10, 20, 0.4)) 60%,
+    light-dark(rgba(253, 253, 254, 0.1), rgba(8, 10, 20, 0.1))
   );
   text-shadow: 0 1px 2px light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.8));
 }
@@ -290,9 +290,9 @@
   min-width: 0;
   background: linear-gradient(
     90deg,
-    light-dark(rgba(247, 248, 251, 0.82), rgba(8, 10, 20, 0.72)),
-    light-dark(rgba(247, 248, 251, 0.45), rgba(8, 10, 20, 0.4)) 60%,
-    light-dark(rgba(247, 248, 251, 0.1), rgba(8, 10, 20, 0.1))
+    light-dark(rgba(253, 253, 254, 0.82), rgba(8, 10, 20, 0.72)),
+    light-dark(rgba(253, 253, 254, 0.45), rgba(8, 10, 20, 0.4)) 60%,
+    light-dark(rgba(253, 253, 254, 0.1), rgba(8, 10, 20, 0.1))
   );
   text-shadow: 0 1px 2px light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.8));
 }

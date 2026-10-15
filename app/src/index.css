@@ -5,7 +5,7 @@
   --scrollbar-thumb-hover: rgb(var(--tint) / 0.34);
   scrollbar-color: var(--scrollbar-thumb) transparent;
   color: var(--ink);
-  background: light-dark(rgb(234, 236, 241), #232535);
+  background: light-dark(rgb(249, 249, 251), #232535);
   font-family: 'Space Grotesk', sans-serif;
   line-height: 1.4;
   font-weight: 400;
@@ -28,7 +28,7 @@ body,
 
 body {
   min-height: 100vh;
-  background: light-dark(rgb(234, 236, 241), #232535);
+  background: light-dark(rgb(249, 249, 251), #232535);
 }
 
 /* UI text isn't selectable; only text fields are. The field rule has zero

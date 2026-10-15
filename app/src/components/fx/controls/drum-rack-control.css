@@ -51,7 +51,7 @@
   padding: 4px 5px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: light-dark(rgba(40, 48, 80, 0.138), rgba(11, 13, 19, 0.55));
+  background: light-dark(rgba(40, 48, 80, 0.069), rgba(11, 13, 19, 0.55));
   color: var(--ink);
   text-align: left;
   transition:

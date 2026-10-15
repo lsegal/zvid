@@ -50,8 +50,8 @@ button.brand-mark:focus-visible {
   border-radius: 12px;
   background: linear-gradient(
     180deg,
-    light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)),
-    light-dark(rgba(241, 243, 248, 0.98), rgba(26, 29, 40, 0.98))
+    light-dark(rgba(248, 248, 250, 0.98), rgba(39, 42, 59, 0.98)),
+    light-dark(rgba(251, 251, 253, 0.98), rgba(26, 29, 40, 0.98))
   );
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.38);
   color: var(--ink);

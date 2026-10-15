@@ -158,7 +158,7 @@ describe("playback rendering", () => {
     assert.equal(background(ruler), "var(--bg-soft)");
     assert.equal(
       background(lane),
-      "light-dark(rgba(40, 48, 80, 0.075), rgba(20, 21, 32, 0.3))",
+      "light-dark(rgba(40, 48, 80, 0.037), rgba(20, 21, 32, 0.3))",
     );
   });
 

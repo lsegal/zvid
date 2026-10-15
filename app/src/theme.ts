@@ -13,7 +13,7 @@ export const THEME_STORAGE_KEY = "zvid-theme";
 // bar blends into the top bar (index.html's theme-color meta is the dark one).
 export const THEME_COLORS: Record<Theme, string> = {
   dark: "#2b2d41",
-  light: "#e3e5ea",
+  light: "#f7f7f9",
 };
 
 type PrefsStorage = Pick<Storage, "getItem" | "setItem">;

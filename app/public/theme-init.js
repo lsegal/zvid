@@ -6,7 +6,7 @@ try {
     document.documentElement.dataset.theme = "light";
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", "#e3e5ea");
+      ?.setAttribute("content", "#f7f7f9");
   }
 } catch {
   // Storage can be unavailable; the app starts dark.

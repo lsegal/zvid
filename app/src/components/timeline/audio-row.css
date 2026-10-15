@@ -2,7 +2,7 @@
    sideways with the rows, its label pinned to the left like theirs, and
    draws its own playhead line. */
 .track-row--bus {
-  background: light-dark(rgb(233, 235, 240), #242637);
+  background: light-dark(rgb(248, 249, 251), #242637);
 }
 
 .audio-row__toggle {

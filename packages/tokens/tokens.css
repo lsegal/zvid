@@ -38,15 +38,15 @@
  * the color-scheme set here. */
 [data-theme='light'] {
   color-scheme: light;
-  --bg: #eceef4;
-  --bg-elevated: #f7f8fb;
-  --bg-panel: #fbfcfe;
-  --bg-soft: #e1e4ec;
+  --bg: #f5f6f9;
+  --bg-elevated: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-soft: #eef0f4;
   --ink: #1b1f33;
   --muted: #545a72;
   --ink-on-accent: #0f1220;
-  --line: rgba(22, 27, 48, 0.12);
-  --line-strong: rgba(22, 27, 48, 0.2);
+  --line: rgba(22, 27, 48, 0.1);
+  --line-strong: rgba(22, 27, 48, 0.16);
   --amber: #a06400;
   --pink: #c8336a;
   --blue: #3a63d8;

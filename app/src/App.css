@@ -2,7 +2,7 @@
    App-only variables live here on :root so portaled content shares them too. */
 :root {
   --lane-selected-accent: var(--amber);
-  --lane-selected-label: light-dark(rgb(215, 217, 222), #3a3d53);
+  --lane-selected-label: light-dark(rgb(243, 244, 245), #3a3d53);
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
   /* Lane stacking, lowest first. Clips share the loop overlay's depth, after
      it in the DOM; the selected clip rises above its neighbors only. */
@@ -22,7 +22,7 @@
   flex-direction: column;
   background:
     radial-gradient(circle at top center, rgb(var(--tint) / 0.04), transparent 42%),
-    linear-gradient(180deg, light-dark(rgb(227, 229, 234), #2b2d41) 0%, light-dark(rgb(233, 235, 240), #242637) 100%);
+    linear-gradient(180deg, light-dark(rgb(247, 247, 249), #2b2d41) 0%, light-dark(rgb(248, 249, 251), #242637) 100%);
   color: var(--ink);
 }
 
@@ -68,7 +68,7 @@
   justify-content: center;
   min-width: 74px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(40, 48, 80, 0.08), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.04), rgba(12, 14, 20, 0.32));
   color: var(--ink);
   border-radius: 14px;
   padding: 10px 16px;
@@ -106,7 +106,7 @@
   border: 1px solid rgb(var(--tint) / 0.1);
   background:
     radial-gradient(circle at top left, rgba(246, 183, 60, 0.14), transparent 34%),
-    linear-gradient(180deg, light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)), light-dark(rgba(241, 243, 248, 0.98), rgba(26, 29, 40, 0.98)));
+    linear-gradient(180deg, light-dark(rgba(248, 248, 250, 0.98), rgba(39, 42, 59, 0.98)), light-dark(rgba(251, 251, 253, 0.98), rgba(26, 29, 40, 0.98)));
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
   z-index: 60;
 }
@@ -117,8 +117,8 @@
   border: 1px solid rgb(var(--tint) / 0.1);
   background: linear-gradient(
     180deg,
-    light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)),
-    light-dark(rgba(241, 243, 248, 0.98), rgba(26, 29, 40, 0.98))
+    light-dark(rgba(248, 248, 250, 0.98), rgba(39, 42, 59, 0.98)),
+    light-dark(rgba(251, 251, 253, 0.98), rgba(26, 29, 40, 0.98))
   );
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
   color: var(--ink);
@@ -219,7 +219,7 @@
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: light-dark(rgba(40, 48, 80, 0.35), rgba(7, 9, 14, 0.7));
+  background: light-dark(rgba(40, 48, 80, 0.175), rgba(7, 9, 14, 0.7));
   backdrop-filter: blur(10px);
   z-index: 50;
 }
@@ -234,7 +234,7 @@
   border-radius: 24px;
   background:
     radial-gradient(circle at top left, rgba(124, 161, 255, 0.14), transparent 35%),
-    linear-gradient(180deg, light-dark(rgba(230, 232, 237, 0.98), rgba(39, 42, 59, 0.98)), light-dark(rgba(240, 242, 247, 0.98), rgba(28, 30, 43, 0.98)));
+    linear-gradient(180deg, light-dark(rgba(248, 248, 250, 0.98), rgba(39, 42, 59, 0.98)), light-dark(rgba(251, 251, 253, 0.98), rgba(28, 30, 43, 0.98)));
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.4);
   transform: translate(-50%, -50%);
   z-index: 51;
@@ -281,7 +281,7 @@
   padding: 14px 16px 14px 36px;
   border-radius: 18px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.033), rgba(12, 14, 20, 0.26));
   font-size: 0.88rem;
   line-height: 1.45;
 }
@@ -452,7 +452,7 @@
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgb(var(--tint) / 0.08);
-  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.033), rgba(12, 14, 20, 0.26));
 }
 
 .offline-media__info {
@@ -585,7 +585,7 @@
 .media-sync-dialog {
   background:
     radial-gradient(circle at top left, rgba(124, 161, 255, 0.14), transparent 35%),
-    linear-gradient(180deg, light-dark(rgb(230, 232, 237), rgb(39, 42, 59)), light-dark(rgb(240, 242, 247), rgb(28, 30, 43)));
+    linear-gradient(180deg, light-dark(rgb(248, 248, 250), rgb(39, 42, 59)), light-dark(rgb(251, 251, 253), rgb(28, 30, 43)));
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
@@ -597,7 +597,7 @@
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid rgb(var(--tint) / 0.08);
-  background: light-dark(rgba(40, 48, 80, 0.065), rgba(12, 14, 20, 0.26));
+  background: light-dark(rgba(40, 48, 80, 0.033), rgba(12, 14, 20, 0.26));
 }
 
 .media-sync-dialog__icon {
@@ -734,7 +734,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: light-dark(rgba(40, 48, 80, 0.08), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.04), rgba(12, 14, 20, 0.32));
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 8px;
@@ -797,7 +797,7 @@
   padding: 0 12px;
   overflow: hidden;
   white-space: nowrap;
-  background: light-dark(rgba(40, 48, 80, 0.06), rgba(7, 8, 14, 0.24));
+  background: light-dark(rgba(40, 48, 80, 0.03), rgba(7, 8, 14, 0.24));
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.68rem;
@@ -870,7 +870,7 @@
 
 .editor-panel,
 .fx-panel {
-  background: light-dark(rgba(40, 48, 80, 0.04), rgba(7, 8, 14, 0.16));
+  background: light-dark(rgba(40, 48, 80, 0.02), rgba(7, 8, 14, 0.16));
   border: 1px solid var(--line);
   border-radius: 0 20px 20px 0;
   overflow: hidden;
@@ -898,7 +898,7 @@
   display: inline-flex;
   gap: 6px;
   padding: 4px;
-  background: light-dark(rgba(40, 48, 80, 0.07), rgba(8, 9, 15, 0.28));
+  background: light-dark(rgba(40, 48, 80, 0.035), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
   border-radius: 999px;
 }
@@ -963,7 +963,7 @@
   gap: 14px;
   min-height: var(--lane-height);
   padding: var(--lane-clip-inset) 16px;
-  background: light-dark(rgb(223, 225, 230), #303346);
+  background: light-dark(rgb(245, 246, 248), #303346);
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   text-align: left;
@@ -1011,7 +1011,7 @@
   place-items: center;
   border-radius: 9px;
   border: 1px solid var(--line-strong);
-  background: light-dark(rgba(40, 48, 80, 0.07), rgba(15, 17, 24, 0.28));
+  background: light-dark(rgba(40, 48, 80, 0.035), rgba(15, 17, 24, 0.28));
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
 }
@@ -1041,7 +1041,7 @@
 .track-row__content {
   min-height: var(--lane-height);
   border-bottom: 1px solid var(--line);
-  background-color: light-dark(rgba(40, 48, 80, 0.075), rgba(20, 21, 32, 0.3));
+  background-color: light-dark(rgba(40, 48, 80, 0.037), rgba(20, 21, 32, 0.3));
 }
 
 .waveform__canvas {
@@ -1087,7 +1087,7 @@
   bottom: 0;
   height: 3px;
   overflow: hidden;
-  background: light-dark(rgba(40, 48, 80, 0.12), rgba(0, 0, 0, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.06), rgba(0, 0, 0, 0.32));
 }
 
 .media-sync__bar {
@@ -1184,7 +1184,7 @@
   height: 100%;
   background:
     radial-gradient(circle at top, rgb(var(--tint) / 0.08), transparent 45%),
-    linear-gradient(180deg, light-dark(rgb(248, 250, 255), #11131d) 0%, light-dark(rgb(248, 250, 255), #07080f) 100%);
+    linear-gradient(180deg, light-dark(rgb(253, 254, 255), #11131d) 0%, light-dark(rgb(253, 254, 255), #07080f) 100%);
 }
 
 /* Letterboxed inside the monitor, so every layer band stays visible whatever
@@ -1209,7 +1209,7 @@
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: light-dark(rgba(40, 48, 80, 0.09), rgba(10, 12, 20, 0.36));
+  background: light-dark(rgba(40, 48, 80, 0.045), rgba(10, 12, 20, 0.36));
   color: var(--ink);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1349,7 +1349,7 @@
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
-  background: light-dark(rgba(240, 242, 247, 0.98), rgba(28, 30, 43, 0.98));
+  background: light-dark(rgba(251, 251, 253, 0.98), rgba(28, 30, 43, 0.98));
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   color: var(--muted);
   font-size: 0.72rem;
@@ -1360,7 +1360,7 @@
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: light-dark(rgba(40, 48, 80, 0.1), rgba(7, 8, 14, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.05), rgba(7, 8, 14, 0.4));
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
@@ -1420,5 +1420,5 @@
   height: 100dvh;
   color: var(--ink);
   opacity: 0.7;
-  background: linear-gradient(180deg, light-dark(rgb(227, 229, 234), #2b2d41) 0%, light-dark(rgb(233, 235, 240), #242637) 100%);
+  background: linear-gradient(180deg, light-dark(rgb(247, 247, 249), #2b2d41) 0%, light-dark(rgb(248, 249, 251), #242637) 100%);
 }
