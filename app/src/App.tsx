@@ -593,7 +593,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setPendingSelection,
                     setSelectedClipId,
                     setSelectedLaneId: selection.setSelectedLaneId,
-                    setIsPlaying,
                     setDragPreviewClips,
                     setDragState,
                     clipCard: {
