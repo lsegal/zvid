@@ -6,7 +6,15 @@ import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
 } from "../../component-test/editor.tsx";
-import { center, click } from "../../component-test/input.ts";
+import {
+  center,
+  click,
+  down,
+  holdModifiers,
+  move,
+  undo,
+  up,
+} from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
 import {
   createMeterTap,
@@ -298,5 +306,55 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await stepUntilDisabled("Zoom out");
     // A 4/4 bar is 28px at 25%, so every 2nd bar keeps its number.
     await expect.poll(labeled).toEqual([1, 3, 5, 7]);
+  });
+
+  // Dragging the readout zooms along the slider's travel, 200px for the
+  // whole range: 50px up from 100% lands near 186%, and down near 54%.
+  async function dragReadout(dy: number) {
+    const { x, y } = center(
+      screen.container.querySelector(".zoom-control__readout") as Element,
+    );
+    await move(x, y);
+    await down();
+    await move(x, y + dy, { steps: 10 });
+    const during = readout();
+    await up();
+    return during;
+  }
+
+  const percent = () => Number.parseInt(readout() ?? "", 10);
+
+  test("dragging the readout up zooms in, live, and commits one undo step", async () => {
+    const during = await dragReadout(-50);
+    expect(Number.parseInt(during ?? "", 10)).toBeGreaterThan(170);
+    // The release keeps the dragged zoom rather than clicking it back.
+    await expect.poll(percent).toBeGreaterThan(170);
+    expect(readout()).toBe(during);
+
+    await undo();
+    await expect.poll(readout).toBe("100%");
+  });
+
+  test("dragging the readout down zooms out", async () => {
+    await dragReadout(50);
+    await expect.poll(percent).toBeLessThan(60);
+    expect(percent()).toBeGreaterThan(45);
+  });
+
+  test("Shift-dragging the readout zooms ten times finer", async () => {
+    holdModifiers(["Shift"]);
+    await dragReadout(-50);
+    await expect.poll(percent).toBeGreaterThan(100);
+    expect(percent()).toBeLessThan(110);
+  });
+
+  test("a plain click on the readout still resets to 100%", async () => {
+    await dragReadout(-50);
+    await expect.poll(readout).not.toBe("100%");
+    const { x, y } = center(
+      screen.container.querySelector(".zoom-control__readout") as Element,
+    );
+    await click(x, y);
+    await expect.poll(readout).toBe("100%");
   });
 });

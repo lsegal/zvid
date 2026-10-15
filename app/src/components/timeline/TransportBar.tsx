@@ -24,7 +24,6 @@ import {
   formatZoomFactor,
   sliderPositionToZoom,
   stepZoom,
-  ZOOM_DEFAULT,
   ZOOM_MAX,
   ZOOM_MIN,
   ZOOM_SLIDER_STEP,
@@ -34,6 +33,7 @@ import {
 import { PromptButton } from "../prompt/PromptButton";
 import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
+import { ZoomReadout } from "./ZoomReadout";
 import "./transport-bar.css";
 
 type TransportBarProps = {
@@ -174,15 +174,12 @@ export function TransportBar({
         >
           <MagnifyingGlassPlusIcon aria-hidden="true" />
         </button>
-        <button
-          aria-label={`Zoom ${formatZoomFactor(resolvedZoom)}, reset to ${formatZoomFactor(ZOOM_DEFAULT)}`}
-          className="zoom-control__readout"
-          onClick={() => setZoomValue("Reset zoom", ZOOM_DEFAULT)}
-          title="Reset zoom to 100%"
-          type="button"
-        >
-          {formatZoomFactor(resolvedZoom)}
-        </button>
+        <ZoomReadout
+          flushZoomDraft={flushZoomDraft}
+          resolvedZoom={resolvedZoom}
+          setZoomValue={setZoomValue}
+          updateZoomDraft={updateZoomDraft}
+        />
       </div>
 
       <div className="transport-cluster">
