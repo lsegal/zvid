@@ -160,7 +160,7 @@ describe("FX Animation", { timeout: 60_000 }, () => {
           animation().getByRole("combobox", { name: "Motion", exact: true }),
         ),
       )
-      .toBe("Bounce");
+      .toBe("Single");
     expect(knobLabels(animation())).toEqual(["Reactivity", "Amplitude"]);
     await userEvent.click(
       animation().getByRole("button", { name: "Parameters: 1 of 1" }),

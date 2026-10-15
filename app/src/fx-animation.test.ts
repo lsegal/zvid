@@ -217,7 +217,7 @@ describe("animation defaults", () => {
       mode: "clip",
       clip: { motionIn: "Ease Out", motionOut: "Ease In", timing: "Normal" },
       reactive: {
-        motion: "Bounce",
+        motion: "Single",
         timing: "Normal",
         reactivity: 0,
         amplitude: 0.5,

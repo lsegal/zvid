@@ -100,7 +100,7 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
     await expect
       .element(section().getByRole("slider", { name: "Amplitude" }))
       .toHaveAttribute("aria-valuetext", "0.3x");
-    await expect.poll(() => comboText("Motion")).toBe("Bounce");
+    await expect.poll(() => comboText("Motion")).toBe("Single");
     // Mute is a toggle, so only the level can be modulated.
     await expect
       .element(section().getByRole("button", { name: "Parameters: 1 of 1" }))

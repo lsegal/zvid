@@ -56,7 +56,7 @@ describe("audioStageOf modulation", () => {
   it("gives the stage its Transient settings and the knobs' ranges", () => {
     assert.deepEqual(audioStageOf(highCut(), "a").modulation, {
       mode: "transient",
-      motion: "Bounce",
+      motion: "Single",
       reactivity: 0,
       amplitude: 0.5,
       lengthFrames: 12,
