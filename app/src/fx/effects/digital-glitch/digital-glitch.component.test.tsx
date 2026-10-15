@@ -83,16 +83,14 @@ describe("Digital Glitch", { timeout: 60_000 }, () => {
       .element(submenu.getByRole("menuitem", { name: /^Digital Glitch/ }))
       .toBeVisible();
     // Listed after Analog Glitch, in the Glitch submenu.
-    const glitch = submenu
+    const listed = submenu
       .getByRole("menuitem")
       .elements()
       .map((item) => item.textContent ?? "");
-    const analog = glitch.findIndex((name) =>
-      name.startsWith("Analog Glitch"),
-    );
+    const analog = listed.findIndex((name) => name.startsWith("Analog Glitch"));
     expect(analog).toBeGreaterThanOrEqual(0);
     expect(
-      glitch.findIndex((name) => name.startsWith("Digital Glitch")),
+      listed.findIndex((name) => name.startsWith("Digital Glitch")),
     ).toBeGreaterThan(analog);
     await userEvent.click(
       submenu.getByRole("menuitem", { name: /^Digital Glitch/ }),

@@ -185,9 +185,7 @@ describe("FxChain menus on a phone", () => {
   test("a long effect list scrolls inside the sheet", async () => {
     await renderPhoneChain({ width: 412, height: 480 });
     await openAddMenu();
-    await page
-      .getByRole("menuitem", { name: "Transform", exact: true })
-      .click();
+    await page.getByRole("menuitem", { name: "Color", exact: true }).click();
     await expectVisible(() =>
       document.querySelector(".mobile-menu-sheet__back"),
     );

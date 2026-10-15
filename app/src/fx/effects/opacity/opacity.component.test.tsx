@@ -249,12 +249,7 @@ describe("the Opacity device", { timeout: 60_000 }, () => {
         }}
       />,
     );
-    await addFromMenu(
-      "Add device to this clip",
-      "Color",
-      "Opacity",
-      "Video",
-    );
+    await addFromMenu("Add device to this clip", "Color", "Opacity", "Video");
     const fade = device("Opacity");
     const knob = fade.getByRole("slider", { name: "Opacity" });
     await expect.element(knob).toHaveAttribute("aria-valuetext", "100%");
