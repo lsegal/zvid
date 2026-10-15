@@ -1,10 +1,10 @@
 export const ZOOM_MIN = 0.25;
-export const ZOOM_MAX = 3;
+export const ZOOM_MAX = 8;
 export const ZOOM_DEFAULT = 1;
 // The zooms the -/+ buttons step between. They grow by roughly the same
-// factor each step, so a press feels the same at 25% as at 300%.
+// factor each step, so a press feels the same at 25% as at 800%.
 export const ZOOM_LADDER = [
-  0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3,
+  0.25, 0.33, 0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6.5, 8,
 ] as const;
 
 // Guards the ladder against float noise such as 0.6700000001.
@@ -28,7 +28,7 @@ export function stepZoom(zoom: number, direction: 1 | -1) {
   return clampZoom(next ?? zoom);
 }
 
-// The slider moves along log(zoom), so 25% to 100% and 100% to 300% get
+// The slider moves along log(zoom), so 25% to 100% and 100% to 800% get
 // comparable travel. Positions run from 0 at ZOOM_MIN to 1 at ZOOM_MAX.
 export const ZOOM_SLIDER_STEP = 0.005;
 
