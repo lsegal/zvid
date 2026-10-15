@@ -1,3 +1,4 @@
+import { Square3Stack3DIcon } from "@heroicons/react/24/solid";
 import {
   type Dispatch,
   type RefObject,
@@ -18,6 +19,7 @@ import { clamp, pluralize } from "../../app/util.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";
 import type { useRulerGestures } from "../../hooks/useRulerGestures.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { layersToggleLabel } from "../../layers-section.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { formatTimecode } from "../../timeline-format.ts";
 import { PlayheadLine } from "../LivePlayhead";
@@ -67,9 +69,12 @@ type RulerProps = {
   previewLoopRegion: (region: LoopRegion | null) => void;
   lockPlaybackSelection: () => void;
   timelineContentEndQ: number;
+  isLayersCollapsed: boolean;
+  setLayersCollapsed: (collapsed: boolean) => void;
 };
 
-// The ruler row: the session's media status in its label, and the bars and
+// The ruler row: the session's media status in its label with the toggle that
+// shows and hides the Layers area, and the bars and
 // playhead marker above the layers. Pressing the ruler scrubs the playhead;
 // dragging in the loop strip along its bottom selects a playback range.
 export function Ruler({
@@ -113,6 +118,8 @@ export function Ruler({
   previewLoopRegion,
   lockPlaybackSelection,
   timelineContentEndQ,
+  isLayersCollapsed,
+  setLayersCollapsed,
 }: RulerProps) {
   const openLoopMenuRef = useRef<OpenLoopMenu | null>(null);
   return (
@@ -170,6 +177,16 @@ export function Ruler({
             <small>{sessionMediaStatus}</small>
           )}
         </div>
+        <button
+          aria-label={layersToggleLabel(isLayersCollapsed)}
+          aria-pressed={!isLayersCollapsed}
+          className="ruler-row__layers-toggle"
+          onClick={() => setLayersCollapsed(!isLayersCollapsed)}
+          title={layersToggleLabel(isLayersCollapsed)}
+          type="button"
+        >
+          <Square3Stack3DIcon aria-hidden="true" />
+        </button>
       </div>
       <div
         className={`ruler-row__content ruler-row__content--interactive ${

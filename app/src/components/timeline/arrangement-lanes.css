@@ -75,3 +75,16 @@ body.layer-reorder-dragging * {
 .arrangement-lanes {
   position: relative;
 }
+
+/* The collapsed Layers header (#1453): a row like the collapsed Source
+   Tracks header, whose toggle, title and summary styles it shares
+   (source-tracks.css). */
+.layers-header {
+  display: grid;
+  grid-template-columns: var(--label-width) 1fr;
+}
+
+.layers-header__content {
+  position: relative;
+  border-left: 1px solid var(--line);
+}

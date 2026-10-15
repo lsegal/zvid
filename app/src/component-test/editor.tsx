@@ -445,6 +445,7 @@ export function Editor({
                 }
               >
                 <Ruler
+                  {...layout}
                   {...timeline}
                   {...playback}
                   sessionName={project.sessionName}
@@ -456,7 +457,6 @@ export function Editor({
                   setIsMediaSyncDialogOpen={noop}
                   setIsOfflineMediaDialogOpen={noop}
                   timelineScrollRef={timelineScrollRef}
-                  shortcutLabels={shortcutLabels}
                   timelineDragState={selection.timelineDragState}
                   setTimelineDragState={selection.setTimelineDragState}
                   isPlaying={isPlaying}
@@ -464,7 +464,6 @@ export function Editor({
                   setPlayheadQ={setPlayheadQ}
                   playbackOriginRef={playbackOriginRef}
                   playheadSignal={playheadSignal}
-                  labelWidth={labelWidth}
                   timelineMode={project.timelineMode}
                   bpm={bpm}
                   fps={fps}
@@ -479,7 +478,7 @@ export function Editor({
                   fxLaneId={fxPanel.fxLaneId}
                   laneStatusById={timeline.laneStatusById}
                   clipsByLane={timeline.clipsByLane}
-                  rowHeights={layout.rowHeights}
+                  {...layout}
                   emptyState={null}
                   header={{
                     layerReorder: editing.layerReorder,
