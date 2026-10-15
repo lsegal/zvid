@@ -4,6 +4,7 @@ import {
   getFxClip,
   getFxClipScope,
   getFxKind,
+  getInheritedSourceStacks,
   getPlayheadVisualLaneIds,
   getSelectedFxClipRank,
   getSourceFxStacks,
@@ -155,6 +156,29 @@ export function useFxPanelModel({
     ],
   );
   const fxPanelTitle = getFxPanelTitle(fxLayerName, fxClipName);
+  // The source stacks the selected layer clip inherits, which its Clip
+  // section lists ahead of its own.
+  const fxInheritedSource = useMemo(
+    () =>
+      sourceStacks || fxClipId === undefined
+        ? undefined
+        : getInheritedSourceStacks(
+            selectedClip,
+            sourceTracks,
+            sourceSpans,
+            effects,
+            bpm,
+          ),
+    [
+      bpm,
+      effects,
+      fxClipId,
+      selectedClip,
+      sourceSpans,
+      sourceStacks,
+      sourceTracks,
+    ],
+  );
   const { fxMidiClip } = useMemo(
     () => getMidiPanelModel(sourceSelection, sourceSpans, effects, bpm),
     [bpm, effects, sourceSelection, sourceSpans],
@@ -183,6 +207,7 @@ export function useFxPanelModel({
       ? sourceStacks.trackFxEnabled
       : isLayerFxEnabled(fxLane),
     fxClipTrackId,
+    fxInheritedSource,
     // The selected MIDI clip the piano roll edits.
     fxMidiClip,
     orderLayerOptions,

@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  clipEffectTrackId,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../fx/stack/clip-stacks.ts";
+import { createEffect } from "../fx/stack/ops.ts";
 import { FX_CLIP_LABEL } from "../fx-clip.ts";
 import type { MediaItem } from "../media.ts";
 import {
@@ -7,12 +13,13 @@ import {
   getFxClip,
   getFxClipScope,
   getFxKind,
+  getInheritedSourceStacks,
   getPlayheadVisualLaneIds,
   getSelectedFxClipRank,
   getSourceFxStacks,
   isBeneathFxClipRank,
 } from "./fx-panel-model.ts";
-import type { ArrangementClip, Lane } from "./types.ts";
+import type { ArrangementClip, Lane, SourceSpan } from "./types.ts";
 import { getSwatch } from "./util.ts";
 
 const clip: ArrangementClip = {
@@ -225,6 +232,81 @@ describe("getSourceFxStacks", () => {
       getSourceFxStacks({ sourceTrackId: "t1", sourceSpanId: "s1" }, off, spans)
         ?.trackFxEnabled,
       false,
+    );
+  });
+});
+
+describe("getInheritedSourceStacks", () => {
+  const sourceSpan = (id: string, startQ: number): SourceSpan => ({
+    id,
+    sourceTrackId: "track",
+    label: `Span ${id}`,
+    mediaPath: "clip.mp4",
+    mediaId: "video",
+    startQ,
+    durationSeconds: 1,
+    trimStartSeconds: 0,
+    tint: "#000",
+    accent: "#fff",
+  });
+  // At 120 BPM the clip's 2 s window shows both spans, one second each.
+  const spans = [sourceSpan("span", 0), sourceSpan("later", 2)];
+  const tracks = [{ id: "track", name: "Vocals" }];
+  const effects = [
+    { ...createEffect(sourceClipEffectTrackId("later"), "Pixelate", "p") },
+    {
+      ...createEffect(sourceClipEffectTrackId("span"), "Colorize", "c"),
+      enabled: false,
+    },
+    createEffect(sourceTrackEffectTrackId("track"), "Reverb", "r"),
+    createEffect(clipEffectTrackId("clip"), "Delay", "own"),
+    createEffect(sourceClipEffectTrackId("span"), "Synth", "synth"),
+  ];
+
+  it("lists the source track's stack, then each shown source clip's, in time order", () => {
+    assert.deepEqual(
+      getInheritedSourceStacks(clip, tracks, spans, effects, 120),
+      [
+        {
+          stackId: sourceTrackEffectTrackId("track"),
+          kind: "track",
+          name: "Vocals",
+          effects: [{ id: "r", name: "Reverb", enabled: true }],
+        },
+        {
+          stackId: sourceClipEffectTrackId("span"),
+          kind: "clip",
+          name: "Span span",
+          effects: [{ id: "c", name: "Colorize", enabled: false }],
+        },
+        {
+          stackId: sourceClipEffectTrackId("later"),
+          kind: "clip",
+          name: "Span later",
+          effects: [{ id: "p", name: "Pixelate", enabled: true }],
+        },
+      ],
+    );
+  });
+
+  it("is undefined for a fill, text or FX clip, a bypassed track, or no source effects", () => {
+    assert.equal(
+      getInheritedSourceStacks(fxClip, tracks, spans, effects, 120),
+      undefined,
+    );
+    assert.equal(
+      getInheritedSourceStacks(
+        clip,
+        [{ ...tracks[0], fxEnabled: false }],
+        spans,
+        effects,
+        120,
+      ),
+      undefined,
+    );
+    assert.equal(
+      getInheritedSourceStacks(clip, tracks, spans, [], 120),
+      undefined,
     );
   });
 });

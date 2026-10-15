@@ -67,6 +67,9 @@ export type FxChainProps = {
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
+  // Shown at the head of the Clip section, such as the source effects the
+  // clip inherits.
+  clipLeading?: ReactNode;
   // The scope the Clip section's add menu offers: "fxClip" for an FX clip.
   clipScope?: FxEffectScope;
   // False when the selected layer's FX badge bypasses its whole stack.
@@ -172,6 +175,7 @@ export function FxChain({
   layerLabel = "Layer",
   leading,
   clipTrackId,
+  clipLeading,
   clipScope = "clip",
   layerFxEnabled = true,
   layers = NO_LAYERS,
@@ -696,6 +700,7 @@ export function FxChain({
       {showClip ? (
         <>
           {renderDivider("clip")}
+          {clipLeading}
           {renderStack("clip")}
           {renderAddMenu("clip")}
         </>
