@@ -514,7 +514,7 @@ export function Editor({
                     setDragPreviewClips,
                     setDragState,
                     clipCard: {
-                      selectedClipId: selectedClip?.id,
+                      selectedClipIds: selection.selectedClipIds,
                       dragState,
                       bpm,
                       quarterPx,
@@ -587,7 +587,7 @@ export function Editor({
                     prefersReducedMotion,
                     revealedMediaIds: NO_IDS,
                     clipMenu: selection.clipMenu,
-                    sourceSelection: selection.sourceSelection,
+                    selectedSourceSpanIds: selection.selectedSourceSpanIds,
                     selectSourceSpan: selectSourceSpanClip,
                     shortcutLabels,
                     addSourceSpanToArrangement:

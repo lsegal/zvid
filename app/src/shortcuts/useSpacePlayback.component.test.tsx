@@ -50,7 +50,7 @@ const ROW_HEIGHT = DEFAULT_ROW_METRICS.lane.height;
 const TEXT_CLIP = textClip(40 / BASE_QUARTER_PX, 220 / BASE_QUARTER_PX / 2);
 
 const CLIP_CARD_CONTEXT: ClipCardContext = {
-  selectedClipId: undefined,
+  selectedClipIds: new Set(),
   dragState: null,
   bpm: 120,
   quarterPx: BASE_QUARTER_PX,

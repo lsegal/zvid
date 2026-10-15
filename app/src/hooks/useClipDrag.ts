@@ -15,6 +15,7 @@ import type {
   ProjectState,
   TimelineSelection,
 } from "../app/types.ts";
+import type { SelectionItem } from "../app/multi-selection.ts";
 import { clamp } from "../app/util.ts";
 import { copyClipEffects } from "../fx-stack";
 import {
@@ -32,6 +33,7 @@ export type ClipDragInputs = {
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  toggleSelection: (item: SelectionItem) => void;
   clips: ArrangementClip[];
   bpm: number;
   beatUnit: number;
@@ -62,6 +64,7 @@ export function useClipDrag({
   setDragPreviewClips,
   setPendingSelection,
   setSelectedClipId,
+  toggleSelection,
   clips,
   bpm,
   beatUnit,
@@ -359,6 +362,16 @@ export function useClipDrag({
         );
       }
 
+      // A Shift-press selects the clip it moved, or toggles it when it
+      // never moved.
+      if (dragState.kind === "move" && dragState.toggleOnClick) {
+        if (dragPreviewClips) {
+          setSelectedClipId(dragState.clipId);
+        } else {
+          toggleSelection({ kind: "clip", id: dragState.clipId });
+        }
+      }
+
       if (
         dragState.kind === "move" &&
         dragState.duplicateOnDrag &&
@@ -430,5 +443,6 @@ export function useClipDrag({
     setPendingSelection,
     setSelectedClipId,
     timelineScrollRef,
+    toggleSelection,
   ]);
 }

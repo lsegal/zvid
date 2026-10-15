@@ -1,9 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./App.css";
 import "./coarse-pointer.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
-import { selectSourceSpan } from "./app/source-selection.ts";
-import type { SourceSpan } from "./app/types.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
@@ -387,11 +385,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     exportTo: exporter.exportTo,
     newSession,
   });
-  const { selectSource } = selection;
-  const selectSourceSpanClip = useCallback(
-    (span: SourceSpan) => selectSource(selectSourceSpan(span)),
-    [selectSource],
-  );
   const { modulationClock, animationTimeline } = useFxContexts({
     playheadSignal,
     bpm,
@@ -597,7 +590,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setDragPreviewClips,
                     setDragState,
                     clipCard: {
-                      selectedClipId: selectedClip?.id,
+                      selectedClipIds: selection.selectedClipIds,
                       dragState,
                       bpm,
                       quarterPx,
@@ -670,8 +663,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     prefersReducedMotion,
                     revealedMediaIds: media.revealedMediaIds,
                     clipMenu: selection.clipMenu,
-                    sourceSelection: selection.sourceSelection,
-                    selectSourceSpan: selectSourceSpanClip,
+                    selectedSourceSpanIds: selection.selectedSourceSpanIds,
+                    selectSourceSpan: selection.selectSourceSpanClip,
                     shortcutLabels,
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,

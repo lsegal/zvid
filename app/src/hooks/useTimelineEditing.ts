@@ -19,6 +19,7 @@ import type { createSpaceHold } from "../space-shortcut";
 import { useStableHandlers } from "../use-stable-handlers.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useClipActions } from "./useClipActions.ts";
+import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
@@ -79,6 +80,10 @@ export type TimelineEditingInputs = {
     | "focusLaneLabel"
     | "sourceSelection"
     | "selectSource"
+    | "selectionItems"
+    | "applySelection"
+    | "isInMultiSelection"
+    | "toggleSelection"
   >;
   viewport: Pick<
     ReturnType<typeof useTimelineViewport>,
@@ -202,6 +207,10 @@ export function useTimelineEditing({
     setDragPreviewSourceSpans,
     sourceSelection,
     selectSource,
+    selectionItems,
+    applySelection,
+    isInMultiSelection,
+    toggleSelection,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -279,6 +288,21 @@ export function useTimelineEditing({
     timelineScrollRef,
   });
 
+  const multi = useMultiSelectionActions({
+    bpm,
+    clipClipboardRef,
+    commitProjectChange,
+    effects,
+    playheadQRef,
+    selectionItems,
+    applySelection,
+    setPendingSelection,
+    setStatus,
+    sourceSpans,
+    sourceTracksLocked,
+    timelineClips,
+  });
+
   const {
     copyArrangementClip,
     cutArrangementClip,
@@ -303,6 +327,7 @@ export function useTimelineEditing({
     dispatchProject,
     effects,
     lanes,
+    multi,
     playheadQRef,
     selectedClip,
     selectedLaneId,
@@ -318,6 +343,7 @@ export function useTimelineEditing({
     commitProjectChange,
     copySourceSpan,
     jumpPlayheadTo,
+    multi,
     playheadQRef,
     selectSource,
     setStatus,
@@ -419,6 +445,7 @@ export function useTimelineEditing({
     handleRedo,
     handleUndo,
     insertFillClip,
+    isInMultiSelection,
     insertFxClip,
     insertLayer,
     insertTextClip,
@@ -502,6 +529,7 @@ export function useTimelineEditing({
     setDragPreviewClips,
     setPendingSelection,
     setSelectedClipId,
+    toggleSelection,
     clips,
     bpm,
     beatUnit,

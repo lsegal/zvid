@@ -131,6 +131,9 @@ export type DragState =
       duplicateOnDrag: boolean;
       // A Ctrl/Cmd-press released without dragging jumps to the clip start.
       jumpOnClick: boolean;
+      // A Shift-press released without dragging adds the clip to the
+      // selection or takes it out (see multi-selection.ts).
+      toggleOnClick?: boolean;
     }
   | {
       kind: "resize-start";

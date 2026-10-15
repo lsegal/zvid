@@ -96,6 +96,8 @@ export type MenusInputs = Pick<
     canUndo: boolean;
     clipClipboardRef: RefObject<ClipClipboard | null>;
     fxLaneId: string | undefined;
+    // Whether a clip is one of several selected, which its menu acts on.
+    isInMultiSelection: (item: { kind: "clip" | "span"; id: string }) => boolean;
     handleRedo: () => void;
     handleUndo: () => void;
     laneStatusById: ReadonlyMap<string, { effectCount: number }>;
@@ -166,6 +168,7 @@ export function useMenus({
   duplicateLayer,
   duplicateSourceTrack,
   fxLaneId,
+  isInMultiSelection,
   handleRedo,
   handleUndo,
   insertFillClip,
@@ -210,7 +213,9 @@ export function useMenus({
   timelineScrollRef,
   undoLabel,
 }: MenusInputs) {
-  // Right-clicking a clip selects it (and so its layer) before the menu opens.
+  // Right-clicking a clip selects it (and so its layer) before the menu
+  // opens, unless it is one of several selected: then the menu acts on them
+  // all.
   function openArrangementClipMenu(
     event: ReactMouseEvent<HTMLElement>,
     clip: ArrangementClip,
@@ -218,7 +223,9 @@ export function useMenus({
     event.preventDefault();
     event.stopPropagation();
     setPendingSelection(null);
-    setSelectedClipId(clip.id);
+    if (!isInMultiSelection({ kind: "clip", id: clip.id })) {
+      setSelectedClipId(clip.id);
+    }
     setClipMenu({
       kind: "clip",
       clipId: clip.id,

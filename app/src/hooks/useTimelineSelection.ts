@@ -257,6 +257,30 @@ export function useTimelineSelection({
     [setSelectedClipId, setSourceSelection],
   );
 
+  // A click on a source clip selects just it, a Shift-click adds or removes
+  // it, and a right-click keeps a selection it is one of, for its menu.
+  const selectSourceSpanClip = useCallback(
+    (
+      span: Pick<SourceSpan, "id" | "sourceTrackId">,
+      mode: "select" | "toggle" | "menu" = "select",
+    ) => {
+      const item: SelectionItem = {
+        kind: "span",
+        id: span.id,
+        sourceTrackId: span.sourceTrackId,
+      };
+      if (mode === "toggle") {
+        toggleSelection(item);
+        return;
+      }
+      if (mode === "menu" && isInMultiSelection(item)) {
+        return;
+      }
+      selectSource(selectSourceSpan(span));
+    },
+    [isInMultiSelection, selectSource, toggleSelection],
+  );
+
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {
     selectLaneFromLabel(laneId);
@@ -311,6 +335,7 @@ export function useTimelineSelection({
     isInMultiSelection,
     applySelection,
     toggleSelection,
+    selectSourceSpanClip,
   };
 }
 
