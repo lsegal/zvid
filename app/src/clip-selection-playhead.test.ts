@@ -63,7 +63,7 @@ describe("clip selection keeps the playhead", () => {
       "// Ctrl-click on macOS opens the menu instead.",
       "onContextMenu=",
     );
-    assert.match(onClick, /selectSourceSpan\(clip, /);
+    assert.match(onClick, /selectSourceSpan\(\s*clip,/);
     assertNoSeek(onClick);
   });
 

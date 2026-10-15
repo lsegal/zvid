@@ -23,8 +23,8 @@ import {
 } from "../../clip-media-state";
 import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
-import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../../lane-selection-gesture.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
+import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../../lane-selection-gesture.ts";
 import { type MediaItem, showsPicture } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
 import {

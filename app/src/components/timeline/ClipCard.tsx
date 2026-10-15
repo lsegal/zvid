@@ -328,7 +328,8 @@ export const ClipCard = memo(function ClipCard({
           // A Shift-click adds the clip to the selection or takes it out
           // on release, and a click on a selected clip takes it out;
           // dragging still moves it, or the whole selection (#1481).
-          const toggleOnClick = (event.shiftKey || selected) && !duplicateOnDrag;
+          const toggleOnClick =
+            (event.shiftKey || selected) && !duplicateOnDrag;
           // The other selected clips move, or duplicate, along with it.
           const group = inGroup
             ? [...selectedClipIds]

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { userEvent } from "vitest/browser";
 import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
