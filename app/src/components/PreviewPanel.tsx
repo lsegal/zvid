@@ -343,8 +343,6 @@ export function PreviewPanel({
               : ""
           }`}
           data-preview-tab={previewTab}
-          // The preview is content, so it stays dark in the light theme.
-          data-theme="dark"
           data-render-source={
             renderFromSourceTracks ? "source-tracks" : "layers"
           }

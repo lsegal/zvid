@@ -18,7 +18,7 @@
   height: 10px;
   margin-top: -5px;
   border-radius: 2px;
-  background: light-dark(rgba(40, 48, 80, 0.18), rgba(6, 8, 12, 0.72));
+  background: light-dark(rgba(40, 48, 80, 0.09), rgba(6, 8, 12, 0.72));
   pointer-events: none;
 }
 
@@ -106,7 +106,7 @@
   padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: light-dark(rgba(40, 48, 80, 0.045), rgba(10, 12, 20, 0.36));
+  background: light-dark(rgba(40, 48, 80, 0.022), rgba(10, 12, 20, 0.36));
   color: var(--ink);
   font-size: 0.68rem;
 }

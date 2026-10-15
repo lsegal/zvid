@@ -86,7 +86,7 @@
 .clip-card__thumb {
   flex: none;
   width: clamp(0px, calc(100% - 48px), 40px);
-  background-color: light-dark(rgba(40, 48, 80, 0.08), rgba(0, 0, 0, 0.35));
+  background-color: light-dark(rgba(40, 48, 80, 0.04), rgba(0, 0, 0, 0.35));
   background-position: center;
   background-size: cover;
   border-right: 1px solid rgba(0, 0, 0, 0.35);
@@ -147,7 +147,9 @@
   border-style: dashed;
 }
 
+/* The text glyph keeps its dark tile, which any text color reads on. */
 .clip-card__glyph--fx {
+  background-color: light-dark(rgba(40, 48, 80, 0.06), rgba(0, 0, 0, 0.35));
   color: var(--clip-accent);
   font-family: inherit;
   font-size: 0.7rem;

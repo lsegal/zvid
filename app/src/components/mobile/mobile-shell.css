@@ -272,7 +272,7 @@
   gap: 2px;
   padding: 4px 4px 2px;
   border-top: 1px solid var(--line);
-  background: light-dark(rgba(40, 48, 80, 0.15), rgba(17, 19, 28, 0.6));
+  background: light-dark(rgba(40, 48, 80, 0.075), rgba(17, 19, 28, 0.6));
 }
 
 .mobile-tool-button,
@@ -313,7 +313,7 @@
   display: flex;
   padding: 2px 4px;
   border-top: 1px solid var(--line);
-  background: light-dark(rgba(40, 48, 80, 0.063), rgba(12, 14, 20, 0.5));
+  background: light-dark(rgba(40, 48, 80, 0.032), rgba(12, 14, 20, 0.5));
 }
 
 .mobile-tab-bar__tab {
@@ -331,7 +331,7 @@
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: light-dark(rgba(40, 48, 80, 0.04), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.02), rgba(12, 14, 20, 0.32));
 }
 
 .mobile-segmented button {
@@ -358,7 +358,7 @@
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: light-dark(rgba(40, 48, 80, 0.04), rgba(12, 14, 20, 0.32));
+  background: light-dark(rgba(40, 48, 80, 0.02), rgba(12, 14, 20, 0.32));
   color: var(--ink);
   font-size: 0.8rem;
   white-space: nowrap;

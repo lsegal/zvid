@@ -75,7 +75,7 @@
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: light-dark(rgba(40, 48, 80, 0.045), rgba(10, 12, 20, 0.36));
+  background: light-dark(rgba(40, 48, 80, 0.022), rgba(10, 12, 20, 0.36));
   color: var(--ink);
 }
 

@@ -9,7 +9,7 @@
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(17, 19, 28, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(17, 19, 28, 0.4));
 }
 
 .spectrogram {
@@ -34,7 +34,7 @@
   left: 4px;
   padding: 0 3px;
   border-radius: 3px;
-  background: light-dark(rgba(40, 48, 80, 0.069), rgba(17, 19, 28, 0.55));
+  background: light-dark(rgba(40, 48, 80, 0.035), rgba(17, 19, 28, 0.55));
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.56rem;

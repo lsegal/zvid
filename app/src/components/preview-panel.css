@@ -55,7 +55,7 @@
   padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(17, 19, 28, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(17, 19, 28, 0.4));
   font-size: 0.72rem;
   line-height: 1;
 }
@@ -165,7 +165,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, light-dark(rgba(40, 48, 80, 0.058), rgba(12, 14, 20, 0.46)), rgb(var(--tint) / 0.04));
+  background: linear-gradient(135deg, light-dark(rgba(40, 48, 80, 0.029), rgba(12, 14, 20, 0.46)), rgb(var(--tint) / 0.04));
 }
 
 .preview-placeholder__overlay {
@@ -173,7 +173,7 @@
   inset: auto 20px 20px;
   padding: 14px;
   border-radius: 16px;
-  background: light-dark(rgba(40, 48, 80, 0.155), rgba(12, 14, 20, 0.62));
+  background: light-dark(rgba(40, 48, 80, 0.077), rgba(12, 14, 20, 0.62));
   backdrop-filter: blur(12px);
 }
 

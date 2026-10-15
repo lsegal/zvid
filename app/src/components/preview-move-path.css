@@ -23,12 +23,12 @@
 
 /* A dark halo under the accent line keeps it visible on any footage. */
 .preview-move-path__halo {
-  stroke: light-dark(rgba(40, 48, 80, 0.175), rgba(7, 8, 15, 0.7));
+  stroke: rgba(7, 8, 15, 0.7);
   stroke-width: 4px;
 }
 
 .preview-move-path__line {
-  stroke: light-dark(#b3264f, #ff7f8f);
+  stroke: #ff7f8f;
   stroke-width: 2px;
   stroke-dasharray: 6 4;
 }
@@ -49,7 +49,7 @@
   width: 16px;
   height: 16px;
   padding: 0;
-  border: 2px solid light-dark(#b3264f, #ff7f8f);
+  border: 2px solid #ff7f8f;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 0 1px rgba(7, 8, 15, 0.6);
@@ -91,7 +91,7 @@
   z-index: 3;
   padding: 2px 6px;
   border-radius: 4px;
-  background: light-dark(rgba(40, 48, 80, 0.212), rgba(7, 8, 15, 0.85));
+  background: rgba(7, 8, 15, 0.85);
   color: #fff;
   font-size: 11px;
   line-height: 16px;

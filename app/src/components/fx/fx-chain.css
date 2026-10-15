@@ -175,7 +175,7 @@ body.fx-chain-dragging * {
       color-mix(in srgb, var(--fx-accent) 10%, transparent),
       transparent 60%
     ),
-    light-dark(rgba(40, 48, 80, 0.04), rgba(11, 13, 19, 0.32));
+    light-dark(rgba(40, 48, 80, 0.02), rgba(11, 13, 19, 0.32));
   transition:
     opacity 160ms ease,
     border-color 160ms ease;
@@ -477,7 +477,7 @@ body.fx-chain-dragging * {
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
 }
 
 .fx-segmented__options button {
@@ -575,7 +575,7 @@ body.fx-chain-dragging * {
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font: inherit;
   font-size: 0.82rem;
@@ -595,7 +595,7 @@ body.fx-chain-dragging * {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.82rem;
 }
@@ -647,7 +647,7 @@ body.fx-chain-dragging * {
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.85rem;
 }
@@ -714,7 +714,7 @@ body.fx-chain-dragging * {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: light-dark(rgba(40, 48, 80, 0.05), rgba(11, 13, 19, 0.4));
+  background: light-dark(rgba(40, 48, 80, 0.025), rgba(11, 13, 19, 0.4));
   color: var(--ink);
   font-size: 0.82rem;
   white-space: nowrap;
@@ -849,7 +849,7 @@ body.fx-chain-dragging * {
       color-mix(in srgb, var(--fx-accent) 10%, transparent),
       transparent 60%
     ),
-    light-dark(rgba(40, 48, 80, 0.04), rgba(11, 13, 19, 0.32));
+    light-dark(rgba(40, 48, 80, 0.02), rgba(11, 13, 19, 0.32));
   transition:
     opacity 160ms ease,
     border-color 160ms ease;
