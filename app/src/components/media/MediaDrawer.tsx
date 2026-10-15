@@ -11,13 +11,13 @@ import { formatMediaTime } from "../../app/media-preview.ts";
 import { logClient } from "../../app/util.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
+import { isLottieName } from "../../lottie.ts";
 import {
   imageThumbnailUrl,
   isEffectMedia,
   isImageMedia,
   type MediaItem,
 } from "../../media";
-import { isLottieName } from "../../lottie.ts";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
