@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="zvid is the music-first video editor: a bars and beats timeline, effects that react to the music, Ableton Live capture, built-in instruments and live collaboration, in your browser."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>zvid: video, cut to the beat</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#slides">Skip to content</a>
+    <div class="progress" aria-hidden="true"><span></span></div>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="zvid home">
+        <svg viewBox="-8 -8 258 212" aria-hidden="true">
+          <path fill-rule="evenodd" d="M 2,48 C 6,26 22,2 46,2 H 204 C 219,2 230,11 230,25 V 40 C 230,48 225,54 217,58 C 220,52 213,50 202,50 H 5 Q 1,50 2,48 Z M 51,26 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z M 91,26 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 133,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 175,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z" />
+          <path d="M 119,57 H 213 L 109,137 H 17 Q 9,137 5,142 Z" />
+          <path fill-rule="evenodd" d="M 4,144 C 8,140 15,145 26,145 H 236 Q 241,145 240,149 C 234,171 221,194 198,194 H 25 C 10,194 2,185 2,173 V 157 Q 2,149 4,144 Z M 78,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 121,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 163,169 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 203,169 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z" />
+        </svg>
+        <span>zvid</span>
+      </a>
+      <nav class="topnav" aria-label="Site">
+        <a href="help/">Docs</a>
+        <a class="button button--small" href="%VITE_APP_URL%">Open zvid</a>
+      </nav>
+    </header>
+
+    <main id="slides" class="slides">
+      <section id="top" class="slide slide--hero" data-accent="violet" aria-label="zvid">
+        <video class="hero-video" data-video="hero" muted loop playsinline preload="auto" aria-hidden="true"></video>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="kicker reveal">The music-first video editor</p>
+          <h1 class="reveal">Video, cut<br />to the beat.</h1>
+          <p class="lede reveal">
+            Record or import your takes, arrange them on a bars and beats
+            timeline, and let effects react to the sound. Right in your
+            browser.
+          </p>
+          <div class="actions reveal">
+            <a class="button" href="%VITE_APP_URL%">Open zvid</a>
+            <a class="button button--ghost" href="help/">Read the docs</a>
+          </div>
+        </div>
+        <a class="scroll-hint" href="#timeline">Scroll <span aria-hidden="true">↓</span></a>
+      </section>
+
+      <div id="feature-slides"></div>
+
+      <section id="home" class="slide slide--home" data-accent="blue" aria-labelledby="home-title">
+        <div class="center-copy">
+          <p class="kicker reveal">Switching</p>
+          <h2 id="home-title" class="reveal">Feels like home.</h2>
+          <p class="lede reveal">
+            The tools you already know are here, under names you'll recognize.
+          </p>
+          <ul id="homes" class="homes"></ul>
+          <a class="text-link reveal" href="help/#switching">See the switching guide <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+
+      <section id="start" class="slide slide--cta" data-accent="pink" aria-labelledby="cta-title">
+        <div class="center-copy">
+          <svg class="cta-mark reveal" viewBox="-8 -8 258 212" aria-hidden="true"></svg>
+          <h2 id="cta-title" class="reveal">Make your next video move.</h2>
+          <p class="lede reveal">Runs in your browser. Nothing to install.</p>
+          <div class="actions reveal">
+            <a class="button" href="%VITE_APP_URL%">Open zvid</a>
+            <a class="button button--ghost" href="help/">Read the docs</a>
+          </div>
+        </div>
+        <footer class="footer">
+          <p>© <span id="year"></span> zvid</p>
+          <p>
+            Ableton Live, Logic Pro, Premiere Pro, DaVinci Resolve and Final
+            Cut Pro are trademarks of their respective owners. zvid is not
+            affiliated with them.
+          </p>
+        </footer>
+      </section>
+    </main>
+
+    <nav class="dots" aria-label="Slides"></nav>
+    <p class="counter" aria-hidden="true"><span id="counter-now">01</span> / <span id="counter-total">12</span></p>
+
+    <script type="module" src="/src/landing/main.ts"></script>
+  </body>
+</html>

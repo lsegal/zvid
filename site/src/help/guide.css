@@ -1,0 +1,280 @@
+/* Guide pages: long-form prose, figures, parameter tables and a pager,
+   on top of the overview's layout and tokens in style.css. */
+
+.back-link {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+.back-link:hover {
+  color: var(--ink);
+}
+
+.toc a[aria-current="page"] {
+  border-left-color: var(--accent);
+  background: var(--bg-soft);
+  color: var(--ink);
+}
+
+.guide-intro .kicker a {
+  color: inherit;
+  text-decoration: none;
+}
+.guide-intro .kicker a:hover {
+  text-decoration: underline;
+}
+.guide-intro h1 {
+  font-size: clamp(38px, 5.5vw, 64px);
+}
+
+.guide-section {
+  scroll-margin-top: 16px;
+}
+
+/* Prose */
+
+.prose {
+  margin-top: 20px;
+}
+.prose > * + * {
+  margin-top: 16px;
+}
+.prose p {
+  max-width: 70ch;
+  font-size: 16.5px;
+  line-height: 1.7;
+}
+.prose h3 {
+  margin-top: 36px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.prose h3 + * {
+  margin-top: 10px;
+}
+.prose a {
+  color: var(--blue);
+  text-underline-offset: 3px;
+}
+.prose code {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.prose strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.prose kbd {
+  vertical-align: 1px;
+}
+
+.g-list {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.g-list li {
+  position: relative;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+.g-list li::before {
+  content: "";
+  position: absolute;
+  top: 0.68em;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.g-steps {
+  display: grid;
+  gap: 10px;
+  max-width: 72ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.g-steps li {
+  position: relative;
+  padding-left: 40px;
+  line-height: 1.6;
+  counter-increment: step;
+}
+.g-steps li::before {
+  content: counter(step);
+  position: absolute;
+  top: 1px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--bg-soft);
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.g-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  max-width: 76ch;
+  padding: 14px 16px;
+  border-left: 3px solid var(--blue);
+  background: var(--bg-elevated);
+}
+.g-note--tip {
+  border-left-color: var(--mint);
+}
+.g-note-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.7rem;
+  text-transform: uppercase;
+}
+.g-note p {
+  font-size: 15.5px;
+}
+
+/* Tables */
+
+.g-table-wrap {
+  overflow-x: auto;
+}
+.g-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.g-table th {
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.g-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.5;
+  vertical-align: top;
+}
+.g-table td:first-child {
+  color: var(--ink);
+  font-weight: 500;
+}
+.g-table--compact td:first-child {
+  width: 1%;
+  white-space: nowrap;
+}
+.g-table td:not(:first-child) {
+  color: var(--muted);
+}
+
+/* Figures */
+
+.g-figure {
+  margin: 24px 0 8px;
+}
+.g-figure img,
+.g-figure video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+}
+.g-figure figcaption {
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.g-keys {
+  margin-top: 8px;
+}
+
+/* Pager */
+
+.pager {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 88px;
+}
+.pager-link {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-strong);
+  border-top: 3px solid var(--accent);
+  background: var(--bg-elevated);
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.pager-link span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pager-link--next {
+  text-align: right;
+}
+.pager-link:hover {
+  background: var(--bg-soft);
+}
+
+/* Overview: links from each topic to its guide. */
+
+.guide-link {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+.guide-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 880px) {
+  .pager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pager-link--next {
+    text-align: left;
+  }
+}

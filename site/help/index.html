@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Learn zvid: music-first video editing with a bars and beats timeline, audio-reactive effects, Ableton Live capture and live collaboration."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>zvid Help</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <a class="brand" href="./" aria-label="zvid Help home">
+            <svg viewBox="-8 -8 258 212" aria-hidden="true">
+              <path fill-rule="evenodd" d="M 2,48 C 6,26 22,2 46,2 H 204 C 219,2 230,11 230,25 V 40 C 230,48 225,54 217,58 C 220,52 213,50 202,50 H 5 Q 1,50 2,48 Z M 51,26 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z M 91,26 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 133,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 175,26 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z" />
+              <path d="M 119,57 H 213 L 109,137 H 17 Q 9,137 5,142 Z" />
+              <path fill-rule="evenodd" d="M 4,144 C 8,140 15,145 26,145 H 236 Q 241,145 240,149 C 234,171 221,194 198,194 H 25 C 10,194 2,185 2,173 V 157 Q 2,149 4,144 Z M 78,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 121,169 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0 Z M 163,169 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 Z M 203,169 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0 Z" />
+            </svg>
+            <span>zvid</span><span class="brand-tag">help</span>
+          </a>
+          <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="sidebar-body">
+            Contents
+          </button>
+        </div>
+        <div id="sidebar-body" class="sidebar-body">
+          <div class="search">
+            <label for="search">Filter features</label>
+            <div class="search-field">
+              <input id="search" type="search" placeholder="reverb, LUT, split…" autocomplete="off" />
+              <kbd aria-hidden="true">/</kbd>
+            </div>
+            <p id="search-status" class="search-status" role="status" aria-live="polite"></p>
+          </div>
+          <nav class="toc" aria-label="Contents">
+            <p class="toc-label">Start</p>
+            <ol>
+              <li><a href="#overview">Overview</a></li>
+              <li><a href="#start">Quick start</a></li>
+              <li><a href="#in-action">In action</a></li>
+            </ol>
+            <p class="toc-label">Features</p>
+            <ol id="toc-topics"></ol>
+            <p class="toc-label">Reference</p>
+            <ol>
+              <li><a href="#switching">Coming from another app</a></li>
+              <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+              <li><a href="#formats">File formats</a></li>
+            </ol>
+          </nav>
+          <a class="open-app" href="%VITE_APP_URL%">Open zvid <span aria-hidden="true">→</span></a>
+        </div>
+      </aside>
+
+      <main id="main" class="content">
+        <header id="overview" class="intro">
+          <div class="ruler" aria-hidden="true">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+          </div>
+          <p class="kicker">Help · Overview</p>
+          <h1>Video, cut to the beat.</h1>
+          <p class="lede">
+            zvid is a music-first video editor. Record or import your takes,
+            arrange them on a bars and beats timeline, and let effects react to
+            the sound. Work in the browser or desktop app.
+          </p>
+          <ul id="highlights" class="lanes" aria-label="What sets zvid apart"></ul>
+        </header>
+
+        <section id="start" class="block" aria-labelledby="start-heading">
+          <h2 id="start-heading" class="block-title"><span class="num">00</span>Quick start</h2>
+          <p class="block-lede">Pick the way you like to start. Each ends in the same editor.</p>
+          <div id="quick-start-paths" class="paths"></div>
+        </section>
+
+        <section id="in-action" class="block" aria-labelledby="in-action-heading">
+          <h2 id="in-action-heading" class="block-title"><span class="num">▶</span>In action</h2>
+          <p class="block-lede">Short clips of the editor. Most use the MIDI sample (File › Open › Samples › MIDI).</p>
+          <div id="demos" class="demos"></div>
+        </section>
+
+        <div id="topics"></div>
+        <p id="no-results" class="no-results" hidden>
+          Nothing matches that filter. Try a shorter word, like “EQ” or “text”.
+        </p>
+
+        <section id="switching" class="block" aria-labelledby="switching-heading">
+          <h2 id="switching-heading" class="block-title"><span class="num">R1</span>Coming from another app</h2>
+          <p class="block-lede">Find the tools you already know, under the names zvid uses.</p>
+          <div id="switchers" class="switchers"></div>
+        </section>
+
+        <section id="shortcuts" class="block" aria-labelledby="shortcuts-heading">
+          <h2 id="shortcuts-heading" class="block-title"><span class="num">R2</span>Keyboard shortcuts</h2>
+          <dl id="shortcut-list" class="keys"></dl>
+        </section>
+
+        <section id="formats" class="block" aria-labelledby="formats-heading">
+          <h2 id="formats-heading" class="block-title"><span class="num">R3</span>File formats</h2>
+          <div id="format-list" class="formats"></div>
+        </section>
+
+        <footer class="footer">
+          <p>© <span id="year"></span> zvid</p>
+          <p>
+            Ableton Live, Logic Pro, Final Cut Pro, Premiere Pro and DaVinci
+            Resolve are trademarks of their respective owners. zvid is not
+            affiliated with them.
+          </p>
+        </footer>
+      </main>
+    </div>
+    <script type="module" src="/src/help/main.ts"></script>
+  </body>
+</html>
