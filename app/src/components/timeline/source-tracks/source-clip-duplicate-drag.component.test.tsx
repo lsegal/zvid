@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import { getShortcutLabels } from "../../../app/shortcut-labels.ts";
 import {
@@ -17,6 +17,7 @@ import {
   undo,
   up,
 } from "../../../component-test/input.ts";
+import { setViewport } from "../../../component-test/viewport.ts";
 
 // Ctrl/Cmd-dragging a source clip drags a copy of it, like a layer clip,
 // while a Ctrl/Cmd-click without a drag still adds it to the arrangement.
@@ -31,6 +32,11 @@ function spans() {
 function arrangementClips() {
   return document.querySelectorAll("[data-timeline-lane-id] .clip-card");
 }
+
+// Tall enough to show the source track above the transport bar.
+beforeEach(async () => {
+  await setViewport({ width: 1600, height: 1400 });
+});
 
 function left(span: HTMLElement) {
   return Number.parseFloat(span.style.left);
@@ -74,7 +80,9 @@ test("a Ctrl/Cmd-drag duplicates a source clip in one undo step, and a Ctrl/Cmd-
   expect(spans()[0].dataset.sourceSpanId).toBe(originalId);
 
   // A Ctrl/Cmd-click without a drag still adds the clip to the arrangement.
-  const press = center(spans()[0].querySelector(".source-span__body") ?? spans()[0]);
+  const press = center(
+    spans()[0].querySelector(".source-span__body") ?? spans()[0],
+  );
   await userEvent.keyboard(`{${MOD}>}`);
   await click(press.x, press.y, { modifiers: [MOD] });
   await userEvent.keyboard(`{/${MOD}}`);
