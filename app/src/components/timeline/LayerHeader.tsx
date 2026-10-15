@@ -89,6 +89,7 @@ export function LayerHeader({
     // biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard
     <div
       className="track-label track-label--lane"
+      data-theme="dark"
       data-layer-header-id={lane.id}
       onContextMenu={(event) => openLayerMenu(event, lane.id)}
       onPointerDown={(event) => {

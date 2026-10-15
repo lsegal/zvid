@@ -171,6 +171,7 @@ export function TrackRecordDevice({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-clicking the title folds the device; its collapse button is the keyboard equivalent */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onDoubleClick={(event) => {
           if (!(event.target as HTMLElement).closest("button")) {
             toggleFold();

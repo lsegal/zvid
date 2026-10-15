@@ -85,6 +85,7 @@ export function SourceClipProperties({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the collapse button is its keyboard equivalent */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onDoubleClick={handleTitleDoubleClick}
       >
         {info}

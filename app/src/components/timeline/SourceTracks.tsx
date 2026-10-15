@@ -111,6 +111,7 @@ export function SourceTracks({
       <section
         aria-label="Source track drop area"
         className={`source-header ${sourceTracks.length ? "" : "source-header--empty"} ${isSourceTracksCollapsed ? "source-header--collapsed" : ""} ${isSourceTracksCollapsed && isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
+        data-theme="dark"
         data-source-track-drop-target={
           isSourceHeaderDropTarget ? "new-track" : undefined
         }

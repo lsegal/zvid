@@ -65,7 +65,11 @@ export function ArrangementLanes({
   if (isLayersCollapsed) {
     return (
       <div ref={arrangementLanesRef} className="arrangement-lanes">
-        <section aria-label="Layers" className="layers-header">
+        <section
+          aria-label="Layers"
+          className="layers-header"
+          data-theme="dark"
+        >
           <div className="track-label track-label--header">
             <button
               aria-expanded="false"

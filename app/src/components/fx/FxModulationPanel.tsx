@@ -88,7 +88,7 @@ export function FxModulationPanel({
 
   return (
     <section aria-label={label} className={className} style={style}>
-      <header className="fx-animation-panel__title">
+      <header className="fx-animation-panel__title" data-theme="dark">
         <span className="fx-animation-panel__name">Modulation</span>
         <FxModulationGraph device={device} modulation={modulation} />
         <button

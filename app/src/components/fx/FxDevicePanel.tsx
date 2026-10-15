@@ -229,6 +229,7 @@ export function FxDevicePanel({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click and dragging are pointer shortcuts; the name button has the keyboard equivalents */}
       <header
         className="fx-device-panel__title"
+        data-theme="dark"
         onContextMenu={onContextMenu}
         onDoubleClick={handleTitleDoubleClick}
         onPointerDown={onTitlePointerDown}
