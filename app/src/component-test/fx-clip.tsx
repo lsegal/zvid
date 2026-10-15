@@ -280,7 +280,9 @@ export function FxClipEditor(props: FxEditorProps) {
                   bpm={project.bpm}
                   effects={project.effects}
                   selectedClipIds={
-                    new Set(props.selection?.clipId ? [props.selection.clipId] : [])
+                    new Set(
+                      props.selection?.clipId ? [props.selection.clipId] : [],
+                    )
                   }
                   timelineEffects={project.effects}
                 />

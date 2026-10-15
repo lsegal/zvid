@@ -182,7 +182,12 @@ export function pasteMultiClipboard(
     const id = createId("span");
     const patch = pasteIntoSourceTrack(
       next,
-      { fragments: [], durationQ: 0, sourceSpan: span, effects: clipboard.effects },
+      {
+        fragments: [],
+        durationQ: 0,
+        sourceSpan: span,
+        effects: clipboard.effects,
+      },
       trackId,
       pasteQ + offsetQ,
       () => id,
@@ -223,7 +228,9 @@ export function pasteMultiClipboard(
         clipboard.effects,
       ),
     });
-    pasted.push(...placed.map((clip) => ({ kind: "clip" as const, id: clip.id })));
+    pasted.push(
+      ...placed.map((clip) => ({ kind: "clip" as const, id: clip.id })),
+    );
   }
   return { project: next, pasted };
 }

@@ -24,6 +24,7 @@ export type StatusBarItemsInputs = {
   offlineCount: number;
   playheadSignal: PlayheadSignal;
   previewMedia: StatusAudioInfo | undefined;
+  selectedClipCount: number;
   sessionName: string | null;
   setIsSessionSettingsOpen: Dispatch<SetStateAction<boolean>>;
   shareUrl: string;
@@ -46,6 +47,7 @@ export function useStatusBarItems({
   offlineCount,
   playheadSignal,
   previewMedia,
+  selectedClipCount,
   sessionName,
   setIsSessionSettingsOpen,
   shareUrl,
@@ -75,6 +77,7 @@ export function useStatusBarItems({
           peerCount: collaborationState.peerCount,
         },
         clipCount,
+        selectedClipCount,
         trackCount,
         offlineCount,
       }).flatMap((item): StatusItem[] => {
@@ -125,6 +128,7 @@ export function useStatusBarItems({
       offlineCount,
       playheadSignal,
       previewMedia,
+      selectedClipCount,
       sessionName,
       setIsSessionSettingsOpen,
       shareUrl,

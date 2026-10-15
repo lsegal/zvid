@@ -40,7 +40,6 @@ import {
 } from "../fx-stack";
 import { createLaneId } from "../lanes";
 import type { ProjectHistoryAction } from "../project-history";
-import type { MultiSelectionActions } from "./useMultiSelectionActions.ts";
 import {
   copyClip,
   copyRange,
@@ -49,6 +48,7 @@ import {
   resolveClipOverlaps,
   withWindowTiming,
 } from "../range-edit.ts";
+import type { MultiSelectionActions } from "./useMultiSelectionActions.ts";
 
 export type ClipActionsInputs = {
   addSourceSpanToArrangement: (sourceSpan: SourceSpan) => void;

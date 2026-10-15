@@ -186,18 +186,28 @@ export function useTimelineSelection({
         ? timelineClips.some((clip) => clip.id === item.id)
         : sourceSpans.some((span) => span.id === item.id),
     );
-  }, [extraSelection, selectedClipId, sourceSelection, sourceSpans, timelineClips]);
+  }, [
+    extraSelection,
+    selectedClipId,
+    sourceSelection,
+    sourceSpans,
+    timelineClips,
+  ]);
   const selectedClipIds = useMemo(
     () =>
       new Set(
-        selectionItems.flatMap((item) => (item.kind === "clip" ? [item.id] : [])),
+        selectionItems.flatMap((item) =>
+          item.kind === "clip" ? [item.id] : [],
+        ),
       ),
     [selectionItems],
   );
   const selectedSourceSpanIds = useMemo(
     () =>
       new Set(
-        selectionItems.flatMap((item) => (item.kind === "span" ? [item.id] : [])),
+        selectionItems.flatMap((item) =>
+          item.kind === "span" ? [item.id] : [],
+        ),
       ),
     [selectionItems],
   );
@@ -207,8 +217,7 @@ export function useTimelineSelection({
     (item: Pick<SelectionItem, "kind" | "id">) =>
       selectionItems.length > 1 &&
       selectionItems.some(
-        (candidate) =>
-          candidate.kind === item.kind && candidate.id === item.id,
+        (candidate) => candidate.kind === item.kind && candidate.id === item.id,
       ),
     [selectionItems],
   );

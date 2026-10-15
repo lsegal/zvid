@@ -19,6 +19,7 @@ export type StatusItemId =
   | "audio"
   | "collaboration"
   | "content"
+  | "selection"
   | "media";
 
 export type StatusItem = {
@@ -60,6 +61,8 @@ export type StatusItemsState = StatusPlayheadState & {
   audio: StatusAudioInfo | null;
   collaboration: StatusCollaborationInfo;
   clipCount: number;
+  // How many clips and source clips are selected.
+  selectedClipCount: number;
   trackCount: number;
   offlineCount: number;
 };

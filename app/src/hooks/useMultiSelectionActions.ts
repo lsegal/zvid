@@ -8,7 +8,6 @@ import {
   removeMultiSelection,
   type SelectionItem,
 } from "../app/multi-selection.ts";
-import { plural } from "../status-bar/plural.ts";
 import type {
   ArrangementClip,
   ProjectState,
@@ -17,6 +16,7 @@ import type {
 } from "../app/types.ts";
 import type { SessionEffect } from "../fx-stack";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
+import { plural } from "../status-bar/plural.ts";
 
 export type MultiSelectionActionsInputs = {
   bpm: number;
@@ -62,7 +62,9 @@ export function useMultiSelectionActions({
     );
 
   function content(): MultiSelectionContent {
-    const ids = new Set(selectionItems.map((item) => `${item.kind}:${item.id}`));
+    const ids = new Set(
+      selectionItems.map((item) => `${item.kind}:${item.id}`),
+    );
     return {
       clips: timelineClips.filter((clip) => ids.has(`clip:${clip.id}`)),
       spans: sourceSpans.filter((span) => ids.has(`span:${span.id}`)),
@@ -137,9 +139,14 @@ export function useMultiSelectionActions({
     commitProjectChange(label, (current) => {
       const spanQueue = [...spanIds];
       const clipQueue = [...clipIds];
-      return pasteMultiClipboard(current, clipboard, target, pasteQ, (kind) =>
-        (kind === "span" ? spanQueue.shift() : clipQueue.shift()) ??
-        `${kind === "span" ? "source-span" : "window"}-${crypto.randomUUID()}`,
+      return pasteMultiClipboard(
+        current,
+        clipboard,
+        target,
+        pasteQ,
+        (kind) =>
+          (kind === "span" ? spanQueue.shift() : clipQueue.shift()) ??
+          `${kind === "span" ? "source-span" : "window"}-${crypto.randomUUID()}`,
       ).project;
     });
     // A pasted source clip's track is looked up again once it exists.
@@ -188,6 +195,4 @@ export function useMultiSelectionActions({
   return { covers, copy, cut, remove, duplicate, paste };
 }
 
-export type MultiSelectionActions = ReturnType<
-  typeof useMultiSelectionActions
->;
+export type MultiSelectionActions = ReturnType<typeof useMultiSelectionActions>;

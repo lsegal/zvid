@@ -97,7 +97,10 @@ export type MenusInputs = Pick<
     clipClipboardRef: RefObject<ClipClipboard | null>;
     fxLaneId: string | undefined;
     // Whether a clip is one of several selected, which its menu acts on.
-    isInMultiSelection: (item: { kind: "clip" | "span"; id: string }) => boolean;
+    isInMultiSelection: (item: {
+      kind: "clip" | "span";
+      id: string;
+    }) => boolean;
     handleRedo: () => void;
     handleUndo: () => void;
     laneStatusById: ReadonlyMap<string, { effectCount: number }>;

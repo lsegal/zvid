@@ -19,13 +19,14 @@ import type { createSpaceHold } from "../space-shortcut";
 import { useStableHandlers } from "../use-stable-handlers.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useClipActions } from "./useClipActions.ts";
-import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
+import { useMarqueeSelection } from "./useMarqueeSelection.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
+import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {
   ProjectStore,
@@ -84,6 +85,7 @@ export type TimelineEditingInputs = {
     | "applySelection"
     | "isInMultiSelection"
     | "toggleSelection"
+    | "selectionItemsRef"
   >;
   viewport: Pick<
     ReturnType<typeof useTimelineViewport>,
@@ -211,6 +213,7 @@ export function useTimelineEditing({
     applySelection,
     isInMultiSelection,
     toggleSelection,
+    selectionItemsRef,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -522,6 +525,13 @@ export function useTimelineEditing({
     totalQuarters,
   });
 
+  const marquee = useMarqueeSelection({
+    timelineScrollRef,
+    sourceSpans,
+    selectionItemsRef,
+    applySelection,
+  });
+
   useClipDrag({
     dragState,
     setDragState,
@@ -530,6 +540,9 @@ export function useTimelineEditing({
     setPendingSelection,
     setSelectedClipId,
     toggleSelection,
+    applySelection,
+    setSelectedLaneId,
+    marquee,
     clips,
     bpm,
     beatUnit,
@@ -586,6 +599,7 @@ export function useTimelineEditing({
 
   return {
     ...rowHandlers,
+    marqueeRect: marquee.marqueeRect,
     handleRandomizeTimeline,
     handleCreateLayer,
     layerReorder,

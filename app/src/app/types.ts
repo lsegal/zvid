@@ -156,6 +156,9 @@ export type DragState =
       pointerId: number;
       laneId: string;
       gesture: LaneSelectionGesture;
+      // Where a mouse or pen press was, so a drag off the layer can draw a
+      // marquee from there (see useMarqueeSelection). Touch leaves it out.
+      pointerStartY?: number;
     }
   // A drawn selection's body or edge pressed to move or resize it. Nothing
   // changes until the pointer passes the click threshold, so a press

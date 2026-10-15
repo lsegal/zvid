@@ -15,6 +15,7 @@ describe("status item providers", () => {
         "60 audio",
         "70 collaboration",
         "80 content",
+        "85 selection",
         "90 media",
       ],
     );

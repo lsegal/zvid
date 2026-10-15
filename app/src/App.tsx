@@ -25,6 +25,7 @@ import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
 import { AudioRow } from "./components/timeline/AudioRow";
+import { MarqueeBox } from "./components/timeline/MarqueeBox";
 import { Ruler } from "./components/timeline/Ruler";
 import { SourceTracks } from "./components/timeline/SourceTracks";
 import { Timeline } from "./components/timeline/Timeline";
@@ -772,6 +773,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         offlineCount={mediaImport.offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={preview.previewMedia}
+        selectedClipCount={selection.selectionItems.length}
         reopenExportDialog={exporter.reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={dialogs.setIsSessionSettingsOpen}
@@ -781,6 +783,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         timelineMode={timelineMode}
         trackCount={lanes.length}
       />
+      <MarqueeBox rect={editing.marqueeRect} />
       <TimelineContextMenu
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}

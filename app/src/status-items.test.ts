@@ -30,6 +30,7 @@ const BASE: StatusItemsState = {
   audio: { sampleRate: 48000, channels: 2, hasAudio: true },
   collaboration: { mode: "idle", connected: false, peerCount: 0 },
   clipCount: 3,
+  selectedClipCount: 0,
   trackCount: 2,
   offlineCount: 0,
 };
