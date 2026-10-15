@@ -193,7 +193,7 @@ test("grays out Paste while the clipboard holds layer content", {
   await menuItem("Insert text at playhead").click();
   const clip = () => query('[data-timeline-lane-id="1"] .clip-card');
   await expectCount('[data-timeline-lane-id="1"] .clip-card', 1);
-  await userEvent.click(clip().querySelector(".clip-card__body") as Element);
+  // Inserting the clip selects it.
   await expectSelected(clip, "clip-card--selected");
   await pressMod("c");
 
@@ -205,7 +205,6 @@ test("respects the source track lock", { timeout: TIMEOUT }, async () => {
   await userEvent.click(firstSpan());
   await pressMod("c");
   await page.getByRole("button", { name: "Lock source tracks" }).click();
-  await userEvent.click(firstSpan());
 
   await rightClickEmpty(200);
   for (const name of [

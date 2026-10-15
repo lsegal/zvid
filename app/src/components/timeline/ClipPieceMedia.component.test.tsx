@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { userEvent } from "vitest/browser";
 import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
@@ -203,9 +203,9 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await undo();
     await expect.poll(pieceRanges).toEqual([[0, 1]]);
 
-    // The Shift-drags above added the source clip to the selection; a
-    // click selects just it, so the layer clip doesn't move with it.
-    await page.elementLocator(query(".source-span__body", span())).click();
+    // The Shift-drags above selected just the source clip, so the layer
+    // clip doesn't move with it.
+    expect(clip().className).not.toMatch(/clip-card--selected/);
     // Moving the source clip six quarters later leaves nothing under the
     // layer clip; moving it back fills it again, with no relinking.
     await dragBy(query(".source-span__body", span()), 6 * quarterPx);
@@ -220,7 +220,8 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     // Deleting the source clip leaves the layer clip in place, showing
     // nothing; undo brings the source clip back and fills it again.
-    await page.elementLocator(query(".source-span__body", span())).click();
+    // The last drag left it selected.
+    await expect.poll(() => span().className).toMatch(/source-span--selected/);
     await userEvent.keyboard("{Delete}");
     await expect
       .poll(() => document.querySelectorAll(".source-span"))
@@ -289,7 +290,8 @@ describe(ClipPieceMedia, { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     // Deleting the source clip leaves the layer clip in place, showing
     // nothing; undo brings back what it showed.
-    await page.elementLocator(query(".source-span__body", span())).click();
+    // The last drag left it selected.
+    await expect.poll(() => span().className).toMatch(/source-span--selected/);
     await userEvent.keyboard("{Delete}");
     await expect
       .poll(() => document.querySelectorAll(".source-span"))

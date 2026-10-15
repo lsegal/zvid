@@ -132,8 +132,9 @@ export type DragState =
       duplicateOnDrag: boolean;
       // A Ctrl/Cmd-press released without dragging jumps to the clip start.
       jumpOnClick: boolean;
-      // A Shift-press released without dragging adds the clip to the
-      // selection or takes it out (see multi-selection.ts).
+      // A Shift-press, or a press on a selected clip, released without
+      // dragging adds the clip to the selection or takes it out (see
+      // multi-selection.ts).
       toggleOnClick?: boolean;
       // The other selected clips, when the clip is one of several selected:
       // they move, or duplicate, with it (see clip-group-move.ts).

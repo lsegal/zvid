@@ -124,10 +124,7 @@ describe("transport shortcuts", { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
   test("Ctrl/Cmd+Left in a text field does not move the playhead", async () => {
     await renderWithLoop();
-    const clip = document.querySelector(
-      '[data-timeline-lane-id="1"] .clip-card--text',
-    ) as HTMLElement;
-    await click(center(clip).x, center(clip).y);
+    // The inserted text clip stays selected.
     const field = page
       .getByRole("region", { name: "Text" })
       .getByRole("textbox", { name: "Text" });

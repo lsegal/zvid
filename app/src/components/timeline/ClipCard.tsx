@@ -1,4 +1,4 @@
-import { type Dispatch, memo, type SetStateAction } from "react";
+import { type Dispatch, memo, type SetStateAction, useRef } from "react";
 import { type Filmstrip, getClipPieceKey } from "../../app/filmstrip.ts";
 import { formatDuration } from "../../app/format.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
@@ -128,6 +128,8 @@ export const ClipCard = memo(function ClipCard({
   // together (#1470, #1483).
   const inGroup =
     selected && selectedClipIds.size + (selectedSourceSpanIds?.size ?? 0) > 1;
+  // The pointer that last pressed the body, whose click it already handled.
+  const pressRef = useRef<number | null>(null);
   // Keeps the trimmed edge's handle shown while the pointer
   // strays off it mid-drag.
   const trimming =
@@ -285,12 +287,24 @@ export const ClipCard = memo(function ClipCard({
       <button
         className="clip-card__body"
         onClick={(event) => {
+          // A press on the body already selected or toggled the clip on
+          // release (useClipDrag). Touch taps, which the touch gestures
+          // keep from pressing it, and the keyboard select it here.
+          const native: Partial<PointerEvent> = event.nativeEvent;
+          const pressed =
+            pressRef.current !== null &&
+            (native.pointerId !== undefined
+              ? native.pointerId === pressRef.current
+              : event.detail > 0);
+          pressRef.current = null;
+          if (pressed) {
+            return;
+          }
           // A Shift-click toggles the clip on release instead (useClipDrag).
           if (event.shiftKey) {
             return;
           }
-          // One of several selected clips keeps the selection, which a
-          // release without dragging narrows instead (useClipDrag).
+          // One of several selected clips keeps the selection.
           if (inGroup) {
             return;
           }
@@ -309,6 +323,7 @@ export const ClipCard = memo(function ClipCard({
 
           event.preventDefault();
           event.stopPropagation();
+          pressRef.current = event.pointerId;
           setPendingSelection(null);
           setDragPreviewClips(null);
           const duplicateOnDrag = event.ctrlKey || event.metaKey;
@@ -316,8 +331,10 @@ export const ClipCard = memo(function ClipCard({
             ? `window-${crypto.randomUUID()}`
             : clip.id;
           // A Shift-click adds the clip to the selection or takes it out
-          // on release; dragging still moves it.
-          const toggleOnClick = event.shiftKey && !duplicateOnDrag;
+          // on release, and a click on a selected clip takes it out;
+          // dragging still moves it, or the whole selection (#1481).
+          const toggleOnClick =
+            (event.shiftKey || selected) && !duplicateOnDrag;
           // Selected source clips move with it, but are not duplicated.
           const spanGroup =
             inGroup && !duplicateOnDrag && selectedSourceSpanIds?.size

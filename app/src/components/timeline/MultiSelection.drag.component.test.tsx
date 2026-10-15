@@ -163,7 +163,7 @@ test("dragging one selected clip moves them all in one undo step", {
   expect(state().status).toBe("Undid: Move 3 clips.");
 });
 
-test("a click on one selected clip selects just it", {
+test("a click on one selected clip takes it out of the selection (#1481)", {
   timeout: EDITOR_TEST_TIMEOUT,
 }, async () => {
   const state = await renderProject();
@@ -173,8 +173,29 @@ test("a click on one selected clip selects just it", {
     element('.clip-card[data-clip-id="b"] .clip-card__body'),
   );
   await click(x, y);
-  await expect.poll(selectedIds).toEqual(["b"]);
+  await expect.poll(() => selectedIds().sort()).toEqual(["a", "c"]);
   expect(state().canUndo).toBe(false);
+});
+
+test("dragging the only selected clip moves it and keeps it selected", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
+  const state = await renderProject();
+  const { x, y } = center(
+    element('.clip-card[data-clip-id="b"] .clip-card__body'),
+  );
+  await click(x, y);
+  await expect.poll(selectedIds).toEqual(["b"]);
+
+  await dragClip("b", 4 * quarterPx(), "2");
+  await expect
+    .poll(() => placement(state()))
+    .toEqual([
+      ["a", "1", 0],
+      ["b", "2", 12],
+      ["c", "1", 12],
+    ]);
+  expect(selectedIds()).toEqual(["b"]);
 });
 
 test("Ctrl/Cmd-dragging one selected clip duplicates them all with their stacks", {

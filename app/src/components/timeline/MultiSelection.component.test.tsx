@@ -132,6 +132,40 @@ test("Shift-click adds layer and source clips to the selection and takes them ou
   await expect.poll(selectedIds).toEqual(["a"]);
 });
 
+test("a click on a selected layer or source clip takes it out of the selection (#1481)", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
+  await renderProject();
+
+  // With only a selected, clicking it leaves nothing selected.
+  await clickClip(clipCard("a"));
+  await expect.poll(selectedIds).toEqual(["a"]);
+  await clickClip(clipCard("a"));
+  await expect.poll(selectedIds).toEqual([]);
+
+  await clickClip(clipCard("a"));
+  await clickClip(clipCard("b"), true);
+  const span = sourceSpan(0);
+  await click(center(span).x, center(span).y, { modifiers: ["Shift"] });
+  await expect
+    .poll(() => selectedIds().sort())
+    .toEqual(["a", "b", span.dataset.sourceSpanId].sort());
+
+  await clickClip(clipCard("b"));
+  await expect
+    .poll(() => selectedIds().sort())
+    .toEqual(["a", span.dataset.sourceSpanId].sort());
+  await click(center(span).x, center(span).y);
+  await expect.poll(selectedIds).toEqual(["a"]);
+
+  // A plain click on an unselected source clip selects just it, and a
+  // second click takes it out.
+  await click(center(span).x, center(span).y);
+  await expect.poll(selectedIds).toEqual([span.dataset.sourceSpanId]);
+  await click(center(span).x, center(span).y);
+  await expect.poll(selectedIds).toEqual([]);
+});
+
 test("Ctrl/Cmd-click jumps to a layer clip or adds a source clip, selecting just that clip", {
   timeout: EDITOR_TEST_TIMEOUT,
 }, async () => {

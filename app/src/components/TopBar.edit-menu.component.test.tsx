@@ -162,8 +162,8 @@ describe(TopBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     );
     const clipCount = () => document.querySelectorAll(".clip-card").length;
     await expect.poll(clipCount).toBe(1);
+    // The dropped clip is selected.
     const clip = document.querySelector(".clip-card") as HTMLElement;
-    await userEvent.click(page.elementLocator(clip));
     await expect.poll(() => clip.className).toMatch(/clip-card--selected/);
 
     await openEditMenu();
