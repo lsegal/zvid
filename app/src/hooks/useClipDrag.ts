@@ -50,6 +50,7 @@ export type ClipDragInputs = {
   playbackOriginRef: { current: number };
   isWorkspaceReadOnlyRef: { current: boolean };
   refuseReadOnlyEdit: () => void;
+  setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setPlayheadQ: (nextPlayheadQ: number) => void;
   jumpToClipStart: (clipId: string) => void;
   commitProjectChange: (
@@ -84,6 +85,7 @@ export function useClipDrag({
   playbackOriginRef,
   isWorkspaceReadOnlyRef,
   refuseReadOnlyEdit,
+  setIsPlaying,
   setPlayheadQ,
   jumpToClipStart,
   commitProjectChange,
@@ -360,9 +362,10 @@ export function useClipDrag({
         return;
       }
 
-      // A press released before it became a drag is a click: it seeks
-      // instead of leaving a selection behind.
       // A drag released off its layer keeps what its marquee selected.
+      // Otherwise a press released before it became a drag is a click: it
+      // stops playback and seeks instead of leaving a selection behind. A
+      // drag leaves playback running (#1447).
       if (dragState.kind === "selection" && laneMarqueeRef.current) {
         laneMarqueeRef.current = false;
         hideMarquee();
@@ -372,6 +375,7 @@ export function useClipDrag({
           setPendingSelection(null);
           setPlayheadQ(release.playheadQ);
           playbackOriginRef.current = release.playheadQ;
+          setIsPlaying(false);
         }
       }
 
@@ -476,6 +480,7 @@ export function useClipDrag({
     jumpToClipStart,
     minimumWindowQ,
     refuseReadOnlyEdit,
+    setIsPlaying,
     setPlayheadQ,
     snapEnabled,
     labelWidth,

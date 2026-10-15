@@ -48,7 +48,6 @@ export type LaneRowContext = {
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
-  setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
   setDragState: Dispatch<SetStateAction<DragState | null>>;
   clipCard: ClipCardContext;
@@ -84,7 +83,6 @@ export const LaneRow = memo(function LaneRow({
   setPendingSelection,
   setSelectedClipId,
   setSelectedLaneId,
-  setIsPlaying,
   setDragPreviewClips,
   setDragState,
   clipCard,
@@ -145,8 +143,9 @@ export const LaneRow = memo(function LaneRow({
           return;
         }
 
+        // Selecting leaves playback running (#1447); a click pauses on
+        // release, when it seeks.
         event.preventDefault();
-        setIsPlaying(false);
         // Browsers don't all fire dblclick for a double tap.
         if (event.pointerType === "touch") {
           const tap = {
@@ -205,7 +204,6 @@ export const LaneRow = memo(function LaneRow({
 
             event.preventDefault();
             event.stopPropagation();
-            setIsPlaying(false);
             setDragState({
               kind: "selection-edit",
               pointerId: event.pointerId,

@@ -555,6 +555,7 @@ export function useTimelineEditing({
     playbackOriginRef,
     isWorkspaceReadOnlyRef,
     refuseReadOnlyEdit,
+    setIsPlaying,
     setPlayheadQ,
     jumpToClipStart,
     commitProjectChange,

@@ -6,6 +6,7 @@ import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { FIRST_PAD_NOTE } from "../fx/effects/drum-rack/banks.ts";
 import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
+import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
 import { collectSessionMediaPaths, type ProjectSession } from "../session.ts";
@@ -134,6 +135,29 @@ describe("MIDI sample", () => {
     // The lead resolves home on D.
     const lead = midiClips().find((clip) => clip.id === "lead");
     assert.equal((lead?.notes?.at(-1)?.pitch ?? 0) % 12, 2);
+  });
+
+  it("pulses the fill clip's hue once per hit and names the swaps layer (#1448)", () => {
+    const colorize = (session.effects ?? []).find(
+      (effect) =>
+        effect.trackId === "clip:fill-e56679bc-590c-4bad-822d-611dbfaa8366" &&
+        effect.effectName === "Colorize",
+    );
+    assert.ok(colorize);
+    const animation = normalizeEffectAnimation(colorize.animation, "Colorize");
+    assert.equal(animation?.mode, "reactive");
+    assert.deepEqual(animation?.reactive, {
+      motion: "Single",
+      timing: "Fast",
+      reactivity: 0.1,
+      amplitude: 6.9,
+      parameters: ["_HueOffset"],
+    });
+    const { project } = openSample();
+    assert.equal(
+      project.lanes.find((lane) => lane.id === "4")?.name,
+      "Order Swaps",
+    );
   });
 
   it("places the background Lotties from bar 5", () => {

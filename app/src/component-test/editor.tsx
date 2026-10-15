@@ -505,7 +505,6 @@ export function Editor({
                     setPendingSelection,
                     setSelectedClipId,
                     setSelectedLaneId: selection.setSelectedLaneId,
-                    setIsPlaying,
                     setDragPreviewClips,
                     setDragState,
                     clipCard: {
