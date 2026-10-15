@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getHarness } from "./harness";
+import { lottieThumbnailUrl } from "./image-media-frames.ts";
+import { isLottieName } from "./lottie.ts";
 import type { MediaItem } from "./media";
 import {
   createThumbnailCache,
@@ -18,7 +20,8 @@ function revokeObjectUrl(url: string) {
 }
 
 // Decodes and caches the thumbnails in `requests`, returning a snapshot to
-// read them from. `requests` should be memoized; a new array reschedules the
+// read them from. A Lottie's frames are drawn by its player; other media's
+// by the harness. `requests` should be memoized; a new array reschedules the
 // decodes.
 export function useThumbnailCache(
   requests: ThumbnailRequest<MediaItem>[],
@@ -29,7 +32,9 @@ export function useThumbnailCache(
   const [cache] = useState(() =>
     createThumbnailCache<MediaItem>({
       generate: async (media, timeSeconds, size) =>
-        getHarness().generateThumbnailAtTime?.(media, timeSeconds, size),
+        isLottieName(media.name)
+          ? lottieThumbnailUrl(media, timeSeconds)
+          : getHarness().generateThumbnailAtTime?.(media, timeSeconds, size),
       revoke: revokeObjectUrl,
       onError: (request, error) => onErrorRef.current?.(request, error),
     }),

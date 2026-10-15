@@ -260,18 +260,37 @@ export async function imageAnimationSeconds(media: ImageMediaRef) {
     : 0;
 }
 
-/**
- * The size, length and middle frame, as a PNG object URL, of the Lottie
- * animation at `media`. It throws the reason when `media` holds none.
- */
-export async function lottieMediaDetails(media: ImageMediaRef) {
+// The Lottie player for `media`, or the reason it holds none.
+async function loadedLottie(media: ImageMediaRef) {
   const image = await loaded(media);
   if (image?.status !== "lottie") {
     throw new Error(
       (image?.status === "failed" && image.reason) || "Not a Lottie animation",
     );
   }
-  const { player } = image;
+  return image.player;
+}
+
+/**
+ * The Lottie animation at `media`'s frame `seconds` into it, as a PNG object
+ * URL. It throws the reason the frame can't be drawn.
+ */
+export async function lottieThumbnailUrl(
+  media: ImageMediaRef,
+  seconds: number,
+) {
+  const player = await loadedLottie(media);
+  return lottieFrameUrl(player, lottieFrameIndex(player.data, seconds));
+}
+
+/**
+ * The size, length and middle frame, as a PNG object URL, of the Lottie
+ * animation at `media`. It throws the reason when `media` holds none. A
+ * middle frame that can't be captured is left out; the media drawer draws it
+ * again on demand.
+ */
+export async function lottieMediaDetails(media: ImageMediaRef) {
+  const player = await loadedLottie(media);
   const durationSeconds = lottieSeconds(player.data);
   return {
     width: player.width,
@@ -280,7 +299,7 @@ export async function lottieMediaDetails(media: ImageMediaRef) {
     thumbnailUrl: await lottieFrameUrl(
       player,
       lottieFrameIndex(player.data, durationSeconds / 2),
-    ),
+    ).catch(() => undefined),
   };
 }
 

@@ -8,8 +8,10 @@ import {
   useRef,
 } from "react";
 import { formatMediaTime } from "../../app/media-preview.ts";
+import { logClient } from "../../app/util.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
+import { isLottieName } from "../../lottie.ts";
 import {
   imageThumbnailUrl,
   isEffectMedia,
@@ -64,8 +66,12 @@ type MediaDrawerProps = {
   onBackfillMediaDetails: (mediaId: string) => void;
 };
 
+// A Lottie shows its middle frame, as when it was imported.
 function getThumbnailTime(media: MediaItem) {
-  return Math.min(1, Math.max(0, media.durationSeconds) * 0.1);
+  const durationSeconds = Math.max(0, media.durationSeconds);
+  return isLottieName(media.name)
+    ? durationSeconds / 2
+    : Math.min(1, durationSeconds * 0.1);
 }
 
 function getThumbnailSize(media: MediaItem) {
@@ -147,7 +153,10 @@ export function MediaDrawer({
       isOpen
         ? mediaItems.flatMap((media) => {
             if (
-              !media.hasVideo ||
+              !(
+                media.hasVideo ||
+                (isLottieName(media.name) && !media.thumbnailUrl)
+              ) ||
               !media.previewUrl ||
               media.availability !== "ready"
             ) {
@@ -169,13 +178,20 @@ export function MediaDrawer({
         : [],
     [isOpen, mediaItems],
   );
-  const thumbnails = useThumbnailCache(thumbnailRequests);
-  // An image is its own thumbnail.
+  const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
+    logClient("thumbnail:error", {
+      owner: request.owner,
+      mediaId: request.media.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
+  // An image is its own thumbnail. A Lottie's frame drawn at import doesn't
+  // outlive the session, so it is drawn again when missing.
   const getThumbnailUrl = (media: MediaItem) =>
     (isImageMedia(media) &&
       media.availability === "ready" &&
       imageThumbnailUrl(media)) ||
-    (media.hasVideo &&
+    ((media.hasVideo || isLottieName(media.name)) &&
       thumbnails.get(
         getThumbnailCacheKey(
           media.id,

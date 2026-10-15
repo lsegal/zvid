@@ -115,11 +115,17 @@ export async function openLottie(
   };
 }
 
-/** A PNG of `player`'s frame `index`, as an object URL. */
+/**
+ * A PNG of `player`'s frame `index`, as an object URL. It throws when the
+ * canvas yields no image, e.g. when it has no size.
+ */
 export async function lottieFrameUrl(player: LottiePlayer, index: number) {
   const canvas = player.frame(index);
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/png"),
   );
-  return blob ? URL.createObjectURL(blob) : undefined;
+  if (!blob) {
+    throw new Error("The Lottie frame could not be captured.");
+  }
+  return URL.createObjectURL(blob);
 }
