@@ -358,31 +358,12 @@ test("draws a Lottie's middle frame when it has no thumbnail", async () => {
       height: 64,
       previewUrl,
     };
-    const diag: string[] = [];
-    const start = performance.now();
-    const info = console.info;
-    console.info = (...args: unknown[]) => {
-      diag.push(`${(performance.now() - start).toFixed(0)}ms ${JSON.stringify(args)}`);
-      info(...args);
-    };
-    const toBlob = HTMLCanvasElement.prototype.toBlob;
-    HTMLCanvasElement.prototype.toBlob = function (cb, ...rest) {
-      const at = performance.now() - start;
-      diag.push(`toBlob ${this.width}x${this.height} at ${at.toFixed(0)}ms ${new Error().stack?.split("\n").slice(2, 5).join(" | ")}`);
-      return toBlob.call(this, (b) => { diag.push(`toBlob done ${(performance.now() - start).toFixed(0)}ms`); cb(b); }, ...rest);
-    };
     await render(<Editor mediaItems={[lottie]} />);
     await toggle().click();
-    diag.push(`clicked ${(performance.now() - start).toFixed(0)}ms`);
-    try {
-      await expect
-        .poll(() => item("spinner").element().querySelector("img")?.src ?? "", { timeout: 30_000 })
-        .toMatch(/^blob:/);
-    } finally {
-      diag.push(`img ${(performance.now() - start).toFixed(0)}ms ${item("spinner").element().innerHTML.slice(0, 300)}`);
-      console.info = info;
-    }
-    if (performance.now() - start > 0) throw new Error(`DIAG ${diag.join("\n")}`);
+
+    await expect
+      .poll(() => item("spinner").element().querySelector("img")?.src ?? "")
+      .toMatch(/^blob:/);
     const shown = item("spinner")
       .element()
       .querySelector("img") as HTMLImageElement;
