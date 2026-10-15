@@ -43,15 +43,19 @@ jobs:
         working-directory: site
         run: pnpm install --frozen-lockfile
 
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       # Pages serves a project site from /<repo>/, so every asset URL needs
-      # that prefix.
+      # that prefix. Canonical links and share previews need the full
+      # address, which configure-pages reports.
       - name: Build
         working-directory: site
         run: pnpm build
         env:
-          SITE_BASE: /${{ github.event.repository.name }}/
-
-      - uses: actions/configure-pages@v5
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}/
+          VITE_SITE_URL: ${{ steps.pages.outputs.base_url }}/
 
       - uses: actions/upload-pages-artifact@v3
         with:
