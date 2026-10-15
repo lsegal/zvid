@@ -1110,26 +1110,26 @@
 /* Placeholder waveform bars of a few heights across the Audio row. */
 .media-sync--waveform {
   inset: 8px auto 8px 0;
-  --clip-accent: rgba(214, 236, 245, 0.82);
+  --clip-accent: rgb(var(--waveform) / 0.82);
   border-radius: 6px;
   background:
     repeating-linear-gradient(
         90deg,
-        rgba(214, 236, 245, 0.16) 0 2px,
+        rgb(var(--waveform) / 0.16) 0 2px,
         transparent 2px 12px
       )
       left center / 100% 80% no-repeat,
     repeating-linear-gradient(
         90deg,
         transparent 0 4px,
-        rgba(214, 236, 245, 0.12) 4px 6px,
+        rgb(var(--waveform) / 0.12) 4px 6px,
         transparent 6px 12px
       )
       left center / 100% 45% no-repeat,
     repeating-linear-gradient(
         90deg,
         transparent 0 8px,
-        rgba(214, 236, 245, 0.12) 8px 10px,
+        rgb(var(--waveform) / 0.12) 8px 10px,
         transparent 10px 12px
       )
       left center / 100% 62% no-repeat;

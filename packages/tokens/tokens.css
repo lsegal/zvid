@@ -28,6 +28,8 @@
   /* The ink's channels, for translucent ink washes: `rgb(var(--tint) / 0.08)`
    * lightens a dark surface and darkens a light one. */
   --tint: 255 255 255;
+  /* Waveforms' channels, drawn translucent over clips and rows. */
+  --waveform: 214 236 245;
 }
 
 /* The light theme (#1488). Text and accents keep at least 4:1 contrast on
@@ -51,6 +53,7 @@
   --mint: #18804a;
   --selection-ring: #1b1f33;
   --tint: 22 27 48;
+  --waveform: 36 52 88;
 }
 
 /* Space Grotesk 400/500/700 (latin, latin-ext) */

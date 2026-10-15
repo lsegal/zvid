@@ -22,10 +22,10 @@ import { usePhoneExportSupport } from "./usePhoneExportSupport.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
 import type { Recording } from "./useRecording.ts";
+import { useTheme } from "./useTheme.ts";
 import type { Timeline } from "./useTimeline.ts";
 import type { useTimelineEditing } from "./useTimelineEditing.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
-import { useTheme } from "./useTheme.ts";
 import { useTouchClipGestures } from "./useTouchClipGestures.ts";
 
 type TimelineEditing = ReturnType<typeof useTimelineEditing>;

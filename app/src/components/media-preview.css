@@ -52,7 +52,7 @@
 .media-preview__glyph {
   width: 64px;
   height: 64px;
-  color: rgba(214, 236, 245, 0.6);
+  color: rgb(var(--waveform) / 0.6);
 }
 
 .media-preview__transport {

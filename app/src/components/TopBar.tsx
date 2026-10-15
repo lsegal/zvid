@@ -102,13 +102,16 @@ export function TopBar(props: TopBarProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" {...fileMenu.content}>
               <DropdownMenuEntries
-                entries={buildFileMenuEntries({ ...props, theme, setTheme }, {
-                  // Browsers keep the shortcut for a new window.
-                  newSession: supportsHarnessCapability("native-dialogs")
-                    ? getShortcutLabels().newSession
-                    : undefined,
-                  save: getShortcutLabels().save,
-                })}
+                entries={buildFileMenuEntries(
+                  { ...props, theme, setTheme },
+                  {
+                    // Browsers keep the shortcut for a new window.
+                    newSession: supportsHarnessCapability("native-dialogs")
+                      ? getShortcutLabels().newSession
+                      : undefined,
+                    save: getShortcutLabels().save,
+                  },
+                )}
               />
             </DropdownMenuContent>
           </DropdownMenu>
