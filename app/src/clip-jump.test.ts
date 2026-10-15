@@ -128,7 +128,7 @@ describe("arrangement clip Ctrl/Cmd-click", () => {
   it("names the shortcut in the clip tooltip", () => {
     assert.match(
       clipCardTsx,
-      /title=\{`\$\{shortcutLabels\.clipJump\} to jump to start`\}/,
+      /title=\{`\$\{shortcutLabels\.clipJump\} to jump to start, /,
     );
   });
 });

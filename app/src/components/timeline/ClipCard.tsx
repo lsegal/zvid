@@ -49,7 +49,8 @@ import "./clip-card.css";
 
 // What every clip card in the arrangement shares.
 export type ClipCardContext = {
-  selectedClipId: string | undefined;
+  // Every selected clip, which all show as selected.
+  selectedClipIds: ReadonlySet<string>;
   dragState: DragState | null;
   bpm: number;
   quarterPx: number;
@@ -95,7 +96,7 @@ type ClipCardProps = {
 export const ClipCard = memo(function ClipCard({
   clip,
   collapsed = false,
-  selectedClipId,
+  selectedClipIds,
   dragState,
   bpm,
   quarterPx,
@@ -119,7 +120,7 @@ export const ClipCard = memo(function ClipCard({
   setSelectedClipId,
   setDragState,
 }: ClipCardProps) {
-  const selected = clip.id === selectedClipId;
+  const selected = selectedClipIds.has(clip.id);
   // Keeps the trimmed edge's handle shown while the pointer
   // strays off it mid-drag.
   const trimming =
@@ -276,14 +277,18 @@ export const ClipCard = memo(function ClipCard({
       />
       <button
         className="clip-card__body"
-        onClick={() => {
+        onClick={(event) => {
+          // A Shift-click toggles the clip on release instead (useClipDrag).
+          if (event.shiftKey) {
+            return;
+          }
           setPendingSelection(null);
           // Selecting never moves the playhead.
           setSelectedClipId(clip.id);
         }}
         // Double-clicking a text clip types on it in
         // the preview.
-        title={`${shortcutLabels.clipJump} to jump to start`}
+        title={`${shortcutLabels.clipJump} to jump to start, ${shortcutLabels.selectionToggle} to add to or remove from the selection`}
         onDoubleClick={textStyle ? () => startTextEdit(clip.id) : undefined}
         onPointerDown={(event) => {
           if (isContextMenuPress(event, shortcutLabels.mac)) {
@@ -298,7 +303,12 @@ export const ClipCard = memo(function ClipCard({
           const dragClipId = duplicateOnDrag
             ? `window-${crypto.randomUUID()}`
             : clip.id;
-          setSelectedClipId(dragClipId);
+          // A Shift-click adds the clip to the selection or takes it out
+          // on release; dragging still moves it.
+          const toggleOnClick = event.shiftKey && !duplicateOnDrag;
+          if (!toggleOnClick) {
+            setSelectedClipId(dragClipId);
+          }
           setDragState({
             kind: "move",
             pointerId: event.pointerId,
@@ -310,6 +320,7 @@ export const ClipCard = memo(function ClipCard({
             originLaneId: clip.laneId,
             duplicateOnDrag,
             jumpOnClick: isClipJumpPress(event, shortcutLabels.mac),
+            toggleOnClick,
           });
         }}
         type="button"

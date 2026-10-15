@@ -182,6 +182,8 @@ export const LaneRow = memo(function LaneRow({
           pointerId: event.pointerId,
           laneId: lane.id,
           gesture: startLaneSelectionGesture(anchorQ, event.clientX),
+          pointerStartY:
+            event.pointerType === "touch" ? undefined : event.clientY,
         });
       }}
       style={gridStyle}

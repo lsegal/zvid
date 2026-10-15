@@ -219,9 +219,10 @@ describe("animation defaults", () => {
       reactive: {
         motion: "Single",
         timing: "Normal",
-        reactivity: 0,
+        reactivity: 1,
         amplitude: 0.5,
         parameters: ["_NumPixels"],
+        version: 2,
       },
       lfo: {
         shape: "Sine",
@@ -494,9 +495,10 @@ describe("normalizeEffectAnimation", () => {
         reactive: {
           motion: "Wobble",
           timing: "Normal",
-          reactivity: 0,
+          reactivity: 1,
           amplitude: 0.5,
           parameters: ["_HueOffset"],
+          version: 2,
         },
         lfo: createDefaultAnimation("Colorize")?.lfo,
       },
@@ -560,6 +562,7 @@ describe("normalizeEffectAnimation", () => {
         reactivity: 0.3,
         amplitude: 2.5,
         parameters: ["_HueOffset"],
+        version: 2,
       },
     };
     const loaded = normalizeEffectAnimation(saved, "Colorize");
@@ -569,7 +572,7 @@ describe("normalizeEffectAnimation", () => {
   });
 
   // Reactivity used to scale the swing, with every hit triggering.
-  it("loads a session saved before Amplitude with threshold 0 and its Reactivity as Amplitude", () => {
+  it("loads a session saved before Amplitude with every hit triggering and its Reactivity as Amplitude", () => {
     const loaded = normalizeEffectAnimation(
       {
         enabled: true,
@@ -583,8 +586,62 @@ describe("normalizeEffectAnimation", () => {
       },
       "Colorize",
     );
-    assert.equal(loaded?.reactive?.reactivity, 0);
+    assert.equal(loaded?.reactive?.reactivity, 1);
     assert.equal(loaded?.reactive?.amplitude, 0.3);
+    assert.equal(loaded?.reactive?.version, 2);
+  });
+
+  // Reactivity used to be the weakest hit that triggers, so 0 let every
+  // hit through.
+  it("loads a session saved while Reactivity was a threshold inverted, letting the same hits through", () => {
+    const load = (reactivity: number) =>
+      normalizeEffectAnimation(
+        {
+          enabled: true,
+          mode: "reactive",
+          reactive: {
+            motion: "Bounce",
+            timing: "Normal",
+            reactivity,
+            amplitude: 2.5,
+            parameters: ["_HueOffset"],
+          },
+        },
+        "Colorize",
+      )?.reactive;
+    assert.equal(load(0)?.reactivity, 1);
+    assert.equal(load(0.7)?.reactivity, 0.3);
+    assert.equal(load(1)?.reactivity, 0);
+    assert.equal(load(0.7)?.amplitude, 2.5);
+    assert.equal(load(0.7)?.version, 2);
+  });
+
+  it("doesn't invert Reactivity again when a migrated session is reopened", () => {
+    const once = normalizeEffectAnimation(
+      {
+        enabled: true,
+        mode: "reactive",
+        reactive: { motion: "Bounce", reactivity: 0.7, amplitude: 1 },
+      },
+      "Colorize",
+    );
+    const twice = normalizeEffectAnimation(
+      JSON.parse(JSON.stringify(once)),
+      "Colorize",
+    );
+    assert.equal(twice?.reactive?.reactivity, 0.3);
+    assert.deepEqual(twice, once);
+  });
+
+  it("loads a negative Amplitude, clamped to -10..10", () => {
+    const amplitude = (value: number) =>
+      normalizeEffectAnimation(
+        { reactive: { amplitude: value, version: 2 } },
+        "Colorize",
+      )?.reactive?.amplitude;
+    assert.equal(amplitude(-3.5), -3.5);
+    assert.equal(amplitude(-40), -10);
+    assert.equal(amplitude(40), 10);
   });
 
   it("loads a saved LFO Order in Clip mode", () => {

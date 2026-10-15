@@ -225,7 +225,7 @@ const noop = () => {};
 
 const CARD_CONTEXT: Omit<
   ClipCardContext,
-  "selectedClipId" | "bpm" | "timelineEffects" | "effects"
+  "selectedClipIds" | "bpm" | "timelineEffects" | "effects"
 > = {
   dragState: null,
   quarterPx: 40,
@@ -279,7 +279,11 @@ export function FxClipEditor(props: FxEditorProps) {
                   {...CARD_CONTEXT}
                   bpm={project.bpm}
                   effects={project.effects}
-                  selectedClipId={props.selection?.clipId}
+                  selectedClipIds={
+                    new Set(
+                      props.selection?.clipId ? [props.selection.clipId] : [],
+                    )
+                  }
                   timelineEffects={project.effects}
                 />
               ))}

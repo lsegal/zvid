@@ -1,9 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./App.css";
 import "./coarse-pointer.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
-import { selectSourceSpan } from "./app/source-selection.ts";
-import type { SourceSpan } from "./app/types.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
@@ -27,6 +25,7 @@ import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
 import { AudioRow } from "./components/timeline/AudioRow";
+import { MarqueeBox } from "./components/timeline/MarqueeBox";
 import { Ruler } from "./components/timeline/Ruler";
 import { SourceTracks } from "./components/timeline/SourceTracks";
 import { Timeline } from "./components/timeline/Timeline";
@@ -387,11 +386,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     exportTo: exporter.exportTo,
     newSession,
   });
-  const { selectSource } = selection;
-  const selectSourceSpanClip = useCallback(
-    (span: SourceSpan) => selectSource(selectSourceSpan(span)),
-    [selectSource],
-  );
   const { modulationClock, animationTimeline } = useFxContexts({
     playheadSignal,
     bpm,
@@ -515,6 +509,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 }
               >
                 <Ruler
+                  {...layout}
                   {...timeline}
                   {...mediaImport}
                   {...playback}
@@ -524,7 +519,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     dialogs.setIsOfflineMediaDialogOpen
                   }
                   timelineScrollRef={timelineScrollRef}
-                  shortcutLabels={shortcutLabels}
                   timelineDragState={selection.timelineDragState}
                   setTimelineDragState={selection.setTimelineDragState}
                   isPlaying={isPlaying}
@@ -532,7 +526,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   setPlayheadQ={setPlayheadQ}
                   playbackOriginRef={playbackOriginRef}
                   playheadSignal={playheadSignal}
-                  labelWidth={labelWidth}
                   timelineMode={timelineMode}
                   bpm={bpm}
                   fps={fps}
@@ -547,7 +540,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   fxLaneId={fxPanel.fxLaneId}
                   laneStatusById={timeline.laneStatusById}
                   clipsByLane={timeline.clipsByLane}
-                  rowHeights={layout.rowHeights}
+                  {...layout}
                   emptyState={
                     timeline.showArrangementEmptyState ? (
                       <ArrangementEmptyState
@@ -596,7 +589,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setDragPreviewClips,
                     setDragState,
                     clipCard: {
-                      selectedClipId: selectedClip?.id,
+                      selectedClipIds: selection.selectedClipIds,
                       dragState,
                       bpm,
                       quarterPx,
@@ -669,8 +662,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     prefersReducedMotion,
                     revealedMediaIds: media.revealedMediaIds,
                     clipMenu: selection.clipMenu,
-                    sourceSelection: selection.sourceSelection,
-                    selectSourceSpan: selectSourceSpanClip,
+                    selectedSourceSpanIds: selection.selectedSourceSpanIds,
+                    selectSourceSpan: selection.selectSourceSpanClip,
                     shortcutLabels,
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
@@ -778,6 +771,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         offlineCount={mediaImport.offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={preview.previewMedia}
+        selectedClipCount={selection.selectionItems.length}
         reopenExportDialog={exporter.reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={dialogs.setIsSessionSettingsOpen}
@@ -787,6 +781,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         timelineMode={timelineMode}
         trackCount={lanes.length}
       />
+      <MarqueeBox rect={editing.marqueeRect} />
       <TimelineContextMenu
         clipMenu={selection.clipMenu}
         getClipMenuEntries={editing.getClipMenuEntries}

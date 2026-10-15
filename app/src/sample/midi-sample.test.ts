@@ -5,6 +5,7 @@ import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { FIRST_PAD_NOTE } from "../fx/effects/drum-rack/banks.ts";
+import { formatHueDegrees } from "../fx/params.ts";
 import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
@@ -149,15 +150,45 @@ describe("MIDI sample", () => {
     assert.deepEqual(animation?.reactive, {
       motion: "Single",
       timing: "Fast",
-      reactivity: 0.1,
+      reactivity: 0.9,
       amplitude: 6.9,
       parameters: ["_HueOffset"],
+      version: 2,
     });
     const { project } = openSample();
     assert.equal(
       project.lanes.find((lane) => lane.id === "4")?.name,
       "Order Swaps",
     );
+  });
+
+  it("cycles the bars 4-5 titles FX clip's hue once per bar (#1459)", () => {
+    const clipId = "fx-aafd6694-d1c4-42e3-8623-2da1b13ea02d";
+    const fxClip = (session.fxClips ?? []).find((clip) => clip.id === clipId);
+    assert.equal(fxClip?.mainTrackId, "titles");
+    assert.equal(fxClip?.frameStart, 12 * QUARTER_FRAMES + 6);
+    assert.equal(fxClip?.frameEnd, 16 * QUARTER_FRAMES);
+    const stack = (session.effects ?? []).filter(
+      (effect) => effect.trackId === `clip:${clipId}`,
+    );
+    const colorize = stack.at(-1);
+    assert.equal(colorize?.effectName, "Colorize");
+    assert.equal(
+      formatHueDegrees(colorize?.parameters?._HueOffset?.floatValue ?? 0),
+      "+153°",
+    );
+    const animation = normalizeEffectAnimation(colorize?.animation, "Colorize");
+    assert.equal(animation?.enabled, true);
+    assert.equal(animation?.mode, "lfo");
+    assert.deepEqual(animation?.lfo, {
+      shape: "Sine",
+      sync: true,
+      rate: 1,
+      syncRate: "1 Bar",
+      depth: 0.7,
+      phase: 86,
+      parameters: ["_HueOffset"],
+    });
   });
 
   it("places the background Lotties from bar 5", () => {

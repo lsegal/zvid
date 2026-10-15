@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  dedupeSelectionItems,
+  type SelectionItem,
+  toggleSelectionItem,
+} from "../app/multi-selection.ts";
 import {
   findRestoredSourceSelection,
   keepSourceSelection,
   type SourceSelection,
+  selectSourceSpan,
   toSourceSelectionView,
 } from "../app/source-selection.ts";
 import type {
@@ -45,9 +59,18 @@ export function useTimelineSelection({
   const [dragPreviewClips, setDragPreviewClips] = useState<
     ArrangementClip[] | null
   >(null);
-  const [selectedClipId, setSelectedClipId] = useState<string | undefined>(
+  const [selectedClipId, setPrimaryClipId] = useState<string | undefined>(
     restoredSelection.selectedClipId,
   );
+  // The other clips and source clips selected along with the selected clip
+  // or source clip (see multi-selection.ts). Selecting a single clip, layer
+  // or source drops them.
+  const [extraSelection, setExtraSelection] = useState<SelectionItem[]>([]);
+  const setSelectedClipId: Dispatch<SetStateAction<string | undefined>> =
+    useCallback((action) => {
+      setExtraSelection([]);
+      setPrimaryClipId(action);
+    }, []);
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
@@ -60,7 +83,7 @@ export function useTimelineSelection({
   );
   // A selected source track or clip. Only one thing is selected at a time:
   // selecting a source clears the layer and clip, and the reverse.
-  const [storedSourceSelection, setSourceSelection] = useState<
+  const [storedSourceSelection, setPrimarySourceSelection] = useState<
     SourceSelection | undefined
   >(restoredSelection.sourceSelection);
   // Deleting the selected source track drops the selection, and deleting
@@ -75,8 +98,14 @@ export function useTimelineSelection({
       ),
     [sourceSpans, sourceTracks, storedSourceSelection],
   );
+  const setSourceSelection: Dispatch<
+    SetStateAction<SourceSelection | undefined>
+  > = useCallback((action) => {
+    setExtraSelection([]);
+    setPrimarySourceSelection(action);
+  }, []);
   useEffect(() => {
-    setSourceSelection((selection) =>
+    setPrimarySourceSelection((selection) =>
       keepSourceSelection(selection, selectedClipId, selectedLaneId),
     );
   }, [selectedClipId, selectedLaneId]);
@@ -138,6 +167,88 @@ export function useTimelineSelection({
   useEffect(() => {
     setPreviewLaneId(selectedLaneId);
   }, [selectedLaneId]);
+
+  // Every selected clip and source clip that still exists, the primary one
+  // last.
+  const selectionItems = useMemo(() => {
+    const items: SelectionItem[] = [...extraSelection];
+    if (selectedClipId !== undefined) {
+      items.push({ kind: "clip", id: selectedClipId });
+    } else if (sourceSelection?.sourceSpanId !== undefined) {
+      items.push({
+        kind: "span",
+        id: sourceSelection.sourceSpanId,
+        sourceTrackId: sourceSelection.sourceTrackId,
+      });
+    }
+    return dedupeSelectionItems(items).filter((item) =>
+      item.kind === "clip"
+        ? timelineClips.some((clip) => clip.id === item.id)
+        : sourceSpans.some((span) => span.id === item.id),
+    );
+  }, [
+    extraSelection,
+    selectedClipId,
+    sourceSelection,
+    sourceSpans,
+    timelineClips,
+  ]);
+  const selectedClipIds = useMemo(
+    () =>
+      new Set(
+        selectionItems.flatMap((item) =>
+          item.kind === "clip" ? [item.id] : [],
+        ),
+      ),
+    [selectionItems],
+  );
+  const selectedSourceSpanIds = useMemo(
+    () =>
+      new Set(
+        selectionItems.flatMap((item) =>
+          item.kind === "span" ? [item.id] : [],
+        ),
+      ),
+    [selectionItems],
+  );
+  // Whether `item` is one of several selected, so commands on it act on
+  // the whole selection.
+  const isInMultiSelection = useCallback(
+    (item: Pick<SelectionItem, "kind" | "id">) =>
+      selectionItems.length > 1 &&
+      selectionItems.some(
+        (candidate) => candidate.kind === item.kind && candidate.id === item.id,
+      ),
+    [selectionItems],
+  );
+
+  // Selects exactly `items`, the last one as the primary selection, which
+  // the inspector and single-clip commands follow.
+  const applySelection = useCallback((items: readonly SelectionItem[]) => {
+    const unique = dedupeSelectionItems(items);
+    const primary = unique.at(-1);
+    if (primary?.kind === "span") {
+      setPrimaryClipId(undefined);
+      setSelectedLaneId(undefined);
+      setPreviewLaneId(undefined);
+      setPrimarySourceSelection(selectSourceSpan(primary));
+    } else {
+      setPrimaryClipId(primary?.id);
+    }
+    setExtraSelection(unique.slice(0, -1));
+  }, []);
+
+  // Shift-click: adds `item` to the selection, or takes it out when it is
+  // already there.
+  const toggleSelection = useCallback(
+    (item: SelectionItem) => {
+      applySelection(toggleSelectionItem(selectionItems, item));
+    },
+    [applySelection, selectionItems],
+  );
+  const selectionItemsRef = useRef(selectionItems);
+  selectionItemsRef.current = selectionItems;
+
   const selectLaneFromLabel = (laneId: string) => {
     setSelectedClipId(undefined);
     setSelectedLaneId(laneId);
@@ -145,12 +256,39 @@ export function useTimelineSelection({
   };
 
   // Selecting a source never moves the playhead.
-  const selectSource = useCallback((selection: SourceSelection | undefined) => {
-    setSelectedClipId(undefined);
-    setSelectedLaneId(undefined);
-    setPreviewLaneId(undefined);
-    setSourceSelection(selection);
-  }, []);
+  const selectSource = useCallback(
+    (selection: SourceSelection | undefined) => {
+      setSelectedClipId(undefined);
+      setSelectedLaneId(undefined);
+      setPreviewLaneId(undefined);
+      setSourceSelection(selection);
+    },
+    [setSelectedClipId, setSourceSelection],
+  );
+
+  // A click on a source clip selects just it, a Shift-click adds or removes
+  // it, and a right-click keeps a selection it is one of, for its menu.
+  const selectSourceSpanClip = useCallback(
+    (
+      span: Pick<SourceSpan, "id" | "sourceTrackId">,
+      mode: "select" | "toggle" | "menu" = "select",
+    ) => {
+      const item: SelectionItem = {
+        kind: "span",
+        id: span.id,
+        sourceTrackId: span.sourceTrackId,
+      };
+      if (mode === "toggle") {
+        toggleSelection(item);
+        return;
+      }
+      if (mode === "menu" && isInMultiSelection(item)) {
+        return;
+      }
+      selectSource(selectSourceSpan(span));
+    },
+    [isInMultiSelection, selectSource, toggleSelection],
+  );
 
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {
@@ -199,6 +337,14 @@ export function useTimelineSelection({
     setPreviewLaneId,
     selectLaneFromLabel,
     focusLaneLabel,
+    selectionItems,
+    selectionItemsRef,
+    selectedClipIds,
+    selectedSourceSpanIds,
+    isInMultiSelection,
+    applySelection,
+    toggleSelection,
+    selectSourceSpanClip,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   useRef,
 } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import { isMultiClipboard } from "../app/multi-selection.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
   type SourceSelection,
@@ -25,6 +26,7 @@ import {
   splitSourceSpan,
 } from "../source-clip-edits.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
+import type { MultiSelectionActions } from "./useMultiSelectionActions.ts";
 
 export type SourceClipActionsInputs = {
   bpm: number;
@@ -35,6 +37,7 @@ export type SourceClipActionsInputs = {
   ) => void;
   copySourceSpan: (span: SourceSpan) => void;
   jumpPlayheadTo: (startQ: number) => void;
+  multi: MultiSelectionActions;
   playheadQRef: RefObject<number>;
   selectSource: (selection: SourceSelection | undefined) => void;
   setStatus: Dispatch<SetStateAction<string>>;
@@ -54,6 +57,7 @@ export function useSourceClipActions({
   commitProjectChange,
   copySourceSpan,
   jumpPlayheadTo,
+  multi,
   playheadQRef,
   selectSource,
   setStatus,
@@ -93,7 +97,16 @@ export function useSourceClipActions({
     return removed;
   }
 
+  // A source clip that is one of several selected cuts, deletes or
+  // duplicates the whole selection.
+  const isMulti = (span: SourceSpan) =>
+    multi.covers({ kind: "span", id: span.id });
+
   function cut(span: SourceSpan) {
+    if (isMulti(span)) {
+      multi.cut();
+      return;
+    }
     if (sourceTracksLocked) {
       setStatus(`${SOURCE_TRACKS_LOCKED_TITLE}.`);
       return;
@@ -105,6 +118,10 @@ export function useSourceClipActions({
   }
 
   function remove(span: SourceSpan) {
+    if (isMulti(span)) {
+      multi.remove();
+      return;
+    }
     if (removeSourceSpan(span, "Delete source clip")) {
       setStatus(`Deleted ${span.label}.`);
     }
@@ -118,6 +135,12 @@ export function useSourceClipActions({
     pasteQ = playheadQRef.current,
   ) {
     const clipboard = clipClipboardRef.current;
+    // Copied clips from several rows go back to their kinds of row, the
+    // topmost source track's into this one.
+    if (isMultiClipboard(clipboard)) {
+      multi.paste({ sourceTrackId: target.sourceTrackId });
+      return;
+    }
     if (!canPasteIntoSourceTrack(clipboard)) {
       setStatus("Only source clips can be pasted into a source track.");
       return;
@@ -168,6 +191,10 @@ export function useSourceClipActions({
   }
 
   function duplicate(span: SourceSpan) {
+    if (isMulti(span)) {
+      multi.duplicate();
+      return;
+    }
     const id = newSourceSpanId();
     if (
       commitEdit("Duplicate source clip", (current) =>

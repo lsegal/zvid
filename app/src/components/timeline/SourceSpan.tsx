@@ -7,10 +7,6 @@ import {
 import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
-  isSourceSpanSelected,
-  type SourceSelection,
-} from "../../app/source-selection.ts";
-import {
   getClipDurationQ,
   secondsToQuarters,
 } from "../../app/timeline-math.ts";
@@ -63,8 +59,14 @@ export type SourceSpanContext = {
   prefersReducedMotion: boolean;
   revealedMediaIds: ReadonlySet<string>;
   clipMenu: ClipMenuState | null;
-  sourceSelection: SourceSelection | undefined;
-  selectSourceSpan: (sourceSpan: SourceSpanClip) => void;
+  // Every selected source clip, which all show as selected.
+  selectedSourceSpanIds: ReadonlySet<string>;
+  // Selects the span alone, adds or removes it with "toggle" (Shift-click),
+  // or with "menu" keeps a multi-selection it is in.
+  selectSourceSpan: (
+    sourceSpan: SourceSpanClip,
+    mode?: "select" | "toggle" | "menu",
+  ) => void;
   shortcutLabels: ReturnType<typeof getShortcutLabels>;
   addSourceSpanToArrangement: (sourceSpan: SourceSpanClip) => void;
   openSourceSpanMenu: ReturnType<typeof useMenus>["openSourceSpanMenu"];
@@ -100,7 +102,7 @@ export const SourceSpan = memo(function SourceSpan({
   prefersReducedMotion,
   revealedMediaIds,
   clipMenu,
-  sourceSelection,
+  selectedSourceSpanIds,
   selectSourceSpan,
   shortcutLabels,
   addSourceSpanToArrangement,
@@ -196,7 +198,7 @@ export const SourceSpan = memo(function SourceSpan({
   }
 
   const selected =
-    isSourceSpanSelected(sourceSelection, clip.id) ||
+    selectedSourceSpanIds.has(clip.id) ||
     (clipMenu?.kind === "span" && clipMenu.spanId === clip.id);
 
   return (
@@ -212,7 +214,7 @@ export const SourceSpan = memo(function SourceSpan({
         }
         if (!isSourceClipDropClick(event)) {
           // Selecting never moves the playhead.
-          selectSourceSpan(clip);
+          selectSourceSpan(clip, event.shiftKey ? "toggle" : "select");
           return;
         }
 
@@ -221,11 +223,11 @@ export const SourceSpan = memo(function SourceSpan({
         addSourceSpanToArrangement(clip);
       }}
       onContextMenu={(event) => {
-        selectSourceSpan(clip);
+        selectSourceSpan(clip, "menu");
         openSourceSpanMenu(event, clip);
       }}
       onPointerDown={(event) => startDrag(event, "move")}
-      title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
+      title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement, ${shortcutLabels.selectionToggle} to add it to or remove it from the selection`}
       style={{
         left: clip.startQ * quarterPx,
         width: widthPx,

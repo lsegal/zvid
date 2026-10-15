@@ -55,7 +55,7 @@ function reactive(
   return {
     motion: "Bounce",
     timing: "Normal",
-    reactivity: 0,
+    reactivity: 1,
     amplitude: 1,
     parameters: ["_LowIntensity", "_HighIntensity"],
     ...overrides,
@@ -391,16 +391,32 @@ describe("resolveReactiveParameters", () => {
     });
   });
 
-  it("only moves on hits at or above the Reactivity threshold", () => {
+  it("only moves on hits the Reactivity lets through", () => {
     const effect = negativeSplit();
     const at = (strength: number, reactivity: number) =>
       resolveReactiveParameters(effect, reactive({ reactivity }), {
         time: 12 / REACTIVE_FRAME_RATE,
         onsets: [{ time: 10 / REACTIVE_FRAME_RATE, strength }],
       });
-    assert.equal(at(0.5, 0.6), effect.parameters);
-    assert.notEqual(at(0.6, 0.6), effect.parameters);
-    assert.notEqual(at(0.1, 0), effect.parameters);
+    // Reactivity 40% lets through hits of strength 0.6 and up.
+    assert.equal(at(0.5, 0.4), effect.parameters);
+    assert.notEqual(at(0.6, 0.4), effect.parameters);
+    // 100% lets every hit through, and 0% none.
+    assert.notEqual(at(0.1, 1), effect.parameters);
+    assert.equal(at(1, 0), effect.parameters);
+  });
+
+  it("swings the other way at a negative Amplitude", () => {
+    const up = trace(negativeSplit(), reactive(), "_LowIntensity");
+    const down = trace(
+      negativeSplit(),
+      reactive({ amplitude: -1 }),
+      "_LowIntensity",
+    );
+    assert.ok(up.some((value) => value !== 0.5));
+    up.forEach((value, frame) => {
+      assert.ok(Math.abs(down[frame] - 0.5 + (value - 0.5)) < 1e-9);
+    });
   });
 
   it("swings up to ten times as far at Amplitude 10, within the knob's limits", () => {

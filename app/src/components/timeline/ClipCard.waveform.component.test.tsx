@@ -30,7 +30,7 @@ const clip: ArrangementClip = {
 };
 
 const context: ClipCardContext = {
-  selectedClipId: undefined,
+  selectedClipIds: new Set(),
   dragState: null,
   bpm: 120,
   quarterPx: 40,

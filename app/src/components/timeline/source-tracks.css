@@ -6,7 +6,10 @@
   --source-clip-inset: 12px;
 }
 
-.source-header__toggle {
+/* The collapsed Layers header (#1453) shares the collapsed Source Tracks
+   header's look. It only shows collapsed, so its chevron always points right. */
+.source-header__toggle,
+.layers-header__toggle {
   display: flex;
   flex: 1;
   align-items: center;
@@ -21,13 +24,15 @@
   cursor: pointer;
 }
 
-.source-header__toggle:focus-visible {
+.source-header__toggle:focus-visible,
+.layers-header__toggle:focus-visible {
   outline: 2px solid var(--lane-selected-accent);
   outline-offset: 4px;
   border-radius: 4px;
 }
 
-.source-header__toggle svg {
+.source-header__toggle svg,
+.layers-header__toggle svg {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
@@ -35,19 +40,23 @@
   transition: transform 160ms ease;
 }
 
-.source-header__toggle:hover svg {
+.source-header__toggle:hover svg,
+.layers-header__toggle:hover svg {
   color: var(--ink);
 }
 
-.source-header--collapsed .source-header__toggle svg {
+.source-header--collapsed .source-header__toggle svg,
+.layers-header__toggle svg {
   transform: rotate(-90deg);
 }
 
-.source-header__title {
+.source-header__title,
+.layers-header__title {
   min-width: 0;
 }
 
-.source-header__title > span {
+.source-header__title > span,
+.layers-header__title > span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -89,7 +98,8 @@
   outline-offset: 1px;
 }
 
-.source-header__content {
+.source-header__content,
+.layers-header__content {
   min-height: 48px;
   display: flex;
   align-items: center;
@@ -174,7 +184,8 @@
   min-height: var(--source-row-height);
 }
 
-.source-header__summary {
+.source-header__summary,
+.layers-header__summary {
   position: sticky;
   left: 16px;
   align-self: flex-start;

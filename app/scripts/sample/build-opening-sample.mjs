@@ -140,10 +140,12 @@ function animation(mode, clip, reactive, lfo) {
     reactive: {
       motion: "Wobble",
       timing: "Normal",
-      reactivity: 0,
+      reactivity: 1,
       amplitude: 0.5,
       parameters: [],
       ...reactive,
+      // Reactivity counts up from no hits (1 lets every hit through).
+      version: 2,
     },
     ...(lfo
       ? {

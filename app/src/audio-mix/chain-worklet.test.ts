@@ -297,7 +297,7 @@ describe("chain worklet", () => {
             modulation: {
               mode: "transient",
               motion: "Bounce",
-              reactivity: 0,
+              reactivity: 1,
               amplitude: 1,
               lengthFrames: 12,
               parameters: [cutoff],
@@ -379,7 +379,7 @@ describe("chain worklet", () => {
     const transient = {
       mode: "transient" as const,
       motion: "Bounce" as const,
-      reactivity: 0,
+      reactivity: 1,
       amplitude: 1,
       lengthFrames: 12,
       parameters: [{ key: "Cutoff", min: 20, max: 4000 }],

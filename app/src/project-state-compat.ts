@@ -263,7 +263,7 @@ export function migrateColorizeReactivity(effects: SessionEffect[]) {
         mode: "reactive" as const,
         reactive: {
           ...defaults.reactive,
-          reactivity: 0,
+          reactivity: 1,
           amplitude: reactivity,
           parameters: ["_HueOffset"],
         },

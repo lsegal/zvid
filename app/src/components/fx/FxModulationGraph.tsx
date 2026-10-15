@@ -20,8 +20,8 @@ type FxModulationGraphProps = {
 };
 
 // The trace in the Modulation section's title: LFO's waveform at the
-// playhead, scaled by Depth, or the hits Transient hears at or above its
-// Reactivity, scaled by Amplitude.
+// playhead, scaled by Depth, or the hits Transient hears that its
+// Reactivity lets through, scaled by Amplitude.
 export function FxModulationGraph({
   device,
   modulation,

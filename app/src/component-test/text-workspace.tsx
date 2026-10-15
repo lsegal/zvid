@@ -230,7 +230,7 @@ export function TextWorkspace({
   const { pendingSelection } = selection;
 
   const cardContext = clipCardContext({
-    selectedClipId: selection.selectedClipId,
+    selectedClipIds: selection.selectedClipIds,
     bpm: present.bpm,
     mediaItemsById,
     timelineEffects: selection.timelineEffects,
@@ -346,7 +346,7 @@ function LaneRowStub({
 export function clipCardContext(
   context: Pick<
     ClipCardContext,
-    | "selectedClipId"
+    | "selectedClipIds"
     | "bpm"
     | "mediaItemsById"
     | "timelineEffects"

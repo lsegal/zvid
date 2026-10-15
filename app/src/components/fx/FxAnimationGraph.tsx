@@ -27,8 +27,8 @@ type FxAnimationGraphProps = {
 
 // The trace in the Animation section's title, sampled as the compositor
 // animates the effect: LFO's waveform at the playhead, scaled by Depth;
-// Reactive's swing on each hit the preview has heard at or above its
-// Reactivity, scaled by Amplitude;
+// Reactive's swing on each hit the preview has heard that its Reactivity
+// lets through, scaled by Amplitude;
 // or Clip's weight across the clip at the playhead, easing in, holding and
 // easing out.
 export function FxAnimationGraph({ device, animation }: FxAnimationGraphProps) {
