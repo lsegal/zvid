@@ -288,7 +288,7 @@ export const ClipCard = memo(function ClipCard({
         }}
         // Double-clicking a text clip types on it in
         // the preview.
-        title={`${shortcutLabels.clipJump} to jump to start`}
+        title={`${shortcutLabels.clipJump} to jump to start, ${shortcutLabels.selectionToggle} to add to or remove from the selection`}
         onDoubleClick={textStyle ? () => startTextEdit(clip.id) : undefined}
         onPointerDown={(event) => {
           if (isContextMenuPress(event, shortcutLabels.mac)) {

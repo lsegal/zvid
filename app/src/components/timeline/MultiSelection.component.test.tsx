@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from "vitest";
 import { userEvent } from "vitest/browser";
 import { patchProjectState } from "../../app/session-project.ts";
+import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import type { ProjectState } from "../../app/types.ts";
 import {
   EDITOR_TEST_TIMEOUT,
@@ -13,6 +14,7 @@ import {
   center,
   click,
   down,
+  type Modifier,
   move,
   pressMod,
   up,
@@ -25,7 +27,7 @@ import { LaneRow } from "./LaneRow";
 import { SourceSpan } from "./SourceSpan";
 
 // Selecting several clips at once (multi-selection.ts): Shift-clicking
-// layer and source clips, a marquee drawn in the source tracks, and a layer
+// layer and source clips (Ctrl/Cmd-click keeps its own meanings), a marquee drawn in the source tracks, and a layer
 // drag that turns into a marquee off its layer, with Delete, Copy and Paste
 // acting on the whole selection. Wired as App wires them, in the editor
 // harness.
@@ -128,6 +130,45 @@ test("Shift-click adds layer and source clips to the selection and takes them ou
   // A plain click selects just the clip clicked.
   await clickClip(clipCard("a"));
   await expect.poll(selectedIds).toEqual(["a"]);
+});
+
+test("Ctrl/Cmd-click jumps to a layer clip or adds a source clip, selecting just that clip", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, async () => {
+  const state = await renderProject();
+  const mod: Modifier = getShortcutLabels().mac ? "Meta" : "Control";
+  const modName = getShortcutLabels().mac ? "Cmd" : "Ctrl";
+
+  // The tooltips name both gestures.
+  expect(element(".clip-card__body").title).toBe(
+    `${modName}+click to jump to start, Shift+click to add to or remove from the selection`,
+  );
+  expect(sourceSpan(0).title).toBe(
+    `${modName}+click to add this clip to the arrangement, Shift+click to add it to or remove it from the selection`,
+  );
+
+  // On a layer clip in the selection: selects just it and jumps to its
+  // start, rather than toggling it.
+  await clickClip(clipCard("a"));
+  await clickClip(clipCard("b"), true);
+  await expect.poll(selectedIds).toEqual(["a", "b"]);
+  const body = clipCard("b").querySelector(".clip-card__body") ?? clipCard("b");
+  await click(center(body).x, center(body).y, { modifiers: [mod] });
+  await expect.poll(selectedIds).toEqual(["b"]);
+  await expect.poll(() => Math.round(state().playheadQ())).toBe(8);
+  expect(state().project.clips).toHaveLength(2);
+
+  // On a source clip: adds it to the arrangement and selects the new clip
+  // alone, without toggling the source clip.
+  await clickClip(clipCard("a"), true);
+  await expect.poll(() => selectedIds().sort()).toEqual(["a", "b"]);
+  const span = sourceSpan(0);
+  await click(center(span).x, center(span).y, { modifiers: [mod] });
+  await expect.poll(() => state().project.clips.length).toBe(3);
+  const added = state().project.clips.find(
+    (clip) => clip.id !== "a" && clip.id !== "b",
+  );
+  await expect.poll(selectedIds).toEqual([added?.id]);
 });
 
 test("Delete removes every selected clip in one undo step", {
