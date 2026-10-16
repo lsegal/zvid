@@ -15,10 +15,10 @@ const helpPages = Object.fromEntries(
     ]),
 );
 
-// GitHub Pages serves the site from /<repo>/; the Pages workflow passes
-// SITE_BASE, and local builds default to the same path.
+// The site is served from the root of zvid.app. SITE_BASE overrides that
+// for a build hosted under a path.
 export default defineConfig({
-  base: process.env.SITE_BASE ?? "/zvid/",
+  base: process.env.SITE_BASE ?? "/",
   build: {
     outDir: "dist",
     target: "es2022",

@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // The landing page and help docs, served as static files from zvid.app.
+  // There is no Worker script: Cloudflare serves dist/ directly.
+  "name": "zvid-site",
+  "compatibility_date": "2026-04-22",
+  "build": {
+    "command": "pnpm run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    // help/audio serves help/audio/index.html, redirecting to the
+    // trailing-slash URL the pages' relative links expect.
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [{ "pattern": "zvid.app", "custom_domain": true }]
+}

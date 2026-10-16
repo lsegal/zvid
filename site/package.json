@@ -7,7 +7,8 @@
     "dev": "vite --port 5189 --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5189 --strictPort",
-    "lint": "tsc --noEmit && pnpm --dir .. exec biome check site"
+    "lint": "tsc --noEmit && pnpm --dir .. exec biome check site",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@zvid/tokens": "link:../packages/tokens"
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "~6.0.2",
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "wrangler": "^4.137.0"
   }
 }
