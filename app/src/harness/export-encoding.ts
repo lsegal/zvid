@@ -34,15 +34,6 @@ export const VIDEO_CODEC_LABELS: Record<EncodableVideoCodec, string> = {
   vp9: "VP9",
 };
 
-// Mediabunny's names for the codecs.
-export const MEDIABUNNY_VIDEO_CODECS = {
-  h264: "avc",
-  hevc: "hevc",
-  av1: "av1",
-  vp8: "vp8",
-  vp9: "vp9",
-} as const satisfies Record<EncodableVideoCodec, string>;
-
 /** Whether the device can encode `codec` at the given size and bitrate. */
 export type CanEncodeVideo = (
   codec: EncodableVideoCodec,

@@ -33,10 +33,16 @@ pub async fn mux_mp4(
     audio: Option<(EncodedTrack, AudioGapless)>,
     cover: Option<Vec<u8>>,
 ) -> Result<Vec<u8>> {
-    if !matches!(video.config.encoder.codec, Codec::H264 | Codec::Hevc | Codec::Av1) {
+    if !matches!(
+        video.config.encoder.codec,
+        Codec::H264 | Codec::Hevc | Codec::Av1
+    ) {
         return Err(invalid("MP4 export requires H.264, HEVC or AV1 video"));
     }
-    if audio.as_ref().is_some_and(|(track, _)| track.config.encoder.codec != Codec::Aac) {
+    if audio
+        .as_ref()
+        .is_some_and(|(track, _)| track.config.encoder.codec != Codec::Aac)
+    {
         return Err(invalid("MP4 export requires AAC audio"));
     }
     let mut configs = vec![video.config];
@@ -44,7 +50,10 @@ pub async fn mux_mp4(
         configs.push(track.config.clone());
     }
     let mut output = Mp4Muxer::new(MemorySink::new(), configs, 10_000_000).await?;
-    output.set_cover_art(cover.map(|data| CoverArt { format: CoverArtFormat::Jpeg, data }))?;
+    output.set_cover_art(cover.map(|data| CoverArt {
+        format: CoverArtFormat::Jpeg,
+        data,
+    }))?;
     for sample in video.samples {
         output.write_sample(0, sample).await?;
     }
@@ -63,7 +72,11 @@ const OPUS_CHUNK_FRAMES: usize = OPUS_SAMPLE_RATE as usize;
 /// Encodes interleaved 48 kHz `pcm` of `channels` channels to Opus at
 /// `bitrate` bits a second with zvidlib's encoder, returning the track and
 /// its gapless trim.
-async fn encode_opus(pcm: &[f32], channels: u16, bitrate: u32) -> Result<(EncodedTrack, AudioGapless)> {
+async fn encode_opus(
+    pcm: &[f32],
+    channels: u16,
+    bitrate: u32,
+) -> Result<(EncodedTrack, AudioGapless)> {
     let config = AudioEncoderConfig {
         codec: Codec::Opus,
         profile: CodecProfile::Opus,
@@ -76,7 +89,9 @@ async fn encode_opus(pcm: &[f32], channels: u16, bitrate: u32) -> Result<(Encode
     let mut encoder = native_opus_audio_encoder_factory().create(&config, &limits)?;
     let channel_count = usize::from(channels);
     if pcm.is_empty() || !pcm.len().is_multiple_of(channel_count) {
-        return Err(invalid("Opus input must be whole frames of interleaved PCM"));
+        return Err(invalid(
+            "Opus input must be whole frames of interleaved PCM",
+        ));
     }
     let mut samples = Vec::new();
     let mut position = 0_u64;
@@ -170,8 +185,15 @@ mod tests {
     fn video_track(codec: Codec, decoder_config: Vec<u8>) -> EncodedTrack {
         EncodedTrack {
             config: Mp4TrackConfig {
-                encoder: EncoderConfig { codec, timescale: 24, decoder_config },
-                format: Mp4TrackFormat::Video(VideoDimensions { width: 32, height: 18 }),
+                encoder: EncoderConfig {
+                    codec,
+                    timescale: 24,
+                    decoder_config,
+                },
+                format: Mp4TrackFormat::Video(VideoDimensions {
+                    width: 32,
+                    height: 18,
+                }),
             },
             samples: (0..24_u8)
                 .map(|index| EncodedSample {
@@ -191,7 +213,10 @@ mod tests {
     }
 
     fn av1_video() -> EncodedTrack {
-        video_track(Codec::Av1, vec![0, 0, 0, 12, b'a', b'v', b'1', b'C', 0x81, 0, 0, 0])
+        video_track(
+            Codec::Av1,
+            vec![0, 0, 0, 12, b'a', b'v', b'1', b'C', 0x81, 0, 0, 0],
+        )
     }
 
     /// A second of 48 kHz stereo AAC: 47 frames of 1024 samples, trimmed by
@@ -217,7 +242,13 @@ mod tests {
                 })
                 .collect(),
         };
-        (track, AudioGapless { priming: 1024, padding: 48 * 1024 - 1024 - 48_000 })
+        (
+            track,
+            AudioGapless {
+                priming: 1024,
+                padding: 48 * 1024 - 1024 - 48_000,
+            },
+        )
     }
 
     fn open_mp4(bytes: Vec<u8>) -> Mp4Demuxer {
@@ -229,7 +260,13 @@ mod tests {
     fn embeds_the_jpeg_cover() {
         let jpeg = vec![0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9];
         let output = block_on(super::mux_mp4(av1_video(), None, Some(jpeg.clone()))).unwrap();
-        assert_eq!(open_mp4(output).cover_art, Some(CoverArt { format: CoverArtFormat::Jpeg, data: jpeg }));
+        assert_eq!(
+            open_mp4(output).cover_art,
+            Some(CoverArt {
+                format: CoverArtFormat::Jpeg,
+                data: jpeg
+            })
+        );
     }
 
     #[test]
@@ -242,10 +279,15 @@ mod tests {
     fn muxes_h264_video() {
         // An avcC box as WebCodecs describes it: High profile, one SPS and PPS.
         let avcc = vec![
-            0, 0, 0, 27, b'a', b'v', b'c', b'C', 1, 0x64, 0, 0x28, 0xff, 0xe1, 0, 4, 0x67, 0x64,
-            0, 0x28, 1, 0, 4, 0x68, 0xee, 0x3c, 0x80,
+            0, 0, 0, 27, b'a', b'v', b'c', b'C', 1, 0x64, 0, 0x28, 0xff, 0xe1, 0, 4, 0x67, 0x64, 0,
+            0x28, 1, 0, 4, 0x68, 0xee, 0x3c, 0x80,
         ];
-        let output = block_on(super::mux_mp4(video_track(Codec::H264, avcc.clone()), None, None)).unwrap();
+        let output = block_on(super::mux_mp4(
+            video_track(Codec::H264, avcc.clone()),
+            None,
+            None,
+        ))
+        .unwrap();
         let movie = open_mp4(output);
         assert_eq!(movie.tracks.len(), 1);
         assert_eq!(movie.tracks[0].codec, Codec::H264);
@@ -259,16 +301,33 @@ mod tests {
         let output = block_on(super::mux_mp4(av1_video(), Some((audio, gapless)), None)).unwrap();
         let movie = open_mp4(output);
         assert_eq!(movie.tracks.len(), 2);
-        let audio = movie.tracks.iter().find(|track| track.kind == TrackKind::Audio).unwrap();
-        assert_eq!((audio.codec, audio.channels, audio.sample_rate), (Codec::Aac, Some(2), Some(48_000)));
+        let audio = movie
+            .tracks
+            .iter()
+            .find(|track| track.kind == TrackKind::Audio)
+            .unwrap();
+        assert_eq!(
+            (audio.codec, audio.channels, audio.sample_rate),
+            (Codec::Aac, Some(2), Some(48_000))
+        );
         assert_eq!(audio.samples.len(), 48);
         let timing = audio.audio_timing(movie.movie_timescale).unwrap();
-        assert_eq!((timing.priming, timing.padding), (gapless.priming, gapless.padding));
+        assert_eq!(
+            (timing.priming, timing.padding),
+            (gapless.priming, gapless.padding)
+        );
     }
 
     #[test]
     fn mp4_export_rejects_webm_codecs() {
-        assert!(block_on(super::mux_mp4(video_track(Codec::Vp8, Vec::new()), None, None)).is_err());
+        assert!(
+            block_on(super::mux_mp4(
+                video_track(Codec::Vp8, Vec::new()),
+                None,
+                None
+            ))
+            .is_err()
+        );
     }
 
     /// A second of a stereo 440 Hz tone at 48 kHz, interleaved.
@@ -336,9 +395,15 @@ mod tests {
         assert_eq!((dimensions.width, dimensions.height), (320, 180));
 
         let audio = &movie.tracks[1];
-        assert_eq!((audio.kind, audio.codec, audio.channels), (TrackKind::Audio, Codec::Opus, Some(2)));
+        assert_eq!(
+            (audio.kind, audio.codec, audio.channels),
+            (TrackKind::Audio, Codec::Opus, Some(2))
+        );
         let timing = movie.audio_timing(audio.id).unwrap();
-        assert_eq!(timing.priming, u32::from(audio.opus_config().unwrap().pre_skip));
+        assert_eq!(
+            timing.priming,
+            u32::from(audio.opus_config().unwrap().pre_skip)
+        );
         // zvidlib codes 20 ms packets, 960 samples at 48 kHz.
         let encoded = audio.samples.len() as u32 * 960;
         assert_eq!(encoded - timing.priming - timing.padding, 48_000);
@@ -346,12 +411,18 @@ mod tests {
 
     #[test]
     fn muxes_vp8_video_with_opus() {
-        muxes_video_with_opus(include_bytes!("../tests/fixtures/vp8-video.webm"), Codec::Vp8);
+        muxes_video_with_opus(
+            include_bytes!("../tests/fixtures/vp8-video.webm"),
+            Codec::Vp8,
+        );
     }
 
     #[test]
     fn muxes_vp9_video_with_opus() {
-        muxes_video_with_opus(include_bytes!("../tests/fixtures/vp9-video.webm"), Codec::Vp9);
+        muxes_video_with_opus(
+            include_bytes!("../tests/fixtures/vp9-video.webm"),
+            Codec::Vp9,
+        );
     }
 
     #[test]

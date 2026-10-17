@@ -6,7 +6,6 @@ import {
   PlayIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
-import { canEncodeVideo } from "mediabunny";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
@@ -36,7 +35,7 @@ import {
   snapToFrame,
   validateExportOptions,
 } from "../export-options.ts";
-import { MEDIABUNNY_VIDEO_CODECS } from "../harness/export-encoding.ts";
+import { canEncodeVideo } from "../harness/export-bridge.ts";
 import type { ExportDialogModel } from "../hooks/useExport.ts";
 import { useRangePlayback } from "../hooks/useRangePlayback.ts";
 import {
@@ -76,7 +75,7 @@ function useVideoCodecSupport(options: ExportOptions, valid: boolean) {
     const timeout = window.setTimeout(async () => {
       const next: VideoCodecSupport = {};
       for (const codec of PROBED_CODECS) {
-        next[codec] = await canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], {
+        next[codec] = await canEncodeVideo(codec, {
           width,
           height,
           bitrate,

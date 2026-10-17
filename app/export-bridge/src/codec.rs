@@ -342,12 +342,16 @@ pub fn aac_lc_audio_specific_config(sample_rate: u32, channels: u16) -> Vec<u8> 
         96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025,
         8_000, 7_350,
     ];
-    let index = RATES.iter().position(|rate| *rate == sample_rate).unwrap_or(15) as u16;
+    let index = RATES
+        .iter()
+        .position(|rate| *rate == sample_rate)
+        .unwrap_or(15) as u16;
     let channels = channels.min(15);
     let mut config = Vec::with_capacity(5);
     if index == 15 {
         // An explicit 24-bit rate follows the escape index.
-        let bits: u64 = (2 << 35) | (15 << 31) | (u64::from(sample_rate) << 7) | (u64::from(channels) << 3);
+        let bits: u64 =
+            (2 << 35) | (15 << 31) | (u64::from(sample_rate) << 7) | (u64::from(channels) << 3);
         config.extend_from_slice(&bits.to_be_bytes()[3..]);
     } else {
         let bits = (2 << 11) | (index << 7) | (channels << 3);
@@ -370,19 +374,43 @@ mod tests {
 
     #[test]
     fn codec_strings_name_the_lowest_fitting_level() {
-        assert_eq!(VideoCodec::H264.codec_string(1920, 1080, 12_000_000), "avc1.640028");
-        assert_eq!(VideoCodec::H264.codec_string(1280, 720, 8_000_000), "avc1.64001f");
-        assert_eq!(VideoCodec::Hevc.codec_string(1920, 1080, 12_000_000), "hev1.1.6.L120.B0");
-        assert_eq!(VideoCodec::Hevc.codec_string(1080, 1920, 25_000_000), "hev1.1.6.H120.B0");
-        assert_eq!(VideoCodec::Av1.codec_string(1920, 1080, 12_000_000), "av01.0.08M.08");
-        assert_eq!(VideoCodec::Vp9.codec_string(1920, 1080, 12_000_000), "vp09.00.40.08");
+        assert_eq!(
+            VideoCodec::H264.codec_string(1920, 1080, 12_000_000),
+            "avc1.640028"
+        );
+        assert_eq!(
+            VideoCodec::H264.codec_string(1280, 720, 8_000_000),
+            "avc1.64001f"
+        );
+        assert_eq!(
+            VideoCodec::Hevc.codec_string(1920, 1080, 12_000_000),
+            "hev1.1.6.L120.B0"
+        );
+        assert_eq!(
+            VideoCodec::Hevc.codec_string(1080, 1920, 25_000_000),
+            "hev1.1.6.H120.B0"
+        );
+        assert_eq!(
+            VideoCodec::Av1.codec_string(1920, 1080, 12_000_000),
+            "av01.0.08M.08"
+        );
+        assert_eq!(
+            VideoCodec::Vp9.codec_string(1920, 1080, 12_000_000),
+            "vp09.00.40.08"
+        );
         assert_eq!(VideoCodec::Vp8.codec_string(1920, 1080, 12_000_000), "vp8");
     }
 
     #[test]
     fn codec_strings_fall_back_to_the_top_level() {
-        assert_eq!(VideoCodec::H264.codec_string(16_384, 16_384, 900_000_000), "avc1.64003e");
-        assert_eq!(VideoCodec::Hevc.codec_string(16_384, 16_384, 900_000_000), "hev1.1.6.H186.B0");
+        assert_eq!(
+            VideoCodec::H264.codec_string(16_384, 16_384, 900_000_000),
+            "avc1.64003e"
+        );
+        assert_eq!(
+            VideoCodec::Hevc.codec_string(16_384, 16_384, 900_000_000),
+            "hev1.1.6.H186.B0"
+        );
     }
 
     #[test]
@@ -411,7 +439,11 @@ mod tests {
 
     #[test]
     fn vp8_has_no_config_and_av1_needs_a_sequence_header() {
-        assert!(video_decoder_config(VideoCodec::Vp8, &[1, 2, 3], None, 0).unwrap().is_empty());
+        assert!(
+            video_decoder_config(VideoCodec::Vp8, &[1, 2, 3], None, 0)
+                .unwrap()
+                .is_empty()
+        );
         // A temporal delimiter OBU alone.
         assert!(video_decoder_config(VideoCodec::Av1, &[0x12, 0], None, 0).is_err());
     }
@@ -427,7 +459,10 @@ mod tests {
     fn esds_wraps_the_audio_specific_config() {
         let esds = esds_box(&[0x11, 0x90]);
         assert_eq!(&esds[4..8], b"esds");
-        assert_eq!(u32::from_be_bytes(esds[..4].try_into().unwrap()) as usize, esds.len());
+        assert_eq!(
+            u32::from_be_bytes(esds[..4].try_into().unwrap()) as usize,
+            esds.len()
+        );
         assert_eq!(&esds[esds.len() - 5..], [0x11, 0x90, 0x06, 0x01, 0x02]);
     }
 }
