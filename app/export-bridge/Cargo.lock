@@ -1045,9 +1045,11 @@ name = "zvid-export-bridge"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "js-sys",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "zvidlib",
+ "zvidlib-vp9-syntax",
 ]
 
 [[package]]
