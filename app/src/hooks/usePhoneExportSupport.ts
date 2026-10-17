@@ -1,6 +1,5 @@
-import { canEncodeVideo } from "mediabunny";
 import { useEffect, useState } from "react";
-import { MEDIABUNNY_VIDEO_CODECS } from "../harness/export-encoding.ts";
+import { canEncodeVideo } from "../harness/export-bridge.ts";
 import { findPhoneExportCodec } from "../mobile/export-support.ts";
 
 // A typical phone export's bitrate, enough to ask the encoder about.
@@ -22,7 +21,7 @@ export function usePhoneExportSupport(
     }
     let canceled = false;
     void findPhoneExportCodec((codec) =>
-      canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], {
+      canEncodeVideo(codec, {
         width,
         height,
         bitrate: PROBE_BITRATE,
