@@ -30,6 +30,7 @@ import {
   createExportTimeEstimator,
   describeExportActivity,
 } from "../export-progress.ts";
+import { canShareFile, shareFile } from "../export-share.ts";
 import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress, SaveMethod } from "../harness/contracts";
 import type { MediaItem } from "../media";
@@ -162,6 +163,8 @@ export type ExportDialogModel = {
   message: string;
   // Whether the done state offers Reveal file for the saved export.
   canReveal: boolean;
+  // Whether the done state offers Share for the exported file.
+  canShare: boolean;
   mediaItems: MediaItem[];
   clips: ProjectState["clips"];
   lanes: ProjectState["lanes"];
@@ -178,6 +181,8 @@ export type ExportDialogModel = {
   startExport(): void;
   cancelExport(): void;
   revealFile(): void;
+  // Opens the share sheet with the exported file, or else downloads it.
+  share(): void;
   // Hides the dialog. A running export keeps going in the background.
   close(): void;
 };
@@ -283,6 +288,8 @@ export function useExport({
   const [unseenResult, setUnseenResult] = useState<ExportActivity | null>(null);
   // Where the last successful export was saved, for Reveal file.
   const [savedTarget, setSavedTarget] = useState<SaveTarget | null>(null);
+  // The last successful export's file, for Share.
+  const [exportedFile, setExportedFile] = useState<File | null>(null);
   // The options last used, kept while the app is open (not saved) so
   // reopening Export picks up where it left off.
   const rememberedRef = useRef<Remembered | null>(null);
@@ -321,6 +328,7 @@ export function useExport({
     setProgress(null);
     setMessage("");
     setSavedTarget(null);
+    setExportedFile(null);
     setSnapshot(null);
     setUnseenResult(null);
     setOpen(true);
@@ -483,6 +491,9 @@ export function useExport({
       setStatus(done);
       setMessage(done);
       setSavedTarget(saveTarget);
+      setExportedFile(
+        new File([exported.blob], exportName, { type: exported.mimeType }),
+      );
       result = { kind: "done", label: `Exported ${exportName}` };
       outcome = {
         kind: "done",
@@ -550,6 +561,7 @@ export function useExport({
     rememberedRef.current = { sessionName, options, session };
     setMessage("");
     setSavedTarget(null);
+    setExportedFile(null);
     setUnseenResult(null);
     void runExport(options, takeSnapshot());
   }
@@ -588,6 +600,30 @@ export function useExport({
     });
   }
 
+  // Shares the exported file as it was saved. Where files can't be shared,
+  // the web downloads it instead; the desktop app offers no Share then.
+  function share() {
+    const file = exportedFile;
+    if (!file) {
+      return;
+    }
+    shareFile(file)
+      .then((outcome) =>
+        outcome === "unsupported"
+          ? getHarness().saveBlob(file, {
+              kind: "download",
+              filename: file.name,
+            })
+          : undefined,
+      )
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Failed to share ${file.name}: ${message}`);
+        setMessage(`Failed to share ${file.name}: ${message}`);
+        logClient("export:share:error", { message });
+      });
+  }
+
   // Exporting and done show the snapshot the export rendered; editing shows
   // the session as it is now.
   const shown = phase !== "editing" && snapshot ? snapshot : null;
@@ -611,6 +647,10 @@ export function useExport({
     snapshotTakenAt: shown?.takenAt ?? null,
     message,
     canReveal: canRevealSavedFile(window.harness, savedTarget),
+    canShare: Boolean(
+      exportedFile &&
+        (canShareFile(exportedFile) || window.harness?.id === "web"),
+    ),
     mediaItems: shownMediaItems,
     clips: shownRender.clips,
     lanes: shownRender.lanes,
@@ -624,6 +664,7 @@ export function useExport({
     startExport,
     cancelExport,
     revealFile,
+    share,
     close,
   };
 
