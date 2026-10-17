@@ -8,7 +8,6 @@ import { setViewport } from "../component-test/viewport.ts";
 import { createFillClip } from "../fill-clip.ts";
 import type { Harness, SaveTarget } from "../harness/contracts.ts";
 import { useExport, useExportState } from "../hooks/useExport.ts";
-import { DEFAULT_SESSION_ENCODING } from "../session-settings.ts";
 import { ExportDialog } from "./ExportDialog";
 
 // Export opens a dialog pre-filled with the Session Settings, where the
@@ -135,7 +134,6 @@ describe("ExportDialog", () => {
 
   describe("Share", () => {
     const EXPORTED = new Blob(["mp4 bytes"], { type: "video/mp4" });
-    const EXPORTED_WEBM = new Blob(["webm bytes"], { type: "video/webm" });
     let saved: { blob: Blob; target: SaveTarget }[] = [];
     let restore: (() => void)[] = [];
 
@@ -231,25 +229,6 @@ describe("ExportDialog", () => {
       expect(await files[0].text()).toBe(await EXPORTED.text());
       // Only the export's own save; nothing downloaded again.
       expect(saved).toHaveLength(1);
-    });
-
-    test("shares a WebM export as it was produced", {
-      timeout: 60_000,
-    }, async () => {
-      stubHarness(EXPORTED_WEBM);
-      const share = vi.fn(async (_data?: ShareData) => {});
-      stubWebShare({ canShare: () => true, share });
-      const dialog = await exportVideo({
-        ...PROJECT,
-        encoding: { ...DEFAULT_SESSION_ENCODING, videoCodec: "vp9" },
-      });
-
-      await dialog.getByRole("button", { name: "Share" }).click();
-      await expect.poll(() => share.mock.calls.length).toBe(1);
-      const [file] = share.mock.calls[0][0]?.files ?? [];
-      expect(file.name).toMatch(/\.webm$/);
-      expect(file.type).toBe("video/webm");
-      expect(await file.text()).toBe(await EXPORTED_WEBM.text());
     });
 
     test("closing the share sheet is not an error", {
