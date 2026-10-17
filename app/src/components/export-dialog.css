@@ -421,6 +421,17 @@
   padding-right: 36px;
 }
 
+/* The share icon button: as tall as its text neighbors, but square. */
+.export-actions__share {
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.export-actions__share-icon {
+  width: 16px;
+  height: 16px;
+}
+
 /* The row under the buttons keeps one height in every state: the notice
    stays laid out under the bar, and the status line is always reserved. */
 .export-actions__row {

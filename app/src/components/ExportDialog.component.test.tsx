@@ -196,6 +196,8 @@ describe("ExportDialog", () => {
       }
     }
 
+    const SHARE = "Share the video to apps such as Instagram and TikTok";
+
     async function exportVideo(project = PROJECT) {
       await setViewport({ width: 1600, height: 1200 });
       await render(<ExportHost project={project} />);
@@ -219,7 +221,7 @@ describe("ExportDialog", () => {
       });
       const dialog = await exportVideo();
 
-      await dialog.getByRole("button", { name: "Share" }).click();
+      await dialog.getByRole("button", { name: SHARE }).click();
       await expect.poll(() => share.mock.calls.length).toBe(1);
       const files = share.mock.calls[0][0]?.files ?? [];
       expect(files).toHaveLength(1);
@@ -229,6 +231,24 @@ describe("ExportDialog", () => {
       expect(await files[0].text()).toBe(await EXPORTED.text());
       // Only the export's own save; nothing downloaded again.
       expect(saved).toHaveLength(1);
+    });
+
+    test("is an icon button as tall as its neighbors", {
+      timeout: 60_000,
+    }, async () => {
+      stubHarness();
+      stubWebShare({ canShare: () => true, share: async () => {} });
+      const dialog = await exportVideo();
+
+      const share = dialog.getByRole("button", { name: SHARE }).element();
+      expect(share.textContent).toBe("");
+      expect(share.querySelector("svg")).not.toBeNull();
+      const close = dialog
+        .getByRole("button", { name: "Close", exact: true })
+        .element();
+      expect(share.getBoundingClientRect().height).toBe(
+        close.getBoundingClientRect().height,
+      );
     });
 
     test("closing the share sheet is not an error", {
@@ -241,7 +261,7 @@ describe("ExportDialog", () => {
       stubWebShare({ canShare: () => true, share });
       const dialog = await exportVideo();
 
-      await dialog.getByRole("button", { name: "Share" }).click();
+      await dialog.getByRole("button", { name: SHARE }).click();
       await expect.poll(() => share.mock.calls.length).toBe(1);
       await share.mock.results[0].value.catch(() => undefined);
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -259,7 +279,7 @@ describe("ExportDialog", () => {
       stubWebShare({ canShare: () => false, share });
       const dialog = await exportVideo();
 
-      await dialog.getByRole("button", { name: "Share" }).click();
+      await dialog.getByRole("button", { name: SHARE }).click();
       await expect.poll(() => saved.length).toBe(2);
       expect(share).not.toHaveBeenCalled();
       expect(saved[1].target).toEqual({
