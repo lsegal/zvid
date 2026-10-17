@@ -66,6 +66,16 @@ export function ExportActions({
                 Reveal file
               </button>
             ) : null}
+            {model.canShare ? (
+              <button
+                className="ghost-button"
+                onClick={model.share}
+                title="Share the video to apps such as Instagram and TikTok"
+                type="button"
+              >
+                Share
+              </button>
+            ) : null}
             <button
               className="ghost-button"
               onClick={model.close}

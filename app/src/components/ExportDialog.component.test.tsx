@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { type Locator, page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
 import type { ProjectState } from "../app/types.ts";
 import { setViewport } from "../component-test/viewport.ts";
 import { createFillClip } from "../fill-clip.ts";
+import type { Harness, SaveTarget } from "../harness/contracts.ts";
 import { useExport, useExportState } from "../hooks/useExport.ts";
 import { ExportDialog } from "./ExportDialog";
 
@@ -31,16 +32,16 @@ const PROJECT: ProjectState = {
 };
 
 // The app's wiring of the Export button to useExport and the dialog.
-function ExportHost() {
+function ExportHost({ project = PROJECT }: { project?: ProjectState }) {
   const exportState = useExportState();
   const [isPlaying, setIsPlaying] = useState(false);
   const [, setStatus] = useState("");
   const { openExportDialog, exportDialog } = useExport({
     ...exportState,
-    project: PROJECT,
+    project,
     mediaItems: [],
     audioPeaks: undefined,
-    signature: signatureById(PROJECT.signatureId),
+    signature: signatureById(project.signatureId),
     beatUnit: 1,
     isPlaying,
     setIsPlaying,
@@ -129,5 +130,143 @@ describe("ExportDialog", () => {
     await expect.element(dialog.getByLabelText("Width")).toHaveValue(1920);
     await expect.element(dialog.getByLabelText("Height")).toHaveValue(1080);
     expect(modifiedDots(dialog).elements()).toHaveLength(0);
+  });
+
+  describe("Share", () => {
+    const EXPORTED = new Blob(["mp4 bytes"], { type: "video/mp4" });
+    let saved: { blob: Blob; target: SaveTarget }[] = [];
+    let restore: (() => void)[] = [];
+
+    afterEach(() => {
+      for (const undo of restore.reverse()) {
+        undo();
+      }
+      restore = [];
+      saved = [];
+    });
+
+    // A web harness whose export finishes at once with `exported`, saved
+    // through a download.
+    function stubHarness(exported = EXPORTED) {
+      const previous = window.harness;
+      window.harness = {
+        id: "web",
+        capabilities: {},
+        prepareSave: async (filename: string) => ({
+          kind: "download",
+          filename,
+        }),
+        saveBlob: async (blob: Blob, target: SaveTarget) => {
+          saved.push({ blob, target });
+          return "download";
+        },
+        exportVideo: async (request) => {
+          saved.push({ blob: exported, target: request.saveTarget });
+          return {
+            encoding: {},
+            summary: "1920×1080 · 30 fps",
+            bytes: exported.size,
+            mimeType: exported.type,
+            muxedWith: "zvidlib",
+            saveMethod: "download",
+            blob: exported,
+          };
+        },
+      } as Partial<Harness> as Harness;
+      restore.push(() => {
+        window.harness = previous;
+      });
+    }
+
+    // Replaces the browser's Web Share API for the test.
+    function stubWebShare(stub: Pick<Navigator, "canShare" | "share">) {
+      for (const key of ["canShare", "share"] as const) {
+        const own = Object.getOwnPropertyDescriptor(navigator, key);
+        Object.defineProperty(navigator, key, {
+          configurable: true,
+          value: stub[key],
+        });
+        restore.push(() => {
+          if (own) {
+            Object.defineProperty(navigator, key, own);
+          } else {
+            delete (navigator as Partial<Navigator>)[key];
+          }
+        });
+      }
+    }
+
+    async function exportVideo(project = PROJECT) {
+      await setViewport({ width: 1600, height: 1200 });
+      await render(<ExportHost project={project} />);
+      const dialog = await openExportDialog();
+      await dialog.getByRole("button", { name: "Export", exact: true }).click();
+      await expect
+        .element(dialog.getByRole("button", { name: "Close", exact: true }))
+        .toBeVisible();
+      return dialog;
+    }
+
+    test("opens the share sheet with the exported video", {
+      timeout: 60_000,
+    }, async () => {
+      stubHarness();
+      const share = vi.fn(async (_data?: ShareData) => {});
+      stubWebShare({
+        canShare: (data?: ShareData) =>
+          Boolean(data?.files?.every((file) => file.type === "video/mp4")),
+        share,
+      });
+      const dialog = await exportVideo();
+
+      await dialog.getByRole("button", { name: "Share" }).click();
+      await expect.poll(() => share.mock.calls.length).toBe(1);
+      const files = share.mock.calls[0][0]?.files ?? [];
+      expect(files).toHaveLength(1);
+      expect(files[0].name).toMatch(/\.mp4$/);
+      expect(files[0].type).toBe("video/mp4");
+      // The exported bytes as they were saved, not a new render.
+      expect(await files[0].text()).toBe(await EXPORTED.text());
+      // Only the export's own save; nothing downloaded again.
+      expect(saved).toHaveLength(1);
+    });
+
+    test("closing the share sheet is not an error", {
+      timeout: 60_000,
+    }, async () => {
+      stubHarness();
+      const share = vi.fn(async () => {
+        throw new DOMException("Share canceled", "AbortError");
+      });
+      stubWebShare({ canShare: () => true, share });
+      const dialog = await exportVideo();
+
+      await dialog.getByRole("button", { name: "Share" }).click();
+      await expect.poll(() => share.mock.calls.length).toBe(1);
+      await share.mock.results[0].value.catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      // A failed share would replace the export's message.
+      expect(dialog.getByRole("status").element().textContent).toMatch(
+        /^Exported /,
+      );
+    });
+
+    test("downloads the video where files can't be shared", {
+      timeout: 60_000,
+    }, async () => {
+      stubHarness();
+      const share = vi.fn(async () => {});
+      stubWebShare({ canShare: () => false, share });
+      const dialog = await exportVideo();
+
+      await dialog.getByRole("button", { name: "Share" }).click();
+      await expect.poll(() => saved.length).toBe(2);
+      expect(share).not.toHaveBeenCalled();
+      expect(saved[1].target).toEqual({
+        kind: "download",
+        filename: expect.stringMatching(/\.mp4$/),
+      });
+      expect(await saved[1].blob.text()).toBe(await EXPORTED.text());
+    });
   });
 });

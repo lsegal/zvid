@@ -164,7 +164,9 @@ test("dragging In and Out exports only that span", async ({ page }) => {
   expect(Math.abs(readDurationSeconds(mp4) - frames / fps)).toBeLessThan(
     1.5 / fps,
   );
-  // Browser downloads can't be revealed, so the done state only closes.
+  // Browser downloads can't be revealed, so the done state offers Share
+  // and Close.
+  await expect(dialog.getByRole("button", { name: "Share" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Reveal file" })).toHaveCount(
     0,

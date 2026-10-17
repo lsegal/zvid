@@ -114,6 +114,8 @@ export type ExportResult = {
   mimeType: string;
   muxedWith: string;
   saveMethod: SaveMethod;
+  // The exported file as it was saved, for sharing it afterwards.
+  blob: Blob;
 };
 
 export type Harness = {

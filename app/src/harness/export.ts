@@ -238,6 +238,7 @@ export async function exportVideo(
       mimeType,
       muxedWith: "zvidlib",
       saveMethod: await save(blob, request.saveTarget),
+      blob,
     };
   } catch (error) {
     await output.cancel().catch(() => undefined);
