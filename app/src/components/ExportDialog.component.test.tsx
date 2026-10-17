@@ -243,9 +243,12 @@ describe("ExportDialog", () => {
 
       await dialog.getByRole("button", { name: "Share" }).click();
       await expect.poll(() => share.mock.calls.length).toBe(1);
-      await expect
-        .element(dialog.getByRole("status"))
-        .not.toHaveTextContent(/Failed to share/);
+      await share.mock.results[0].value.catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      // A failed share would replace the export's message.
+      expect(dialog.getByRole("status").element().textContent).toMatch(
+        /^Exported /,
+      );
     });
 
     test("downloads the video where files can't be shared", {
