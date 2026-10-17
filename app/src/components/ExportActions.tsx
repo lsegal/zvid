@@ -5,6 +5,7 @@ import {
 } from "../export-progress.ts";
 import type { ExportDialogModel } from "../hooks/useExport.ts";
 import { formatTimecode } from "../timeline-format.ts";
+import { ShareArrowIcon } from "./ShareArrowIcon";
 import {
   Dialog,
   DialogContent,
@@ -68,12 +69,13 @@ export function ExportActions({
             ) : null}
             {model.canShare ? (
               <button
-                className="ghost-button"
+                aria-label="Share the video to apps such as Instagram and TikTok"
+                className="ghost-button export-actions__share"
                 onClick={model.share}
                 title="Share the video to apps such as Instagram and TikTok"
                 type="button"
               >
-                Share
+                <ShareArrowIcon className="export-actions__share-icon" />
               </button>
             ) : null}
             <button

@@ -166,7 +166,9 @@ test("dragging In and Out exports only that span", async ({ page }) => {
   );
   // Browser downloads can't be revealed, so the done state offers Share
   // and Close.
-  await expect(dialog.getByRole("button", { name: "Share" })).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /^Share the video/ }),
+  ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Reveal file" })).toHaveCount(
     0,
