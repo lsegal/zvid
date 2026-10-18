@@ -233,7 +233,7 @@ describe("ExportDialog", () => {
       expect(saved).toHaveLength(1);
     });
 
-    test("is an icon button as tall as its neighbors", {
+    test("shows the icon next to its label, as tall as its neighbors", {
       timeout: 60_000,
     }, async () => {
       stubHarness();
@@ -241,8 +241,10 @@ describe("ExportDialog", () => {
       const dialog = await exportVideo();
 
       const share = dialog.getByRole("button", { name: SHARE }).element();
-      expect(share.textContent).toBe("");
-      expect(share.querySelector("svg")).not.toBeNull();
+      expect(share.textContent).toBe("Share");
+      const icon = share.querySelector("svg");
+      expect(icon).not.toBeNull();
+      expect(share.firstElementChild).toBe(icon);
       const close = dialog
         .getByRole("button", { name: "Close", exact: true })
         .element();
