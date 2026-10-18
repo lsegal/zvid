@@ -421,10 +421,9 @@
   padding-right: 36px;
 }
 
-/* The share icon button: as tall as its text neighbors, but square. */
+/* The share button: its icon sits before the label. */
 .export-actions__share {
-  min-width: 0;
-  padding: 10px 12px;
+  gap: 8px;
 }
 
 .export-actions__share-icon {

@@ -76,6 +76,7 @@ export function ExportActions({
                 type="button"
               >
                 <ShareArrowIcon className="export-actions__share-icon" />
+                Share
               </button>
             ) : null}
             <button
