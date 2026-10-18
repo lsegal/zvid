@@ -335,6 +335,54 @@ pub fn esds_box(audio_specific_config: &[u8]) -> Vec<u8> {
     wrap_box(b"esds", &payload)
 }
 
+/// Reads one MPEG-4 descriptor at the start of `bytes`: its tag, its
+/// content and what follows it.
+fn read_descriptor(bytes: &[u8]) -> Option<(u8, &[u8], &[u8])> {
+    let (&tag, mut rest) = bytes.split_first()?;
+    let mut length = 0_usize;
+    for _ in 0..4 {
+        let (&byte, next) = rest.split_first()?;
+        rest = next;
+        length = (length << 7) | usize::from(byte & 0x7f);
+        if byte & 0x80 == 0 {
+            return (rest.len() >= length).then(|| (tag, &rest[..length], &rest[length..]));
+        }
+    }
+    None
+}
+
+/// The `AudioSpecificConfig` in an AAC encoder's `decoderConfig.description`.
+/// Most browsers report it bare; WebKit reports the whole `ES_Descriptor`
+/// around it, which no `AudioSpecificConfig` can start like (tag 3 would be
+/// audio object type 0).
+pub fn audio_specific_config(description: &[u8]) -> Option<Vec<u8>> {
+    const ES_DESCRIPTOR: u8 = 0x03;
+    const DECODER_CONFIG: u8 = 0x04;
+    const DECODER_SPECIFIC_INFO: u8 = 0x05;
+    if description.first() != Some(&ES_DESCRIPTOR) {
+        return (!description.is_empty()).then(|| description.to_vec());
+    }
+    let (_, es, _) = read_descriptor(description)?;
+    let (&flags, mut rest) = es.get(2..)?.split_first()?;
+    if flags & 0x80 != 0 {
+        rest = rest.get(2..)?; // dependsOn_ES_ID
+    }
+    if flags & 0x40 != 0 {
+        let (&url_length, url) = rest.split_first()?;
+        rest = url.get(usize::from(url_length)..)?;
+    }
+    if flags & 0x20 != 0 {
+        rest = rest.get(2..)?; // OCR_ES_Id
+    }
+    let (tag, decoder_config, _) = read_descriptor(rest)?;
+    if tag != DECODER_CONFIG {
+        return None;
+    }
+    // objectTypeIndication, streamType, bufferSizeDB, maxBitrate, avgBitrate.
+    let (tag, info, _) = read_descriptor(decoder_config.get(13..)?)?;
+    (tag == DECODER_SPECIFIC_INFO && !info.is_empty()).then(|| info.to_vec())
+}
+
 /// The AAC `AudioSpecificConfig` for AAC-LC at `sample_rate` with
 /// `channels`, for encoders that report none.
 pub fn aac_lc_audio_specific_config(sample_rate: u32, channels: u16) -> Vec<u8> {
@@ -453,6 +501,20 @@ mod tests {
         assert_eq!(aac_lc_audio_specific_config(48_000, 2), [0x11, 0x90]);
         assert_eq!(aac_lc_audio_specific_config(44_100, 2), [0x12, 0x10]);
         assert_eq!(aac_lc_audio_specific_config(44_000, 1).len(), 5);
+    }
+
+    #[test]
+    fn audio_specific_configs_come_bare_or_in_an_es_descriptor() {
+        assert_eq!(audio_specific_config(&[0x11, 0x90]).unwrap(), [0x11, 0x90]);
+        // WebKit's AAC description for 48 kHz stereo, with 4-byte lengths.
+        let webkit = [
+            0x03, 0x80, 0x80, 0x80, 0x22, 0x00, 0x00, 0x00, 0x04, 0x80, 0x80, 0x80, 0x14, 0x40,
+            0x14, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x80,
+            0x80, 0x80, 0x02, 0x11, 0x90, 0x06, 0x80, 0x80, 0x80, 0x01, 0x02,
+        ];
+        assert_eq!(audio_specific_config(&webkit).unwrap(), [0x11, 0x90]);
+        assert_eq!(audio_specific_config(&webkit[..20]), None);
+        assert_eq!(audio_specific_config(&[]), None);
     }
 
     #[test]

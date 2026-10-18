@@ -36,7 +36,7 @@ extern "C" {
     #[wasm_bindgen(method, getter, js_name = encodeQueueSize)]
     fn encode_queue_size(this: &JsVideoEncoder) -> u32;
     #[wasm_bindgen(method, setter)]
-    fn set_ondequeue(this: &JsVideoEncoder, handler: &Function);
+    fn set_ondequeue(this: &JsVideoEncoder, handler: &JsValue);
 
     #[wasm_bindgen(js_name = VideoFrame)]
     type JsVideoFrame;
@@ -398,6 +398,7 @@ async fn encode_aac(
     let padding = (pts as u64).saturating_sub(u64::from(priming) + input_frames) as u32;
     let audio_specific_config = output
         .description
+        .and_then(|description| codec::audio_specific_config(&description))
         .unwrap_or_else(|| codec::aac_lc_audio_specific_config(sample_rate, channels));
     let config = Mp4TrackConfig {
         encoder: EncoderConfig {
@@ -463,7 +464,7 @@ pub async fn create_export_encoder(
     ]))?;
     let dequeued = Rc::clone(&output);
     let on_dequeue = Closure::<dyn FnMut()>::new(move || dequeued.borrow_mut().wake());
-    encoder.set_ondequeue(on_dequeue.as_ref().unchecked_ref());
+    encoder.set_ondequeue(on_dequeue.as_ref());
     encoder.configure(&config)?;
     Ok(ExportEncoder {
         encoder,
@@ -608,6 +609,9 @@ impl ExportEncoder {
 impl Drop for ExportEncoder {
     fn drop(&mut self) {
         self.close();
+        // A dequeue event already queued would otherwise call the dropped
+        // closure.
+        self.encoder.set_ondequeue(&JsValue::NULL);
     }
 }
 

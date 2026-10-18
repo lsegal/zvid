@@ -3,9 +3,21 @@
 
 import type { CanEncodeVideo } from "./export-encoding";
 
-export async function loadExportBridge() {
+async function load() {
   const bridge = await import("../../export-bridge/pkg/zvid_export_bridge.js");
   await bridge.default();
+  return bridge;
+}
+
+let bridge: ReturnType<typeof load> | undefined;
+
+// Loads the bridge once. Concurrent probes would otherwise each instantiate
+// the module, swapping its memory out from under each other's pending calls.
+export function loadExportBridge() {
+  bridge ??= load().catch((error) => {
+    bridge = undefined;
+    throw error;
+  });
   return bridge;
 }
 
