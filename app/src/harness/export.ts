@@ -1,13 +1,3 @@
-import {
-  AudioBufferSource,
-  BufferTarget,
-  CanvasSource,
-  canEncodeAudio,
-  canEncodeVideo,
-  Mp4OutputFormat,
-  Output,
-  WebMOutputFormat,
-} from "mediabunny";
 import { renderAudioMixOffline } from "../audio-mix/offline";
 import {
   type EncodableVideoCodec,
@@ -20,10 +10,11 @@ import type {
   SaveMethod,
   SaveTarget,
 } from "./contracts";
+import { canEncodeVideo, loadExportBridge } from "./export-bridge";
 import {
   describeExportEncoding,
-  MEDIABUNNY_VIDEO_CODECS,
   resolveExportEncoding,
+  VIDEO_CODEC_LABELS,
 } from "./export-encoding";
 import {
   drawThumbnail,
@@ -39,15 +30,13 @@ export async function probeVideoCodecSupport(
   bitrate: number,
 ): Promise<VideoCodecSupport> {
   const entries = await Promise.all(
-    (Object.keys(MEDIABUNNY_VIDEO_CODECS) as EncodableVideoCodec[]).map(
+    (Object.keys(VIDEO_CODEC_LABELS) as EncodableVideoCodec[]).map(
       async (codec) =>
         [
           codec,
-          await canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], {
-            width,
-            height,
-            bitrate,
-          }).catch(() => false),
+          await canEncodeVideo(codec, { width, height, bitrate }).catch(
+            () => false,
+          ),
         ] as const,
     ),
   );
@@ -56,13 +45,6 @@ export async function probeVideoCodecSupport(
 
 // Exports mix their audio to stereo.
 const EXPORT_AUDIO_CHANNELS = 2;
-
-// The zvidlib bridge that writes the final file.
-async function loadExportBridge() {
-  const bridge = await import("../../export-bridge/pkg/zvid_export_bridge.js");
-  await bridge.default();
-  return bridge;
-}
 
 // The buffer's channels interleaved, as zvidlib's encoders take them.
 function interleave(audio: AudioBuffer) {
@@ -84,9 +66,7 @@ export async function exportVideo(
   const { settings, signal } = request;
   const frameRate = settings.fps;
   const startSeconds = Math.max(0, request.startSeconds ?? 0);
-  const encoding = await resolveExportEncoding(settings, (codec, config) =>
-    canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], config),
-  );
+  const encoding = await resolveExportEncoding(settings, canEncodeVideo);
   const summary = describeExportEncoding(settings, encoding);
   request.onLog?.("export:encoding", { ...encoding, summary });
   request.onProgress({
@@ -124,54 +104,37 @@ export async function exportVideo(
       });
     }
   }
-  // A WebM's Opus audio is encoded by zvidlib when it writes the file, so
-  // only MP4 needs the browser's (or the native) AAC encoder.
+  // zvidlib encodes a WebM's Opus audio itself, so only MP4 needs the
+  // device's AAC encoder.
   const webm = encoding.container === "webm";
   const containerLabel = EXPORT_CONTAINER_LABELS[encoding.container];
-  const browserAac =
-    audio && !webm
-      ? await canEncodeAudio("aac", {
-          sampleRate: audio.sampleRate,
-          numberOfChannels: audio.numberOfChannels,
-          bitrate: encoding.audioBitrate,
-        })
-      : false;
-  if (audio && !webm && !browserAac) {
+  const bridge = await loadExportBridge();
+  if (
+    audio &&
+    !webm &&
+    !(await bridge.canEncodeAac(
+      audio.sampleRate,
+      audio.numberOfChannels,
+      encoding.audioBitrate,
+    ))
+  ) {
     throw new Error(
       "This browser does not provide an AAC encoder for audible MP4 export.",
     );
   }
-  const target = new BufferTarget();
-  const output = new Output({
-    format: webm ? new WebMOutputFormat() : new Mp4OutputFormat(),
-    target,
-  });
-  const video = new CanvasSource(request.canvas, {
-    codec: MEDIABUNNY_VIDEO_CODECS[encoding.videoCodec],
-    bitrate: encoding.videoBitrate,
-    keyFrameInterval: 2,
-    latencyMode: "realtime",
-  });
-  output.addVideoTrack(video, { frameRate });
-  const audioSource =
-    audio && browserAac
-      ? new AudioBufferSource({
-          codec: encoding.audioCodec,
-          bitrate: encoding.audioBitrate,
-        })
-      : null;
-  if (audioSource) output.addAudioTrack(audioSource);
+  const encoder = await bridge.createExportEncoder(
+    encoding.videoCodec,
+    settings.canvasWidth,
+    settings.canvasHeight,
+    encoding.videoBitrate,
+    frameRate,
+  );
   // WebM has no cover art, so only an MP4 takes a thumbnail.
   const thumbnailIndex = webm
     ? -1
     : getThumbnailFrameIndex(request.frameCount, frameRate);
   let thumbnail: HTMLCanvasElement | null = null;
   try {
-    await output.start();
-    if (audioSource && audio) {
-      await audioSource.add(audio);
-      audioSource.close();
-    }
     for (let index = 0; index < request.frameCount; index++) {
       signal?.throwIfAborted();
       // `seconds` is the frame's time in the output; it shows the session
@@ -187,7 +150,7 @@ export async function exportVideo(
           request.onLog?.("export:thumbnail-failed", String(error));
         }
       }
-      await video.add(seconds, 1 / frameRate);
+      await encoder.addFrame(request.canvas);
       request.setPlayheadQ(quarters);
       request.onProgress({
         phase: "rendering",
@@ -198,9 +161,6 @@ export async function exportVideo(
         new Promise((resolve) => setTimeout(resolve, 0)));
     }
     signal?.throwIfAborted();
-    video.close();
-    await output.finalize();
-    if (!target.buffer) throw new Error("Video encoder returned no output.");
     // A missing thumbnail only costs the file-browser preview, so export
     // without one instead of failing.
     const cover = thumbnail
@@ -215,19 +175,13 @@ export async function exportVideo(
       detail: `Writing final ${containerLabel}...`,
       container: encoding.container,
     });
-    let bytes: Uint8Array;
-    if (webm) {
-      const bridge = await loadExportBridge();
-      bytes = await bridge.muxWebm(
-        new Uint8Array(target.buffer),
-        audio ? interleave(audio) : undefined,
-        audio?.numberOfChannels ?? EXPORT_AUDIO_CHANNELS,
-        encoding.audioBitrate,
-      );
-    } else {
-      const bridge = await loadExportBridge();
-      bytes = await bridge.muxMp4(new Uint8Array(target.buffer), cover);
-    }
+    const bytes: Uint8Array = await encoder.finish(
+      audio ? interleave(audio) : undefined,
+      audio?.numberOfChannels ?? EXPORT_AUDIO_CHANNELS,
+      audio?.sampleRate ?? encoding.audioSampleRate,
+      encoding.audioBitrate,
+      cover,
+    );
     signal?.throwIfAborted();
     const mimeType = `video/${encoding.container}`;
     const blob = new Blob([new Uint8Array(bytes)], { type: mimeType });
@@ -240,8 +194,8 @@ export async function exportVideo(
       saveMethod: await save(blob, request.saveTarget),
       blob,
     };
-  } catch (error) {
-    await output.cancel().catch(() => undefined);
-    throw error;
+  } finally {
+    encoder.close();
+    encoder.free();
   }
 }
