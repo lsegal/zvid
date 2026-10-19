@@ -32,7 +32,7 @@ test("the MIDI sample opens at 90% zoom with the Layers section collapsed", {
 
   await openSample("MIDI");
   await expect
-    .element(page.getByRole("button", { name: "Zoom 90%, reset to 100%" }))
+    .element(page.getByRole("button", { name: "Zoom 90%. Edit value" }))
     .toBeVisible();
   await expect.poll(() => layersToggle().title).toBe("Show layers");
   expect(document.querySelector(".layers-header")).not.toBeNull();
@@ -49,7 +49,7 @@ test("the Default sample keeps 100% zoom and the Layers section shown", {
     .element(page.getByText("zvid opening sample", { exact: true }).first())
     .toBeVisible();
   await expect
-    .element(page.getByRole("button", { name: "Zoom 100%, reset to 100%" }))
+    .element(page.getByRole("button", { name: "Zoom 100%. Edit value" }))
     .toBeVisible();
   expect(layersToggle().title).toBe("Hide layers");
   expect(document.querySelector(".layers-header")).toBeNull();

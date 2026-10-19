@@ -269,7 +269,7 @@ export const editing: Guide = {
         {
           type: "list",
           items: [
-            "Zoom from 25% to 800% with **Zoom out**, **Zoom in** or the slider. Click the percentage to reset to 100%, or drag it up and down.",
+            "Zoom from 25% to 800% with **Zoom out**, **Zoom in** or the slider. Drag the percentage up and down to zoom, or hold the pointer still on it to type a zoom.",
             "Right-drag the ruler up and down to zoom, or sideways to pan. Middle-drag, or hold [[Space]] and drag, to pan anywhere.",
             "A left press on the ruler scrubs the playhead.",
           ],

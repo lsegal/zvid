@@ -167,6 +167,34 @@ export async function dblclick(
   await up({ ...options, clickCount: 2 });
 }
 
+// Presses at (x, y) and keeps the button down for `ms`, still pressed when
+// it returns; release with up().
+export async function pressAndHold(
+  x: number,
+  y: number,
+  ms: number,
+  options: PressOptions = {},
+) {
+  await move(x, y, options);
+  await down(options);
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Clicks at (x, y) and reports whether the press lasted less than `ms`, an
+// upper bound on the time between the page's pointerdown and pointerup.
+export async function quickClick(
+  x: number,
+  y: number,
+  ms: number,
+  options: PressOptions = {},
+) {
+  await move(x, y, options);
+  const start = performance.now();
+  await down(options);
+  await up(options);
+  return performance.now() - start < ms;
+}
+
 // Presses at `from`, moves to `to` in `steps` and releases there.
 export async function drag(
   from: Point,
