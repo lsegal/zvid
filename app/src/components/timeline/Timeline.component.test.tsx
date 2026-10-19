@@ -194,15 +194,15 @@ describe(Timeline, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       expect(drift(), `at scrollLeft ${left}`).toBe(0);
     }
 
-    // Not a scroller of its own, and still docked at the panel's bottom.
+    // Not a scroller of its own, and still docked at the bottom of the view,
+    // over the rows' horizontal scrollbar where it takes room (Linux).
     expect(scroller.contains(footer)).toBe(true);
     expect(footer.scrollWidth).toBe(footer.clientWidth);
-    const panel = query(".timeline-panel");
     expect(
       Math.abs(
-        panel.getBoundingClientRect().top +
-          panel.clientTop +
-          panel.clientHeight -
+        scroller.getBoundingClientRect().top +
+          scroller.clientTop +
+          scroller.clientHeight -
           footer.getBoundingClientRect().bottom,
       ),
     ).toBeLessThan(1);
