@@ -1,3 +1,4 @@
+import { ArrowsPointingInIcon } from "@heroicons/react/16/solid";
 import type {
   ProjectState,
   TimelineMode,
@@ -141,7 +142,7 @@ export function TimelineToolbar({
         <div className="segmented-control">
           <button
             aria-pressed={snapEnabled}
-            className={snapEnabled ? "is-active" : ""}
+            className={`timeline-toolbar__snap${snapEnabled ? " is-active" : ""}`}
             onClick={() =>
               commitProjectPatch(
                 snapEnabled ? "Disable beat snapping" : "Enable beat snapping",
@@ -151,6 +152,9 @@ export function TimelineToolbar({
             title="Shift while dragging a clip or trim handle to temporarily disable snapping."
             type="button"
           >
+            {/* Heroicons has no magnet; converging arrows read as snapping
+                together (#1523). */}
+            <ArrowsPointingInIcon aria-hidden="true" />
             Snap
           </button>
         </div>

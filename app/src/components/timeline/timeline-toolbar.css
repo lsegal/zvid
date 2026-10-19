@@ -26,6 +26,11 @@
   line-height: 16px;
 }
 
+.timeline-toolbar .tempo-pill__readout {
+  min-width: 62px;
+  text-align: center;
+}
+
 /* Dragging the BPM readout up or down changes the tempo; a double-click
    swaps its number for a text field. */
 .tempo-pill__readout {
@@ -57,6 +62,25 @@ button.tempo-pill__readout:hover {
   color: inherit;
   font: inherit;
   text-align: center;
+}
+
+/* The Snap toggle's icon sits left of its label (#1523); 16px matches the
+   buttons' 16px line height. The row packs to its right edge, so the icon
+   lands on a whole pixel only if the Snap toggle, the tempo pill and the time
+   signature picker are all whole pixels wide: each gets a whole minimum
+   width that fits its widest value with a few pixels to spare for fallback
+   fonts, scoped to outrank coarse-pointer.css's min-width reset. */
+.timeline-toolbar .timeline-toolbar__snap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+}
+
+.timeline-toolbar__snap > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
 /* The Media | Record switch is a fieldset; drop its default margin. */
@@ -110,6 +134,7 @@ button.tempo-pill__readout:hover {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 192px;
   padding: 5px 8px 5px 10px;
   background: light-dark(rgba(40, 48, 80, 0.018), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
@@ -119,6 +144,12 @@ button.tempo-pill__readout:hover {
   letter-spacing: 0.04em;
   line-height: 16px;
   text-transform: uppercase;
+}
+
+/* The label takes the minimum width's slack, so the stepper stays together
+   at the right. */
+.signature-picker > span {
+  margin-right: auto;
 }
 
 .signature-picker__input {
