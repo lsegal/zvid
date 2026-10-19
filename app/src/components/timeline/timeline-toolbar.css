@@ -94,6 +94,10 @@
   cursor: default;
 }
 
+.signature-picker__adjust:not(:disabled):hover {
+  background: rgb(var(--tint) / 0.14);
+}
+
 @media (max-width: 900px) {
   .timeline-toolbar {
     flex-direction: column;

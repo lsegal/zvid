@@ -190,8 +190,7 @@ export function TextWorkspace({
     playheadSignal,
     bpm: present.bpm,
     fps: present.fps,
-    signature:
-      signatureById(present.signatureId),
+    signature: signatureById(present.signatureId),
     isPlaying,
     timelineClips: selection.timelineClips,
     lanePriority,

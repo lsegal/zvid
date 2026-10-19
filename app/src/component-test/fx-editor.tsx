@@ -133,8 +133,7 @@ export function FxEditor({
     playheadSignal,
     bpm: present.bpm,
     fps: present.fps,
-    signature:
-      signatureById(present.signatureId),
+    signature: signatureById(present.signatureId),
     isPlaying: false,
     timelineClips: present.clips,
     lanePriority,

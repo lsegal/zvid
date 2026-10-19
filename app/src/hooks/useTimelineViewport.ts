@@ -26,6 +26,7 @@ import type {
 } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
 import { getFilmstripRange } from "../clip-filmstrip.ts";
+import { signatureBeatScale } from "../time-signature.ts";
 import {
   divisionQuarters,
   type GridDivision,
@@ -36,7 +37,6 @@ import {
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "../timeline-grid";
-import { signatureBeatScale } from "../time-signature.ts";
 
 export type TimelineViewportInputs = {
   zoom: number;

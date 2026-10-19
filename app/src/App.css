@@ -756,8 +756,7 @@
   transition: background 160ms ease;
 }
 
-.tempo-pill__adjust:hover,
-.signature-picker__adjust:not(:disabled):hover {
+.tempo-pill__adjust:hover {
   background: rgb(var(--tint) / 0.14);
 }
 

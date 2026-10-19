@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { DEFAULT_SIGNATURE } from "../../time-signature.ts";
 import { center, drag } from "../../component-test/input.ts";
 import { createDefaultAnimation } from "../../fx-animation-defaults.ts";
 import { createDefaultModulation } from "../../fx-modulation-defaults.ts";
@@ -12,6 +11,7 @@ import {
   mapSessionEffectsToDevices,
 } from "../../fx-stack.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
+import { DEFAULT_SIGNATURE } from "../../time-signature.ts";
 import { NumberControl } from "./controls/NumberControl.tsx";
 import {
   type FxModulationClock,

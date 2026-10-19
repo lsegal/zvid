@@ -88,7 +88,10 @@ describe("stepSignature", () => {
 
   it("stops at either end", () => {
     assert.equal(stepSignature(signatureById("1/1"), -1), null);
-    assert.equal(stepSignature(SIGNATURE_LADDER.at(-1) ?? DEFAULT_SIGNATURE, 1), null);
+    assert.equal(
+      stepSignature(SIGNATURE_LADDER.at(-1) ?? DEFAULT_SIGNATURE, 1),
+      null,
+    );
   });
 
   it("steps a custom signature to the nearer rung on each side", () => {

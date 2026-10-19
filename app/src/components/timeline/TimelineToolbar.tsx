@@ -8,12 +8,12 @@ import { TransportPlayheadReadout } from "../LivePlayhead";
 import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TempoPill } from "../TempoPill";
+import { SignaturePicker } from "./SignaturePicker";
 import {
   getStatusLightClassName,
   getStatusLightState,
   STATUS_LIGHT_LABELS,
 } from "./status-light.ts";
-import { SignaturePicker } from "./SignaturePicker";
 import "./timeline-toolbar.css";
 
 const MEDIA_DRAWER_SEGMENTS = [

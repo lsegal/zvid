@@ -28,7 +28,6 @@ import {
 } from "../selection-overlaps.ts";
 import { clipSourceFrame, type ProjectSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
-import { signatureById } from "../time-signature.ts";
 import {
   readSelectionTrackOffset,
   readSessionFills,
@@ -49,6 +48,7 @@ import {
   getSpanSourceOffsetSeconds,
 } from "../source-track-content.ts";
 import { createTextClip } from "../text-clip.ts";
+import { signatureById } from "../time-signature.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../zoom.ts";
 import {
   DEFAULT_LANES,
