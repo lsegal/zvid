@@ -26,22 +26,32 @@
   line-height: 16px;
 }
 
-.timeline-toolbar .tempo-pill__value {
-  min-width: 60px;
+.timeline-toolbar .tempo-pill__readout {
+  min-width: 62px;
   text-align: center;
+}
+
+/* Dragging the BPM readout up or down changes the tempo. */
+.tempo-pill__readout {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.tempo-pill__readout:hover {
+  color: var(--amber);
 }
 
 /* The Snap toggle's icon sits left of its label (#1523); 16px matches the
    buttons' 16px line height. The row packs to its right edge, so the icon
    lands on a whole pixel only if the Snap toggle, the tempo pill and the time
    signature picker are all whole pixels wide: each gets a whole minimum
-   width that fits its widest value, scoped to outrank coarse-pointer.css's
-   min-width reset. */
+   width that fits its widest value with a few pixels to spare for fallback
+   fonts, scoped to outrank coarse-pointer.css's min-width reset. */
 .timeline-toolbar .timeline-toolbar__snap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-width: 78px;
+  min-width: 80px;
 }
 
 .timeline-toolbar__snap > svg {
@@ -54,6 +64,18 @@
 .timeline-toolbar__media-switch {
   min-width: 0;
   margin: 0;
+}
+
+.timeline-toolbar__readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  line-height: inherit;
 }
 
 .timeline-toolbar__display strong {
@@ -88,10 +110,9 @@
 .signature-picker {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  min-width: 132px;
-  padding: 5px 10px;
+  min-width: 192px;
+  padding: 5px 8px 5px 10px;
   background: light-dark(rgba(40, 48, 80, 0.018), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -102,10 +123,32 @@
   text-transform: uppercase;
 }
 
-.signature-picker .select-trigger {
+/* The label takes the minimum width's slack, so the stepper stays together
+   at the right. */
+.signature-picker > span {
+  margin-right: auto;
+}
+
+.signature-picker__input {
+  width: 5ch;
   padding: 0;
-  line-height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: 16px;
+  text-align: center;
+}
+
+.signature-picker__adjust:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.signature-picker__adjust:not(:disabled):hover {
+  background: rgb(var(--tint) / 0.14);
 }
 
 @media (max-width: 900px) {

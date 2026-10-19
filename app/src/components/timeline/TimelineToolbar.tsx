@@ -1,5 +1,4 @@
 import { ArrowsPointingInIcon } from "@heroicons/react/16/solid";
-import { SIGNATURE_OPTIONS } from "../../app/constants.ts";
 import type {
   ProjectState,
   TimelineMode,
@@ -10,7 +9,7 @@ import { TransportPlayheadReadout } from "../LivePlayhead";
 import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TempoPill } from "../TempoPill";
-import { Select } from "../ui/select";
+import { SignaturePicker } from "./SignaturePicker";
 import {
   getStatusLightClassName,
   getStatusLightState,
@@ -102,6 +101,11 @@ export function TimelineToolbar({
           bpm={bpm}
           fps={fps}
           signature={signature}
+          onSwapTimeMode={() =>
+            commitProjectPatch("Change timeline scale", {
+              timelineMode: timelineMode === "musical" ? "timecode" : "musical",
+            })
+          }
         />
       </div>
 
@@ -157,19 +161,10 @@ export function TimelineToolbar({
 
         <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
 
-        <div className="signature-picker">
-          <span>Time Sig</span>
-          <Select
-            aria-label="Time signature"
-            onValueChange={(value) =>
-              commitProjectPatch("Change time signature", {
-                signatureId: value,
-              })
-            }
-            options={SIGNATURE_OPTIONS}
-            value={signatureId}
-          />
-        </div>
+        <SignaturePicker
+          commitProjectPatch={commitProjectPatch}
+          signatureId={signatureId}
+        />
       </div>
     </div>
   );
