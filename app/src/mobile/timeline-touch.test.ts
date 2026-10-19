@@ -8,6 +8,9 @@ import {
   DOUBLE_TAP_MS,
   DOUBLE_TAP_SLOP_PX,
   exceedsTouchSlop,
+  FLING_DECELERATION,
+  flingStep,
+  flingVelocity,
   isDoubleTap,
   isTouchTap,
   LONG_PRESS_MS,
@@ -60,6 +63,55 @@ describe("swipePlayheadQ", () => {
 
   it("stops where the timeline can't scroll any further", () => {
     assert.equal(swipePlayheadQ(0, -2000, 117, geometry), 200 / 40);
+  });
+});
+
+describe("flingVelocity", () => {
+  it("measures the finger's last 100ms", () => {
+    const samples = [
+      { x: 0, timeMs: 0 },
+      { x: 100, timeMs: 100 },
+      { x: 150, timeMs: 150 },
+      { x: 250, timeMs: 200 },
+    ];
+    assert.equal(flingVelocity(samples), 1.5);
+    assert.equal(
+      flingVelocity(samples.map(({ x, timeMs }) => ({ x: -x, timeMs }))),
+      -1.5,
+    );
+  });
+
+  it("is 0 once the finger stopped or barely moved", () => {
+    assert.equal(flingVelocity([]), 0);
+    assert.equal(flingVelocity([{ x: 40, timeMs: 10 }]), 0);
+    assert.equal(
+      flingVelocity([
+        { x: 0, timeMs: 0 },
+        { x: 80, timeMs: 50 },
+        { x: 80, timeMs: 300 },
+      ]),
+      0,
+    );
+  });
+});
+
+describe("flingStep", () => {
+  it("slows at the scroll deceleration, in the fling's direction", () => {
+    const step = flingStep(2, 16);
+    assert.ok(Math.abs(step.velocity - 2 * FLING_DECELERATION ** 16) < 1e-9);
+    assert.ok(step.distance > 31 && step.distance < 32);
+    assert.ok(flingStep(-2, 16).distance < 0);
+  });
+
+  it("goes as far in many short frames as in one long one", () => {
+    let velocity = 1;
+    let distance = 0;
+    for (let frame = 0; frame < 60; frame += 1) {
+      const step = flingStep(velocity, 1000 / 60);
+      distance += step.distance;
+      velocity = step.velocity;
+    }
+    assert.ok(Math.abs(distance - flingStep(1, 1000).distance) < 1e-6);
   });
 });
 

@@ -71,11 +71,15 @@ type RulerProps = {
   timelineContentEndQ: number;
   isLayersCollapsed: boolean;
   setLayersCollapsed: (collapsed: boolean) => void;
+  // On a phone a finger on the ruler scrubs and seeks through
+  // useCenterPlayhead instead.
+  isPhone: boolean;
 };
 
 // The ruler row: the session's media status in its label with the toggle that
 // shows and hides the Layers area, and the bars and
-// playhead marker above the layers. Pressing the ruler scrubs the playhead;
+// playhead marker above the layers. Pressing the ruler scrubs the playhead
+// (on a phone a finger scrubs as the timeline scrolls, and seeks on a tap);
 // dragging in the loop strip along its bottom selects a playback range.
 export function Ruler({
   rulerDragScroll,
@@ -120,6 +124,7 @@ export function Ruler({
   timelineContentEndQ,
   isLayersCollapsed,
   setLayersCollapsed,
+  isPhone,
 }: RulerProps) {
   const openLoopMenuRef = useRef<OpenLoopMenu | null>(null);
   return (
@@ -199,7 +204,8 @@ export function Ruler({
           if (
             !timelineScroll ||
             event.button !== 0 ||
-            isRulerPanPress(event, shortcutLabels.mac)
+            isRulerPanPress(event, shortcutLabels.mac) ||
+            (isPhone && event.pointerType === "touch")
           ) {
             return;
           }
