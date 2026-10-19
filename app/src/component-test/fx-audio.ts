@@ -1,4 +1,4 @@
-import { SIGNATURES } from "../app/constants.ts";
+import { signatureById } from "../app/constants.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
   AudioChain,
@@ -146,7 +146,7 @@ export function renderProjectMix(
     mediaById: new Map(project.mediaItems.map((item) => [item.id, item])),
     effects: project.effects,
     bpm: project.bpm,
-    signature: SIGNATURES.find(({ id }) => id === project.signatureId),
+    signature: signatureById(project.signatureId),
   });
   return renderAudioMix(mix, audio, {
     sampleRate,

@@ -32,6 +32,7 @@ import { skipShortcut, stepFrameShortcut } from "../../shortcuts/transport.ts";
 import type { ShortcutContext } from "../../shortcuts/types.ts";
 import { useSpacePlayback } from "../../shortcuts/useSpacePlayback.ts";
 import { createSpaceHold } from "../../space-shortcut.ts";
+import { signatureBeatScale } from "../../time-signature.ts";
 import {
   divisionQuarters,
   resolveAdaptiveDivision,
@@ -118,7 +119,10 @@ export function TransportHarness({
   const barLength = signature.numerator * (4 / signature.denominator);
   // As useTimelineViewport sizes the grid and the timeline.
   const quarterPx = BASE_QUARTER_PX * zoom;
-  const snapUnit = divisionQuarters(resolveAdaptiveDivision(quarterPx));
+  const beatScale = signatureBeatScale(signature);
+  const snapUnit =
+    divisionQuarters(resolveAdaptiveDivision(quarterPx * beatScale)) *
+    beatScale;
   const totalQuarters = Math.max(
     barLength * 12,
     ...clips.map(

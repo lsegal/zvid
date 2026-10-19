@@ -65,7 +65,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
+  padding: 5px 8px 5px 10px;
   background: light-dark(rgba(40, 48, 80, 0.018), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -76,10 +76,26 @@
   text-transform: uppercase;
 }
 
-.signature-picker .select-trigger {
+.signature-picker__input {
+  width: 5ch;
   padding: 0;
-  line-height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: 16px;
+  text-align: center;
+}
+
+.signature-picker__adjust:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.signature-picker__adjust:not(:disabled):hover {
+  background: rgb(var(--tint) / 0.14);
 }
 
 @media (max-width: 900px) {
