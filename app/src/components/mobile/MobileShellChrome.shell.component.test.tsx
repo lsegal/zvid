@@ -86,6 +86,36 @@ describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
       .toBe(0);
   });
 
+  // #1531: on a narrow phone, Camera roll squeezed the tabs until Record
+  // spilled out of the pill.
+  test.each([
+    ["a narrow phone", { width: 360, height: 780 }],
+    ["a Pixel 7", PHONE_VIEWPORT],
+    ["a landscape phone", PHONE_LANDSCAPE_VIEWPORT],
+  ])("the Media sheet's tabs fit their pill on %s", async (_, viewport) => {
+    await usePhone(viewport);
+    await renderApp();
+    const tabs = await findByRole("navigation", "Editor");
+    await click("button", "Media", { root: tabs });
+    await findByRole("button", "Camera roll");
+    const pill = query(".mobile-media-header .mobile-segmented");
+    const box = pill.getBoundingClientRect();
+    for (const label of ["Sessions", "Media", "Record"]) {
+      const tab = (await findByRole("button", label, {
+        root: pill,
+      })) as HTMLElement;
+      const tabBox = tab.getBoundingClientRect();
+      expect(tabBox.left, label).toBeGreaterThanOrEqual(box.left);
+      expect(tabBox.right, label).toBeLessThanOrEqual(box.right);
+      expect(tab.scrollWidth, label).toBeLessThanOrEqual(tab.clientWidth);
+    }
+    // Camera roll gives way instead, without pushing Close off screen.
+    const close = await findByRole("button", "Close media");
+    expect(close.getBoundingClientRect().right).toBeLessThanOrEqual(
+      viewport.width,
+    );
+  });
+
   // #1172: the FX sheet's header is a drag handle, and no drag in the app
   // starts the browser's pull-to-refresh.
   test("dragging the FX sheet's header moves it between heights", async () => {

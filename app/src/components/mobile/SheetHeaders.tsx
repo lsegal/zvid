@@ -195,9 +195,15 @@ export function MediaSheetHeader({
           </button>
         ))}
       </fieldset>
-      <button className="mobile-pill-button" onClick={onImport} type="button">
+      <button
+        aria-label="Camera roll"
+        className="mobile-pill-button"
+        onClick={onImport}
+        type="button"
+      >
         <PhotoIcon aria-hidden="true" />
-        <span>Camera roll</span>
+        {/* Hidden on a narrow phone; the label names the button. */}
+        <span aria-hidden="true">Camera roll</span>
       </button>
       <button
         aria-label="Close media"

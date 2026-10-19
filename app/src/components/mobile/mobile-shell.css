@@ -693,9 +693,30 @@ body:has(.app-shell--phone) :is(.popover-content, .select-content) {
   background: var(--bg-panel, var(--bg));
 }
 
+/* The tabs never shrink below their labels (#1531); Camera roll gives way
+   instead, down to its icon on a narrow phone. */
+.mobile-media-header {
+  container-type: inline-size;
+}
+
 .mobile-media-header .mobile-segmented {
-  flex: 1;
+  flex: 1 0 auto;
+}
+
+.mobile-media-header .mobile-pill-button {
   min-width: 0;
+  overflow: hidden;
+}
+
+.mobile-media-header .mobile-pill-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@container (max-width: 399px) {
+  .mobile-media-header .mobile-pill-button span {
+    display: none;
+  }
 }
 
 .mobile-media-header .mobile-segmented button {
