@@ -24,7 +24,7 @@ export const SHOT_SIZES: Record<string, [number, number]> = {
   "editing-loop": [1800, 400],
   "editing-overview": [2880, 1800],
   "editing-selection": [1114, 880],
-  "editing-toolbar": [1050, 112],
+  "editing-toolbar": [1154, 112],
   "export-dialog": [2240, 1556],
   "motion-lfo": [1616, 618],
   "motion-order": [1074, 626],

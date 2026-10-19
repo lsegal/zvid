@@ -137,14 +137,14 @@ describe("LaneRow", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(() => lane("1")).toBeTruthy();
     const target = lane("1");
     expect(MIN_GRID_SELECTION_PX).toBe(64);
-    const snap = screen.getByRole("button", { name: /^Snap (On|Off)$/ });
+    const snap = screen.getByRole("button", { name: "Snap", exact: true });
 
-    await expect.element(snap).toHaveAccessibleName("Snap On");
+    await expect.element(snap).toHaveAttribute("aria-pressed", "true");
     const zoomedOut = await expectCellAt(target, 213);
 
     // Snap off still lines the cell up with the grid.
     await snap.click();
-    await expect.element(snap).toHaveAccessibleName("Snap Off");
+    await expect.element(snap).toHaveAttribute("aria-pressed", "false");
     await expectCellAt(target, 377);
 
     // Zooming in makes the cell match the finer grid lines.

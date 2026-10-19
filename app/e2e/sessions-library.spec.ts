@@ -128,7 +128,7 @@ test("a saved session survives New Session and reloads and reopens", async ({
 
 test("saving again updates the same entry", async ({ page }) => {
   await saveNewSession(page);
-  await page.getByRole("button", { name: /^Snap (On|Off)$/ }).click();
+  await page.getByRole("button", { name: "Snap", exact: true }).click();
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Save/ }).click();
   await expect(

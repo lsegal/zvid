@@ -113,6 +113,7 @@ export type SaveableProject = {
   zoom: number;
   timelineMode: string;
   snapEnabled: boolean;
+  signatureId?: string;
   lanes: SaveableLane[];
   sourceTracks: SaveableSourceTrack[];
   sourceSpans: SaveableSourceSpan[];
@@ -375,6 +376,9 @@ export function projectToSession(
       canvasHeight: project.canvasHeight,
       displaySeconds: project.timelineMode === "timecode",
       snapToBeat: project.snapEnabled,
+      ...(project.signatureId !== undefined
+        ? { timeSignature: project.signatureId }
+        : {}),
       zoom: project.zoom,
       ...(project.projectDurationFrames !== undefined
         ? { projectDuration: project.projectDurationFrames }

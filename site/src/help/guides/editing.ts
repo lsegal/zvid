@@ -235,7 +235,7 @@ export const editing: Guide = {
         {
           type: "figure",
           shot: "editing-toolbar",
-          alt: "The timeline toolbar: Tempo and Time scale buttons, Snap On, the BPM control and the Time Sig menu.",
+          alt: "The timeline toolbar: Tempo and Time scale buttons, Snap, the BPM control and the Time Sig control.",
           width: 720,
         },
         {
@@ -248,14 +248,17 @@ export const editing: Guide = {
               "Switches the ruler between bars and beats, and timecode.",
             ],
             [
-              "**Snap On**",
+              "**Snap**",
               "Snaps moves, trims and selections to the grid. On by default; hold [[Shift]] to bypass it for one drag.",
             ],
             [
               "**BPM**",
               "The session tempo, from 60 to 220. The − and + buttons step by 5.",
             ],
-            ["**Time Sig**", "4/4, 3/4, 5/4, 6/8 or 7/8."],
+            [
+              "**Time Sig**",
+              "The time signature. The − and + buttons step from 1/1 to 12/8, including /3, /5 and /7 beats; or type any signature as N/M, such as 7/5, and press [[Enter]].",
+            ],
             [
               "Grid",
               "Adapts to your zoom, from whole bars down to 1/32 notes. Snapping uses whatever the grid shows.",

@@ -2,7 +2,9 @@ import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack.ts";
 import type { Palette } from "../media.ts";
 import { DEFAULT_SESSION_SETTINGS } from "../session-settings.ts";
 import type { GridLineWeight } from "../timeline-grid.ts";
-import type { Lane, ProjectState, TimeSignature } from "./types.ts";
+import type { Lane, ProjectState } from "./types.ts";
+
+export { signatureById } from "../time-signature.ts";
 
 // Media whose probed duration differs from the recorded one by more than
 // this is probably a different file that happens to share its name.
@@ -97,27 +99,6 @@ export const PREVIEW_RESERVED_WIDTH = 16 + 16 + 1;
 // The narrowest the timeline area, past the layer headers, gets as the
 // preview widens.
 export const PREVIEW_TIMELINE_MIN_WIDTH = 80;
-
-export const SIGNATURES: TimeSignature[] = [
-  { id: "4/4", numerator: 4, denominator: 4 },
-  { id: "3/4", numerator: 3, denominator: 4 },
-  { id: "5/4", numerator: 5, denominator: 4 },
-  { id: "6/8", numerator: 6, denominator: 8 },
-  { id: "7/8", numerator: 7, denominator: 8 },
-];
-
-// The signature `signatureId` names, or 4/4.
-export function signatureById(signatureId: string) {
-  return (
-    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
-    SIGNATURES[0]
-  );
-}
-
-export const SIGNATURE_OPTIONS = SIGNATURES.map(({ id }) => ({
-  value: id,
-  label: id,
-}));
 
 // A new, empty session starts with a single layer.
 export const DEFAULT_LANES: Lane[] = [

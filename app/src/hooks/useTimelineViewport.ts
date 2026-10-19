@@ -9,7 +9,7 @@ import {
 import {
   BASE_QUARTER_PX,
   GRID_LINE_COLORS,
-  SIGNATURES,
+  signatureById,
 } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
@@ -26,6 +26,7 @@ import type {
 } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
 import { getFilmstripRange } from "../clip-filmstrip.ts";
+import { signatureBeatScale } from "../time-signature.ts";
 import {
   divisionQuarters,
   type GridDivision,
@@ -92,9 +93,7 @@ export function useTimelineViewport({
     setZoomDraft(nextZoom);
   }, []);
 
-  const signature =
-    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
-    SIGNATURES[0];
+  const signature = signatureById(signatureId);
   const beatUnit = 4 / signature.denominator;
   const barLength = signature.numerator * beatUnit;
   const quarterPx = BASE_QUARTER_PX * resolvedZoom;
@@ -102,15 +101,18 @@ export function useTimelineViewport({
   // the thresholds instead of flickering between two divisions.
   const [lastAdaptiveDivision, setLastAdaptiveDivision] =
     useState<GridDivision>(() => resolveAdaptiveDivision(quarterPx));
+  // A /3, /5 or /7 beat isn't a power-of-two note, so the divisions scale
+  // to stay on its beats and bar lines.
+  const beatScale = signatureBeatScale(signature);
   const adaptiveDivision = resolveAdaptiveDivision(
-    quarterPx,
+    quarterPx * beatScale,
     lastAdaptiveDivision,
   );
   if (adaptiveDivision !== lastAdaptiveDivision) {
     setLastAdaptiveDivision(adaptiveDivision);
   }
   // Snapping and the grid both follow the zoom-adaptive division.
-  const snapUnit = divisionQuarters(adaptiveDivision);
+  const snapUnit = divisionQuarters(adaptiveDivision) * beatScale;
   const gridUnit = snapUnit;
   // A double-click or double-tap on empty lane space selects one cell of
   // the finest grid drawn, which zoomed far out is a run of bars.
