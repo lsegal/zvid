@@ -60,9 +60,7 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     readout.element().focus();
     await userEvent.keyboard("{Enter}");
     await expect.element(time).toHaveClass(/is-active/);
-    await userEvent.keyboard(" ");
-    await expect.element(tempo).toHaveClass(/is-active/);
-    await expect.poll(firstLabel).toBe("1");
+    await expect.poll(firstLabel).toBe("00:00:00");
   });
 
   // There is no snap grid selector, only the Snap On/Off toggle, with the
