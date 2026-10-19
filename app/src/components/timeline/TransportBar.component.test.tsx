@@ -379,9 +379,9 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     );
     await dblclick(x, y);
     // The double-click's first click does not reset the zoom.
-    await expect.poll(() => zoomInput()?.value).toBe(
-      String(Number.parseInt(dragged ?? "", 10)),
-    );
+    await expect
+      .poll(() => zoomInput()?.value)
+      .toBe(String(Number.parseInt(dragged ?? "", 10)));
     expect(document.activeElement).toBe(zoomInput());
 
     await typeZoom("150{Enter}");

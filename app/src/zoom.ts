@@ -22,8 +22,9 @@ export function formatZoomFactor(zoom: number) {
 // whole percent and clamped to the zoom range, or null when it is not a
 // number.
 export function parseZoomPercent(text: string) {
-  const percent = Number(text.trim().replace(/\s*%$/, ""));
-  if (text.trim() === "" || !Number.isFinite(percent)) {
+  const digits = text.trim().replace(/\s*%$/, "");
+  const percent = Number(digits);
+  if (digits === "" || !Number.isFinite(percent)) {
     return null;
   }
   return clampZoom(Math.round(percent) / 100);
