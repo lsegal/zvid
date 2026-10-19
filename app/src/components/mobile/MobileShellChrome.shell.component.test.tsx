@@ -178,6 +178,28 @@ describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
     expect(listZ).toBeGreaterThan(Math.max(fxZ, 90));
   });
 
+  test("tapping the playhead readout swaps bars and timecode (#1512)", async () => {
+    await usePhone();
+    await renderApp();
+    const readout = () => query(".mobile-transport__position");
+    const rulerLabel = () => query(".ruler-marker span").textContent;
+    expect(readout().innerText).toBe("1.1.1");
+    expect(rulerLabel()).toBe("1");
+    await tap(readout());
+    await expect.poll(() => readout().innerText).toBe("00:00:00");
+    expect(rulerLabel()).toBe("00:00:00");
+    // A project change, so Undo swaps it back like the desktop switch.
+    const undo = visibleByRole("button", /^Undo/, {
+      root: query(".mobile-topbar"),
+    })[0];
+    expect(undo.getAttribute("aria-label")).toBe("Undo Change timeline scale");
+    await tap(readout());
+    await expect.poll(() => readout().innerText).toBe("1.1.1");
+    expect(rulerLabel()).toBe("1");
+    await tap(undo);
+    await expect.poll(() => readout().innerText).toBe("00:00:00");
+  });
+
   describe("landscape phone", () => {
     test("puts the preview left of the timeline", async () => {
       await usePhone(PHONE_LANDSCAPE_VIEWPORT);

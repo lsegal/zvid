@@ -36,6 +36,7 @@ export function MobileShellChrome({
   skipToStart,
   record,
   toggleLoop,
+  toggleTimelineMode,
   hasSelectedClip,
   clipMenuEntries,
   openClipMenu,
@@ -68,6 +69,7 @@ export function MobileShellChrome({
         onRecord={record}
         onSkipToStart={skipToStart}
         onToggleLoop={toggleLoop}
+        onToggleTimelineMode={toggleTimelineMode}
         onTogglePlay={togglePlay}
         playheadSignal={playheadSignal}
       />

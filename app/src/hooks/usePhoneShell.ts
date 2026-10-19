@@ -137,6 +137,14 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
     inputs.setStatus("Arm a source track to record a take.");
   }
 
+  // Tapping the transport's readout swaps it between bars and timecode, the
+  // same project change as the desktop Tempo/Time switch.
+  function toggleTimelineMode() {
+    store.commitProjectPatch("Change timeline scale", {
+      timelineMode: project.timelineMode === "musical" ? "timecode" : "musical",
+    });
+  }
+
   // Loops the timeline selection (a lane range, else the loop strip's
   // playback selection) and clears it, else the selected clip, else one bar
   // from the playhead, snapped to the grid.
@@ -271,6 +279,7 @@ export function usePhoneShell(inputs: PhoneShellInputs) {
       skipToStart: () => playback.skipToEdge("back"),
       record,
       toggleLoop,
+      toggleTimelineMode,
       hasSelectedClip: Boolean(selectedClip),
       clipMenuEntries,
       openClipMenu: () =>

@@ -21,11 +21,13 @@ type MobileTransportProps = Omit<StatusPlayheadState, "playheadQ"> & {
   onTogglePlay: () => void;
   onRecord: () => void;
   onToggleLoop: () => void;
+  onToggleTimelineMode: () => void;
 };
 
 // The mobile shell's thin transport under the preview: back to the start,
 // Play, Record, the playhead's position and the loop switch, with the
-// master VU meter in a strip below them.
+// master VU meter in a strip below them. Tapping the position swaps it
+// between bars and timecode.
 export function MobileTransport({
   playheadSignal,
   getMeterTap,
@@ -36,6 +38,7 @@ export function MobileTransport({
   onTogglePlay,
   onRecord,
   onToggleLoop,
+  onToggleTimelineMode,
   ...readout
 }: MobileTransportProps) {
   return (
@@ -70,9 +73,18 @@ export function MobileTransport({
       >
         <RecordIcon />
       </button>
-      <output aria-label="Playhead" className="mobile-transport__position">
+      <button
+        aria-label={
+          readout.timelineMode === "musical"
+            ? "Playhead, show timecode"
+            : "Playhead, show bars and beats"
+        }
+        className="mobile-transport__position"
+        onClick={onToggleTimelineMode}
+        type="button"
+      >
         <StatusPlayhead signal={playheadSignal} {...readout} />
-      </output>
+      </button>
       <button
         aria-label="Loop"
         aria-pressed={isLooping}
