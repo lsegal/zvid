@@ -26,6 +26,20 @@
   line-height: 16px;
 }
 
+/* The Snap toggle's icon sits left of its label (#1523); 16px matches the
+   buttons' 16px line height. */
+.timeline-toolbar__snap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timeline-toolbar__snap > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
 /* The Media | Record switch is a fieldset; drop its default margin. */
 .timeline-toolbar__media-switch {
   min-width: 0;

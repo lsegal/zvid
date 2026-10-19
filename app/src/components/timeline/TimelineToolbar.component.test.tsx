@@ -80,11 +80,20 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   // The Snap toggle always reads "Snap"; its state shows only through the
-  // active styling and aria-pressed (#1517).
+  // active styling and aria-pressed (#1517). A decorative icon sits left of
+  // the label (#1523).
   test("the Snap toggle keeps its label when toggled", async () => {
     const screen = await renderEditor();
     const snap = screen.getByRole("button", { name: "Snap", exact: true });
     expect(snap.element().textContent).toBe("Snap");
+    const icon = snap.element().querySelector("svg") as SVGElement;
+    expect(icon.getAttribute("aria-hidden")).toBe("true");
+    expect(snap.element().firstElementChild).toBe(icon);
+    const label = document.createRange();
+    label.selectNodeContents(snap.element().lastChild as Node);
+    expect(icon.getBoundingClientRect().right).toBeLessThanOrEqual(
+      label.getBoundingClientRect().left,
+    );
     await expect.element(snap).toHaveAttribute("aria-pressed", "true");
     await expect.element(snap).toHaveClass(/is-active/);
 

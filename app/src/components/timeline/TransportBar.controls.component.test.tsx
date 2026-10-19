@@ -463,6 +463,7 @@ describe("TransportBar compact layout", () => {
     if (className.includes("transport-button")) return 20;
     if (className.includes("zoom-control__button")) return 16;
     if (className.includes("select-trigger")) return 14;
+    if (className.includes("timeline-toolbar__snap")) return 16;
     return undefined;
   }
 
