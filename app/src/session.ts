@@ -143,6 +143,8 @@ export type ProjectSession = {
     canvasHeight?: number;
     displaySeconds?: boolean;
     snapToBeat?: boolean;
+    /** zvid-only: the time signature as "N/M"; without it, 4/4. */
+    timeSignature?: string;
     zoom?: number;
     projectDuration?: number;
     /** zvid-only: the export encoding from Session Settings. */

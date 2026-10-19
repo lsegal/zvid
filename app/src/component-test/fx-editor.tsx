@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { beforeEach } from "vitest";
-import { INITIAL_PROJECT_STATE, SIGNATURES } from "../app/constants.ts";
+import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
 import type { SourceSelection } from "../app/source-selection.ts";
 import type { ArrangementClip, ProjectState } from "../app/types.ts";
 import { FxPanel } from "../components/FxPanel";
@@ -133,8 +133,7 @@ export function FxEditor({
     playheadSignal,
     bpm: present.bpm,
     fps: present.fps,
-    signature:
-      SIGNATURES.find(({ id }) => id === present.signatureId) ?? SIGNATURES[0],
+    signature: signatureById(present.signatureId),
     isPlaying: false,
     timelineClips: present.clips,
     lanePriority,
