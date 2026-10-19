@@ -1,4 +1,8 @@
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from "react";
 import { BPM_MAX, BPM_MIN } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";

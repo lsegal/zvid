@@ -26,6 +26,17 @@
   line-height: 16px;
 }
 
+/* Dragging the BPM readout up or down changes the tempo. */
+.tempo-pill__readout {
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.tempo-pill__readout:hover {
+  color: var(--amber);
+}
+
 /* The Media | Record switch is a fieldset; drop its default margin. */
 .timeline-toolbar__media-switch {
   min-width: 0;
