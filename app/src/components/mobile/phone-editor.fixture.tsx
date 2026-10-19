@@ -206,6 +206,7 @@ export function PhoneEditor({
         share={share}
         skipToStart={noop}
         toggleLoop={noop}
+        toggleTimelineMode={noop}
         togglePlay={noop}
       />
       <main className="workspace">
