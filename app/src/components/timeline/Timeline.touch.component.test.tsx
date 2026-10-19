@@ -82,8 +82,9 @@ describe(`${Timeline.name} on a phone`, {
 
     const scroll = centerOf(".timeline-scroll");
     const y = centerOf(".clip-card").y;
-    // A short swipe left moves the playhead, not the timeline.
-    await drag({ x: scroll.x + 60, y }, { x: scroll.x + 20, y });
+    // A short swipe left moves the playhead, not the timeline. It stops
+    // before lifting, so it doesn't fling on.
+    await drag({ x: scroll.x + 60, y }, { x: scroll.x + 20, y }, 0, 150);
     await expect.poll(playheadQ).toBeGreaterThan(0);
     const moved = timelineEdges();
     expect(moved.scrollLeft).toBe(0);
@@ -91,7 +92,7 @@ describe(`${Timeline.name} on a phone`, {
     expect(moved.line - start.line).toBeLessThan(50);
 
     // A longer one carries it to the center, and the timeline scrolls on.
-    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 100, y });
+    await drag({ x: scroll.x + 100, y }, { x: scroll.x - 100, y }, 0, 150);
     await expect.poll(() => timelineEdges().scrollLeft).toBeGreaterThan(0);
     const centered = timelineEdges();
     expect(Math.abs(centered.line - centered.center)).toBeLessThan(4);
@@ -112,6 +113,60 @@ describe(`${Timeline.name} on a phone`, {
       .toBeGreaterThan(0);
     const playing = timelineEdges();
     expect(Math.abs(playing.line - playing.center)).toBeLessThan(6);
+  });
+
+  // #1507: a swipe released while moving flings on, as a native scroll
+  // does, even from the start, where it scrubs by hand.
+  test("a swipe from the start flings on after release", async () => {
+    await usePhone();
+    await renderApp();
+    await addClip();
+    await userEvent.keyboard("{Escape}");
+    const scroll = centerOf(".timeline-scroll");
+    const y = centerOf(".clip-card").y;
+    await drag({ x: scroll.x + 60, y }, { x: scroll.x + 20, y }, 0, 150);
+    const rested = await settledPlayheadQ();
+    expect(rested).toBeGreaterThan(0);
+    // The same swipe, lifted while moving, carries the playhead on.
+    await drag({ x: scroll.x + 60, y }, { x: scroll.x + 20, y });
+    const flung = await settledPlayheadQ();
+    expect(flung - rested).toBeGreaterThan(rested * 1.5);
+  });
+
+  // #1507: a finger on the ruler doesn't seek as it touches down. A tap
+  // seeks when it lifts, and a drag scrubs as the timeline scrolls: the
+  // timeline follows the finger.
+  test("a tap on the ruler seeks on lifting, and a drag scrubs as a swipe does", async () => {
+    await usePhone();
+    await renderApp();
+    await addClip();
+    await userEvent.keyboard("{Escape}");
+    const ruler = boxOf(".ruler-row__content--interactive");
+    // Above the loop strip along the ruler's bottom.
+    const y = ruler.top + ruler.height / 4;
+    const start = timelineEdges();
+    // Clear of the label resize handle, which straddles the labels' edge.
+    const at = { x: boxOf(".label-resize-handle").right + 20, y };
+    await touch("touchStart", [at]);
+    await wait(150);
+    expect(Math.abs(timelineEdges().line - start.line)).toBeLessThan(1);
+    await touch("touchEnd", []);
+    await expect
+      .poll(() => Math.abs(timelineEdges().line - at.x))
+      .toBeLessThan(4);
+
+    // A drag from far off moves the playhead the way the finger moved the
+    // timeline, from where it was rather than from the touch.
+    // Measured in the timeline's own pixels, wherever it scrolled.
+    const timelineX = ({ line, scrollLeft }: typeof start) => line + scrollLeft;
+    const tapped = timelineX(timelineEdges());
+    const view = boxOf(".timeline-scroll");
+    const from = { x: view.right - 30, y };
+    await drag(from, { x: from.x - 40, y }, 0, 150);
+    await settledPlayheadQ();
+    const moved = timelineX(timelineEdges()) - tapped;
+    expect(moved).toBeGreaterThan(30);
+    expect(moved).toBeLessThan(50);
   });
 
   // The lanes show from the labels' edge, so the Audio row's waveform starts
