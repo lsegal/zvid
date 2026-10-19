@@ -18,6 +18,18 @@ export function formatZoomFactor(zoom: number) {
   return `${Math.round(zoom * 100)}%`;
 }
 
+// Reads a typed zoom percentage such as "150" or "150 %", rounded to a
+// whole percent and clamped to the zoom range, or null when it is not a
+// number.
+export function parseZoomPercent(text: string) {
+  const digits = text.trim().replace(/\s*%$/, "");
+  const percent = Number(digits);
+  if (digits === "" || !Number.isFinite(percent)) {
+    return null;
+  }
+  return clampZoom(Math.round(percent) / 100);
+}
+
 // Moves to the next ladder zoom in the given direction, so a zoom of 0.73
 // steps in to 0.8 and out to 0.67.
 export function stepZoom(zoom: number, direction: 1 | -1) {

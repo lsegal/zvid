@@ -36,16 +36,19 @@ export function PlayheadLine({
   );
 }
 
+// Clicking either readout swaps the timeline between bars and timecode.
 export function TransportPlayheadReadout({
   signal,
   bpm,
   fps,
   signature,
+  onSwapTimeMode,
 }: {
   signal: PlayheadSignal;
   bpm: number;
   fps: number;
   signature: MeterSignature;
+  onSwapTimeMode: () => void;
 }) {
   const timecode = useSyncExternalStore(signal.subscribe, () =>
     formatTimecode(quartersToSeconds(signal.get(), bpm), fps),
@@ -54,9 +57,15 @@ export function TransportPlayheadReadout({
     formatMusicalPosition(signal.get(), signature),
   );
   return (
-    <>
+    <button
+      aria-label="Swap time mode"
+      className="timeline-toolbar__readout"
+      onClick={onSwapTimeMode}
+      title="Swap time mode"
+      type="button"
+    >
       <span>{timecode}</span>
       <strong>{position}</strong>
-    </>
+    </button>
   );
 }

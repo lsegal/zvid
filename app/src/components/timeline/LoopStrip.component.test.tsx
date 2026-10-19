@@ -35,7 +35,7 @@ function box(selector: string) {
 }
 
 function timecode() {
-  return document.querySelectorAll(".timeline-toolbar__display > span")[1]
+  return document.querySelector(".timeline-toolbar__readout > span")
     ?.textContent;
 }
 

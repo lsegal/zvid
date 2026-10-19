@@ -38,8 +38,7 @@ export function TempoPill({
   } | null>(null);
   const [draft, setDraft] = useState<number | null>(null);
   const shown = draft ?? bpm;
-  // Set when Enter or Escape closes the editor, so the readout that replaces
-  // it takes the focus back.
+  // Set when the editor closes, so the readout that replaces it takes focus.
   const refocusRef = useRef(false);
   const [typed, setTyped] = useState<string | null>(null);
   // Guards against the input's blur re-applying a value after Enter/Escape.
@@ -66,17 +65,17 @@ export function TempoPill({
     setTyped(bpm.toFixed(0));
   };
 
-  const closeEditor = (how: "enter" | "escape" | "blur") => {
+  const closeEditor = (apply: boolean) => {
     if (!editingRef.current || typed === null) {
       return;
     }
     editingRef.current = false;
+    refocusRef.current = true;
     setTyped(null);
     const parsed = Number.parseFloat(typed);
-    if (how !== "escape" && Number.isFinite(parsed)) {
+    if (apply && Number.isFinite(parsed)) {
       setBpm(parsed);
     }
-    refocusRef.current = how !== "blur";
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -148,16 +147,16 @@ export function TempoPill({
             inputMode="decimal"
             // biome-ignore lint/a11y/noAutofocus: the editor opens on an explicit request to type a tempo
             autoFocus
-            onBlur={() => closeEditor("blur")}
+            onBlur={() => closeEditor(true)}
             onChange={(event) => setTyped(event.currentTarget.value)}
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                closeEditor("enter");
+                closeEditor(true);
               } else if (event.key === "Escape") {
                 event.preventDefault();
-                closeEditor("escape");
+                closeEditor(false);
               }
             }}
             type="text"

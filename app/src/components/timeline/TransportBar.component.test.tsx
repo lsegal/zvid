@@ -9,6 +9,7 @@ import {
 import {
   center,
   click,
+  dblclick,
   down,
   holdModifiers,
   move,
@@ -238,7 +239,8 @@ describe("the transport bar's VU meter", () => {
 });
 
 // The transport bar's zoom control: the -/+ buttons step along a ladder from
-// 25% to 800%, and the ruler thins its labels when zoomed far out.
+// 25% to 800%, the ruler thins its labels when zoomed far out, and the
+// readout can be dragged, clicked to reset, or typed into.
 
 let screen: RenderResult;
 
@@ -360,5 +362,68 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     );
     await click(x, y);
     await expect.poll(readout).toBe("100%");
+  });
+
+  const zoomInput = () =>
+    screen.container.querySelector<HTMLInputElement>(".zoom-control__input");
+
+  // The editor opens with its text selected, so typing replaces it.
+  const typeZoom = (text: string) => userEvent.keyboard(text);
+
+  test("double-clicking the readout types a zoom, in one undo step", async () => {
+    await dragReadout(-50);
+    await expect.poll(readout).not.toBe("100%");
+    const dragged = readout();
+    const { x, y } = center(
+      screen.container.querySelector(".zoom-control__readout") as Element,
+    );
+    await dblclick(x, y);
+    // The double-click's first click does not reset the zoom.
+    await expect
+      .poll(() => zoomInput()?.value)
+      .toBe(String(Number.parseInt(dragged ?? "", 10)));
+    expect(document.activeElement).toBe(zoomInput());
+
+    await typeZoom("150{Enter}");
+    await expect.poll(readout).toBe("150%");
+    expect(zoomInput()).toBeNull();
+    expect(document.activeElement?.className).toBe("zoom-control__readout");
+
+    await undo();
+    await expect.poll(readout).toBe(dragged);
+  });
+
+  test("Enter on the readout types a zoom, clamped to the range", async () => {
+    const button = screen.container.querySelector<HTMLElement>(
+      ".zoom-control__readout",
+    );
+    button?.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(() => zoomInput()?.value).toBe("100");
+    await typeZoom("5000{Enter}");
+    await expect.poll(readout).toBe("800%");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(zoomInput).not.toBeNull();
+    await typeZoom("10{Enter}");
+    await expect.poll(readout).toBe("25%");
+  });
+
+  test("bad input or Escape keeps the zoom", async () => {
+    const button = screen.container.querySelector<HTMLElement>(
+      ".zoom-control__readout",
+    );
+    button?.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(zoomInput).not.toBeNull();
+    await typeZoom("abc{Enter}");
+    await expect.poll(zoomInput).toBeNull();
+    expect(readout()).toBe("100%");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.poll(zoomInput).not.toBeNull();
+    await typeZoom("300{Escape}");
+    await expect.poll(zoomInput).toBeNull();
+    expect(readout()).toBe("100%");
   });
 });

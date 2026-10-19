@@ -48,6 +48,7 @@ import {
   getSpanSourceOffsetSeconds,
 } from "../source-track-content.ts";
 import { createTextClip } from "../text-clip.ts";
+import { signatureById } from "../time-signature.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../zoom.ts";
 import {
   DEFAULT_LANES,
@@ -458,6 +459,7 @@ export function sessionToProject(
     effects: audio.effects,
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
+    signatureId: signatureById(session.timeline?.timeSignature ?? "").id,
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
     projectDurationFrames: session.timeline?.projectDuration,
     playPositionFrames: session.playPosition ?? 0,

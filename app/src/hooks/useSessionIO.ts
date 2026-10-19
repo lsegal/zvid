@@ -192,6 +192,7 @@ export function useSessionIO({
         encoding: project.encoding,
         timelineMode: project.displaySeconds ? "timecode" : "musical",
         snapEnabled: project.snapToBeat,
+        signatureId: project.signatureId,
         zoom: project.zoom,
         lanes: project.lanes.length ? project.lanes : DEFAULT_LANES,
         sourceTracks: project.sourceTracks,

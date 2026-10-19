@@ -4,6 +4,7 @@ import {
   anchoredTimelineScrollLeft,
   clampZoom,
   formatZoomFactor,
+  parseZoomPercent,
   sliderPositionToZoom,
   stepZoom,
   TIMELINE_DRAG_ZOOM_SPEED,
@@ -41,6 +42,27 @@ describe("clampZoom", () => {
     assert.equal(clampZoom(4), 4);
     assert.equal(clampZoom(0.65), 0.65);
     assert.equal(clampZoom(1.8), 1.8);
+  });
+});
+
+describe("parseZoomPercent", () => {
+  it("reads a percentage, with or without the sign", () => {
+    assert.equal(parseZoomPercent("150"), 1.5);
+    assert.equal(parseZoomPercent(" 67 % "), 0.67);
+    assert.equal(parseZoomPercent("33.4"), 0.33);
+  });
+
+  it("clamps to the zoom range", () => {
+    assert.equal(parseZoomPercent("5000"), ZOOM_MAX);
+    assert.equal(parseZoomPercent("1"), ZOOM_MIN);
+    assert.equal(parseZoomPercent("-50"), ZOOM_MIN);
+  });
+
+  it("rejects text that is not a number", () => {
+    assert.equal(parseZoomPercent(""), null);
+    assert.equal(parseZoomPercent("%"), null);
+    assert.equal(parseZoomPercent("abc"), null);
+    assert.equal(parseZoomPercent("12abc"), null);
   });
 });
 
