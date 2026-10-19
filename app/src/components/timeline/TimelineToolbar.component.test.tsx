@@ -84,14 +84,14 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("the Snap toggle keeps its label when toggled", async () => {
     const screen = await renderEditor();
     const snap = screen.getByRole("button", { name: "Snap", exact: true });
-    await expect.element(snap).toHaveTextContent(/^Snap$/);
+    expect(snap.element().textContent).toBe("Snap");
     await expect.element(snap).toHaveAttribute("aria-pressed", "true");
     await expect.element(snap).toHaveClass(/is-active/);
 
     await snap.click();
     await expect.element(snap).toHaveAttribute("aria-pressed", "false");
     await expect.element(snap).not.toHaveClass(/is-active/);
-    await expect.element(snap).toHaveTextContent(/^Snap$/);
+    expect(snap.element().textContent).toBe("Snap");
     await expect
       .element(snap)
       .toHaveAttribute(
