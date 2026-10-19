@@ -4,6 +4,16 @@ import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
 } from "../../component-test/editor.tsx";
+import {
+  center,
+  click,
+  dblclick,
+  down,
+  holdModifiers,
+  move,
+  undo,
+  up,
+} from "../../component-test/input.ts";
 import { TimelineToolbar } from "./TimelineToolbar";
 
 // The toolbar renders in the timeline editor, whose ruler it switches.
@@ -36,7 +46,7 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(firstLabel).toBe("1");
   });
 
-  // There is no snap grid selector, only the Snap toggle, with the
+  // There is no snap grid selector, only the Snap On/Off toggle, with the
   // tempo control right of it (#732).
   test("the toolbar has no snap grid selector and the tempo sits right of Snap", async () => {
     const screen = await renderEditor();
@@ -53,7 +63,7 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     ).toEqual([]);
 
     // The tempo control directly follows the Snap toggle's group.
-    const snap = screen.getByRole("button", { name: "Snap", exact: true });
+    const snap = screen.getByRole("button", { name: "Snap On" });
     await expect.element(snap).toBeVisible();
     const tempos = toolbar.querySelectorAll(".tempo-pill");
     expect(tempos).toHaveLength(1);
@@ -79,24 +89,95 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(tempoText).toContain("120 BPM");
   });
 
-  // The Snap toggle always reads "Snap"; its state shows only through the
-  // active styling and aria-pressed (#1517).
-  test("the Snap toggle keeps its label when toggled", async () => {
-    const screen = await renderEditor();
-    const snap = screen.getByRole("button", { name: "Snap", exact: true });
-    expect(snap.element().textContent).toBe("Snap");
-    await expect.element(snap).toHaveAttribute("aria-pressed", "true");
-    await expect.element(snap).toHaveClass(/is-active/);
+  // Dragging the BPM readout travels the 60–220 range over 200px, like the
+  // zoom readout: 50px up from 120 lands on 160, and down on 80.
+  async function dragTempo(dy: number) {
+    const readout = document.querySelector(
+      ".tempo-pill__readout",
+    ) as HTMLElement;
+    const { x, y } = center(readout);
+    await move(x, y);
+    await down();
+    await move(x, y + dy, { steps: 10 });
+    const during = readout.textContent;
+    await up();
+    return { readout, during };
+  }
 
-    await snap.click();
-    await expect.element(snap).toHaveAttribute("aria-pressed", "false");
-    await expect.element(snap).not.toHaveClass(/is-active/);
-    expect(snap.element().textContent).toBe("Snap");
-    await expect
-      .element(snap)
-      .toHaveAttribute(
-        "title",
-        "Shift while dragging a clip or trim handle to temporarily disable snapping.",
-      );
+  test("dragging the BPM readout up raises the tempo live and commits one undo step", async () => {
+    await renderEditor();
+    const { readout, during } = await dragTempo(-50);
+    expect(during).toBe("160 BPM");
+    await expect.poll(() => readout.textContent).toBe("160 BPM");
+
+    await undo();
+    await expect.poll(() => readout.textContent).toBe("120 BPM");
+  });
+
+  test("dragging the BPM readout down lowers the tempo, clamped to the range", async () => {
+    await renderEditor();
+    const { readout } = await dragTempo(50);
+    await expect.poll(() => readout.textContent).toBe("80 BPM");
+    await dragTempo(100);
+    await expect.poll(() => readout.textContent).toBe("60 BPM");
+  });
+
+  test("Shift-dragging the BPM readout is ten times finer", async () => {
+    await renderEditor();
+    holdModifiers(["Shift"]);
+    const { readout } = await dragTempo(-50);
+    await expect.poll(() => readout.textContent).toBe("124 BPM");
+  });
+
+  test("a plain click on the BPM readout leaves the tempo alone", async () => {
+    await renderEditor();
+    const readout = document.querySelector(
+      ".tempo-pill__readout",
+    ) as HTMLElement;
+    const { x, y } = center(readout);
+    await click(x, y);
+    expect(readout.textContent).toBe("120 BPM");
+  });
+
+  // Like a Knob's value, double-clicking the readout (or Enter on it) types a
+  // tempo: Enter commits it clamped to 60–220, Escape cancels.
+  test("double-clicking the BPM readout types a tempo, committed on Enter", async () => {
+    const screen = await renderEditor();
+    const readout = () =>
+      document.querySelector(".tempo-pill__readout") as HTMLElement;
+    const { x, y } = center(readout());
+    await dblclick(x, y);
+    const input = screen.getByRole("textbox", { name: "Tempo in BPM" });
+    await expect.element(input).toHaveFocus();
+    await expect.element(input).toHaveValue("120");
+    await userEvent.keyboard("96{Enter}");
+    await expect.poll(() => readout().textContent).toBe("96 BPM");
+    await expect.poll(() => document.activeElement).toBe(readout());
+
+    await undo();
+    await expect.poll(() => readout().textContent).toBe("120 BPM");
+  });
+
+  test("a typed tempo clamps to the range and Escape cancels", async () => {
+    const screen = await renderEditor();
+    const readout = () =>
+      document.querySelector(".tempo-pill__readout") as HTMLElement;
+    readout().focus();
+    await userEvent.keyboard("{Enter}");
+    const input = screen.getByRole("textbox", { name: "Tempo in BPM" });
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("500{Enter}");
+    await expect.poll(() => readout().textContent).toBe("220 BPM");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("12{Enter}");
+    await expect.poll(() => readout().textContent).toBe("60 BPM");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("150{Escape}");
+    await expect.poll(() => readout().textContent).toBe("60 BPM");
+    await expect.element(input).not.toBeInTheDocument();
   });
 });
