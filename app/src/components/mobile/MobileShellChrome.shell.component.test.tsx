@@ -101,7 +101,9 @@ describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
     const pill = query(".mobile-media-header .mobile-segmented");
     const box = pill.getBoundingClientRect();
     for (const label of ["Sessions", "Media", "Record"]) {
-      const tab = (await findByRole("button", label, { root: pill })) as HTMLElement;
+      const tab = (await findByRole("button", label, {
+        root: pill,
+      })) as HTMLElement;
       const tabBox = tab.getBoundingClientRect();
       expect(tabBox.left, label).toBeGreaterThanOrEqual(box.left);
       expect(tabBox.right, label).toBeLessThanOrEqual(box.right);
