@@ -26,14 +26,37 @@
   line-height: 16px;
 }
 
-/* Dragging the BPM readout up or down changes the tempo. */
+/* Dragging the BPM readout up or down changes the tempo; a double-click
+   swaps its number for a text field. */
 .tempo-pill__readout {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+button.tempo-pill__readout {
   cursor: ns-resize;
   touch-action: none;
 }
 
-.tempo-pill__readout:hover {
+button.tempo-pill__readout:hover {
   color: var(--amber);
+}
+
+.tempo-pill__input {
+  width: 4ch;
+  height: 16px;
+  padding: 0 2px;
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
 }
 
 /* The Media | Record switch is a fieldset; drop its default margin. */

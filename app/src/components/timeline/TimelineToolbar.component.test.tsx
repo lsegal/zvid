@@ -7,6 +7,7 @@ import {
 import {
   center,
   click,
+  dblclick,
   down,
   holdModifiers,
   move,
@@ -253,5 +254,47 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
         "title",
         "Shift while dragging a clip or trim handle to temporarily disable snapping.",
       );
+  });
+
+  // Like a Knob's value, double-clicking the readout (or Enter on it) types a
+  // tempo: Enter commits it clamped to 60–220, Escape cancels.
+  test("double-clicking the BPM readout types a tempo, committed on Enter", async () => {
+    const screen = await renderEditor();
+    const readout = () =>
+      document.querySelector(".tempo-pill__readout") as HTMLElement;
+    const { x, y } = center(readout());
+    await dblclick(x, y);
+    const input = screen.getByRole("textbox", { name: "Tempo in BPM" });
+    await expect.element(input).toHaveFocus();
+    await expect.element(input).toHaveValue("120");
+    await userEvent.keyboard("96{Enter}");
+    await expect.poll(() => readout().textContent).toBe("96 BPM");
+    await expect.poll(() => document.activeElement).toBe(readout());
+
+    await undo();
+    await expect.poll(() => readout().textContent).toBe("120 BPM");
+  });
+
+  test("a typed tempo clamps to the range and Escape cancels", async () => {
+    const screen = await renderEditor();
+    const readout = () =>
+      document.querySelector(".tempo-pill__readout") as HTMLElement;
+    readout().focus();
+    await userEvent.keyboard("{Enter}");
+    const input = screen.getByRole("textbox", { name: "Tempo in BPM" });
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("500{Enter}");
+    await expect.poll(() => readout().textContent).toBe("220 BPM");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("12{Enter}");
+    await expect.poll(() => readout().textContent).toBe("60 BPM");
+
+    await userEvent.keyboard("{Enter}");
+    await expect.element(input).toHaveFocus();
+    await userEvent.keyboard("150{Escape}");
+    await expect.poll(() => readout().textContent).toBe("60 BPM");
+    await expect.element(input).not.toBeInTheDocument();
   });
 });
