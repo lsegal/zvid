@@ -174,4 +174,37 @@ describe(Timeline, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       .toBe(1);
     expect(scroller.scrollLeft).toBe(0);
   });
+
+  // The Audio row's playhead never drifts from the timeline's (#1509): the
+  // footer is part of the rows' scroll content rather than a second scroller
+  // that catches up on their scroll events, so a scroll moves both lines in
+  // the same frame, and the footer can't be scrolled on its own.
+  test("the Audio row's playhead stays locked to the timeline playhead", async () => {
+    await renderEditor();
+    const scroller = query(".timeline-scroll");
+    const footer = query(".timeline-footer");
+    expect(scroller.scrollWidth - scroller.clientWidth).toBeGreaterThan(400);
+    const drift = () =>
+      box(".audio-row__playhead").left - box(".timeline-playhead").left;
+    expect(drift()).toBe(0);
+
+    // Read before any scroll event or frame could resync a footer.
+    for (const left of [400, 137.5, scroller.scrollWidth, 0]) {
+      scroller.scrollLeft = left;
+      expect(drift(), `at scrollLeft ${left}`).toBe(0);
+    }
+
+    // Not a scroller of its own, and still docked at the panel's bottom.
+    expect(scroller.contains(footer)).toBe(true);
+    expect(footer.scrollWidth).toBe(footer.clientWidth);
+    const panel = query(".timeline-panel");
+    expect(
+      Math.abs(
+        panel.getBoundingClientRect().top +
+          panel.clientTop +
+          panel.clientHeight -
+          footer.getBoundingClientRect().bottom,
+      ),
+    ).toBeLessThan(1);
+  });
 });
