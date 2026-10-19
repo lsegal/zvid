@@ -237,7 +237,7 @@ describe(MobileShellChrome.name, { timeout: PLAYWRIGHT_TEST_TIMEOUT }, () => {
       expect(Object.keys(sizes)).toEqual(
         expect.arrayContaining([
           "Record",
-          "Snap On",
+          "Snap",
           "Tempo",
           "Timeline",
           "Zoom in",
