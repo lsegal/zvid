@@ -38,6 +38,36 @@ function gridCellPx(lane: Element) {
   return Number.parseFloat(sizes[sizes.length - 1]);
 }
 
+// Times a `drag` from `from` to `to` as an idle runner would send it, by
+// how far along its 12 moves 16 ms apart the finger is, until restored. A
+// slow runner sends a swipe late and bunched, so the finger's speed on
+// release, and how far it flings, would drift run to run (#1511).
+function paceSwipe(from: { x: number }, to: { x: number }) {
+  const moveMs = 16;
+  const swipeMs = 12 * moveMs;
+  const now = performance.now;
+  const start = now.call(performance);
+  let at = start;
+  const onTouch = (event: TouchEvent) => {
+    const x = event.changedTouches[0]?.clientX ?? to.x;
+    at =
+      event.type === "touchend"
+        ? start + swipeMs + moveMs
+        : start + (swipeMs * (x - from.x)) / (to.x - from.x);
+  };
+  const types = ["touchstart", "touchmove", "touchend"] as const;
+  for (const type of types) {
+    window.addEventListener(type, onTouch, { capture: true });
+  }
+  performance.now = () => at;
+  return () => {
+    performance.now = now;
+    for (const type of types) {
+      window.removeEventListener(type, onTouch, { capture: true });
+    }
+  };
+}
+
 // The vertical middle of Layer 1's lane.
 function laneMiddleY() {
   const lane = boxOf('[data-timeline-lane-id="1"]');
@@ -128,7 +158,14 @@ describe(`${Timeline.name} on a phone`, {
     const rested = await settledPlayheadQ();
     expect(rested).toBeGreaterThan(0);
     // The same swipe, lifted while moving, carries the playhead on.
-    await drag({ x: scroll.x + 60, y }, { x: scroll.x + 20, y });
+    const from = { x: scroll.x + 60, y };
+    const to = { x: scroll.x + 20, y };
+    const restore = paceSwipe(from, to);
+    try {
+      await drag(from, to);
+    } finally {
+      restore();
+    }
     const flung = await settledPlayheadQ();
     expect(flung - rested).toBeGreaterThan(rested * 1.5);
   });
