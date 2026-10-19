@@ -759,6 +759,17 @@
   background: rgb(var(--tint) / 0.14);
 }
 
+/* Dragging it up or down changes the tempo. */
+.tempo-pill__readout {
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.tempo-pill__readout:hover {
+  color: var(--amber);
+}
+
 .brand-mark {
   display: inline-flex;
   align-items: center;
