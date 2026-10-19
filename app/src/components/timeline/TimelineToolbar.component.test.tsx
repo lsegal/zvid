@@ -46,7 +46,7 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(firstLabel).toBe("1");
   });
 
-  // There is no snap grid selector, only the Snap On/Off toggle, with the
+  // There is no snap grid selector, only the Snap toggle, with the
   // tempo control right of it (#732).
   test("the toolbar has no snap grid selector and the tempo sits right of Snap", async () => {
     const screen = await renderEditor();
@@ -63,7 +63,7 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     ).toEqual([]);
 
     // The tempo control directly follows the Snap toggle's group.
-    const snap = screen.getByRole("button", { name: "Snap On" });
+    const snap = screen.getByRole("button", { name: "Snap", exact: true });
     await expect.element(snap).toBeVisible();
     const tempos = toolbar.querySelectorAll(".tempo-pill");
     expect(tempos).toHaveLength(1);
@@ -87,6 +87,27 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(tempoText).toContain("115 BPM");
     await userEvent.keyboard("{Control>}z{/Control}");
     await expect.poll(tempoText).toContain("120 BPM");
+  });
+
+  // The Snap toggle always reads "Snap"; its state shows only through the
+  // active styling and aria-pressed (#1517).
+  test("the Snap toggle keeps its label when toggled", async () => {
+    const screen = await renderEditor();
+    const snap = screen.getByRole("button", { name: "Snap", exact: true });
+    expect(snap.element().textContent).toBe("Snap");
+    await expect.element(snap).toHaveAttribute("aria-pressed", "true");
+    await expect.element(snap).toHaveClass(/is-active/);
+
+    await snap.click();
+    await expect.element(snap).toHaveAttribute("aria-pressed", "false");
+    await expect.element(snap).not.toHaveClass(/is-active/);
+    expect(snap.element().textContent).toBe("Snap");
+    await expect
+      .element(snap)
+      .toHaveAttribute(
+        "title",
+        "Shift while dragging a clip or trim handle to temporarily disable snapping.",
+      );
   });
 
   // Dragging the BPM readout travels the 60–220 range over 200px, like the
