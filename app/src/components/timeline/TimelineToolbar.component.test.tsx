@@ -36,6 +36,35 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(firstLabel).toBe("1");
   });
 
+  // Clicking the transport readout swaps the scale like the toggle does,
+  // undoably, and works from the keyboard (#1515).
+  test("the playhead readout swaps the time mode", async () => {
+    const screen = await renderEditor();
+    const readout = screen.getByRole("button", { name: "Swap time mode" });
+    const tempo = screen.getByRole("button", { name: "Tempo", exact: true });
+    const time = screen.getByRole("button", { name: "Time", exact: true });
+    const firstLabel = () =>
+      screen.container.querySelector(".ruler-marker span")?.textContent;
+    await expect.element(readout).toHaveTextContent("00:00:001.1.1");
+    await expect.element(tempo).toHaveClass(/is-active/);
+
+    await readout.click();
+    await expect.element(time).toHaveClass(/is-active/);
+    await expect.poll(firstLabel).toBe("00:00:00");
+    await expect.element(readout).toHaveTextContent("00:00:001.1.1");
+
+    await userEvent.keyboard("{Control>}z{/Control}");
+    await expect.element(tempo).toHaveClass(/is-active/);
+    await expect.poll(firstLabel).toBe("1");
+
+    readout.element().focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(time).toHaveClass(/is-active/);
+    await userEvent.keyboard(" ");
+    await expect.element(tempo).toHaveClass(/is-active/);
+    await expect.poll(firstLabel).toBe("1");
+  });
+
   // There is no snap grid selector, only the Snap On/Off toggle, with the
   // tempo control right of it (#732).
   test("the toolbar has no snap grid selector and the tempo sits right of Snap", async () => {
