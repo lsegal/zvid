@@ -6,14 +6,15 @@ import {
 } from "../../component-test/editor.tsx";
 import {
   center,
-  click,
-  dblclick,
   down,
   holdModifiers,
   move,
+  pressAndHold,
+  quickClick,
   undo,
   up,
 } from "../../component-test/input.ts";
+import { HOLD_TO_TYPE_MS } from "../../use-hold-to-type.ts";
 import { TimelineToolbar } from "./TimelineToolbar";
 
 // The toolbar renders in the timeline editor, whose ruler it switches.
@@ -156,14 +157,19 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(() => readout.textContent).toBe("124 BPM");
   });
 
-  test("a plain click on the BPM readout leaves the tempo alone", async () => {
+  test("a quick click on the BPM readout leaves the tempo alone", async () => {
     await renderEditor();
     const readout = document.querySelector(
       ".tempo-pill__readout",
     ) as HTMLElement;
     const { x, y } = center(readout);
-    await click(x, y);
+    const quick = await quickClick(x, y, HOLD_TO_TYPE_MS);
+    await new Promise((resolve) => setTimeout(resolve, HOLD_TO_TYPE_MS * 2));
     expect(readout.textContent).toBe("120 BPM");
+    // A press slowed past the hold time by a loaded host is a hold.
+    if (quick) {
+      expect(document.querySelector(".tempo-pill__input")).toBeNull();
+    }
   });
 
   // The time signature steps along a ladder like the zoom buttons and takes
@@ -265,15 +271,17 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
       );
   });
 
-  // Like a Knob's value, double-clicking the readout (or Enter on it) types a
-  // tempo: Enter commits it clamped to 60–220, Escape cancels.
-  test("double-clicking the BPM readout types a tempo, committed on Enter", async () => {
+  // Holding the pointer still on the readout for 100ms (or Enter on it)
+  // types a tempo (#1529): Enter commits it clamped to 60–220, Escape cancels.
+  test("holding the pointer still on the BPM readout types a tempo, committed on Enter", async () => {
     const screen = await renderEditor();
     const readout = () =>
       document.querySelector(".tempo-pill__readout") as HTMLElement;
     const { x, y } = center(readout());
-    await dblclick(x, y);
+    await pressAndHold(x, y, HOLD_TO_TYPE_MS * 2);
     const input = screen.getByRole("textbox", { name: "Tempo in BPM" });
+    await expect.element(input).toHaveFocus();
+    await up();
     await expect.element(input).toHaveFocus();
     await expect.element(input).toHaveValue("120");
     await userEvent.keyboard("96{Enter}");

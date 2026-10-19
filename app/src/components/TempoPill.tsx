@@ -7,18 +7,21 @@ import { BPM_MAX, BPM_MIN } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import { clamp } from "../app/util.ts";
+import { useHoldToType } from "../use-hold-to-type.ts";
 
 const BPM_STEP = 5;
 // As on the zoom readout: dragging this far up or down travels the whole
 // tempo range, ten times as far with Shift held.
 const DRAG_PIXELS = 200;
 const FINE_FACTOR = 10;
-// A press that moves less than this is a click, which does nothing.
+// A press that moves less than this is not a drag: held still, it opens the
+// text field, and a quick tap does nothing.
 const DRAG_THRESHOLD_PX = 3;
 
 // The timeline toolbar's tempo readout, with buttons that step it by 5 BPM.
 // As on a Knob's value, dragging the readout up or down raises or lowers the
-// tempo, committing on release, and a double-click or Enter types one in.
+// tempo, committing on release, and holding the pointer still on it, or
+// pressing Enter, types one in.
 export function TempoPill({
   bpm,
   commitProjectChange,
@@ -36,6 +39,7 @@ export function TempoPill({
     raw: number;
     moved: boolean;
   } | null>(null);
+  const hold = useHoldToType();
   const [draft, setDraft] = useState<number | null>(null);
   const shown = draft ?? bpm;
   // Set when the editor closes, so the readout that replaces it takes focus.
@@ -82,7 +86,8 @@ export function TempoPill({
     if (event.button !== 0) {
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const button = event.currentTarget;
+    button.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
       startY: event.clientY,
@@ -90,6 +95,13 @@ export function TempoPill({
       raw: bpm,
       moved: false,
     };
+    hold.arm(() => {
+      if (button.hasPointerCapture(event.pointerId)) {
+        button.releasePointerCapture(event.pointerId);
+      }
+      dragRef.current = null;
+      openEditor();
+    });
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -103,6 +115,7 @@ export function TempoPill({
     ) {
       return;
     }
+    hold.cancel();
     drag.moved = true;
     const pixels = event.shiftKey ? DRAG_PIXELS * FINE_FACTOR : DRAG_PIXELS;
     drag.raw = clamp(
@@ -122,6 +135,7 @@ export function TempoPill({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    hold.cancel();
     dragRef.current = null;
     setDraft(null);
     if (drag.moved) {
@@ -168,7 +182,6 @@ export function TempoPill({
         <button
           aria-label={`Tempo ${shown.toFixed(0)} BPM. Edit value`}
           className="tempo-pill__readout"
-          onDoubleClick={openEditor}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -186,7 +199,7 @@ export function TempoPill({
               node.focus();
             }
           }}
-          title="Drag up or down to change the tempo, or double-click to type one"
+          title="Drag up or down to change the tempo, or hold still to type one"
           type="button"
         >
           {shown.toFixed(0)} BPM

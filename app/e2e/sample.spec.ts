@@ -214,7 +214,7 @@ test("File → Open → Samples → MIDI opens the generated-audio sample", asyn
   ).toBeVisible();
   // It opens at 90% zoom with the Layers section collapsed (#1467).
   await expect(
-    page.getByRole("button", { name: "Zoom 90%, reset to 100%" }),
+    page.getByRole("button", { name: "Zoom 90%. Edit value" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Show layers", exact: true }).click();
   for (const id of ["titles", "logo", "forest", "forest-echo", "dots"]) {

@@ -9,10 +9,11 @@ import {
 import {
   center,
   click,
-  dblclick,
   down,
   holdModifiers,
   move,
+  pressAndHold,
+  quickClick,
   undo,
   up,
 } from "../../component-test/input.ts";
@@ -22,6 +23,7 @@ import {
   type MasterMeterTap,
 } from "../../fx-shaders/audio-bands.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
+import { HOLD_TO_TYPE_MS } from "../../use-hold-to-type.ts";
 import { TransportBar } from "./TransportBar";
 
 // The transport bar's stereo VU meter, left of the preview volume. The
@@ -240,7 +242,7 @@ describe("the transport bar's VU meter", () => {
 
 // The transport bar's zoom control: the -/+ buttons step along a ladder from
 // 25% to 800%, the ruler thins its labels when zoomed far out, and the
-// readout can be dragged, clicked to reset, or typed into.
+// readout can be dragged or held still to type into.
 
 let screen: RenderResult;
 
@@ -354,34 +356,41 @@ describe(TransportBar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     expect(percent()).toBeLessThan(110);
   });
 
-  test("a plain click on the readout still resets to 100%", async () => {
-    await dragReadout(-50);
-    await expect.poll(readout).not.toBe("100%");
-    const { x, y } = center(
-      screen.container.querySelector(".zoom-control__readout") as Element,
-    );
-    await click(x, y);
-    await expect.poll(readout).toBe("100%");
-  });
-
   const zoomInput = () =>
     screen.container.querySelector<HTMLInputElement>(".zoom-control__input");
 
   // The editor opens with its text selected, so typing replaces it.
   const typeZoom = (text: string) => userEvent.keyboard(text);
 
-  test("double-clicking the readout types a zoom, in one undo step", async () => {
+  const readoutCenter = () =>
+    center(screen.container.querySelector(".zoom-control__readout") as Element);
+
+  // A click no longer resets the zoom (#1529): a quick tap does nothing.
+  test("a quick click on the readout leaves the zoom alone", async () => {
     await dragReadout(-50);
     await expect.poll(readout).not.toBe("100%");
     const dragged = readout();
-    const { x, y } = center(
-      screen.container.querySelector(".zoom-control__readout") as Element,
-    );
-    await dblclick(x, y);
-    // The double-click's first click does not reset the zoom.
+    const { x, y } = readoutCenter();
+    const quick = await quickClick(x, y, HOLD_TO_TYPE_MS);
+    await new Promise((resolve) => setTimeout(resolve, HOLD_TO_TYPE_MS * 2));
+    expect(readout()).toBe(dragged);
+    // A press slowed past the hold time by a loaded host is a hold.
+    if (quick) {
+      expect(zoomInput()).toBeNull();
+    }
+  });
+
+  // Holding the pointer still for 100ms opens the editor (#1529).
+  test("holding the pointer still on the readout types a zoom, in one undo step", async () => {
+    await dragReadout(-50);
+    await expect.poll(readout).not.toBe("100%");
+    const dragged = readout();
+    const { x, y } = readoutCenter();
+    await pressAndHold(x, y, HOLD_TO_TYPE_MS * 2);
     await expect
       .poll(() => zoomInput()?.value)
       .toBe(String(Number.parseInt(dragged ?? "", 10)));
+    await up();
     expect(document.activeElement).toBe(zoomInput());
 
     await typeZoom("150{Enter}");
