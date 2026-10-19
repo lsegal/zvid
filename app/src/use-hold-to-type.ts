@@ -21,6 +21,13 @@ export function useHoldToType() {
       onHold();
     }, HOLD_TO_TYPE_MS);
   };
-  useEffect(() => cancel, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    },
+    [],
+  );
   return { arm, cancel };
 }

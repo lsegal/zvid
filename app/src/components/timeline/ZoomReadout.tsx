@@ -4,13 +4,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { useHoldToType } from "../../use-hold-to-type";
 import {
   formatZoomFactor,
   parseZoomPercent,
   sliderPositionToZoom,
   zoomToSliderPosition,
 } from "../../zoom";
-import { useHoldToType } from "../../use-hold-to-type";
 
 // As on a Knob: dragging this far up or down travels the whole zoom range,
 // ten times as far with Shift held.
