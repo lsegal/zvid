@@ -4,6 +4,15 @@ import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
 } from "../../component-test/editor.tsx";
+import {
+  center,
+  click,
+  down,
+  holdModifiers,
+  move,
+  undo,
+  up,
+} from "../../component-test/input.ts";
 import { TimelineToolbar } from "./TimelineToolbar";
 
 // The toolbar renders in the timeline editor, whose ruler it switches.
@@ -77,6 +86,56 @@ describe(TimelineToolbar, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(tempoText).toContain("115 BPM");
     await userEvent.keyboard("{Control>}z{/Control}");
     await expect.poll(tempoText).toContain("120 BPM");
+  });
+
+  // Dragging the BPM readout travels the 60–220 range over 200px, like the
+  // zoom readout: 50px up from 120 lands on 160, and down on 80.
+  async function dragTempo(dy: number) {
+    const readout = document.querySelector(
+      ".tempo-pill__readout",
+    ) as HTMLElement;
+    const { x, y } = center(readout);
+    await move(x, y);
+    await down();
+    await move(x, y + dy, { steps: 10 });
+    const during = readout.textContent;
+    await up();
+    return { readout, during };
+  }
+
+  test("dragging the BPM readout up raises the tempo live and commits one undo step", async () => {
+    await renderEditor();
+    const { readout, during } = await dragTempo(-50);
+    expect(during).toBe("160 BPM");
+    await expect.poll(() => readout.textContent).toBe("160 BPM");
+
+    await undo();
+    await expect.poll(() => readout.textContent).toBe("120 BPM");
+  });
+
+  test("dragging the BPM readout down lowers the tempo, clamped to the range", async () => {
+    await renderEditor();
+    const { readout } = await dragTempo(50);
+    await expect.poll(() => readout.textContent).toBe("80 BPM");
+    await dragTempo(100);
+    await expect.poll(() => readout.textContent).toBe("60 BPM");
+  });
+
+  test("Shift-dragging the BPM readout is ten times finer", async () => {
+    await renderEditor();
+    holdModifiers(["Shift"]);
+    const { readout } = await dragTempo(-50);
+    await expect.poll(() => readout.textContent).toBe("124 BPM");
+  });
+
+  test("a plain click on the BPM readout leaves the tempo alone", async () => {
+    await renderEditor();
+    const readout = document.querySelector(
+      ".tempo-pill__readout",
+    ) as HTMLElement;
+    const { x, y } = center(readout);
+    await click(x, y);
+    expect(readout.textContent).toBe("120 BPM");
   });
 
   // The time signature steps along a ladder like the zoom buttons and takes
