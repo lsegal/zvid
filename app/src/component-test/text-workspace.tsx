@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { INITIAL_PROJECT_STATE, SIGNATURES } from "../app/constants.ts";
+import { INITIAL_PROJECT_STATE, signatureById } from "../app/constants.ts";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import type { ProjectState, TimelineSelection } from "../app/types.ts";
 import { FxPanel } from "../components/FxPanel";
@@ -191,7 +191,7 @@ export function TextWorkspace({
     bpm: present.bpm,
     fps: present.fps,
     signature:
-      SIGNATURES.find(({ id }) => id === present.signatureId) ?? SIGNATURES[0],
+      signatureById(present.signatureId),
     isPlaying,
     timelineClips: selection.timelineClips,
     lanePriority,
@@ -361,7 +361,7 @@ export function clipCardContext(
     quarterPx: QUARTER_PX,
     visibleTimelineStartPx: 0,
     visibleTimelineWidthPx: MONITOR.width,
-    signature: SIGNATURES[0],
+    signature: signatureById("4/4"),
     thumbnails: { get: () => undefined },
     clipPieces: new Map(),
     clipFilmstrips: new Map(),

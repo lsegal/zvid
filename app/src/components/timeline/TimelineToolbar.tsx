@@ -1,4 +1,3 @@
-import { SIGNATURE_OPTIONS } from "../../app/constants.ts";
 import type {
   ProjectState,
   TimelineMode,
@@ -9,12 +8,12 @@ import { TransportPlayheadReadout } from "../LivePlayhead";
 import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TempoPill } from "../TempoPill";
-import { Select } from "../ui/select";
 import {
   getStatusLightClassName,
   getStatusLightState,
   STATUS_LIGHT_LABELS,
 } from "./status-light.ts";
+import { SignaturePicker } from "./SignaturePicker";
 import "./timeline-toolbar.css";
 
 const MEDIA_DRAWER_SEGMENTS = [
@@ -153,19 +152,10 @@ export function TimelineToolbar({
 
         <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
 
-        <div className="signature-picker">
-          <span>Time Sig</span>
-          <Select
-            aria-label="Time signature"
-            onValueChange={(value) =>
-              commitProjectPatch("Change time signature", {
-                signatureId: value,
-              })
-            }
-            options={SIGNATURE_OPTIONS}
-            value={signatureId}
-          />
-        </div>
+        <SignaturePicker
+          commitProjectPatch={commitProjectPatch}
+          signatureId={signatureId}
+        />
       </div>
     </div>
   );

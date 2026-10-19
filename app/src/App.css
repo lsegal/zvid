@@ -743,7 +743,8 @@
   text-transform: uppercase;
 }
 
-.tempo-pill__adjust {
+.tempo-pill__adjust,
+.signature-picker__adjust {
   width: 24px;
   height: 24px;
   padding: 0;
@@ -755,7 +756,8 @@
   transition: background 160ms ease;
 }
 
-.tempo-pill__adjust:hover {
+.tempo-pill__adjust:hover,
+.signature-picker__adjust:not(:disabled):hover {
   background: rgb(var(--tint) / 0.14);
 }
 
@@ -903,8 +905,7 @@
   border-radius: 999px;
 }
 
-.segmented-control button,
-.signature-picker .select-trigger {
+.segmented-control button {
   border: none;
   background: transparent;
   color: var(--muted);

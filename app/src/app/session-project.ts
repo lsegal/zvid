@@ -28,6 +28,7 @@ import {
 } from "../selection-overlaps.ts";
 import { clipSourceFrame, type ProjectSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
+import { signatureById } from "../time-signature.ts";
 import {
   readSelectionTrackOffset,
   readSessionFills,
@@ -458,6 +459,7 @@ export function sessionToProject(
     effects: audio.effects,
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
+    signatureId: signatureById(session.timeline?.timeSignature ?? "").id,
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
     projectDurationFrames: session.timeline?.projectDuration,
     playPositionFrames: session.playPosition ?? 0,

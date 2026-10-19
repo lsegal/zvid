@@ -4,7 +4,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { SIGNATURES } from "../app/constants.ts";
+import { signatureById } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { SourceSelection } from "../app/source-selection.ts";
 import type { ProjectState, SourceSpan, TimelineMode } from "../app/types.ts";
@@ -138,9 +138,7 @@ export function useSourceClipProperties({
     return null;
   }
 
-  const signature =
-    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
-    SIGNATURES[0];
+  const signature = signatureById(signatureId);
   const format: TimeValueFormat = { timelineMode, bpm, signature, fps };
 
   return {

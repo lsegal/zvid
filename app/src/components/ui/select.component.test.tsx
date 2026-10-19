@@ -2,22 +2,14 @@ import { useState } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { SIGNATURES } from "../../app/constants.ts";
 import {
   createEffect,
   mapSessionEffectsToDevices,
   setEffectAnimation,
 } from "../../fx-stack.ts";
-import {
-  useProjectHistoryCommands,
-  useProjectStore,
-} from "../../hooks/useProjectStore.ts";
 import { DEFAULT_SESSION_SETTINGS } from "../../session-settings.ts";
-import type { ShortcutContext } from "../../shortcuts/types.ts";
-import { useKeyboardShortcuts } from "../../shortcuts/useKeyboardShortcuts.ts";
 import { FxAnimationPanel } from "../fx/FxAnimationPanel";
 import { SessionSettingsDialog } from "../SessionSettingsDialog";
-import { TimelineToolbar } from "../timeline/TimelineToolbar";
 import "./select";
 
 // Every dropdown is the shared themed Select (components/ui/select.tsx), not
@@ -172,57 +164,6 @@ describe("Select in Session Settings", () => {
     await expect.element(list).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await expectText(codec, "Auto (best available)");
-  });
-});
-
-// The timeline toolbar on a project with its undo history, and the global
-// shortcuts' undo.
-function Toolbar() {
-  const store = useProjectStore({ access: "owner", restoredSession: null });
-  const project = store.projectHistory.present;
-  const { handleUndo, handleRedo } = useProjectHistoryCommands({
-    ...store,
-    finishTextEdit: noop,
-    stopTimelineAudibleScrub: noop,
-    setIsPlaying: noop,
-    setDragPreviewClips: noop,
-    setDragState: noop,
-    setPendingSelection: noop,
-    setTimelineDragState: noop,
-    setStatus: noop,
-  });
-  useKeyboardShortcuts({ handleUndo, handleRedo } as ShortcutContext);
-  return (
-    <TimelineToolbar
-      {...project}
-      commitProjectChange={store.commitProjectChange}
-      commitProjectPatch={store.commitProjectPatch}
-      isMediaDrawerOpen={false}
-      isPlaying={false}
-      isRecording={false}
-      mediaDrawerTab="media"
-      onSelectMediaDrawerTab={noop}
-      playheadSignal={store.playheadSignal}
-      signature={
-        SIGNATURES.find((signature) => signature.id === project.signatureId) ??
-        SIGNATURES[0]
-      }
-    />
-  );
-}
-
-describe("Select in the timeline toolbar", () => {
-  test("picks the time signature, which undo restores", async () => {
-    await render(<Toolbar />);
-    const signature = page.getByRole("combobox", { name: "Time signature" });
-    await expectText(signature, "4/4");
-    await signature.click();
-    const list = await expectThemedList();
-    await list.getByRole("option", { name: "6/8" }).click();
-    await expectText(signature, "6/8");
-
-    await userEvent.keyboard("{Control>}z{/Control}");
-    await expectText(signature, "4/4");
   });
 });
 
