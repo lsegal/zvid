@@ -94,6 +94,47 @@ export function pinchZoom(
   return clampZoom(originZoom * (distance / originDistance));
 }
 
+// A swipe released faster than this, in px/ms, flings on; a fling stops
+// once it slows below it.
+export const MIN_FLING_VELOCITY = 0.05;
+// How much of its speed a fling keeps each millisecond: iOS's normal scroll
+// deceleration.
+export const FLING_DECELERATION = 0.998;
+// How far back a release looks to measure the finger's speed.
+const FLING_SAMPLE_MS = 100;
+
+export type FingerSample = { x: number; timeMs: number };
+
+/**
+ * The finger's speed in px/ms when it lifted, from the samples of its last
+ * `FLING_SAMPLE_MS`, or 0 when it had stopped by then.
+ */
+export function flingVelocity(samples: readonly FingerSample[]) {
+  const last = samples[samples.length - 1];
+  if (!last) {
+    return 0;
+  }
+  const first = samples.find(
+    (sample) => last.timeMs - sample.timeMs <= FLING_SAMPLE_MS,
+  );
+  if (!first || last.timeMs <= first.timeMs) {
+    return 0;
+  }
+  return (last.x - first.x) / (last.timeMs - first.timeMs);
+}
+
+/**
+ * One frame of a fling at `velocity` px/ms, `dtMs` long: how far it goes,
+ * and the speed it slows to.
+ */
+export function flingStep(velocity: number, dtMs: number) {
+  const decay = FLING_DECELERATION ** dtMs;
+  return {
+    distance: (velocity * (decay - 1)) / Math.log(FLING_DECELERATION),
+    velocity: velocity * decay,
+  };
+}
+
 /** Whether a finger has moved past the slop since it touched down. */
 export function exceedsTouchSlop(dx: number, dy: number) {
   return Math.hypot(dx, dy) > TOUCH_SLOP_PX;
