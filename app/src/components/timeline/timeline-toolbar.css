@@ -26,12 +26,21 @@
   line-height: 16px;
 }
 
+.timeline-toolbar .tempo-pill__value {
+  min-width: 60px;
+  text-align: center;
+}
+
 /* The Snap toggle's icon sits left of its label (#1523); 16px matches the
-   buttons' 16px line height. */
+   buttons' 16px line height. The row packs to its right edge, so the icon
+   lands on a whole pixel only if the Snap toggle, the tempo pill and the time
+   signature picker are all whole pixels wide: each gets a whole minimum
+   width that fits its widest value. */
 .timeline-toolbar__snap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 78px;
 }
 
 .timeline-toolbar__snap > svg {
@@ -78,7 +87,9 @@
 .signature-picker {
   display: inline-flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  min-width: 132px;
   padding: 5px 10px;
   background: light-dark(rgba(40, 48, 80, 0.018), rgba(8, 9, 15, 0.28));
   border: 1px solid var(--line);

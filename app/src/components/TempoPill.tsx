@@ -32,7 +32,7 @@ export function TempoPill({
       >
         −
       </button>
-      <span>{bpm.toFixed(0)} BPM</span>
+      <span className="tempo-pill__value">{bpm.toFixed(0)} BPM</span>
       <button
         aria-label="Increase tempo"
         className="tempo-pill__adjust"
