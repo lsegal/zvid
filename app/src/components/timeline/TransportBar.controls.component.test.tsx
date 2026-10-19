@@ -177,7 +177,7 @@ describe("TransportBar half-bar buttons", () => {
   test("with snap on, they land an off-grid playhead on the grid", async () => {
     const { signal, button } = await renderHalfBar();
     await expect
-      .element(button("Snap On"))
+      .element(button("Snap"))
       .toHaveAttribute("aria-pressed", "true");
 
     // Five frames in puts the playhead between grid lines.
@@ -210,9 +210,9 @@ describe("TransportBar half-bar buttons", () => {
 
   test("with snap off, they move exactly half a bar", async () => {
     const { signal, button } = await renderHalfBar();
-    await button("Snap On").click();
+    await button("Snap").click();
     await expect
-      .element(button("Snap Off"))
+      .element(button("Snap"))
       .toHaveAttribute("aria-pressed", "false");
 
     const offGridQ = await moveBy(signal, stepFiveFrames);
@@ -346,7 +346,7 @@ describe("TransportBar compact layout", () => {
         ".timeline-toolbar :is(.segmented-control, .tempo-pill, .signature-picker)",
       ),
     );
-    for (const name of ["Sessions", "Tempo", "Snap On"]) {
+    for (const name of ["Sessions", "Tempo", "Snap"]) {
       const button = screen.getByRole("button", { name, exact: true });
       expect(button.element().closest(".timeline-toolbar")).not.toBeNull();
       expect(box(button.element()).height).toBeGreaterThanOrEqual(24);

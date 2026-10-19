@@ -104,7 +104,7 @@ test("Save in the New Session prompt saves before starting over", async ({
     downloads.push(download.suggestedFilename());
   });
   await openSample(page);
-  const snap = page.getByRole("button", { name: /^Snap (On|Off)$/ });
+  const snap = page.getByRole("button", { name: "Snap", exact: true });
   const snapped = await snap.getAttribute("aria-pressed");
   const edited = snapped === "true" ? "false" : "true";
   await snap.click();
