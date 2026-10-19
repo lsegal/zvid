@@ -1,5 +1,5 @@
-/* A column: the rows, which scroll, over the docked footer (the Audio row),
-   which only follows their horizontal scroll (Timeline.tsx). */
+/* The panel around the rows' scroller, whose content ends in the docked
+   footer (the Audio row, Timeline.tsx). */
 .timeline-panel {
   display: flex;
   flex-direction: column;
@@ -24,15 +24,25 @@
      stop with it still covered by the ruler, which the footer move made more
      likely by leaving the scroller less room in a short panel. */
   scroll-padding-top: 60px;
+  /* Likewise for the footer stuck over the bottom of the rows. */
+  scroll-padding-bottom: var(--timeline-footer-height, 0px);
 }
 
 .timeline-footer__canvas {
   position: relative;
 }
 
+/* Part of the rows' scroll content, so it scrolls sideways in step with
+   them (its playhead line can't lag theirs, #1509), but stuck to the bottom
+   of the view while they scroll under it vertically. Last in the canvas,
+   which is at least as tall as the view, and pushed to its end. Over the
+   rows, their playhead line and the label resize rail. */
 .timeline-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
   flex: none;
-  overflow: hidden;
+  margin-top: auto;
   border-top: 1px solid var(--line-strong);
   box-shadow: 0 -6px 14px rgba(10, 11, 18, 0.35);
 }
