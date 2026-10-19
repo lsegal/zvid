@@ -169,6 +169,10 @@ export function useLayerActions({
       timelineScrollRef.current
         ?.querySelector(".ruler-row")
         ?.getBoundingClientRect().bottom,
+    getScrollBottom: () =>
+      timelineScrollRef.current
+        ?.querySelector(".timeline-footer")
+        ?.getBoundingClientRect().top,
     onMove: moveLayerTo,
     onSelect: selectLaneFromLabel,
   });
