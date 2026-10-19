@@ -2,7 +2,6 @@ import {
   type ReactNode,
   type RefObject,
   useEffect,
-  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -37,9 +36,9 @@ type TimelineProps = {
 // The timeline panel: its scroll container and grid, with the track label
 // resize rail, the loop overlay, the playhead line and the buttons that bring an off-screen
 // playhead into view, and under it a footer that stays at the panel's bottom.
-// Only the rows above the footer scroll vertically; the footer follows their
-// horizontal scroll and zoom, so its waveform, loop and playhead line up with
-// them.
+// The footer stays at the bottom of the view while the rows scroll under it
+// vertically, and scrolls sideways with them as part of the same content, so
+// its waveform, loop and playhead line up with theirs.
 export function Timeline({
   timelineScrollRef,
   timelineDragScroll,
@@ -59,58 +58,24 @@ export function Timeline({
   const { labelWidth, limits } = labelResize;
   const footerRef = useRef<HTMLDivElement>(null);
 
-  // The footer can't be scrolled by hand (it would leave the rows behind):
-  // it takes the rows' horizontal scroll, and a gutter as wide as their
-  // vertical scrollbar so it can reach their scroll end.
-  const syncFooterScroll = () => {
+  // The footer sits in the rows' scroll content, stuck to the bottom of the
+  // view, so it scrolls sideways with them in the same frame (a separate
+  // scroller copying their scrollLeft lagged them, and its playhead drifted
+  // from theirs, #1509). Rows scrolled into view stop above it.
+  useEffect(() => {
     const scroll = timelineScrollRef.current;
     const footer = footerRef.current;
     if (!scroll || !footer) {
       return;
     }
-    footer.style.setProperty(
-      "--timeline-scrollbar-width",
-      `${scroll.offsetWidth - scroll.clientWidth}px`,
+    const observer = new ResizeObserver(() =>
+      scroll.style.setProperty(
+        "--timeline-footer-height",
+        `${footer.offsetHeight}px`,
+      ),
     );
-    footer.scrollLeft = scroll.scrollLeft;
-  };
-  const syncFooterScrollRef = useRef(syncFooterScroll);
-  syncFooterScrollRef.current = syncFooterScroll;
-  // Besides on scroll, the footer follows the rows when they resize, which
-  // can show or hide their scrollbar, and when their width changes.
-  useLayoutEffect(() => {
-    void [labelWidth, timelineWidth];
-    syncFooterScrollRef.current();
-  }, [labelWidth, timelineWidth]);
-  useEffect(() => {
-    const scroll = timelineScrollRef.current;
-    if (!scroll) {
-      return;
-    }
-    const observer = new ResizeObserver(() => syncFooterScrollRef.current());
-    observer.observe(scroll);
+    observer.observe(footer);
     return () => observer.disconnect();
-  }, [timelineScrollRef]);
-
-  // A wheel over the footer scrolls the rows sideways, which scrolls it too.
-  useEffect(() => {
-    const footer = footerRef.current;
-    if (!footer) {
-      return;
-    }
-    const handleWheel = (event: WheelEvent) => {
-      const scroll = timelineScrollRef.current;
-      const deltaX =
-        event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX;
-      if (!scroll || event.ctrlKey || !deltaX) {
-        return;
-      }
-      event.preventDefault();
-      scroll.scrollLeft +=
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? deltaX * 16 : deltaX;
-    };
-    footer.addEventListener("wheel", handleWheel, { passive: false });
-    return () => footer.removeEventListener("wheel", handleWheel);
   }, [timelineScrollRef]);
 
   return (
@@ -126,10 +91,7 @@ export function Timeline({
           timelineDragScroll.isGrabbing ? "is-grab-panning" : ""
         }`}
         {...timelineDragScroll.handlers}
-        onScroll={() => {
-          syncTimelineViewport();
-          syncFooterScroll();
-        }}
+        onScroll={syncTimelineViewport}
       >
         <div className="timeline-jump-overlay">
           <PlayheadJumpButton
@@ -182,22 +144,17 @@ export function Timeline({
           />
 
           {children}
-        </div>
-      </div>
-      <div ref={footerRef} className="timeline-footer">
-        <div
-          className={`timeline-footer__canvas ${labelWidth < LABEL_WIDTH_NARROW ? "timeline-canvas--narrow-labels" : ""}`}
-          style={{
-            width: `calc(${labelWidth + timelineWidth}px + var(--timeline-scrollbar-width, 0px))`,
-          }}
-        >
-          <LoopOverlay
-            className="timeline-footer__loop"
-            loopRegion={loopRegion}
-            quarterPx={quarterPx}
-            offsetPx={labelWidth + 1}
-          />
-          {footer}
+          <div ref={footerRef} className="timeline-footer">
+            <div className="timeline-footer__canvas">
+              <LoopOverlay
+                className="timeline-footer__loop"
+                loopRegion={loopRegion}
+                quarterPx={quarterPx}
+                offsetPx={labelWidth + 1}
+              />
+              {footer}
+            </div>
+          </div>
         </div>
       </div>
     </div>

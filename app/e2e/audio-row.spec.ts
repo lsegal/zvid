@@ -133,9 +133,6 @@ test("the Audio row is docked at the bottom of the timeline panel at any height"
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
   const timeline = page.locator(".timeline-scroll");
 
-  // It is not one of the scrolling rows.
-  await expect(timeline.locator("[data-audio-row]")).toHaveCount(0);
-
   // Few rows in a tall panel: the empty space is above it, not below.
   await expect.poll(() => bottomGap(page)).toBeLessThan(1);
   const rowsEnd = await page
@@ -155,7 +152,8 @@ test("the Audio row is docked at the bottom of the timeline panel at any height"
   await expect.poll(() => bottomGap(page)).toBeLessThan(1);
   await page.setViewportSize({ width: 1600, height: 1200 });
 
-  // More rows than fit: they scroll above it, never behind or below it.
+  // More rows than fit: they scroll under it, and the last one comes out
+  // above it at the end, never below it.
   const addLayer = page.getByRole("button", { name: "Layer", exact: true });
   while (
     !(await timeline.evaluate((node) => node.scrollHeight > node.clientHeight))
@@ -167,12 +165,15 @@ test("the Audio row is docked at the bottom of the timeline panel at any height"
       node.scrollTop = end * node.scrollHeight;
     }, end);
     await expect.poll(() => bottomGap(page)).toBeLessThan(1);
-    const [scrollBottom, top] = await Promise.all([
-      timeline.evaluate((node) => node.getBoundingClientRect().bottom),
-      audioRow(page).evaluate((node) => node.getBoundingClientRect().top),
-    ]);
-    expect(scrollBottom).toBeLessThanOrEqual(top + 1);
   }
+  const [rowsBottom, top] = await Promise.all([
+    page
+      .locator("[data-timeline-lane-id]")
+      .last()
+      .evaluate((node) => node.getBoundingClientRect().bottom),
+    audioRow(page).evaluate((node) => node.getBoundingClientRect().top),
+  ]);
+  expect(rowsBottom).toBeLessThanOrEqual(top + 1);
 });
 
 test("the collapsed Audio row stays docked, also after a reload", async ({

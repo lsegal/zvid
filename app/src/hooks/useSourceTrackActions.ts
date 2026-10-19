@@ -205,6 +205,10 @@ export function useSourceTrackActions({
       timelineScrollRef.current
         ?.querySelector(".ruler-row")
         ?.getBoundingClientRect().bottom,
+    getScrollBottom: () =>
+      timelineScrollRef.current
+        ?.querySelector(".timeline-footer")
+        ?.getBoundingClientRect().top,
     rowAttribute: "data-source-track-id",
     gripAttribute: "data-source-track-grip",
     listClass: "source-track-list",

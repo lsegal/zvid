@@ -65,6 +65,7 @@ export function useLayerReorder({
   listRef,
   scrollRef,
   getScrollTop,
+  getScrollBottom,
   disabled = false,
   rowAttribute = "data-layer-row-id",
   gripAttribute = "data-layer-grip",
@@ -77,6 +78,8 @@ export function useLayerReorder({
   scrollRef: RefObject<HTMLElement | null>;
   // Where the visible part of the list starts, below any sticky header.
   getScrollTop?: () => number | undefined;
+  // And where it ends, above any sticky footer.
+  getScrollBottom?: () => number | undefined;
   disabled?: boolean;
   // The data attributes marking each row and grip, and the list's class.
   rowAttribute?: string;
@@ -92,8 +95,8 @@ export function useLayerReorder({
     mode: Session["mode"];
   }>();
   const [announcement, setAnnouncement] = useState("");
-  const latest = useRef({ onMove, onSelect, getScrollTop });
-  latest.current = { onMove, onSelect, getScrollTop };
+  const latest = useRef({ onMove, onSelect, getScrollTop, getScrollBottom });
+  latest.current = { onMove, onSelect, getScrollTop, getScrollBottom };
 
   function measure(fromIndex: number) {
     const list = listRef.current;
@@ -231,7 +234,11 @@ export function useLayerReorder({
 
     const rect = scroller.getBoundingClientRect();
     const top = Math.max(rect.top, latest.current.getScrollTop?.() ?? rect.top);
-    const delta = getAutoScrollDelta(session.lastY, top, rect.bottom);
+    const bottom = Math.min(
+      rect.bottom,
+      latest.current.getScrollBottom?.() ?? rect.bottom,
+    );
+    const delta = getAutoScrollDelta(session.lastY, top, bottom);
     if (delta) {
       const before = scroller.scrollTop;
       scroller.scrollTop += delta;

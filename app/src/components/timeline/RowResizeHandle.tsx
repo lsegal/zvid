@@ -58,7 +58,11 @@ export function RowResizeHandle({
       return;
     }
     const rect = scroller.getBoundingClientRect();
-    const delta = getAutoScrollDelta(drag.lastY, rect.top, rect.bottom);
+    // Above the docked footer (the Audio row), which the rows scroll under.
+    const bottom =
+      scroller.querySelector(".timeline-footer")?.getBoundingClientRect().top ??
+      rect.bottom;
+    const delta = getAutoScrollDelta(drag.lastY, rect.top, bottom);
     const before = scroller.scrollTop;
     scroller.scrollTop += delta;
     if (scroller.scrollTop !== before) {
@@ -96,8 +100,10 @@ export function RowResizeHandle({
         event.preventDefault();
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
+        // Not the docked footer's own row, which doesn't scroll with them.
         const scroller =
-          event.pointerType === "touch"
+          event.pointerType === "touch" &&
+          !event.currentTarget.closest(".timeline-footer")
             ? event.currentTarget.closest<HTMLElement>(".timeline-scroll")
             : null;
         endDrag();
