@@ -100,6 +100,11 @@ export function TimelineToolbar({
           bpm={bpm}
           fps={fps}
           signature={signature}
+          onSwapTimeMode={() =>
+            commitProjectPatch("Change timeline scale", {
+              timelineMode: timelineMode === "musical" ? "timecode" : "musical",
+            })
+          }
         />
       </div>
 
