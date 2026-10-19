@@ -235,7 +235,7 @@ export const editing: Guide = {
         {
           type: "figure",
           shot: "editing-toolbar",
-          alt: "The timeline toolbar: Tempo and Time scale buttons, Snap On, the BPM control and the Time Sig menu.",
+          alt: "The timeline toolbar: Tempo and Time scale buttons, Snap, the BPM control and the Time Sig menu.",
           width: 720,
         },
         {
@@ -248,7 +248,7 @@ export const editing: Guide = {
               "Switches the ruler between bars and beats, and timecode.",
             ],
             [
-              "**Snap On**",
+              "**Snap**",
               "Snaps moves, trims and selections to the grid. On by default; hold [[Shift]] to bypass it for one drag.",
             ],
             [

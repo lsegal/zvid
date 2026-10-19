@@ -146,7 +146,7 @@ export function TimelineToolbar({
             title="Shift while dragging a clip or trim handle to temporarily disable snapping."
             type="button"
           >
-            {snapEnabled ? "Snap On" : "Snap Off"}
+            Snap
           </button>
         </div>
 
