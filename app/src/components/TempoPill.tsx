@@ -17,8 +17,8 @@ const FINE_FACTOR = 10;
 const DRAG_THRESHOLD_PX = 3;
 
 // The timeline toolbar's tempo readout, with buttons that step it by 5 BPM.
-// Dragging the readout up or down raises or lowers the tempo, committing on
-// release.
+// As on a Knob's value, dragging the readout up or down raises or lowers the
+// tempo, committing on release, and a double-click or Enter types one in.
 export function TempoPill({
   bpm,
   commitProjectChange,
@@ -38,6 +38,11 @@ export function TempoPill({
   } | null>(null);
   const [draft, setDraft] = useState<number | null>(null);
   const shown = draft ?? bpm;
+  // Set when the editor closes, so the readout that replaces it takes focus.
+  const refocusRef = useRef(false);
+  const [typed, setTyped] = useState<string | null>(null);
+  // Guards against the input's blur re-applying a value after Enter/Escape.
+  const editingRef = useRef(false);
 
   const adjust = (delta: number) =>
     commitProjectChange("Adjust BPM", (current) =>
@@ -46,7 +51,34 @@ export function TempoPill({
       }),
     );
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLSpanElement>) => {
+  const setBpm = (next: number) => {
+    const bounded = clamp(Math.round(next), BPM_MIN, BPM_MAX);
+    if (bounded !== bpm) {
+      commitProjectChange("Adjust BPM", (current) =>
+        patchProjectState(current, { bpm: bounded }),
+      );
+    }
+  };
+
+  const openEditor = () => {
+    editingRef.current = true;
+    setTyped(bpm.toFixed(0));
+  };
+
+  const closeEditor = (apply: boolean) => {
+    if (!editingRef.current || typed === null) {
+      return;
+    }
+    editingRef.current = false;
+    refocusRef.current = true;
+    setTyped(null);
+    const parsed = Number.parseFloat(typed);
+    if (apply && Number.isFinite(parsed)) {
+      setBpm(parsed);
+    }
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) {
       return;
     }
@@ -60,7 +92,7 @@ export function TempoPill({
     };
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
+  const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) {
       return;
@@ -82,7 +114,7 @@ export function TempoPill({
     setDraft(Math.round(drag.raw));
   };
 
-  const endDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+  const endDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) {
       return;
@@ -92,11 +124,8 @@ export function TempoPill({
     }
     dragRef.current = null;
     setDraft(null);
-    const next = Math.round(drag.raw);
-    if (drag.moved && next !== bpm) {
-      commitProjectChange("Adjust BPM", (current) =>
-        patchProjectState(current, { bpm: next }),
-      );
+    if (drag.moved) {
+      setBpm(drag.raw);
     }
   };
 
@@ -110,17 +139,59 @@ export function TempoPill({
       >
         −
       </button>
-      <span
-        className="tempo-pill__readout"
-        onLostPointerCapture={endDrag}
-        onPointerCancel={endDrag}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        title="Drag up or down to change the tempo"
-      >
-        {shown.toFixed(0)} BPM
-      </span>
+      {typed !== null ? (
+        <span className="tempo-pill__readout">
+          <input
+            aria-label="Tempo in BPM"
+            className="tempo-pill__input"
+            inputMode="decimal"
+            // biome-ignore lint/a11y/noAutofocus: the editor opens on an explicit request to type a tempo
+            autoFocus
+            onBlur={() => closeEditor(true)}
+            onChange={(event) => setTyped(event.currentTarget.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                closeEditor(true);
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                closeEditor(false);
+              }
+            }}
+            type="text"
+            value={typed}
+          />{" "}
+          BPM
+        </span>
+      ) : (
+        <button
+          aria-label={`Tempo ${shown.toFixed(0)} BPM. Edit value`}
+          className="tempo-pill__readout"
+          onDoubleClick={openEditor}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              openEditor();
+            }
+          }}
+          onLostPointerCapture={endDrag}
+          onPointerCancel={endDrag}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          ref={(node) => {
+            if (node && refocusRef.current) {
+              refocusRef.current = false;
+              node.focus();
+            }
+          }}
+          title="Drag up or down to change the tempo, or double-click to type one"
+          type="button"
+        >
+          {shown.toFixed(0)} BPM
+        </button>
+      )}
       <button
         aria-label="Increase tempo"
         className="tempo-pill__adjust"

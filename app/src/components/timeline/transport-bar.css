@@ -80,6 +80,18 @@
   touch-action: none;
 }
 
+/* The typed-zoom editor keeps the readout's box. */
+.zoom-control__input {
+  width: 50px;
+  text-align: center;
+  cursor: text;
+}
+
+.zoom-control__input:focus-visible {
+  outline: none;
+  border-color: var(--amber);
+}
+
 .zoom-control__button:hover:not(:disabled),
 .zoom-control__readout:hover {
   background: rgb(var(--tint) / 0.08);
