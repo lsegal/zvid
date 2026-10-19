@@ -35,8 +35,9 @@
    buttons' 16px line height. The row packs to its right edge, so the icon
    lands on a whole pixel only if the Snap toggle, the tempo pill and the time
    signature picker are all whole pixels wide: each gets a whole minimum
-   width that fits its widest value. */
-.timeline-toolbar__snap {
+   width that fits its widest value, scoped to outrank coarse-pointer.css's
+   min-width reset. */
+.timeline-toolbar .timeline-toolbar__snap {
   display: inline-flex;
   align-items: center;
   gap: 4px;
