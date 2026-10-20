@@ -418,10 +418,9 @@ export function AppDialogs({
           <DialogHeader>
             <DialogTitle>Connect to a shared session</DialogTitle>
             <DialogDescription>
-              Paste the invite copied from Share. The room and optional
-              password will be pulled from that URL and the collaboration
-              websocket will connect immediately through your signaling
-              servers.
+              Paste the invite copied from Share. The room and optional password
+              will be pulled from that URL and the collaboration websocket will
+              connect immediately through your signaling servers.
             </DialogDescription>
           </DialogHeader>
 
