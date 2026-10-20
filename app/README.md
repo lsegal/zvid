@@ -108,9 +108,9 @@ An MCP client such as Claude Code or Codex drives a running zvid through the con
 
 ## Collaboration signaling
 
-Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.
+Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. Invites carry only the room (and the password, in the fragment), so a joiner always connects through their own servers; an invite can't point them at a server it chooses, and the `signal=` parameter older invites carried is ignored and removed from the address bar. Both sides need at least one signaling server in common, which stock builds do.
 
-Since an invite can name any signaling server, the native app's CSP allows every `ws:` and `wss:` URL in `connect-src` (`src-tauri/tauri.conf.json`) rather than listing the defaults; other `connect-src` origins stay restricted. `src/native-csp.test.ts` checks that the CSP covers the default signaling servers and native relay.
+Since a build can be configured with any signaling server, the native app's CSP allows every `ws:` and `wss:` URL in `connect-src` (`src-tauri/tauri.conf.json`) rather than listing the defaults; other `connect-src` origins stay restricted. `src/native-csp.test.ts` checks that the CSP covers the default signaling servers and native relay.
 
 After signaling, peers connect over WebRTC. Public STUN servers let most peers connect directly, but peers behind symmetric NAT, CGNAT, mobile hotspots or corporate firewalls need a TURN relay. The deployed app provides one (see [Collaboration TURN relay](#collaboration-turn-relay)); `VITE_ICE_SERVERS` (see `.env.example`) adds your own STUN or TURN servers at build time.
 

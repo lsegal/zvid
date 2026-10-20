@@ -418,9 +418,9 @@ export function AppDialogs({
           <DialogHeader>
             <DialogTitle>Connect to a shared session</DialogTitle>
             <DialogDescription>
-              Paste the invite copied from Share. The room, signaling server,
-              and optional password will be pulled from that URL and the
-              collaboration websocket will connect immediately.
+              Paste the invite copied from Share. The room and optional password
+              will be pulled from that URL and the collaboration websocket will
+              connect immediately through your signaling servers.
             </DialogDescription>
           </DialogHeader>
 
@@ -430,7 +430,7 @@ export function AppDialogs({
               <textarea
                 className="connect-dialog__input"
                 onChange={(event) => setConnectInviteValue(event.target.value)}
-                placeholder="http://public-ip:1420/?room=...&signal=wss://y-webrtc-eu.fly.dev"
+                placeholder="https://zvid.example.com/?room=...#password=..."
                 rows={4}
                 value={connectInviteValue}
               />
