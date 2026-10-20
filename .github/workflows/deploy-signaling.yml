@@ -1,0 +1,78 @@
+name: Deploy signaling
+
+# Deploys the zvid-signaling Worker (signaling/wrangler.toml), the app's
+# default y-webrtc signaling server, whenever signaling/ changes on main.
+# signaling/ is a standalone package, so this installs only its own
+# dependencies. Durable Object migrations in wrangler.toml are applied by
+# this deploy, so they must be correct when merged.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - signaling/**
+      - .github/workflows/deploy-signaling.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-signaling
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: signaling/pnpm-lock.yaml
+
+      - name: Install signaling dependencies
+        working-directory: signaling
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        working-directory: signaling
+        run: pnpm run check
+
+      - name: Deploy
+        working-directory: signaling
+        run: pnpm exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Opens a WebSocket to the deployed worker and expects a pong for a
+      # y-webrtc ping. Retries while the new version propagates.
+      - name: Check WebSocket signaling
+        env:
+          SIGNALING_URL: wss://zvid-signaling.lsegal.workers.dev
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            node -e '
+              const ws = new WebSocket(process.env.SIGNALING_URL);
+              const timer = setTimeout(() => process.exit(1), 10000);
+              ws.onopen = () => ws.send(JSON.stringify({ type: "ping" }));
+              ws.onmessage = (event) => {
+                if (JSON.parse(event.data).type !== "pong") return;
+                clearTimeout(timer);
+                ws.close();
+                process.exit(0);
+              };
+              ws.onerror = () => process.exit(1);
+            ' && exit 0
+            sleep 10
+          done
+          echo "::error::$SIGNALING_URL did not answer a ping"
+          exit 1
