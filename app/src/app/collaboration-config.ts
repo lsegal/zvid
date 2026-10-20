@@ -15,8 +15,9 @@ import {
   removeInvitePassword,
 } from "../share-invite.ts";
 import {
-  PUBLIC_SIGNALING_URL,
-  ZVID_SIGNALING_URL,
+  BUILT_IN_SIGNALING_URLS,
+  migrateLegacyStoredSignaling,
+  splitSignalingUrls,
 } from "../signaling-servers.ts";
 import {
   COLLAB_STORAGE_KEY,
@@ -27,16 +28,8 @@ import type { CollaborationMode, CollaborationRemoteCursor } from "./types.ts";
 import { logClient, pickRandom } from "./util.ts";
 
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
-  import.meta.env.VITE_SIGNALING_URL ||
-    [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL].join(","),
+  import.meta.env.VITE_SIGNALING_URL || BUILT_IN_SIGNALING_URLS.join(","),
 );
-
-// Earlier defaults, persisted as the user's setting; they move to the current
-// default instead of pinning the user to a single relay.
-const LEGACY_DEFAULT_SIGNALING_URLS = [
-  [ZVID_SIGNALING_URL],
-  [PUBLIC_SIGNALING_URL],
-];
 
 export const ICE_SERVERS = resolveIceServers();
 
@@ -82,32 +75,9 @@ const COLLAB_NAME_SUFFIXES = [
   "Vector",
 ];
 
-function splitSignalingUrls(value: string) {
-  return value
-    .split(/[,\n]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
 export function parseSignalingUrls(value: string) {
   const urls = splitSignalingUrls(value);
   return urls.length ? urls : DEFAULT_SIGNALING_URLS;
-}
-
-function migrateLegacyStoredSignaling(
-  value: string | undefined,
-  fallback: string,
-) {
-  if (!value) {
-    return fallback;
-  }
-
-  const normalized = parseSignalingUrls(value).join(", ");
-  return LEGACY_DEFAULT_SIGNALING_URLS.some(
-    (legacy) => legacy.join(", ") === normalized,
-  )
-    ? fallback
-    : normalized;
 }
 
 function resolveIceServers() {
