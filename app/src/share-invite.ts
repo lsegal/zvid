@@ -19,11 +19,13 @@ export type ShareLink = {
 
 export type InviteParams = {
   room: string;
-  signal: string;
   password: string;
 };
 
 const PASSWORD_PARAM = "password";
+// Older links named the sharer's signaling servers. Joiners always use their
+// own signaling setting, so it is ignored and scrubbed from the address bar.
+const LEGACY_SIGNAL_PARAM = "signal";
 
 export function isLocalHostname(hostname: string) {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
@@ -61,7 +63,6 @@ function parsePublicAppUrl(value: string | undefined) {
 
 export function buildPublicShareUrl(
   roomName: string,
-  signalingUrls: string[],
   password: string,
   location: ShareLinkLocation,
 ): ShareLink {
@@ -71,7 +72,6 @@ export function buildPublicShareUrl(
     : new URL(location.pathname, location.origin);
 
   shareUrl.searchParams.set("room", roomName);
-  shareUrl.searchParams.set("signal", signalingUrls.join(","));
 
   const trimmedPassword = password.trim();
   if (trimmedPassword) {
@@ -115,7 +115,6 @@ export function parseInviteParams(value: string): InviteParams {
 
   return {
     room: query.get("room")?.trim() ?? "",
-    signal: query.get("signal")?.trim() ?? "",
     password:
       hash.get(PASSWORD_PARAM)?.trim() ||
       query.get(PASSWORD_PARAM)?.trim() ||
@@ -123,31 +122,33 @@ export function parseInviteParams(value: string): InviteParams {
   };
 }
 
-// Returns `href` without the password in its fragment or query, or null when
-// it carries none, so the address bar can be scrubbed after reading it.
+// Returns `href` without the password in its fragment or query, or the
+// signaling servers older links carried, or null when it has neither, so the
+// address bar can be scrubbed after reading it.
 export function removeInvitePassword(href: string) {
   const url = new URL(href);
   const hash = new URLSearchParams(url.hash.slice(1));
-  if (!hash.has(PASSWORD_PARAM) && !url.searchParams.has(PASSWORD_PARAM)) {
+  if (
+    !hash.has(PASSWORD_PARAM) &&
+    !url.searchParams.has(PASSWORD_PARAM) &&
+    !url.searchParams.has(LEGACY_SIGNAL_PARAM)
+  ) {
     return null;
   }
 
   hash.delete(PASSWORD_PARAM);
   url.searchParams.delete(PASSWORD_PARAM);
+  url.searchParams.delete(LEGACY_SIGNAL_PARAM);
   url.hash = hash.toString();
   return url.toString();
 }
 
 // Returns `href` with the joined room in its query, so refreshing the page
 // rejoins it. The password is left out of the URL.
-export function withJoinedRoom(href: string, room: string, signal: string) {
+export function withJoinedRoom(href: string, room: string) {
   const url = new URL(href);
   url.searchParams.set("room", room);
-  if (signal) {
-    url.searchParams.set("signal", signal);
-  } else {
-    url.searchParams.delete("signal");
-  }
+  url.searchParams.delete(LEGACY_SIGNAL_PARAM);
   url.searchParams.delete(PASSWORD_PARAM);
   const hash = new URLSearchParams(url.hash.slice(1));
   hash.delete(PASSWORD_PARAM);
@@ -159,7 +160,7 @@ export function withJoinedRoom(href: string, room: string, signal: string) {
 export function removeInviteParams(href: string) {
   const url = new URL(href);
   const hash = new URLSearchParams(url.hash.slice(1));
-  const params = ["room", "signal", PASSWORD_PARAM];
+  const params = ["room", LEGACY_SIGNAL_PARAM, PASSWORD_PARAM];
   if (
     !params.some((param) => url.searchParams.has(param)) &&
     !hash.has(PASSWORD_PARAM)

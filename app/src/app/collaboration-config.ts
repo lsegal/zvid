@@ -175,7 +175,7 @@ export function forgetJoinedRoom() {
 }
 
 // Fills in the password of a room this tab joined before a refresh, since
-// the address bar only keeps the room and signaling servers.
+// the address bar only keeps the room.
 function withRememberedPassword(invite: InviteParams): InviteParams {
   if (!invite.room) {
     return invite;
@@ -242,10 +242,11 @@ export function getInitialCollaborationConfig() {
   const paramRoom = invite.room;
   const room = paramRoom || defaults.room;
   const password = invite.password || defaults.password;
-  const signalingParam = invite.signal;
-  const signaling = signalingParam
-    ? parseSignalingUrls(signalingParam).join(", ")
-    : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling);
+  // Invites don't choose the signaling servers; joiners use their own.
+  const signaling = migrateLegacyStoredSignaling(
+    stored.signaling,
+    defaults.signaling,
+  );
 
   return {
     room,
@@ -267,16 +268,12 @@ export function parseCollaborationInvite(value: string) {
     throw new Error("Paste the share URL first.");
   }
 
-  const { room, signal, password } = parseInviteParams(rawValue);
+  const { room, password } = parseInviteParams(rawValue);
   if (!room) {
     throw new Error("That invite is missing a room name.");
   }
 
-  return {
-    room,
-    signaling: signal || DEFAULT_SIGNALING_URLS.join(", "),
-    password,
-  };
+  return { room, password };
 }
 
 export function getCollaborationRole(

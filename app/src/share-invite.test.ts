@@ -9,11 +9,9 @@ import {
   withJoinedRoom,
 } from "./share-invite.ts";
 
-const SIGNALING = ["wss://signal.example.com"];
-
 describe("buildPublicShareUrl", () => {
   it("keeps the deployed origin and path", () => {
-    const { url, localOnly } = buildPublicShareUrl("abc123", SIGNALING, "", {
+    const { url, localOnly } = buildPublicShareUrl("abc123", "", {
       origin: "https://zvid.example.com",
       pathname: "/app/",
     });
@@ -21,13 +19,13 @@ describe("buildPublicShareUrl", () => {
     assert.equal(parsed.origin, "https://zvid.example.com");
     assert.equal(parsed.pathname, "/app/");
     assert.equal(parsed.searchParams.get("room"), "abc123");
-    assert.equal(parsed.searchParams.get("signal"), "wss://signal.example.com");
+    assert.equal(parsed.searchParams.has("signal"), false);
     assert.equal(parsed.hash, "");
     assert.equal(localOnly, false);
   });
 
   it("uses the configured public app URL over the page origin", () => {
-    const { url, localOnly } = buildPublicShareUrl("abc123", SIGNALING, "", {
+    const { url, localOnly } = buildPublicShareUrl("abc123", "", {
       origin: "http://localhost:1420",
       pathname: "/",
       publicAppUrl: "https://public.example.com/zvid/",
@@ -40,7 +38,7 @@ describe("buildPublicShareUrl", () => {
 
   it("ignores a blank or invalid public app URL", () => {
     for (const publicAppUrl of ["", "   ", "not a url"]) {
-      const { url } = buildPublicShareUrl("abc123", SIGNALING, "", {
+      const { url } = buildPublicShareUrl("abc123", "", {
         origin: "https://zvid.example.com",
         pathname: "/",
         publicAppUrl,
@@ -57,7 +55,7 @@ describe("buildPublicShareUrl", () => {
       "http://10.0.0.5:1420",
       "http://[::1]:1420",
     ]) {
-      const { url, localOnly } = buildPublicShareUrl("abc123", SIGNALING, "", {
+      const { url, localOnly } = buildPublicShareUrl("abc123", "", {
         origin,
         pathname: "/",
       });
@@ -67,7 +65,7 @@ describe("buildPublicShareUrl", () => {
   });
 
   it("puts the password in the fragment, never the query", () => {
-    const { url } = buildPublicShareUrl("abc123", SIGNALING, " s3cr&t ", {
+    const { url } = buildPublicShareUrl("abc123", " s3cr&t ", {
       origin: "https://zvid.example.com",
       pathname: "/",
     });
@@ -82,23 +80,23 @@ describe("buildPublicShareUrl", () => {
 
 describe("parseInviteParams", () => {
   it("round-trips a built share URL", () => {
-    const { url } = buildPublicShareUrl("abc123", SIGNALING, "s3cr&t", {
+    const { url } = buildPublicShareUrl("abc123", "s3cr&t", {
       origin: "https://zvid.example.com",
       pathname: "/",
     });
     assert.deepEqual(parseInviteParams(url), {
       room: "abc123",
-      signal: "wss://signal.example.com",
       password: "s3cr&t",
     });
   });
 
-  it("still reads the password from the query of old links", () => {
-    const invite = parseInviteParams(
-      "http://203.0.113.7:1420/?room=abc123&signal=wss%3A%2F%2Fs&password=old",
+  it("reads old links, ignoring their signaling servers", () => {
+    assert.deepEqual(
+      parseInviteParams(
+        "http://203.0.113.7:1420/?room=abc123&signal=wss%3A%2F%2Fs&password=old",
+      ),
+      { room: "abc123", password: "old" },
     );
-    assert.equal(invite.room, "abc123");
-    assert.equal(invite.password, "old");
   });
 
   it("prefers the fragment password over the query", () => {
@@ -109,9 +107,8 @@ describe("parseInviteParams", () => {
   });
 
   it("reads a bare query string with a fragment", () => {
-    assert.deepEqual(parseInviteParams("?room=r&signal=wss://s#password=p"), {
+    assert.deepEqual(parseInviteParams("?room=r#password=p"), {
       room: "r",
-      signal: "wss://s",
       password: "p",
     });
     assert.equal(parseInviteParams("room=r").room, "r");
@@ -140,6 +137,15 @@ describe("removeInvitePassword", () => {
     );
   });
 
+  it("clears the signaling servers older links carried", () => {
+    assert.equal(
+      removeInvitePassword(
+        "https://zvid.example.com/?room=r&signal=wss%3A%2F%2Fs#password=p",
+      ),
+      "https://zvid.example.com/?room=r",
+    );
+  });
+
   it("returns null when there is no password to clear", () => {
     assert.equal(
       removeInvitePassword("https://zvid.example.com/?room=r#section"),
@@ -149,14 +155,10 @@ describe("removeInvitePassword", () => {
 });
 
 describe("withJoinedRoom", () => {
-  it("puts the room and signaling servers in the query", () => {
+  it("puts only the room in the query", () => {
     assert.equal(
-      withJoinedRoom(
-        "https://zvid.example.com/app?x=1",
-        "abc",
-        "wss://signal.example.com",
-      ),
-      "https://zvid.example.com/app?x=1&room=abc&signal=wss%3A%2F%2Fsignal.example.com",
+      withJoinedRoom("https://zvid.example.com/app?x=1&signal=s", "abc"),
+      "https://zvid.example.com/app?x=1&room=abc",
     );
   });
 
@@ -165,7 +167,6 @@ describe("withJoinedRoom", () => {
       withJoinedRoom(
         "https://zvid.example.com/?password=old#password=p&x=1",
         "abc",
-        "",
       ),
       "https://zvid.example.com/?room=abc#x=1",
     );

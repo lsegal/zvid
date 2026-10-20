@@ -63,7 +63,7 @@ export function useCollaborationState() {
   const [collaborationPassword, setCollaborationPassword] = useState(
     initialCollaborationConfig.password,
   );
-  const [collaborationSignaling, setCollaborationSignaling] = useState(
+  const [collaborationSignaling] = useState(
     initialCollaborationConfig.signaling,
   );
   const [collaborationName] = useState(initialCollaborationConfig.name);
@@ -121,7 +121,6 @@ export function useCollaborationState() {
     collaborationPassword,
     setCollaborationPassword,
     collaborationSignaling,
-    setCollaborationSignaling,
     collaborationName,
     collaborationMode,
     setCollaborationMode,
@@ -205,7 +204,6 @@ export function useCollaboration({
     collaborationPassword,
     setCollaborationPassword,
     collaborationSignaling,
-    setCollaborationSignaling,
     collaborationName,
     collaborationMode,
     setCollaborationMode,
@@ -469,7 +467,6 @@ export function useCollaboration({
 
       const { url: inviteUrl, localOnly } = buildPublicShareUrl(
         roomName,
-        parseSignalingUrls(collaborationSignaling),
         collaborationPassword,
         {
           origin: window.location.origin,
@@ -536,10 +533,9 @@ export function useCollaboration({
       window.history.replaceState(
         window.history.state,
         "",
-        withJoinedRoom(window.location.href, invite.room, invite.signaling),
+        withJoinedRoom(window.location.href, invite.room),
       );
       setCollaborationRoom(invite.room);
-      setCollaborationSignaling(invite.signaling);
       setCollaborationPassword(invite.password);
       setCollaborationMode("connected");
       setIsConnectDialogOpen(false);

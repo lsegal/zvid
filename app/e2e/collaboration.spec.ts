@@ -44,7 +44,11 @@ test.afterEach(async () => {
 async function openApp(
   browser: Browser,
   path = "/",
-  { blockableServe = false, clock = false } = {},
+  {
+    blockableServe = false,
+    clock = false,
+    signalingUrl = signaling.url,
+  }: { blockableServe?: boolean; clock?: boolean; signalingUrl?: string } = {},
 ) {
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
@@ -60,7 +64,7 @@ async function openApp(
       "zvid-collaboration",
       JSON.stringify({ signaling: url }),
     );
-  }, signaling.url);
+  }, signalingUrl);
   const page = await context.newPage();
   // A fake clock lets a test skip the connection timeouts instead of
   // waiting them out; time still runs normally until it fast-forwards.
@@ -476,14 +480,17 @@ test("outside a share, the offline label opens the offline media dialog", async 
 test("a guest with no host waits, then says the host wasn't found", async ({
   browser,
 }) => {
+  // An older link naming an unreachable server: the guest ignores it, uses
+  // its own signaling setting, and drops it from the address bar.
   const guest = await openApp(
     browser,
-    `/?room=nobody-home&signal=${encodeURIComponent(signaling.url)}`,
+    `/?room=nobody-home&signal=${encodeURIComponent("ws://127.0.0.1:9")}`,
     { clock: true },
   );
   await expect(connectionStatus(guest)).toHaveText("Waiting for host...", {
     timeout: 15_000,
   });
+  expect(new URL(guest.url()).searchParams.has("signal")).toBe(false);
   // Past the app's 20 s wait for a host (HOST_TIMEOUT_MS).
   await guest.clock.fastForward(21_000);
   await expect(connectionStatus(guest)).toHaveText(
@@ -494,11 +501,10 @@ test("a guest with no host waits, then says the host wasn't found", async ({
 });
 
 test("an unreachable signaling server is reported", async ({ browser }) => {
-  const guest = await openApp(
-    browser,
-    `/?room=nowhere&signal=${encodeURIComponent("ws://127.0.0.1:9")}`,
-    { clock: true },
-  );
+  const guest = await openApp(browser, "/?room=nowhere", {
+    clock: true,
+    signalingUrl: "ws://127.0.0.1:9",
+  });
   // Past the app's 10 s signaling timeout (SIGNALING_TIMEOUT_MS).
   await guest.clock.fastForward(11_000);
   await expect(connectionStatus(guest)).toHaveText(
