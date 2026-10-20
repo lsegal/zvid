@@ -29,15 +29,19 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle>Share this session publicly?</DialogTitle>
           <DialogDescription>
-            Anyone with the link can join and edit this session with you in
-            real time. We'll copy the link to your clipboard. Click Stop Share
-            to end sharing at any time.
+            Anyone with the link can join and edit this session with you in real
+            time. We'll copy the link to your clipboard. Click Stop Share to end
+            sharing at any time.
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter>
           <DialogClose asChild>
-            <button className="ghost-button" disabled={isStarting} type="button">
+            <button
+              className="ghost-button"
+              disabled={isStarting}
+              type="button"
+            >
               Cancel
             </button>
           </DialogClose>

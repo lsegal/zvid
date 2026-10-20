@@ -39,7 +39,13 @@ describe("ShareDialog", () => {
       );
     const text = dialog.element().textContent ?? "";
     expect(text).toMatch(/Stop Share/);
-    for (const term of [/websocket/i, /room/i, /signal/i, /fragment/i, /connection/i]) {
+    for (const term of [
+      /websocket/i,
+      /room/i,
+      /signal/i,
+      /fragment/i,
+      /connection/i,
+    ]) {
       expect(text).not.toMatch(term);
     }
     const buttons = [...dialog.element().querySelectorAll("button")].map(
