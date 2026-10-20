@@ -28,8 +28,7 @@ import type { CollaborationMode, CollaborationRemoteCursor } from "./types.ts";
 import { logClient, pickRandom } from "./util.ts";
 
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
-  import.meta.env.VITE_SIGNALING_URL ||
-    BUILT_IN_SIGNALING_URLS.join(","),
+  import.meta.env.VITE_SIGNALING_URL || BUILT_IN_SIGNALING_URLS.join(","),
 );
 
 export const ICE_SERVERS = resolveIceServers();
