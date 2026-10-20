@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { NATIVE_RELAY_ICE_SERVERS_URL } from "./ice-servers.ts";
-import {
-  PUBLIC_SIGNALING_URL,
-  ZVID_SIGNALING_URL,
-} from "./signaling-servers.ts";
+import { BUILT_IN_SIGNALING_URLS } from "./signaling-servers.ts";
 import { googleFontsCssUrl } from "./text-fonts.ts";
 
 // The native webview enforces app.security.csp, whose connect-src also
@@ -59,7 +56,7 @@ function connectSrcAllows(url: string) {
 
 describe("native app CSP connect-src", () => {
   it("allows the default signaling servers", () => {
-    for (const url of [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL]) {
+    for (const url of BUILT_IN_SIGNALING_URLS) {
       assert.ok(connectSrcAllows(url), url);
     }
   });
