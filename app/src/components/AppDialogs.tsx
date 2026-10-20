@@ -40,6 +40,7 @@ import {
   type SessionLength,
   SessionSettingsDialog,
 } from "./SessionSettingsDialog";
+import { ShareDialog } from "./ShareDialog";
 import {
   Dialog,
   DialogClose,
@@ -200,59 +201,12 @@ export function AppDialogs({
         onOpenChange={setIsCaptureInstallerDialogOpen}
       />
 
-      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share this session publicly?</DialogTitle>
-            <DialogDescription>
-              This will start the collaboration websocket, generate a public
-              room, and copy a shareable address to your clipboard. Click Stop
-              Share any time to disconnect immediately.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="share-dialog__body">
-            <CollaborationDetailCard
-              label="Room"
-              value={collaborationView.pendingShareRoom}
-            />
-            <CollaborationDetailCard
-              label="Signal"
-              value={collaborationView.signalingLabel}
-            />
-            <CollaborationDetailCard
-              label="Connection"
-              value={collaborationView.stateLabel}
-              meta={collaborationView.remoteCollaboratorNames || undefined}
-            />
-            <p className="share-dialog__note">
-              The invite links to this app's address and copies automatically.
-              Any room password travels in the link's fragment, which is never
-              sent to servers.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <button
-                className="ghost-button"
-                disabled={isStartingShare}
-                type="button"
-              >
-                Cancel
-              </button>
-            </DialogClose>
-            <button
-              className="ghost-button ghost-button--accent"
-              disabled={isStartingShare}
-              onClick={handleStartShare}
-              type="button"
-            >
-              {isStartingShare ? "Starting..." : "Start Sharing"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ShareDialog
+        isStarting={isStartingShare}
+        onOpenChange={setIsShareDialogOpen}
+        onStart={handleStartShare}
+        open={isShareDialogOpen}
+      />
 
       <Dialog
         open={isDiagnosticsDialogOpen && collaborationMode !== "idle"}
