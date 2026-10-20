@@ -22,6 +22,8 @@ Wrangler will print a local WebSocket URL you can use as the signaling endpoint 
 
 ## Deploy
 
+Merges to `main` that change `signaling/` deploy the `zvid-signaling` worker automatically through the [Deploy signaling workflow](../.github/workflows/deploy-signaling.yml), which type-checks before deploying. It can also be run by hand from the Actions tab. To deploy manually from your machine:
+
 ```sh
 cd signaling
 pnpm install
