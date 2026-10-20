@@ -3,6 +3,16 @@
   "name": "zvid",
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-22",
+  // Serves the app at use.zvid.app as well as the workers.dev origin.
+  // `wrangler deploy` creates or updates the route. Unlike a custom domain,
+  // a route doesn't create its own DNS record: use.zvid.app needs a proxied
+  // record in the zvid.app zone (e.g. AAAA to 100::) for requests to reach it.
+  "routes": [{ "pattern": "use.zvid.app/*", "zone_name": "zvid.app" }],
+  // Adding routes turns workers.dev off unless it's set. The native app's
+  // ICE server default (src/ice-servers.ts), its CSP
+  // (src-tauri/tauri.conf.json) and the Deploy workflow's installer check
+  // all use https://zvid.lsegal.workers.dev.
+  "workers_dev": true,
   "build": {
     "command": "pnpm run cf:prepare"
   },
