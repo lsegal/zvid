@@ -40,7 +40,8 @@ export type ScrubDroneState = {
 export type DroneRegion = { start: number; end: number };
 
 // Where in `samples` grains read: the DRONE_REGION_SECONDS before its latest
-// audible sample, in samples, or null when it is silent throughout.
+// audible sample, in samples, or null when too little of it is audible for
+// a whole grain, as when it is silent throughout.
 export function droneRegion(
   samples: Float32Array,
   sampleRate: number,
@@ -49,7 +50,7 @@ export function droneRegion(
   while (end > 0 && Math.abs(samples[end - 1]) <= SILENCE) {
     end--;
   }
-  if (end === 0) {
+  if (end < DRONE_GRAIN_SECONDS * sampleRate) {
     return null;
   }
   const length = Math.round(DRONE_REGION_SECONDS * sampleRate);
@@ -68,16 +69,22 @@ export function grainOffset(
   return (region.start + along * span) / sampleRate;
 }
 
-let hann: Float32Array<ArrayBuffer> | null = null;
+// A grain's level over its length: a Hann window, quieter the more grains
+// overlap, since they add up.
+let curve: Float32Array<ArrayBuffer> | null = null;
 
-function hannCurve() {
-  if (!hann) {
-    hann = new Float32Array(HANN_POINTS);
+export function grainEnvelope() {
+  if (!curve) {
+    const level =
+      DRONE_LEVEL / Math.sqrt(Math.max(1, DRONE_DENSITY * DRONE_GRAIN_SECONDS));
+    curve = new Float32Array(HANN_POINTS);
     for (let step = 0; step < HANN_POINTS; step++) {
-      hann[step] = 0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (HANN_POINTS - 1));
+      curve[step] =
+        level *
+        (0.5 - 0.5 * Math.cos((2 * Math.PI * step) / (HANN_POINTS - 1)));
     }
   }
-  return hann;
+  return curve;
 }
 
 export type ScrubDroneTimers = {
@@ -108,7 +115,8 @@ export class ScrubDrone {
     output: AudioNode,
     random: () => number = Math.random,
     timers: ScrubDroneTimers = {
-      setInterval: (callback, ms) => Number(globalThis.setInterval(callback, ms)),
+      setInterval: (callback, ms) =>
+        Number(globalThis.setInterval(callback, ms)),
       clearInterval: (id) => globalThis.clearInterval(id),
     },
   ) {
@@ -207,14 +215,7 @@ export class ScrubDrone {
     grain.buffer = this.source;
     const envelope = context.createGain();
     envelope.gain.value = 0;
-    // Overlapping grains add up, so each plays quieter the more overlap.
-    const level =
-      DRONE_LEVEL / Math.sqrt(Math.max(1, DRONE_DENSITY * DRONE_GRAIN_SECONDS));
-    envelope.gain.setValueCurveAtTime(
-      hannCurve().map((value) => value * level),
-      at,
-      DRONE_GRAIN_SECONDS,
-    );
+    envelope.gain.setValueCurveAtTime(grainEnvelope(), at, DRONE_GRAIN_SECONDS);
     grain.connect(envelope).connect(this.gain);
     grain.onended = () => {
       envelope.disconnect();

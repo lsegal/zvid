@@ -199,14 +199,13 @@ class FakeAudioContext {
   }
 
   createAnalyser() {
-    this.analyser = {
-      ...node(),
+    this.analyser = node({
       fftSize: 2048,
       // Silence, which the scrub drone keeps no source from.
       getFloatTimeDomainData(samples: Float32Array) {
         samples.fill(0);
       },
-    };
+    });
     return this.analyser;
   }
 
