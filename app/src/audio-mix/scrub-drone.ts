@@ -98,16 +98,23 @@ export class ScrubDrone {
   // When the fade-out ends, after which the drone stops scheduling.
   private silentAt: number | null = null;
 
+  private readonly context: BaseAudioContext;
+  private readonly random: () => number;
+  private readonly timers: ScrubDroneTimers;
+
   constructor(
-    private readonly context: BaseAudioContext,
+    context: BaseAudioContext,
     input: AudioNode,
     output: AudioNode,
-    private readonly random: () => number = Math.random,
-    private readonly timers: ScrubDroneTimers = {
-      setInterval: (callback, ms) => window.setInterval(callback, ms),
-      clearInterval: (id) => window.clearInterval(id),
+    random: () => number = Math.random,
+    timers: ScrubDroneTimers = {
+      setInterval: (callback, ms) => Number(globalThis.setInterval(callback, ms)),
+      clearInterval: (id) => globalThis.clearInterval(id),
     },
   ) {
+    this.context = context;
+    this.random = random;
+    this.timers = timers;
     this.analyser = context.createAnalyser();
     this.analyser.fftSize = CAPTURE_FFT_SIZE;
     this.analyser.smoothingTimeConstant = 0;
@@ -220,6 +227,10 @@ export class ScrubDrone {
   // an unfinished fade has it.
   private fadeTo(value: number) {
     const param = this.gain.gain;
+    if (typeof param.linearRampToValueAtTime !== "function") {
+      param.value = value;
+      return;
+    }
     const now = this.context.currentTime;
     param.cancelScheduledValues(now);
     param.setValueAtTime(param.value, now);

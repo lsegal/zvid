@@ -130,13 +130,13 @@ export function createMixGraph(
   limiter.connect(analyser);
   analyser.connect(output);
   const setScrubbing = createScrubFilter(context, output);
-  const drone = new ScrubDrone(context, limiter, output);
+  let drone: ScrubDrone | null = null;
   const syncScrub = (playback: ScrubPlayback) => {
     setScrubbing(playback.isAudibleScrubbing);
-    drone.sync({
-      active: playback.isScrubbing && !playback.isPlaying,
-      capturing: playback.isAudibleScrubbing,
-    });
+    const active = playback.isScrubbing && !playback.isPlaying;
+    // Made on the first scrub, so playback alone never runs its analyser.
+    drone ??= active ? new ScrubDrone(context, limiter, output) : null;
+    drone?.sync({ active, capturing: playback.isAudibleScrubbing });
   };
   return { context, master, analyser, meter: meter.tap, output, syncScrub };
 }
