@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  DRONE_AREA_SECONDS,
   DRONE_DENSITY,
   DRONE_GRAIN_SECONDS,
   DRONE_REGION_SECONDS,
@@ -14,20 +15,41 @@ import {
 const RATE = 1000;
 
 describe("droneRegion", () => {
-  it("ends at the latest audible sample and reaches back the region's length", () => {
+  it("starts at the first audible sample heard and reaches the region's length", () => {
     const samples = new Float32Array(2000);
-    samples.fill(0.5, 0, 1500);
-    assert.deepEqual(droneRegion(samples, RATE), {
-      start: 1500 - DRONE_REGION_SECONDS * RATE,
-      end: 1500,
+    samples.fill(0.5, 1100);
+    assert.deepEqual(droneRegion(samples, RATE, 1000), {
+      start: 1100,
+      end: 1100 + DRONE_REGION_SECONDS * RATE,
+    });
+  });
+
+  it("leaves out what was heard before the playhead reached its area", () => {
+    const samples = new Float32Array(2000);
+    samples.fill(0.5);
+    assert.deepEqual(droneRegion(samples, RATE, 300), {
+      start: 1700,
+      end: 1700 + DRONE_REGION_SECONDS * RATE,
+    });
+  });
+
+  it("ends at the latest audible sample while less than a region is heard", () => {
+    const samples = new Float32Array(2000);
+    samples.fill(0.5, 1800, 1900);
+    assert.deepEqual(droneRegion(samples, RATE, 500), {
+      start: 1800,
+      end: 1900,
     });
   });
 
   it("is null for silence, or too little audio for a whole grain", () => {
-    assert.equal(droneRegion(new Float32Array(2000), RATE), null);
+    assert.equal(droneRegion(new Float32Array(2000), RATE, 1000), null);
     const short = new Float32Array(2000);
-    short.fill(0.5, 0, DRONE_GRAIN_SECONDS * RATE - 1);
-    assert.equal(droneRegion(short, RATE), null);
+    short.fill(0.5, 2000 - DRONE_GRAIN_SECONDS * RATE + 1);
+    assert.equal(droneRegion(short, RATE, 1000), null);
+    const full = new Float32Array(2000);
+    full.fill(0.5);
+    assert.equal(droneRegion(full, RATE, DRONE_GRAIN_SECONDS * RATE - 1), null);
   });
 });
 
@@ -66,6 +88,8 @@ function param(value = 1) {
 function fakeContext(audio: number) {
   const grains: { offset: number; at: number; duration: number }[] = [];
   const gains: ReturnType<typeof param>[] = [];
+  // The length of each source the drone makes.
+  const buffers: number[] = [];
   const node = () => ({
     connect: (target: unknown) => target,
     disconnect() {},
@@ -74,14 +98,14 @@ function fakeContext(audio: number) {
     sampleRate: RATE,
     currentTime: 0,
     state: "running",
-    // How many samples of the analyser's capture are audible.
+    // How many of the newest samples of the analyser's capture are audible.
     audible: audio,
     createAnalyser: () => ({
       ...node(),
       fftSize: 0,
       getFloatTimeDomainData(samples: Float32Array) {
         samples.fill(0);
-        samples.fill(0.5, 0, context.audible);
+        samples.fill(0.5, Math.max(0, samples.length - context.audible));
       },
     }),
     createGain: () => {
@@ -89,10 +113,10 @@ function fakeContext(audio: number) {
       gains.push(gain);
       return { ...node(), gain };
     },
-    createBuffer: (_channels: number, length: number) => ({
-      length,
-      copyToChannel() {},
-    }),
+    createBuffer: (_channels: number, length: number) => {
+      buffers.push(length);
+      return { length, copyToChannel() {} };
+    },
     createBufferSource: () => ({
       ...node(),
       buffer: null,
@@ -102,7 +126,7 @@ function fakeContext(audio: number) {
       },
     }),
   };
-  return { context, grains, gains };
+  return { context, grains, gains, buffers };
 }
 
 function fakeTimers() {
@@ -122,7 +146,8 @@ function fakeTimers() {
   return timers;
 }
 
-function drone(audio = 1000) {
+// A drone whose analyser hears the scrub's media throughout, by default.
+function drone(audio = Number.POSITIVE_INFINITY) {
   const fake = fakeContext(audio);
   const timers = fakeTimers();
   const instance = new ScrubDrone(
@@ -134,24 +159,37 @@ function drone(audio = 1000) {
   );
   // The drone's own gain, made after the analyser.
   const level = fake.gains[0];
-  return { ...fake, timers, instance, level };
+  // Moves the audio clock on by `seconds` a timer tick at a time, the
+  // playhead at `playheadSeconds` and the scrub's media `capturing` or not.
+  const scrub = (
+    seconds: number,
+    playheadSeconds: number,
+    capturing = true,
+  ) => {
+    const until = fake.context.currentTime + seconds - 1e-9;
+    while (fake.context.currentTime < until) {
+      fake.context.currentTime += 0.025;
+      instance.sync({ active: true, capturing, playheadSeconds });
+      timers.tick?.();
+    }
+  };
+  return { ...fake, timers, instance, level, scrub };
 }
+
+const REGION = DRONE_REGION_SECONDS * RATE;
 
 describe("ScrubDrone", () => {
   it("drones of the scrubbed audio and keeps cycling it while held still", () => {
-    const { context, grains, timers, instance, level } = drone();
-    instance.sync({ active: true, capturing: true });
+    const { context, grains, timers, instance, level, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
     assert.deepEqual(level.ramps, [1]);
+    scrub(0.3, 1);
     const first = grains.length;
     assert.ok(first > 0);
 
     // The scrub's media pauses, but the grains keep reading what it played.
     context.audible = 0;
-    instance.sync({ active: true, capturing: false });
-    for (let step = 1; step <= 40; step++) {
-      context.currentTime = step * 0.025;
-      timers.tick?.();
-    }
+    scrub(1, 1, false);
     assert.ok(grains.length - first >= DRONE_DENSITY * 0.9);
     // Each reads from inside the captured region.
     const latest = DRONE_REGION_SECONDS - DRONE_GRAIN_SECONDS;
@@ -161,9 +199,54 @@ describe("ScrubDrone", () => {
     assert.equal(timers.cleared, false);
   });
 
+  it("keeps to the area the playhead reached while it holds or moves slowly", () => {
+    const { buffers, instance, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    // Nothing is heard there the moment the playhead arrives.
+    assert.deepEqual(buffers, []);
+    scrub(0.5, 1);
+    // The source grew from where the playhead arrived to a whole region,
+    // then stayed put, rather than following the newest audio.
+    assert.equal(buffers.at(-1), REGION);
+    const made = buffers.length;
+    for (let step = 1; step <= 10; step++) {
+      scrub(0.05, 1 + (step * DRONE_AREA_SECONDS) / 10);
+    }
+    assert.equal(buffers.length, made);
+  });
+
+  it("takes up a new area once the playhead moves off its own", () => {
+    const { buffers, instance, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.5, 1);
+    const made = buffers.length;
+    // The old area plays on until a grain of the new one is heard.
+    scrub(0.05, 3);
+    assert.equal(buffers.length, made);
+    scrub(0.1, 3);
+    assert.ok(buffers.length > made);
+    // Its source is only what was heard since the playhead moved there.
+    assert.ok(buffers.slice(made).every((length) => length <= 0.15 * RATE + 1));
+  });
+
+  it("ends an area's source where the scrub pauses", () => {
+    const { context, buffers, instance, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.1, 1);
+    const made = buffers.length;
+    assert.ok(made > 0 && (buffers.at(-1) ?? 0) < REGION);
+    context.audible = 0;
+    scrub(0.2, 1, false);
+    // Scrubbing on within the area leaves its source as it was.
+    context.audible = Number.POSITIVE_INFINITY;
+    scrub(0.3, 1.05);
+    assert.equal(buffers.length, made);
+  });
+
   it("plays 50ms grains", () => {
-    const { grains, instance } = drone();
-    instance.sync({ active: true, capturing: true });
+    const { grains, instance, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.1, 1);
     assert.ok(grains.length > 0);
     for (const grain of grains) {
       assert.equal(grain.duration, 0.05);
@@ -171,16 +254,17 @@ describe("ScrubDrone", () => {
   });
 
   it("stays silent until the scrub plays something", () => {
-    const { grains, timers, instance } = drone(0);
-    instance.sync({ active: true, capturing: true });
-    timers.tick?.();
+    const { grains, instance, scrub } = drone(0);
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.5, 1);
     assert.equal(grains.length, 0);
   });
 
   it("fades out on release and then stops scheduling", () => {
-    const { context, grains, timers, instance, level } = drone();
-    instance.sync({ active: true, capturing: true });
-    instance.sync({ active: false, capturing: false });
+    const { context, grains, timers, instance, level, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.2, 1);
+    instance.sync({ active: false, capturing: false, playheadSeconds: 1 });
     assert.deepEqual(level.ramps, [1, 0]);
     // Past the fade, no more grains start.
     const scheduled = grains.length;
@@ -192,7 +276,7 @@ describe("ScrubDrone", () => {
 
   it("stops once its context closes", () => {
     const { context, timers, instance } = drone();
-    instance.sync({ active: true, capturing: true });
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
     context.state = "closed";
     timers.tick?.();
     assert.equal(timers.cleared, true);

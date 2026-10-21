@@ -14,6 +14,7 @@ import { ScrubDrone } from "./scrub-drone.ts";
 
 // What of the playback the scrub filter and drone follow.
 export type ScrubPlayback = {
+  playheadSeconds: number;
   isPlaying: boolean;
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
@@ -136,7 +137,11 @@ export function createMixGraph(
     const active = playback.isScrubbing && !playback.isPlaying;
     // Made on the first scrub, so playback alone never runs its analyser.
     drone ??= active ? new ScrubDrone(context, limiter, output) : null;
-    drone?.sync({ active, capturing: playback.isAudibleScrubbing });
+    drone?.sync({
+      active,
+      capturing: playback.isAudibleScrubbing,
+      playheadSeconds: playback.playheadSeconds,
+    });
   };
   return { context, master, analyser, meter: meter.tap, output, syncScrub };
 }
