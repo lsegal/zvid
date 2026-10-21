@@ -10,6 +10,14 @@ import {
 import { audioDiagnostics } from "./audio-diagnostics.ts";
 import { PARAMETER_RAMP_SECONDS } from "./chain.ts";
 import { LIMITER_HEADROOM, limiterCurve } from "./mix.ts";
+import { ScrubDrone } from "./scrub-drone.ts";
+
+// What of the playback the scrub filter and drone follow.
+export type ScrubPlayback = {
+  isPlaying: boolean;
+  isScrubbing: boolean;
+  isAudibleScrubbing: boolean;
+};
 
 export type MixGraph = {
   context: AudioContext;
@@ -17,9 +25,10 @@ export type MixGraph = {
   analyser: AnalyserNode;
   meter: MasterMeterTap;
   output: GainNode;
-  // Crossfades the speakers to the scrub high-pass while `scrubbing`, and
-  // back to the dry mix after.
-  setScrubbing: (scrubbing: boolean) => void;
+  // Crossfades the speakers to the scrub high-pass while the scrub is
+  // audible, and back to the dry mix after, and drones while the ruler is
+  // held (see scrub-drone.ts).
+  syncScrub: (playback: ScrubPlayback) => void;
 };
 
 // The scrub high-pass's cutoff, chosen by ear: a scrub keeps voices and
@@ -121,7 +130,15 @@ export function createMixGraph(
   limiter.connect(analyser);
   analyser.connect(output);
   const setScrubbing = createScrubFilter(context, output);
-  return { context, master, analyser, meter: meter.tap, output, setScrubbing };
+  const drone = new ScrubDrone(context, limiter, output);
+  const syncScrub = (playback: ScrubPlayback) => {
+    setScrubbing(playback.isAudibleScrubbing);
+    drone.sync({
+      active: playback.isScrubbing && !playback.isPlaying,
+      capturing: playback.isAudibleScrubbing,
+    });
+  };
+  return { context, master, analyser, meter: meter.tap, output, syncScrub };
 }
 
 // Feeds `input` to the speakers both dry and through a high-pass, the dry

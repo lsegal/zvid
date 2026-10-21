@@ -272,7 +272,7 @@ export class PreviewAudioMixer {
     const loop = (steady && playback.loop) || undefined;
     this.decodedClock.holdWhile(steady);
     this.applyMode();
-    this.graph?.setScrubbing(playback.isAudibleScrubbing);
+    this.graph?.syncScrub(playback);
     // With chains, the mix comes out this late, so its media plays this far
     // ahead of the playhead to stay with the video, and the chains are told
     // the timeline time of what they are fed, as export tells them.
