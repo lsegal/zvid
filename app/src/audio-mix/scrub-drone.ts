@@ -16,7 +16,7 @@ const CAPTURE_FFT_SIZE = 32768;
 // The stretch before the latest audible sample that grains read, so the
 // drone sounds of the playhead rather than of where the scrub came from.
 export const DRONE_REGION_SECONDS = 0.25;
-export const DRONE_GRAIN_SECONDS = 0.08;
+export const DRONE_GRAIN_SECONDS = 0.05;
 // Grains started a second, which overlap DRONE_GRAIN_SECONDS * this deep.
 export const DRONE_DENSITY = 50;
 // The drone's level under the scrub, leaving it quieter than the mix.

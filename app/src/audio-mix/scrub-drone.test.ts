@@ -64,7 +64,7 @@ function param(value = 1) {
 }
 
 function fakeContext(audio: number) {
-  const grains: { offset: number; at: number }[] = [];
+  const grains: { offset: number; at: number; duration: number }[] = [];
   const gains: ReturnType<typeof param>[] = [];
   const node = () => ({
     connect: (target: unknown) => target,
@@ -97,8 +97,8 @@ function fakeContext(audio: number) {
       ...node(),
       buffer: null,
       onended: null,
-      start(at: number, offset: number) {
-        grains.push({ at, offset });
+      start(at: number, offset: number, duration: number) {
+        grains.push({ at, offset, duration });
       },
     }),
   };
@@ -159,6 +159,15 @@ describe("ScrubDrone", () => {
       assert.ok(grain.offset >= 0 && grain.offset <= latest);
     }
     assert.equal(timers.cleared, false);
+  });
+
+  it("plays 50ms grains", () => {
+    const { grains, instance } = drone();
+    instance.sync({ active: true, capturing: true });
+    assert.ok(grains.length > 0);
+    for (const grain of grains) {
+      assert.equal(grain.duration, 0.05);
+    }
   });
 
   it("stays silent until the scrub plays something", () => {
