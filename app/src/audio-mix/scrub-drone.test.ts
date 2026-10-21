@@ -86,7 +86,7 @@ function param(value = 1) {
 }
 
 function fakeContext(audio: number) {
-  const grains: { offset: number; at: number }[] = [];
+  const grains: { offset: number; at: number; duration: number }[] = [];
   const gains: ReturnType<typeof param>[] = [];
   // The length of each source the drone makes.
   const buffers: number[] = [];
@@ -121,8 +121,8 @@ function fakeContext(audio: number) {
       ...node(),
       buffer: null,
       onended: null,
-      start(at: number, offset: number) {
-        grains.push({ at, offset });
+      start(at: number, offset: number, duration: number) {
+        grains.push({ at, offset, duration });
       },
     }),
   };
@@ -241,6 +241,16 @@ describe("ScrubDrone", () => {
     context.audible = Number.POSITIVE_INFINITY;
     scrub(0.3, 1.05);
     assert.equal(buffers.length, made);
+  });
+
+  it("plays 50ms grains", () => {
+    const { grains, instance, scrub } = drone();
+    instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
+    scrub(0.1, 1);
+    assert.ok(grains.length > 0);
+    for (const grain of grains) {
+      assert.equal(grain.duration, 0.05);
+    }
   });
 
   it("stays silent until the scrub plays something", () => {

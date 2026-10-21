@@ -20,7 +20,7 @@ const CAPTURE_FFT_SIZE = 32768;
 // The most of an area's audio grains read, from where the scrub first
 // played it.
 export const DRONE_REGION_SECONDS = 0.25;
-export const DRONE_GRAIN_SECONDS = 0.08;
+export const DRONE_GRAIN_SECONDS = 0.05;
 // How far, in timeline seconds, the playhead moves off the drone's area
 // before the drone takes up the area it has reached.
 export const DRONE_AREA_SECONDS = DRONE_REGION_SECONDS / 2;
