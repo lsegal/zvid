@@ -243,13 +243,13 @@ describe("ScrubDrone", () => {
     assert.equal(buffers.length, made);
   });
 
-  it("plays 50ms grains", () => {
+  it("plays 100ms grains", () => {
     const { grains, instance, scrub } = drone();
     instance.sync({ active: true, capturing: true, playheadSeconds: 1 });
     scrub(0.1, 1);
     assert.ok(grains.length > 0);
     for (const grain of grains) {
-      assert.equal(grain.duration, 0.05);
+      assert.equal(grain.duration, 0.1);
     }
   });
 
