@@ -226,9 +226,7 @@ describe("ScrubDrone", () => {
     scrub(0.1, 3);
     assert.ok(buffers.length > made);
     // Its source is only what was heard since the playhead moved there.
-    assert.ok(
-      buffers.slice(made).every((length) => length <= 0.15 * RATE + 1),
-    );
+    assert.ok(buffers.slice(made).every((length) => length <= 0.15 * RATE + 1));
   });
 
   it("ends an area's source where the scrub pauses", () => {

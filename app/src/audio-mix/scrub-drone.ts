@@ -6,9 +6,9 @@
 // the playhead moves DRONE_AREA_SECONDS off its own, so a held or slow
 // scrub drones one spot rather than whatever the mix played last, which
 // hops between the spots the scrub's media seeks to. Grains, short
-// Hann-windowed reads of that source, are scheduled a little ahead on the audio clock for as long as the
-// ruler is held, so holding the playhead still keeps cycling the spot it
-// stopped on instead of going silent. The drone fades in as the scrub starts
+// Hann-windowed reads of that source, are scheduled a little ahead on the
+// audio clock for as long as the ruler is held, so holding the playhead
+// still keeps cycling the spot it stopped on instead of going silent. The drone fades in as the scrub starts
 // and out over the scrub's tail when it is released or playback takes over.
 // It plays after the analyser, so it never feeds back into its own source,
 // audio-reactive effects or the VU meter, and export never hears it.
@@ -269,7 +269,8 @@ export class ScrubDrone {
     this.region = { start: 0, end: region.end - region.start };
     this.areaHeard = true;
     this.areaDone =
-      region.end - region.start >= Math.round(DRONE_REGION_SECONDS * sampleRate);
+      region.end - region.start >=
+      Math.round(DRONE_REGION_SECONDS * sampleRate);
   }
 
   private playGrain(at: number) {
