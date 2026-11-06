@@ -146,8 +146,10 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
       bottom(".piano-roll") - 11,
       0,
     );
+    // Above the chain's bottom padding, and its scrollbar where those take room.
+    const chain = query(".fx-chain");
     expect(bottom(".piano-roll")).toBeCloseTo(
-      body.getBoundingClientRect().bottom - 16,
+      chain.getBoundingClientRect().top + chain.clientHeight - 16,
       0,
     );
     // The Clip frame fills the height too, but its fields stay packed at the
