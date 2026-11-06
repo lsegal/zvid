@@ -25,9 +25,9 @@ import type { useFxEditing } from "./useFxEditing.ts";
 import { useKeyMap } from "./useKeyMap.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
-import { useMidiMap } from "./useMidiMap.ts";
 import { useMarqueeSelection } from "./useMarqueeSelection.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
+import { useMidiMap } from "./useMidiMap.ts";
 import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {

@@ -25,7 +25,7 @@ import { hasOpenPopup } from "../space-shortcut.ts";
 const NO_PADS: ReadonlySet<string> = new Set();
 const NOT_MAPPING: KeyMapButtonProps = {};
 
-function padId(effectId: string, pad: number) {
+export function padId(effectId: string, pad: number) {
   return `${effectId}:${pad}`;
 }
 

@@ -16,8 +16,8 @@ import type { KeyMapping } from "./key-map.ts";
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { MidiNote } from "./midi-clip.ts";
-import type { MidiMapping } from "./midi-map.ts";
 import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
+import type { MidiMapping } from "./midi-map.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {

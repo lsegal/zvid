@@ -284,3 +284,19 @@ describe("mpeInputFor", () => {
     assert.notEqual(mpeInputFor(hub, "a"), mpeInputFor({}, "a"));
   });
 });
+
+describe("zoneNameOf", () => {
+  it("names the assumed zone before a device configures any", () => {
+    const input = createMpeInput();
+    assert.equal(input.zoneNameOf(2), "lower");
+    assert.equal(input.zoneNameOf(16), "lower");
+  });
+
+  it("names the zones a device configures, and nothing outside them", () => {
+    const input = configured(1, 4);
+    configure(input, 16, 3);
+    assert.equal(input.zoneNameOf(3), "lower");
+    assert.equal(input.zoneNameOf(14), "upper");
+    assert.equal(input.zoneNameOf(8), undefined);
+  });
+});

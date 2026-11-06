@@ -17,20 +17,27 @@ import {
   type MidiInputInfo,
   midiInputHub,
 } from "../midi-input/input-hub.ts";
-import { midiKeyEvent } from "../midi-input/keyboard-layout.ts";
-import type { MidiMessage } from "../midi-input/messages.ts";
+import {
+  type MidiKeyEvent,
+  midiKeyEvent,
+} from "../midi-input/keyboard-layout.ts";
 import { mpeInputFor } from "../midi-input/mpe.ts";
 import {
   assignMidiMapping,
   findMidiMapping,
+  type MidiMapKey,
   midiMappingMatches,
   removeMidiMapping,
 } from "../midi-map.ts";
 import { pitchName } from "../midi-piano-roll.ts";
-import { fireMappedButtons, isKeyForPopup } from "./useKeyMap.ts";
+import { fireMappedButtons, isKeyForPopup, padId } from "./useKeyMap.ts";
 
 const NO_PADS: ReadonlySet<string> = new Set();
 const NOT_MAPPING: KeyMapButtonProps = {};
+
+function heldKeyId(input: MidiInputInfo, { channel, pitch }: MidiKeyEvent) {
+  return `${input.id}:${channel}:${pitch}`;
+}
 
 export type MidiMapInputs = {
   hub?: MidiInputHub;
@@ -45,22 +52,18 @@ export type MidiMapInputs = {
   setStatus: (status: string) => void;
 };
 
-// A key as the mappings read it, and its identity while it's down.
-function readKey(hub: MidiInputHub, input: MidiInputInfo, message: MidiMessage) {
-  const key = midiKeyEvent(message, input.mapping);
-  if (!key) {
-    return undefined;
-  }
+// How the mappings read a key of `input`, from what its device has shown so far.
+function mapKeyOf(
+  hub: MidiInputHub,
+  input: MidiInputInfo,
+  { channel, pitch }: MidiKeyEvent,
+): MidiMapKey {
   const mpe = mpeInputFor(hub, input.id);
   return {
-    ...key,
-    id: `${input.id}:${key.channel}:${key.pitch}`,
-    mapKey: {
-      note: key.pitch,
-      channel: key.channel,
-      zoneOf: mpe.zoneNameOf,
-      isMpe: mpe.isActive(),
-    },
+    note: pitch,
+    channel,
+    zoneOf: mpe.zoneNameOf,
+    isMpe: mpe.isActive(),
   };
 }
 
@@ -78,7 +81,10 @@ export function useMidiMap({
   commitProjectChange,
   editEffects,
   setStatus,
-}: MidiMapInputs): { keyMap: KeyMapControls; midiMap: KeyMapControls } {
+}: MidiMapInputs): {
+  keyMap: KeyMapControls;
+  midiMap: Pick<KeyMapControls, "active" | "toggle">;
+} {
   const [active, setActive] = useState(false);
   const [selected, setSelected] = useState<KeyMapTarget | null>(null);
   const [heldPads, setHeldPads] = useState(NO_PADS);
@@ -129,10 +135,10 @@ export function useMidiMap({
     };
 
     // The buttons a key drives, leaving out any that are gone.
-    const targetsOf = (mapKey: NonNullable<ReturnType<typeof readKey>>) => {
+    const targetsOf = (key: MidiMapKey) => {
       const { effects: current, midiMappings: mappings } = latestRef.current;
       return (mappings ?? []).flatMap((mapping) =>
-        midiMappingMatches(mapping, mapKey.mapKey) &&
+        midiMappingMatches(mapping, key) &&
         pressKeyMapTarget(current, mapping.target)
           ? [mapping.target]
           : [],
@@ -144,43 +150,44 @@ export function useMidiMap({
         // Zones and channels played have to be known with no piano roll open.
         // A roll hearing the same message as well changes nothing.
         const mpe = mpeInputFor(hub, input.id);
-        const key = readKey(hub, input, message);
+        const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           mpe.receive(message);
           return false;
         }
         if (!key.down) {
           mpe.released(key.channel, key.pitch);
-          return heldKeys.has(key.id);
+          return heldKeys.has(heldKeyId(input, key));
         }
         mpe.pressed(key.channel, key.pitch);
         return (
           latestRef.current.active ||
-          targetsOf(readKey(hub, input, message) ?? key).length > 0
+          targetsOf(mapKeyOf(hub, input, key)).length > 0
         );
       },
       message(input, message) {
-        const key = readKey(hub, input, message);
+        const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           return;
         }
-        releaseKey(key.id);
+        const id = heldKeyId(input, key);
+        releaseKey(id);
         if (!key.down) {
           return;
         }
         const latest = latestRef.current;
+        const mapKey = mapKeyOf(hub, input, key);
         if (latest.active) {
-          heldKeys.set(key.id, []);
+          heldKeys.set(id, []);
           const { selected: target } = latest;
           if (target) {
-            const { pitch: note, channel } = key;
-            const mpe = key.mapKey.isMpe ? { mpe: true as const } : {};
+            const { note, channel, isMpe } = mapKey;
             latest.commitProjectChange("Map MIDI Key", (current) =>
               patchProjectState(current, {
                 midiMappings: assignMidiMapping(current.midiMappings, {
                   note,
                   channel,
-                  ...mpe,
+                  ...(isMpe ? { mpe: true as const } : {}),
                   target,
                 }),
               }),
@@ -189,11 +196,11 @@ export function useMidiMap({
           return;
         }
         const { pads } = fireMappedButtons(
-          targetsOf(key),
+          targetsOf(mapKey),
           latest.effects,
           latest.editEffects,
         );
-        heldKeys.set(key.id, pads);
+        heldKeys.set(id, pads);
         if (pads.length) {
           setHeldPads((held) => new Set([...held, ...pads]));
         }
@@ -204,6 +211,7 @@ export function useMidiMap({
             releaseKey(id);
           }
         }
+        mpeInputFor(hub, input.id).releaseAll();
       },
     });
     return () => {
@@ -244,6 +252,8 @@ export function useMidiMap({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [active]);
 
+  const keyMapRef = useRef(keyMap);
+  keyMapRef.current = keyMap;
   const toggle = useCallback(() => {
     const next = !latestRef.current.active;
     if (next && keyMapRef.current.active) {
@@ -263,9 +273,6 @@ export function useMidiMap({
       );
     }
   }, [hub, setStatus]);
-
-  const keyMapRef = useRef(keyMap);
-  keyMapRef.current = keyMap;
 
   return useMemo(() => {
     const selectedId = selectedTarget && keyMapTargetId(selectedTarget);
@@ -289,8 +296,6 @@ export function useMidiMap({
         onPointerDownCapture: swallow,
       };
     };
-    const isPadHeld = (effectId: string, pad: number) =>
-      keyMap.isPadHeld(effectId, pad) || heldPads.has(`${effectId}:${pad}`);
     return {
       keyMap: {
         ...keyMap,
@@ -303,14 +308,10 @@ export function useMidiMap({
           keyMap.toggle();
         },
         buttonProps: active ? midiButtonProps : keyMap.buttonProps,
-        isPadHeld,
+        isPadHeld: (effectId, pad) =>
+          keyMap.isPadHeld(effectId, pad) || heldPads.has(padId(effectId, pad)),
       },
-      midiMap: {
-        active,
-        toggle,
-        buttonProps: midiButtonProps,
-        isPadHeld,
-      },
+      midiMap: { active, toggle },
     };
   }, [active, heldPads, keyMap, midiMappings, selectedTarget, toggle]);
 }
