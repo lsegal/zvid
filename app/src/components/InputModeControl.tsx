@@ -17,11 +17,15 @@ const KEY_GLYPH = (
   </>
 );
 
-// A 5-pin DIN socket: an arc of pins and the shell's notch.
+// A musical keyboard: three white keys and the two black keys between them.
 const MIDI_GLYPH = (
   <>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 21v-2.5M6.5 12h.01M8.1 8.1h.01M12 6.5h.01M15.9 8.1h.01M17.5 12h.01" />
+    <rect height="14" rx="2" width="19" x="2.5" y="5" />
+    <path d="M8.83 13v6M15.17 13v6" />
+    <path
+      d="M7.75 5h2.17v7a1 1 0 0 1-1 1h-.17a1 1 0 0 1-1-1zM14.08 5h2.17v7a1 1 0 0 1-1 1h-.17a1 1 0 0 1-1-1z"
+      fill="currentColor"
+    />
   </>
 );
 
