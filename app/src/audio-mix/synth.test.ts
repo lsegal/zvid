@@ -134,3 +134,50 @@ describe("synthMediaId", () => {
     }
   });
 });
+
+describe("synthVoices, with expression", () => {
+  const plain: MidiNote = { pitch: 60, start: 0, length: 2, velocity: 127 };
+  const expressive: MidiNote = {
+    ...plain,
+    pitch: 64,
+    expression: {
+      bend: [
+        { at: 0, value: 0 },
+        { at: 1, value: 2 },
+      ],
+      pressure: [{ at: 0, value: 1 }],
+      timbre: [{ at: 0, value: 64 / 127 }],
+    },
+  };
+
+  it("shapes only the note that has it", () => {
+    // At 120 bpm a quarter note lasts half a second.
+    const params = { ...DEFAULT_SYNTH_PARAMS, detune: 10 };
+    const [first, second] = synthVoices([plain, expressive], params, 120);
+    assert.equal("detune" in first, false);
+    assert.equal("level" in first, false);
+    assert.equal("cutoff" in first, false);
+    assert.deepEqual(second.detune, [
+      { seconds: 0, value: 10 },
+      { seconds: 0.5, value: 210 },
+    ]);
+    assert.deepEqual(second.level, [{ seconds: 0, value: 1 }]);
+    assert.deepEqual(second.cutoff, [{ seconds: 0, value: params.cutoff }]);
+  });
+
+  it("renders again when a note's expression changes", () => {
+    const clip = (notes: MidiNote[]) => ({
+      notes,
+      instrument: { kind: "synth" as const, params: DEFAULT_SYNTH_PARAMS },
+      durationSeconds: 1,
+    });
+    assert.notEqual(
+      synthMediaId("a", clip([plain]), 120),
+      synthMediaId(
+        "a",
+        clip([{ ...plain, expression: expressive.expression }]),
+        120,
+      ),
+    );
+  });
+});

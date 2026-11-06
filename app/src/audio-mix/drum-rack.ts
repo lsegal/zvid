@@ -5,10 +5,18 @@
 // other, as on a drum machine: a closed or pedal hat cuts off a ringing
 // open hat. Samples are fetched and decoded only when a clip plays a pad,
 // once per URL and sample rate, then mixed here, so preview and export
-// hear the same performance.
+// hear the same performance. A note's expression bends a hit's sample, read
+// faster or slower, and its pressure sets the hit's level as it plays; a
+// one-shot has no tone to change, so timbre does nothing here.
 import { padForNote } from "../fx/effects/drum-rack/banks.ts";
-import type { DrumRackParams, MidiNote } from "../midi-clip.ts";
+import {
+  type DrumRackParams,
+  expressionValueAt,
+  type MidiNote,
+  type NoteExpression,
+} from "../midi-clip.ts";
 import type { DecodedAudio } from "./mix.ts";
+import { bendRate, pressureLevel } from "./note-expression.ts";
 
 // A hit's level at full velocity, leaving headroom for several at once.
 export const DRUM_VOICE_LEVEL = 0.5;
@@ -25,6 +33,9 @@ export type DrumHit = {
   level: number;
   // When a later hit in its choke group cuts it off.
   chokeSeconds?: number;
+  // Its note's expression, with how long a quarter note lasts to read it by.
+  expression?: NoteExpression;
+  secondsPerQuarter?: number;
 };
 
 function chokeGroupOf(pad: number) {
@@ -50,7 +61,14 @@ export function drumHits(
         return [];
       }
       return [
-        { pad, startSeconds, level: (DRUM_VOICE_LEVEL * note.velocity) / 127 },
+        {
+          pad,
+          startSeconds,
+          level: (DRUM_VOICE_LEVEL * note.velocity) / 127,
+          ...(note.expression
+            ? { expression: note.expression, secondsPerQuarter }
+            : {}),
+        },
       ];
     })
     .sort((left, right) => left.startSeconds - right.startSeconds);
@@ -95,6 +113,10 @@ export function mixDrumHits(
       hit.chokeSeconds === undefined
         ? Number.POSITIVE_INFINITY
         : Math.round(hit.chokeSeconds * sampleRate) - first;
+    if (hit.expression?.bend || hit.expression?.pressure) {
+      mixExpressiveHit(out, hit, sample, sampleRate, first, choke, fade);
+      continue;
+    }
     const end = Math.min(length - first, sample.length, choke + fade);
     for (let step = Math.max(0, -first); step < end; step++) {
       const gain = step < choke ? 1 : 1 - (step - choke) / fade;
@@ -102,6 +124,40 @@ export function mixDrumHits(
     }
   }
   return out;
+}
+
+// `hit` mixed into `out` from sample `first`, following its note's expression:
+// the read moves at the bend's rate and the level follows the pressure.
+function mixExpressiveHit(
+  out: Float32Array,
+  hit: DrumHit,
+  sample: Float32Array,
+  sampleRate: number,
+  first: number,
+  choke: number,
+  fade: number,
+) {
+  const { bend, pressure } = hit.expression ?? {};
+  const quarterSamples = (hit.secondsPerQuarter ?? 0) * sampleRate;
+  const last = sample.length - 1;
+  let read = 0;
+  for (let step = 0; read < last && first + step < out.length; step++) {
+    if (step >= choke + fade) {
+      break;
+    }
+    const atQ = step / quarterSamples;
+    if (first + step >= 0) {
+      const whole = read | 0;
+      const value =
+        sample[whole] + (sample[whole + 1] - sample[whole]) * (read - whole);
+      const choked = step < choke ? 1 : 1 - (step - choke) / fade;
+      const pressed = pressure
+        ? pressureLevel(expressionValueAt(pressure, atQ))
+        : 1;
+      out[first + step] += hit.level * choked * pressed * value;
+    }
+    read += bend ? bendRate(expressionValueAt(bend, atQ)) : 1;
+  }
 }
 
 // Decoded samples, by sample rate and URL. A failed read is forgotten, so

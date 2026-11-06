@@ -283,3 +283,45 @@ describe("editing selected notes", () => {
     assert.deepEqual(edit.keys, keysOf(note(60, 8, 1), note(67, 8.5, 2)));
   });
 });
+
+describe("a note with expression", () => {
+  const bend = [
+    { at: 0, value: 0 },
+    { at: 2, value: 4 },
+  ];
+  const expressive: MidiNote = {
+    pitch: 60,
+    start: 0,
+    length: 4,
+    velocity: 100,
+    expression: { bend },
+  };
+
+  it("keeps its curve in place when its start is dragged", () => {
+    const [resized] = resizeNote([expressive], 0, expressive, "start", 1);
+    assert.equal(resized.start, 1);
+    assert.equal(resized.length, 3);
+    assert.deepEqual(resized.expression?.bend, [
+      { at: 0, value: 2 },
+      { at: 1, value: 4 },
+    ]);
+  });
+
+  it("keeps its curve when its end is dragged or it is moved", () => {
+    const [resized] = resizeNote([expressive], 0, expressive, "end", -1);
+    assert.equal(resized.expression?.bend, bend);
+    const moved = moveNote([expressive], 0, expressive, 2, 3);
+    assert.equal(
+      moved.find((note) => note.pitch === 63)?.expression?.bend,
+      bend,
+    );
+  });
+
+  it("keeps its curve in place when a note placed over its head trims it", () => {
+    const placed: MidiNote = { pitch: 60, start: 0, length: 1, velocity: 90 };
+    const notes = placeNote([expressive, placed], 1);
+    const trimmed = notes.find((note) => note.start === 1);
+    assert.equal(trimmed?.length, 3);
+    assert.equal(trimmed?.expression?.bend?.[0].value, 2);
+  });
+});
