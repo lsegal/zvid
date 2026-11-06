@@ -882,7 +882,8 @@
     "source": {
       "url": "https://cdn.inmusicbrands.com/akai/attachments/APC%20mini%20mk2%20-%20Communication%20Protocol%20-%20v1.0.pdf",
       "title": "APC mini mk2 Communications Protocol v1.0",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The protocol gives the clip pads' channel only as 00-0F in Session View, where it sets LED behavior on messages sent to the device; channel 1 for pad presses is assumed."
     },
     "controls": [
       {
@@ -1759,6 +1760,62 @@
         "type": "cc",
         "channel": 1,
         "number": 67
+      },
+      {
+        "name": "Clip/track",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 58
+      },
+      {
+        "name": "Device on/off",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 59
+      },
+      {
+        "name": "Device left arrow",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 60
+      },
+      {
+        "name": "Device right arrow",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 61
+      },
+      {
+        "name": "Detail view",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 62
+      },
+      {
+        "name": "Rec quant",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 63
+      },
+      {
+        "name": "MIDI overdub",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Metronome",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 65
       }
     ]
   },
@@ -2395,6 +2452,62 @@
         "type": "cc",
         "channel": 1,
         "number": 13
+      },
+      {
+        "name": "Track 1 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 66
+      },
+      {
+        "name": "Track 2 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 2,
+        "number": 66
+      },
+      {
+        "name": "Track 3 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 3,
+        "number": 66
+      },
+      {
+        "name": "Track 4 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 4,
+        "number": 66
+      },
+      {
+        "name": "Track 5 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 5,
+        "number": 66
+      },
+      {
+        "name": "Track 6 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 6,
+        "number": 66
+      },
+      {
+        "name": "Track 7 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 7,
+        "number": 66
+      },
+      {
+        "name": "Track 8 Crossfader A/B",
+        "kind": "button",
+        "type": "note",
+        "channel": 8,
+        "number": 66
       }
     ]
   },
@@ -2608,7 +2721,8 @@
     "source": {
       "url": "https://blog.segger.com/decoding-the-akai-fire-part-1/",
       "title": "Decoding the Akai Fire MIDI implementation, part 1 (SEGGER)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "A third party's map: SEGGER decoded it from the device, and Akai publishes no MIDI chart for the Fire."
     },
     "controls": [
       {
@@ -2780,6 +2894,34 @@
         "type": "cc",
         "channel": 1,
         "number": 118
+      },
+      {
+        "name": "Volume touch",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Pan touch",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Filter touch",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Resonance touch",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 19
       }
     ]
   },
@@ -2794,7 +2936,8 @@
     "source": {
       "url": "https://fael-downloads-prod.focusrite.com/customer/prod/s3fs-public/novation/downloads/6945/launchkey-mini-ug-en.pdf",
       "title": "Launchkey Mini User Guide (MIDI Messages Table)",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found that gives the keys' note numbers: the user guide's MIDI Messages Table lists Keys as Note with no number, so the starting note 48 is an estimate. The other controls were read from that table."
     },
     "controls": [
       {
@@ -13854,7 +13997,8 @@
     "source": {
       "url": "https://www.native-instruments.com/ni-tech-manuals/kontrol-s-mk3-manual/en/midi-mode",
       "title": "Kontrol S-Series MK3 Manual: MIDI Mode",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found that gives the keys' note numbers: the manual gives channel 1 for the keys but no numbers, so the starting note is an estimate, as are the pitch wheel's pitch bend, mod wheel CC 1 and sustain CC 64. Knob, display button and Touch Strip numbers were read from the manual; the Touch Strip's CC 11 is on its Keyboard Overview page. The Expression, Assign 1 and Assign 2 pedal sockets' defaults aren't given, so they're left out."
     },
     "controls": [
       {
@@ -13883,7 +14027,7 @@
         "kind": "strip",
         "type": "cc",
         "channel": 1,
-        "number": 2
+        "number": 11
       },
       {
         "name": "Knob {n}",
@@ -13907,13 +14051,6 @@
         "type": "cc",
         "channel": 1,
         "number": 64
-      },
-      {
-        "name": "Expression pedal",
-        "kind": "pedal",
-        "type": "cc",
-        "channel": 1,
-        "number": 11
       }
     ]
   },
@@ -13928,7 +14065,8 @@
     "source": {
       "url": "https://www.native-instruments.com/ni-tech-manuals/kontrol-s-mk3-manual/en/midi-mode",
       "title": "Kontrol S-Series MK3 Manual: MIDI Mode",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found that gives the keys' note numbers: the manual gives channel 1 for the keys but no numbers, so the starting note is an estimate, as are the pitch wheel's pitch bend, mod wheel CC 1 and sustain CC 64. Knob, display button and Touch Strip numbers were read from the manual; the Touch Strip's CC 11 is on its Keyboard Overview page. The Expression, Assign 1 and Assign 2 pedal sockets' defaults aren't given, so they're left out."
     },
     "controls": [
       {
@@ -13957,7 +14095,7 @@
         "kind": "strip",
         "type": "cc",
         "channel": 1,
-        "number": 2
+        "number": 11
       },
       {
         "name": "Knob {n}",
@@ -13981,13 +14119,6 @@
         "type": "cc",
         "channel": 1,
         "number": 64
-      },
-      {
-        "name": "Expression pedal",
-        "kind": "pedal",
-        "type": "cc",
-        "channel": 1,
-        "number": 11
       }
     ]
   },
@@ -14002,7 +14133,8 @@
     "source": {
       "url": "https://www.native-instruments.com/ni-tech-manuals/kontrol-s-mk3-manual/en/midi-mode",
       "title": "Kontrol S-Series MK3 Manual: MIDI Mode",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found that gives the keys' note numbers: the manual gives channel 1 for the keys but no numbers, so the starting note is an estimate, as are the pitch wheel's pitch bend, mod wheel CC 1 and sustain CC 64. Knob, display button and Touch Strip numbers were read from the manual; the Touch Strip's CC 11 is on its Keyboard Overview page. The Expression, Assign 1 and Assign 2 pedal sockets' defaults aren't given, so they're left out."
     },
     "controls": [
       {
@@ -14031,7 +14163,7 @@
         "kind": "strip",
         "type": "cc",
         "channel": 1,
-        "number": 2
+        "number": 11
       },
       {
         "name": "Knob {n}",
@@ -14055,13 +14187,6 @@
         "type": "cc",
         "channel": 1,
         "number": 64
-      },
-      {
-        "name": "Expression pedal",
-        "kind": "pedal",
-        "type": "cc",
-        "channel": 1,
-        "number": 11
       }
     ]
   },
@@ -14509,7 +14634,8 @@
     "source": {
       "url": "https://raw.githubusercontent.com/Ableton/push-interface/main/doc/Push2-map.json",
       "title": "Ableton push-interface: Push2-map.json (Push 2 MIDI map)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The pedals and pad pressure come from AbletonPush2MIDIDisplayInterface.asc in the same repository, not this map."
     },
     "controls": [
       {
@@ -15141,6 +15267,26 @@
         "type": "cc",
         "channel": 1,
         "number": 48
+      },
+      {
+        "name": "Pedal 1",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pedal 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 69
+      },
+      {
+        "name": "Pad pressure",
+        "kind": "pad",
+        "type": "pressure",
+        "channel": 1
       }
     ]
   },
@@ -15801,7 +15947,8 @@
     "source": {
       "url": "https://pae-web.presonusmusic.com/downloads/products/pdf/ATOM_Owners_Manual_V2_EN_21112019.pdf",
       "title": "ATOM Owner's Manual (MIDI Mapping, section 6)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "Section 6.3 gives no message for the Song Setup, Full Level and Note Repeat buttons."
     },
     "controls": [
       {
@@ -15827,158 +15974,166 @@
         "count": 4
       },
       {
-        "name": "Button 1",
+        "name": "Preset +/-",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 27
       },
       {
-        "name": "Button 2",
+        "name": "Shift + Preset +/-",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 28
       },
       {
-        "name": "Button 3",
+        "name": "Show/Hide",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 29
       },
       {
-        "name": "Button 4",
+        "name": "Nudge",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 30
       },
       {
-        "name": "Button 5",
+        "name": "Shift + Nudge",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 23
       },
       {
-        "name": "Button 6",
+        "name": "Editor",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 31
       },
       {
-        "name": "Button 7",
+        "name": "Set Loop",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 85
       },
       {
-        "name": "Button 8",
+        "name": "Setup",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 86
       },
       {
-        "name": "Button 9",
+        "name": "Up",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 87
       },
       {
-        "name": "Button 10",
+        "name": "Down",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 89
       },
       {
-        "name": "Button 11",
+        "name": "Left",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 90
       },
       {
-        "name": "Button 12",
+        "name": "Right",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 102
       },
       {
-        "name": "Button 13",
+        "name": "Select",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 103
       },
       {
-        "name": "Button 14",
+        "name": "Zoom",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 104
       },
       {
-        "name": "Button 15",
+        "name": "Click",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 105
       },
       {
-        "name": "Button 16",
+        "name": "Shift + Click",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 106
       },
       {
-        "name": "Button 17",
+        "name": "Record",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 107
       },
       {
-        "name": "Button 18",
+        "name": "Shift + Record",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 108
       },
       {
-        "name": "Button 19",
+        "name": "Play",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 109
       },
       {
-        "name": "Button 20",
+        "name": "Shift + Play",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 110
       },
       {
-        "name": "Button 21",
+        "name": "Stop",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 111
       },
       {
-        "name": "Button 22",
+        "name": "Shift + Stop",
         "kind": "button",
         "type": "cc",
         "channel": 1,
         "number": 112
+      },
+      {
+        "name": "Shift + Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18,
+        "count": 4
       }
     ]
   },
@@ -18088,7 +18243,8 @@
     "source": {
       "url": "https://usa.yamaha.com/files/download/other_assets/7/794817/reface_en_dl_b0.pdf",
       "title": "Yamaha reface Data List (CS section)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The panel's CCs are sent only with MIDI Control turned on, which is off at the factory (Owner's Manual). The foot jack sends CC 11 or CC 64 depending on the Foot Volume/Sustain switch. The Data List gives notes 24-108 with transpose; the Owner's Manual draws the keys as C2 to C5."
     },
     "controls": [
       {
@@ -18230,6 +18386,13 @@
         "type": "cc",
         "channel": 1,
         "number": 19
+      },
+      {
+        "name": "Foot Volume Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
       }
     ]
   },
@@ -18243,7 +18406,8 @@
     "source": {
       "url": "https://usa.yamaha.com/files/download/other_assets/7/794817/reface_en_dl_b0.pdf",
       "title": "Yamaha reface Data List (DX section)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The FM section's CCs are sent only with MIDI Control turned on, which is off at the factory (Owner's Manual). The Data List gives notes 24-108 with transpose; the Owner's Manual draws the keys as C2 to C5."
     },
     "controls": [
       {
@@ -18332,7 +18496,8 @@
     "source": {
       "url": "https://www.casio.com/content/dam/casio/global/support/manuals/electronic-musical-instruments/pdf/008-en/p/PXS1100_usersguide_EN.pdf",
       "title": "Casio PX-S1100 User's Guide (MIDI Implementation Chart)",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The chart gives notes 12-120, not each key; A0 to C8 follows from the 88 keys. It marks CC 7 transmitted without naming a control, so that isn't listed."
     },
     "controls": [
       {
@@ -18646,6 +18811,14 @@
         "kind": "wheel",
         "type": "pitchbend",
         "channel": 1
+      },
+      {
+        "name": "CV input {n} (expression pedal)",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 2,
+        "number": 112,
+        "count": 2
       }
     ]
   },
@@ -19245,7 +19418,8 @@
     "source": {
       "url": "https://files.keithmcmillen.com/downloads/softstep/SoftStep_Manual_v2.01.pdf",
       "title": "SoftStep Reference Manual v2.01",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The keys are those of the Notes factory preset; other presets send program changes or CC 20-29 and 110-119 instead. Nav Pad CC 17 is the value in the Basic Editor's settings figure, not a stated default. An expression pedal's default isn't stated (that figure shows CC 7), so it isn't listed."
     },
     "controls": [
       {
@@ -21264,7 +21438,8 @@
     "source": {
       "url": "https://cdn.korg.com/us/support/download/files/1362ee55daa0ec780da684b9ad9ad99b.pdf",
       "title": "minilogue xd Owner's Manual (MIDI Implementation Chart, p. 61)",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found with factory-default numbers for the keys or channel: the Owner's Manual chart gives every CC here, but notes as 0-127 and the default channel as 1-16, so the key notes and channel are estimates. Pitch bend is the joystick's left and right; its up and down parameters vary by program and have no charted CC. Bank select isn't listed."
     },
     "controls": [
       {
@@ -21395,14 +21570,14 @@
         "count": 4
       },
       {
-        "name": "EG attack/decay",
+        "name": "EG attack",
         "kind": "knob",
         "type": "cc",
         "channel": 1,
         "number": 20
       },
       {
-        "name": "EG attack/decay 2",
+        "name": "EG decay",
         "kind": "knob",
         "type": "cc",
         "channel": 1,
@@ -21512,6 +21687,132 @@
         "type": "cc",
         "channel": 1,
         "number": 64
+      },
+      {
+        "name": "Portamento",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 5
+      },
+      {
+        "name": "Voice mode type",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 52
+      },
+      {
+        "name": "Multi engine type",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 53
+      },
+      {
+        "name": "Multi engine sub type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 103
+      },
+      {
+        "name": "Cutoff drive",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 84
+      },
+      {
+        "name": "Cutoff keytrack",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "LFO wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 57
+      },
+      {
+        "name": "LFO mode",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 58
+      },
+      {
+        "name": "LFO target",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 56
+      },
+      {
+        "name": "Mod FX type",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 88
+      },
+      {
+        "name": "Mod FX sub type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 96
+      },
+      {
+        "name": "Delay type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 89
+      },
+      {
+        "name": "Delay dry/wet",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 107
+      },
+      {
+        "name": "Reverb type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 90
+      },
+      {
+        "name": "Reverb dry/wet",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 110
+      },
+      {
+        "name": "Mod FX on/off",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 92
+      },
+      {
+        "name": "Delay on/off",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 94
+      },
+      {
+        "name": "Reverb on/off",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 95
       }
     ]
   },
@@ -21525,7 +21826,8 @@
     "source": {
       "url": "https://cdn.korg.com/us/support/download/files/3393f3e21655946d9a32dc0b2d21f277.pdf",
       "title": "monologue Owner's Manual (MIDI Implementation Chart, p. 57)",
-      "verification": "documented"
+      "verification": "inventory",
+      "note": "No published MIDI chart found with factory-default numbers for the keys or channel: the Owner's Manual chart gives every CC here, but notes as 0-127 and the default channel as 1-16, so the key notes and channel are estimates. Pitch bend is the slider's usual assignment, varying by program."
     },
     "controls": [
       {
@@ -21689,6 +21991,12 @@
         "type": "cc",
         "channel": 1,
         "number": 62
+      },
+      {
+        "name": "Slider (pitch bend)",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 1
       }
     ]
   },
@@ -21932,7 +22240,8 @@
     "source": {
       "url": "https://static.roland.com/manuals/sp-404mk2_reference_v4/en-US/8012353178593931.html",
       "title": "SP-404MK2 Reference Manual: MIDI note map",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "Bank A in MIDI Mode A is listed; banks B to J use channels 2 to 10 there. The manual gives neither mode's default, nor PAD Note Out's. CCs are from the MIDI implementation chart, for BUS 1; other buses use channels 2 to 5. DJ and Looper mode CCs aren't listed."
     },
     "controls": [
       {
@@ -21966,6 +22275,43 @@
         "channel": 1,
         "number": 36,
         "count": 4
+      },
+      {
+        "name": "EXT SOURCE",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 35
+      },
+      {
+        "name": "BUS 1 Ctrl {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 3
+      },
+      {
+        "name": "BUS 1 Ctrl {n} (shift)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 3
+      },
+      {
+        "name": "BUS 1 EFX switch",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "BUS 1 EFX number",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
       }
     ]
   },
@@ -21979,7 +22325,8 @@
     "source": {
       "url": "https://static.roland.com/assets/media/pdf/TR-8S_MIDIImpleChart_eng02_W.pdf",
       "title": "TR-8S MIDI Implementation Chart v1.10",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "The panel's CCs depend on UTILITY: MIDI: Tx EditData, whose default the manual doesn't state; CC 14 and CC 70 are sent only with Local Sw at SURFACE. Inst notes are configurable."
     },
     "controls": [
       {
@@ -22345,6 +22692,104 @@
         "type": "cc",
         "channel": 10,
         "number": 91
+      },
+      {
+        "name": "Auto Fill In on",
+        "kind": "button",
+        "type": "cc",
+        "channel": 10,
+        "number": 14
+      },
+      {
+        "name": "Master FX on",
+        "kind": "button",
+        "type": "cc",
+        "channel": 10,
+        "number": 15
+      },
+      {
+        "name": "Auto Fill In manual trigger",
+        "kind": "button",
+        "type": "cc",
+        "channel": 10,
+        "number": 70
+      },
+      {
+        "name": "BD ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 96
+      },
+      {
+        "name": "SD ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 97
+      },
+      {
+        "name": "LT ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 102
+      },
+      {
+        "name": "MT ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 103
+      },
+      {
+        "name": "HT ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 104
+      },
+      {
+        "name": "RS ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 105
+      },
+      {
+        "name": "HC ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 106
+      },
+      {
+        "name": "CH ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 107
+      },
+      {
+        "name": "OH ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 108
+      },
+      {
+        "name": "CC ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 109
+      },
+      {
+        "name": "RC ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 110
       }
     ]
   },
@@ -22618,7 +23063,8 @@
     "source": {
       "url": "https://www.elektron.se/wp-content/uploads/2026/09/Digitakt-User-Manual_ENG_OS1.53_260909.pdf",
       "title": "Digitakt User Manual, Appendix B: MIDI",
-      "verification": "documented"
+      "verification": "documented",
+      "note": "Listed for track 1 on its default channel 1. The manual gives no factory PARAM OUTPUT or OUTPUT CH value. It gives the notes the Digitakt receives but none for the [TRIG] keys' output, so those aren't listed."
     },
     "controls": [
       {
@@ -22676,6 +23122,13 @@
         "type": "cc",
         "channel": 1,
         "number": 23
+      },
+      {
+        "name": "Level/Data knob",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 95
       }
     ]
   },
