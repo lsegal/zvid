@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   findChosenInput,
   type MidiInputHub,
@@ -78,9 +79,11 @@ function deviceSelection({ enabled, device, access, inputs }: MidiInputState) {
 export function PianoRollMidiControls({
   hub,
   state,
+  children,
 }: {
   hub: MidiInputHub;
   state: MidiInputState;
+  children?: ReactNode;
 }) {
   const { enabled, device, inputs } = state;
   const selection = deviceSelection(state);
@@ -122,6 +125,7 @@ export function PianoRollMidiControls({
         options={selection.options}
         value={selection.value}
       />
+      {children}
     </div>
   );
 }

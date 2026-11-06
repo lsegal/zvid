@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -19,6 +19,7 @@ import {
   GLOBAL_EFFECT_TRACK_ID,
   sourceClipEffectTrackId,
 } from "../fx-stack.ts";
+import { computerKeyboardEntry } from "../midi-input/computer-keyboard.ts";
 import { createMidiClip } from "../source-clip-edits.ts";
 
 // The Key Map (#1570): mapping keys to effect buttons, and what those keys
@@ -102,6 +103,18 @@ describe("Key Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     expect(state().project.keyMappings).toEqual([
       { key: "q", target: { kind: "power", effectId: expect.any(String) } },
     ]);
+  });
+
+  test("a mapped letter holds back while the piano roll plays from the keyboard", async () => {
+    const state = await open();
+    await mapOrderPower("a");
+    const stopClaiming = computerKeyboardEntry.claimKeys();
+    onTestFinished(stopClaiming);
+    await userEvent.keyboard("a");
+    expect(orderEnabled(state())).toBe(true);
+    stopClaiming();
+    await userEvent.keyboard("a");
+    await expect.poll(() => orderEnabled(state())).toBe(false);
   });
 
   test("a mapped key bypasses like a click, once per press, and undo reverts it", async () => {

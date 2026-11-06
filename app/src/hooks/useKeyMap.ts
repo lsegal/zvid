@@ -20,6 +20,7 @@ import {
   removeKeyMapping,
 } from "../key-map.ts";
 import { auditionDrumPad } from "../midi-audition.ts";
+import { computerKeyboardEntry } from "../midi-input/computer-keyboard.ts";
 import { hasOpenPopup } from "../space-shortcut.ts";
 
 const NO_PADS: ReadonlySet<string> = new Set();
@@ -137,6 +138,10 @@ export function useKeyMap({
     };
 
     const pressMappedKey = (event: KeyboardEvent) => {
+      // The piano roll is playing notes from the keyboard's letters.
+      if (computerKeyboardEntry.claimsKey(event)) {
+        return;
+      }
       const { effects: current, keyMappings: mappings } = latestRef.current;
       const key = mappableKey(event);
       const presses =
