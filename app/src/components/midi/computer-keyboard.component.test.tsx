@@ -114,7 +114,11 @@ async function renderRoll({
 
 // Fires a key at the focused element, or the page, and returns whether a
 // listener let it through.
-function fire(type: "keydown" | "keyup", code: string, init?: KeyboardEventInit) {
+function fire(
+  type: "keydown" | "keyup",
+  code: string,
+  init?: KeyboardEventInit,
+) {
   const event = new KeyboardEvent(type, {
     bubbles: true,
     cancelable: true,
@@ -292,7 +296,7 @@ test("other keys and modified letters pass through with entry on", async () => {
 });
 
 test(
-  "in the editor, entry draws notes with undo and redo, keeps Space, and suspends letter shortcuts",
+  "in the editor, entry draws notes with undo and redo and keeps Space",
   async () => {
     await setViewport({ width: 1280, height: 960 });
     localStorage.removeItem(COMPUTER_KEYBOARD_STORAGE_KEY);

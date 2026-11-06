@@ -2,7 +2,10 @@
 // which a per-browser preference keeps across launches the way MIDI's does,
 // and which physical keys play what. Keys go by KeyboardEvent.code, so the
 // shape stays the same on non-QWERTY layouts.
-import { PIANO_ROLL_HIGH_PITCH, PIANO_ROLL_LOW_PITCH } from "../midi-piano-roll.ts";
+import {
+  PIANO_ROLL_HIGH_PITCH,
+  PIANO_ROLL_LOW_PITCH,
+} from "../midi-piano-roll.ts";
 import { browserStorage, type PrefsStorage } from "./preferences.ts";
 
 export const COMPUTER_KEYBOARD_STORAGE_KEY = "zvid-computer-keyboard-entry";
