@@ -8,7 +8,7 @@ import type { MidiNote } from "./midi-clip.ts";
 export const PIANO_ROLL_SNAP_Q = 0.25;
 // What a click adds: a quarter note at a firm velocity.
 export const NEW_NOTE_LENGTH_Q = 1;
-export export const NEW_NOTE_VELOCITY = 100;
+export const NEW_NOTE_VELOCITY = 100;
 // The roll's lowest and highest keys: C1 to C8.
 export const PIANO_ROLL_LOW_PITCH = 24;
 export const PIANO_ROLL_HIGH_PITCH = 108;
