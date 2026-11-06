@@ -87,7 +87,10 @@ async function renderRoll({
             timeline: defaultMidiTimeline(8),
             instrument: DEFAULT_INSTRUMENT,
           }}
-          onAudition={(pitch) => auditions.push(pitch)}
+          onAudition={(pitch) => {
+            auditions.push(pitch);
+            return undefined;
+          }}
           onSetNotes={(_, next, label) => {
             edits.push({ notes: next, label });
             setCurrent(next);
