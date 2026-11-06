@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { render } from "vitest-browser-react";
-import { DEFAULT_INSTRUMENT } from "../../midi-clip.ts";
+import { cleanup, render } from "vitest-browser-react";
+import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import {
   createMidiInputHub,
@@ -48,8 +48,10 @@ async function renderRoll({
   ports = [],
   requestAccess,
   storage = memoryStorage(),
+  notes = [],
 }: {
   ports?: MidiInputPort[];
+  notes?: MidiNote[];
   requestAccess?: () => Promise<MidiAccessLike | undefined>;
   storage?: PrefsStorage;
 }) {
@@ -57,12 +59,14 @@ async function renderRoll({
   const access = { inputs, onstatechange: null as (() => void) | null };
   const request = vi.fn(requestAccess ?? (async () => access));
   const auditions: number[] = [];
+  const onSetNotes = vi.fn();
+  const onToggleCollapsed = vi.fn();
   const hub = createMidiInputHub({
     requestAccess: request,
     loadMappings: async () => [MAPPED],
     storage,
   });
-  const screen = await render(
+  await render(
     <PianoRoll
       collapsed={false}
       midiHub={hub}
@@ -70,7 +74,7 @@ async function renderRoll({
         spanId: "clip",
         label: "Bassline",
         accent: "#7ca1ff",
-        notes: [],
+        notes,
         startQ: 0,
         trimStartQ: 0,
         lengthQ: 8,
@@ -78,12 +82,12 @@ async function renderRoll({
         instrument: DEFAULT_INSTRUMENT,
       }}
       onAudition={(pitch) => auditions.push(pitch)}
-      onSetNotes={() => {}}
+      onSetNotes={onSetNotes}
       onSetTimeline={() => {}}
-      onToggleCollapsed={() => {}}
+      onToggleCollapsed={onToggleCollapsed}
     />,
   );
-  return { access, inputs, request, auditions, storage, screen };
+  return { access, inputs, request, auditions, onSetNotes, onToggleCollapsed };
 }
 
 const toggle = () => page.getByRole("button", { name: "MIDI input" });
@@ -171,14 +175,14 @@ test("the list follows devices connecting and disconnecting", async () => {
 });
 
 test("permission denied and no Web MIDI each say so", async () => {
-  const denied = await renderRoll({
+  await renderRoll({
     requestAccess: () =>
       Promise.reject(new DOMException("no", "NotAllowedError")),
   });
   await turnOn();
   await expect.poll(() => shown()).toContain("MIDI permission denied");
   await expect.element(selector()).toBeDisabled();
-  denied.screen.unmount();
+  await cleanup();
 
   await renderRoll({ requestAccess: async () => undefined });
   await turnOn();
@@ -189,23 +193,21 @@ test("permission denied and no Web MIDI each say so", async () => {
 test("the choice survives a reload, and a missing device says so and comes back", async () => {
   const storage = memoryStorage();
   const port = connectedPort("Homemade Thing");
-  const first = await renderRoll({ ports: [port], storage });
+  await renderRoll({ ports: [port], storage });
   await turnOn();
   await expect.poll(() => shown()).toContain("All devices");
   await userEvent.click(selector());
   await userEvent.click(page.getByRole("option", { name: "Homemade Thing" }));
   await expect.poll(() => shown()).toContain("Homemade Thing");
   expect(storage.getItem(MIDI_INPUT_STORAGE_KEY)).toContain("Homemade Thing");
-  first.screen.unmount();
+  await cleanup();
 
   // Reloaded with the device unplugged and another connected.
   const other = connectedPort("Test Keys");
   const returned = connectedPort("Homemade Thing");
   const second = await renderRoll({ ports: [other], storage });
   await expect.element(toggle()).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(() => shown())
-    .toContain("Homemade Thing (not connected)");
+  await expect.poll(() => shown()).toContain("Homemade Thing (not connected)");
   expect(second.request).toHaveBeenCalledTimes(1);
   expect(other.onmidimessage).toBeNull();
 
@@ -216,3 +218,20 @@ test("the choice survives a reload, and a missing device says so and comes back"
   expect(second.auditions).toEqual([67]);
 });
 
+test("the controls keep the roll's keys and double-click to themselves", async () => {
+  const roll = await renderRoll({
+    ports: [connectedPort("Homemade Thing")],
+    notes: [{ pitch: 60, start: 0, length: 1, velocity: 100 }],
+  });
+  await turnOn();
+  await expect.poll(() => shown()).toContain("All devices");
+  await userEvent.click(
+    document.querySelector("[data-note-index='0']") as Element,
+  );
+  selector().element().focus();
+  await userEvent.keyboard("{Delete}");
+  expect(roll.onSetNotes).not.toHaveBeenCalled();
+  await userEvent.dblClick(selector());
+  expect(roll.onToggleCollapsed).not.toHaveBeenCalled();
+  await userEvent.keyboard("{Escape}");
+});

@@ -239,7 +239,11 @@ export function createMidiInputHub({
       savePreferences();
       // Turning it back on retries a refused request, as the permission may
       // have been granted since.
-      if (enabled && state.access !== "ready" && state.access !== "requesting") {
+      if (
+        enabled &&
+        state.access !== "ready" &&
+        state.access !== "requesting"
+      ) {
         void start();
       } else {
         sync();
