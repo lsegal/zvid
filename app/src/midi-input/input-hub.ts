@@ -1,13 +1,20 @@
-// The app's connection to the MIDI ports: asks for Web MIDI once, the first
-// time anything listens, and keeps a handler on each connected input as
-// devices come and go. Without Web MIDI, or without permission, it simply
-// never has any inputs.
+// The app's connection to the MIDI ports. MIDI starts off: Web MIDI is asked
+// for when it's turned on, and while it's on the hub keeps a handler on each
+// chosen input as devices come and go. Without Web MIDI, or without
+// permission, it never has any inputs, and its state says why.
 import {
   loadDeviceMappings,
   type MidiDeviceMapping,
   matchDeviceMapping,
 } from "./device-mappings.ts";
 import { type MidiMessage, parseMidiMessage } from "./messages.ts";
+import {
+  browserStorage,
+  type MidiDeviceChoice,
+  type PrefsStorage,
+  readMidiInputPreferences,
+  writeMidiInputPreferences,
+} from "./preferences.ts";
 
 // The parts of Web MIDI's MIDIAccess and MIDIInput the hub uses.
 export type MidiInputPort = {
@@ -34,32 +41,69 @@ export type MidiInputListener = {
   disconnected: (input: MidiInputInfo) => void;
 };
 
+/** Where the hub is in getting Web MIDI: asked for once MIDI is turned on. */
+export type MidiAccessStatus =
+  | "idle"
+  | "requesting"
+  | "ready"
+  | "unavailable"
+  | "denied";
+
+export type MidiInputState = {
+  enabled: boolean;
+  device: MidiDeviceChoice | null;
+  access: MidiAccessStatus;
+  // Every connected input, whichever of them is chosen.
+  inputs: readonly MidiInputInfo[];
+};
+
 export type MidiInputHub = {
   listen: (listener: MidiInputListener) => () => void;
-  subscribeInputs: (listener: () => void) => () => void;
-  getInputs: () => readonly MidiInputInfo[];
+  subscribe: (listener: () => void) => () => void;
+  getState: () => MidiInputState;
+  setEnabled: (enabled: boolean) => void;
+  chooseDevice: (device: MidiDeviceChoice | null) => void;
 };
 
 const NO_INPUTS: readonly MidiInputInfo[] = [];
 
+/** How the UI names an input: what it was recognized as, or its port name. */
+export function midiInputLabel({ name, mapping }: MidiInputInfo) {
+  return mapping ? `${mapping.manufacturer} ${mapping.model}` : name;
+}
+
+/** The connected input `device` refers to: by name, then id among the same. */
+export function findChosenInput(
+  inputs: readonly MidiInputInfo[],
+  device: MidiDeviceChoice,
+) {
+  const named = inputs.filter((input) => input.name === device.name);
+  return named.find((input) => input.id === device.id) ?? named[0];
+}
+
 export function createMidiInputHub({
   requestAccess = requestBrowserAccess,
   loadMappings = loadDeviceMappings,
+  storage = browserStorage(),
 }: {
   requestAccess?: () => Promise<MidiAccessLike | undefined>;
   loadMappings?: () => Promise<MidiDeviceMapping[]>;
+  storage?: PrefsStorage;
 } = {}): MidiInputHub {
   const listeners = new Set<MidiInputListener>();
-  const inputListeners = new Set<() => void>();
+  const stateListeners = new Set<() => void>();
   const bound = new Map<string, { port: MidiInputPort; info: MidiInputInfo }>();
-  let requested = false;
   let access: MidiAccessLike | undefined;
   let mappings: readonly MidiDeviceMapping[] = [];
-  let inputs = NO_INPUTS;
+  let state: MidiInputState = {
+    ...readMidiInputPreferences(storage),
+    access: "idle",
+    inputs: NO_INPUTS,
+  };
 
-  function publishInputs() {
-    inputs = [...bound.values()].map(({ info }) => info);
-    for (const listener of inputListeners) {
+  function publish(next: Partial<MidiInputState>) {
+    state = { ...state, ...next };
+    for (const listener of stateListeners) {
       listener();
     }
   }
@@ -78,9 +122,22 @@ export function createMidiInputHub({
     }
   }
 
-  // Binds the connected inputs and lets go of the rest.
+  // The inputs to take notes from: none while off or while nothing listens.
+  function wantedInputs(inputs: readonly MidiInputInfo[]) {
+    if (!state.enabled || !listeners.size) {
+      return NO_INPUTS;
+    }
+    if (!state.device) {
+      return inputs;
+    }
+    const chosen = findChosenInput(inputs, state.device);
+    return chosen ? [chosen] : NO_INPUTS;
+  }
+
+  // Binds the wanted inputs and lets go of the rest, which lets the browser
+  // close the ports while nothing plays them.
   function sync() {
-    if (!access || !listeners.size) {
+    if (!access) {
       return;
     }
     const connected = new Map(
@@ -88,40 +145,55 @@ export function createMidiInputHub({
         .filter((port) => port.state === "connected")
         .map((port) => [port.id, port]),
     );
+    const inputs = [...connected.values()].map(infoOf);
+    const wanted = wantedInputs(inputs);
+    const wantedIds = new Set(wanted.map((input) => input.id));
     for (const [id, { port, info }] of bound) {
-      if (connected.get(id) !== port) {
+      if (!wantedIds.has(id) || connected.get(id) !== port) {
         release(id, port, info);
       }
     }
-    for (const [id, port] of connected) {
-      if (bound.has(id)) {
-        continue;
-      }
-      const entry = { port, info: infoOf(port) };
-      bound.set(id, entry);
-      port.onmidimessage = (event) => {
-        const message = event.data && parseMidiMessage(event.data);
-        if (message) {
-          for (const listener of listeners) {
-            listener.message(entry.info, message);
+    for (const info of wanted) {
+      const port = connected.get(info.id);
+      const entry = bound.get(info.id);
+      if (entry) {
+        entry.info = info;
+      } else if (port) {
+        const added = { port, info };
+        bound.set(info.id, added);
+        port.onmidimessage = (event) => {
+          const message = event.data && parseMidiMessage(event.data);
+          if (message) {
+            for (const listener of listeners) {
+              listener.message(added.info, message);
+            }
           }
-        }
-      };
+        };
+      }
     }
-    publishInputs();
+    publish({ inputs });
   }
 
   async function start() {
+    publish({ access: "requesting" });
     try {
       access = await requestAccess();
-    } catch {
-      // Denied or unavailable: the piano roll works as it does without MIDI.
+    } catch (error) {
+      const name = (error as { name?: string } | undefined)?.name;
+      publish({
+        access:
+          name === "NotAllowedError" || name === "SecurityError"
+            ? "denied"
+            : "unavailable",
+      });
       return;
     }
     if (!access) {
+      publish({ access: "unavailable" });
       return;
     }
     access.onstatechange = sync;
+    publish({ access: "ready" });
     sync();
     try {
       mappings = await loadMappings();
@@ -129,17 +201,18 @@ export function createMidiInputHub({
       // Every device still plays through the standard layout.
       return;
     }
-    for (const entry of bound.values()) {
-      entry.info = infoOf(entry.port);
-    }
-    publishInputs();
+    sync();
+  }
+
+  function savePreferences() {
+    const { enabled, device } = state;
+    writeMidiInputPreferences(storage, { enabled, device });
   }
 
   return {
     listen(listener) {
       listeners.add(listener);
-      if (!requested) {
-        requested = true;
+      if (state.enabled && state.access === "idle") {
         void start();
       } else {
         sync();
@@ -147,21 +220,36 @@ export function createMidiInputHub({
       return () => {
         listeners.delete(listener);
         if (!listeners.size) {
-          // Lets the browser close the ports while nothing plays them.
-          for (const [id, { port, info }] of bound) {
-            release(id, port, info);
-          }
-          publishInputs();
+          sync();
         }
       };
     },
-    subscribeInputs(listener) {
-      inputListeners.add(listener);
+    subscribe(listener) {
+      stateListeners.add(listener);
       return () => {
-        inputListeners.delete(listener);
+        stateListeners.delete(listener);
       };
     },
-    getInputs: () => inputs,
+    getState: () => state,
+    setEnabled(enabled) {
+      if (enabled === state.enabled) {
+        return;
+      }
+      publish({ enabled });
+      savePreferences();
+      // Turning it back on retries a refused request, as the permission may
+      // have been granted since.
+      if (enabled && state.access !== "ready" && state.access !== "requesting") {
+        void start();
+      } else {
+        sync();
+      }
+    },
+    chooseDevice(device) {
+      publish({ device });
+      savePreferences();
+      sync();
+    },
   };
 }
 
