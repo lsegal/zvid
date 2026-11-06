@@ -327,7 +327,12 @@ function auditionGranular(
   const rate = bendRate(expression?.bend ?? 0);
   const fixed = hold
     ? undefined
-    : playCloud(mixGranularAudition(note, params, sampleRate), start, rate, false);
+    : playCloud(
+        mixGranularAudition(note, params, sampleRate),
+        start,
+        rate,
+        false,
+      );
   let source =
     fixed?.source ??
     holdCloud(granularLoop(note, params, sampleRate), start, rate, 0);

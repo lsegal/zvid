@@ -152,8 +152,12 @@ export function useMidiNoteCapture({
         }
         finish(heldKey, playheadQ);
         pressed.current.get(heldKey)?.voice?.release();
+        pressed.current.delete(heldKey);
         const wasActive = mpe.isActive();
         mpe.pressed(key.channel, key.pitch);
+        if (!wasActive && mpe.isActive()) {
+          holdPressedKeys(input.id);
+        }
         const sample = mpe.sampleOf(key.channel);
         const voice = mpe.isActive()
           ? onAudition(key.pitch, sample, true)
@@ -169,9 +173,6 @@ export function useMidiNoteCapture({
           recorder,
           voice,
         });
-        if (!wasActive && mpe.isActive()) {
-          holdPressedKeys(input.id);
-        }
         if (clock?.isPlaying) {
           const note = pressNote(clip, key.pitch, key.velocity, playheadQ);
           if (note) {
