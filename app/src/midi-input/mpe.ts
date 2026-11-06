@@ -113,7 +113,11 @@ export function createMpeInput(): MpeInput {
   }
 
   function configure(manager: number, requested: number) {
-    configured = true;
+    if (!configured) {
+      // The device says what its zones are, so the assumed one goes.
+      zones.lower = undefined;
+      configured = true;
+    }
     const members = Math.min(LAST_CHANNEL - 1, requested);
     const isLower = manager === LOWER_MANAGER;
     const name = isLower ? "lower" : "upper";
@@ -122,7 +126,10 @@ export function createMpeInput(): MpeInput {
     const otherZone = zones[other];
     // The new zone takes the channels it overlaps from the other one.
     if (otherZone && members) {
-      otherZone.members = Math.min(otherZone.members, LAST_CHANNEL - 2 - members);
+      otherZone.members = Math.min(
+        otherZone.members,
+        LAST_CHANNEL - 2 - members,
+      );
       if (otherZone.members <= 0) {
         zones[other] = undefined;
       }

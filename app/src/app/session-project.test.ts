@@ -967,6 +967,41 @@ describe("a session with a MIDI clip", () => {
     assert.deepEqual(midiStack(project, "2"), []);
   });
 
+  it("keeps a note's expression through a save and reload", () => {
+    const expression = {
+      bend: [
+        { at: 0, value: 0 },
+        { at: 0.5, value: 2 },
+      ],
+      pressure: [{ at: 0, value: 0.5 }],
+    };
+    const project = sessionToProject(
+      {
+        ...session,
+        clips: session.clips?.map((clip) =>
+          clip.id === "1"
+            ? {
+                ...clip,
+                notes: [
+                  { pitch: 60, start: 0, length: 1, velocity: 100, expression },
+                  { pitch: 64, start: 1, length: 1, velocity: 90 },
+                ],
+              }
+            : clip,
+        ),
+      },
+      [],
+    );
+    const saved = projectToSession(
+      { ...INITIAL_PROJECT_STATE, ...project },
+      { playheadQ: 0 },
+    );
+    const reopened = sessionToProject(JSON.parse(JSON.stringify(saved)), []);
+    const [expressive, plain] = reopened.sourceSpans[0].notes ?? [];
+    assert.deepEqual(expressive.expression, expression);
+    assert.equal("expression" in plain, false);
+  });
+
   it("saves them as it opened them", () => {
     const project = sessionToProject(session, []);
     const saved = projectToSession(

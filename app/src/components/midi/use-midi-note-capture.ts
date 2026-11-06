@@ -9,6 +9,7 @@ import type { AuditionVoice } from "../../midi-audition.ts";
 import type { ExpressionSample, MidiNote } from "../../midi-clip.ts";
 import type { MidiInputHub } from "../../midi-input/input-hub.ts";
 import { midiKeyEvent } from "../../midi-input/keyboard-layout.ts";
+import { mpeInputFor } from "../../midi-input/mpe.ts";
 import {
   type CaptureClip,
   captureNote,
@@ -17,7 +18,6 @@ import {
   type HeldNote,
   pressNote,
 } from "../../midi-input/note-capture.ts";
-import { mpeInputFor } from "../../midi-input/mpe.ts";
 import type { FxModulationClock } from "../fx/modulation-clock";
 
 const NOT_HELD: readonly HeldNote[] = [];
@@ -67,29 +67,35 @@ export function useMidiNoteCapture({
   // Where the playhead last was, which is where held notes end if it jumps.
   const lastQ = useRef(signal?.get() ?? 0);
 
-  const finish = useCallback((key: string, playheadQ: number) => {
-    const note = held.current.get(key);
-    const press = pressed.current.get(key);
-    if (note) {
-      held.current.delete(key);
-      setHeldNotes([...held.current.values()]);
-      const keepExpression =
-        press && mpeInputFor(hub, press.inputId).isActive();
-      latest.current.onCapture(
-        captureNote(
-          latest.current.clip,
-          note,
-          playheadQ,
-          keepExpression ? press.recorder : undefined,
-        ),
-      );
-    }
-  }, [hub]);
-  const finishAll = useCallback((playheadQ: number) => {
-    for (const key of [...held.current.keys()]) {
-      finish(key, playheadQ);
-    }
-  }, [finish]);
+  const finish = useCallback(
+    (key: string, playheadQ: number) => {
+      const note = held.current.get(key);
+      const press = pressed.current.get(key);
+      if (note) {
+        held.current.delete(key);
+        setHeldNotes([...held.current.values()]);
+        const keepExpression =
+          press && mpeInputFor(hub, press.inputId).isActive();
+        latest.current.onCapture(
+          captureNote(
+            latest.current.clip,
+            note,
+            playheadQ,
+            keepExpression ? press.recorder : undefined,
+          ),
+        );
+      }
+    },
+    [hub],
+  );
+  const finishAll = useCallback(
+    (playheadQ: number) => {
+      for (const key of [...held.current.keys()]) {
+        finish(key, playheadQ);
+      }
+    },
+    [finish],
+  );
 
   useEffect(() => {
     if (!enabled) {

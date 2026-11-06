@@ -148,7 +148,8 @@ function mixExpressiveHit(
     const atQ = step / quarterSamples;
     if (first + step >= 0) {
       const whole = read | 0;
-      const value = sample[whole] + (sample[whole + 1] - sample[whole]) * (read - whole);
+      const value =
+        sample[whole] + (sample[whole + 1] - sample[whole]) * (read - whole);
       const choked = step < choke ? 1 : 1 - (step - choke) / fade;
       const pressed = pressure
         ? pressureLevel(expressionValueAt(pressure, atQ))

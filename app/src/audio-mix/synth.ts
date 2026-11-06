@@ -114,10 +114,8 @@ export function synthVoices(
       startSeconds + note.length * secondsPerQuarter,
     );
     const { bend, pressure, timbre } = note.expression ?? {};
-    const curve = (
-      points: typeof bend,
-      value: (point: number) => number,
-    ) => voiceCurve(points ?? [], startSeconds, secondsPerQuarter, value);
+    const curve = (points: typeof bend, value: (point: number) => number) =>
+      voiceCurve(points ?? [], startSeconds, secondsPerQuarter, value);
     return [
       {
         frequency: noteFrequency(note.pitch, params.octave),

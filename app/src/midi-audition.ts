@@ -10,12 +10,12 @@ import {
   granularGrains,
   mixGrains,
 } from "./audio-mix/granular.ts";
-import { noteFrequency, synthEnvelope } from "./audio-mix/synth.ts";
 import {
   bendRate,
   pressureLevel,
   timbreCutoff,
 } from "./audio-mix/note-expression.ts";
+import { noteFrequency, synthEnvelope } from "./audio-mix/synth.ts";
 import { padForNote } from "./fx/effects/drum-rack/banks.ts";
 import type {
   DrumRackParams,

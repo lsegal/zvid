@@ -120,7 +120,8 @@ export type ExpressionRecorder = {
 };
 
 function addPoint(curve: ExpressionPoint[], atQ: number, raw: number) {
-  const value = Math.round(raw * EXPRESSION_VALUE_PRECISION) / EXPRESSION_VALUE_PRECISION;
+  const value =
+    Math.round(raw * EXPRESSION_VALUE_PRECISION) / EXPRESSION_VALUE_PRECISION;
   const last = curve[curve.length - 1];
   if (!last) {
     curve.push({ at: 0, value });

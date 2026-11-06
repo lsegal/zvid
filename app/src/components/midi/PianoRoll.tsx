@@ -11,8 +11,13 @@ import {
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
-import { auditionNote } from "../../midi-audition.ts";
-import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
+import { type AuditionVoice, auditionNote } from "../../midi-audition.ts";
+import {
+  type ExpressionSample,
+  expressionSampleAtStart,
+  type MidiInstrument,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { type MidiInputHub, midiInputHub } from "../../midi-input/input-hub.ts";
