@@ -608,6 +608,10 @@ test("an audition follows its key's expression", async () => {
   const hub = createMidiInputHub({
     requestAccess: async () => access,
     loadMappings: async () => [],
+    storage: {
+      getItem: () => JSON.stringify({ enabled: true }),
+      setItem: () => {},
+    },
   });
   const started: unknown[] = [];
   const screen = await render(

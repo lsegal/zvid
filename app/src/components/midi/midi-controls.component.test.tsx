@@ -81,7 +81,9 @@ async function renderRoll({
         timeline: defaultMidiTimeline(8),
         instrument: DEFAULT_INSTRUMENT,
       }}
-      onAudition={(pitch) => auditions.push(pitch)}
+      onAudition={(pitch) => {
+        auditions.push(pitch);
+      }}
       onSetNotes={onSetNotes}
       onSetTimeline={() => {}}
       onToggleCollapsed={onToggleCollapsed}
