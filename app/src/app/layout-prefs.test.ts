@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  FX_PANEL_HEIGHT_STORAGE_KEY,
+  FX_PANEL_MIN_HEIGHT,
+  FX_PANEL_RESERVED_HEIGHT,
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_MAX,
   LABEL_WIDTH_MIN,
@@ -12,7 +15,9 @@ import {
 } from "./constants.ts";
 import {
   clampLabelWidth,
+  getFxPanelMaxHeight,
   getPreviewMaxWidth,
+  readFxPanelHeight,
   readInspectorCollapsed,
   readLabelWidth,
   readPreviewWidth,
@@ -87,5 +92,37 @@ describe("layout prefs", () => {
       ),
       PREVIEW_MIN_WIDTH,
     );
+  });
+});
+
+describe("FX panel height", () => {
+  const readStored = (stored: string | null) => {
+    const original = globalThis.window;
+    Object.assign(globalThis, {
+      window: {
+        localStorage: {
+          getItem: (key: string) =>
+            key === FX_PANEL_HEIGHT_STORAGE_KEY ? stored : null,
+        },
+      },
+    });
+    try {
+      return readFxPanelHeight();
+    } finally {
+      Object.assign(globalThis, { window: original });
+    }
+  };
+
+  it("is null until resized, and restores a resized height", () => {
+    assert.equal(readFxPanelHeight(), null);
+    assert.equal(readStored(null), null);
+    assert.equal(readStored("tall"), null);
+    assert.equal(readStored("300.4"), 300);
+    assert.equal(readStored("10"), FX_PANEL_MIN_HEIGHT);
+  });
+
+  it("leaves the editor its reserved height, down to the minimum", () => {
+    assert.equal(getFxPanelMaxHeight(800), 800 - FX_PANEL_RESERVED_HEIGHT);
+    assert.equal(getFxPanelMaxHeight(200), FX_PANEL_MIN_HEIGHT);
   });
 });

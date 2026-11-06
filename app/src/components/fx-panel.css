@@ -1,7 +1,60 @@
+.workspace__main {
+  position: relative;
+  height: 100%;
+  display: grid;
+  /* cap the FX row so a tall device chain scrolls instead of squeezing the arrangement;
+     resizing the panel sets its row instead (useAppLayout) */
+  grid-template-rows: minmax(0, 1fr) var(--fx-panel-row, fit-content(40%));
+  /* Rounding the cap down to a whole pixel keeps the transport bar above, and
+     its icons, on whole pixels (#1224). Browsers without round() keep the
+     unrounded cap. */
+  grid-template-rows: minmax(0, 1fr)
+    var(--fx-panel-row, fit-content(round(down, 40%, 1px)));
+  gap: 14px;
+}
+
 .fx-panel {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Sits in the workspace's gap above the panel: absolute, it takes no grid cell,
+   and its containing block is the panel's row. */
+.fx-panel-resize-handle {
+  position: absolute;
+  grid-row: 2;
+  top: -14px;
+  left: 0;
+  right: 0;
+  height: 14px;
+  margin: 0;
+  border: 0;
+  cursor: row-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.fx-panel-resize-handle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.fx-panel-resize-handle:hover::before,
+.fx-panel-resize-handle:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.fx-panel-resize-handle:active::before {
+  background: var(--amber);
 }
 
 .fx-panel__toggle {
@@ -43,6 +96,28 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
+}
+
+/* Standard scrollbar properties leave macOS's overlay scrollbar, hidden until
+   a scroll. Without them the app's ::-webkit-scrollbar styles apply: a thumb
+   that stays visible, so cut-off content is obvious. */
+@supports selector(::-webkit-scrollbar) {
+  .fx-panel__body {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+
+@media (max-width: 900px), (max-height: 559px) {
+  .workspace__main {
+    height: auto;
+    /* The page scrolls here, so the panel fits its content, resized or not. */
+    grid-template-rows: minmax(0, 1fr) fit-content(40%);
+  }
+
+  .fx-panel-resize-handle {
+    display: none;
+  }
 }
 
 .fx-panel__body[hidden] {

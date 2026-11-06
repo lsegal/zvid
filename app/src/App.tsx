@@ -453,7 +453,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       />
 
       <main className="workspace">
-        <div className="workspace__main">
+        <div className="workspace__main" style={layout.workspaceMainStyle}>
           <section className="editor-panel">
             <TimelineToolbar
               {...project}

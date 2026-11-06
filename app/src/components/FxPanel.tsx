@@ -1,8 +1,10 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import type { ReactNode } from "react";
+import { FX_PANEL_MIN_HEIGHT } from "../app/constants.ts";
 import { SOURCE_CLIP_COLLAPSE_KEY } from "../fx-chain.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
+import type { FxPanelResize } from "../hooks/useFxPanelResize.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
 import { InheritedSourceFx } from "./fx/InheritedSourceFx";
@@ -65,6 +67,8 @@ export type FxPanelProps = Pick<
   > & {
     isInspectorCollapsed: boolean;
     toggleInspectorCollapsed: () => void;
+    // The handle on the panel's top edge; the phone's sheet has its own drag.
+    fxPanelResize?: FxPanelResize;
     // The selected source clip's properties, shown ahead of the FX chain.
     sourceClip: SourceClipPropertiesModel | null;
     // The mobile shell's sheet header, which replaces the toggle there.
@@ -74,7 +78,7 @@ export type FxPanelProps = Pick<
     midiMap?: Pick<KeyMapControls, "active" | "toggle">;
   };
 
-// The collapsible FX panel under the editor: its header toggle, the title
+// The collapsible, resizable FX panel under the editor: its header toggle, the title
 // for the selected layer or clip, and the FX chain. A source track's Record
 // device leads the chain, ahead of the selected source clip's properties,
 // even though it belongs to the track. A selected MIDI clip adds its piano
@@ -97,6 +101,7 @@ export function FxPanel({
   fxLayerLabel,
   fxLayerName,
   fxLayerTrackId,
+  fxPanelResize,
   fxPanelTitle,
   fxRecordTrack,
   fxSourceTrackId,
@@ -124,107 +129,121 @@ export function FxPanel({
   sourceClip,
   toggleInspectorCollapsed,
 }: FxPanelProps) {
+  const { height: fxPanelHeight, ...resizeHandlers } = fxPanelResize ?? {};
   return (
-    <section
-      className={`fx-panel ${isInspectorCollapsed ? "fx-panel--collapsed" : ""}`}
-    >
-      {sheetHeader}
-      <button
-        aria-controls="fx-panel-body"
-        aria-expanded={!isInspectorCollapsed}
-        className="fx-panel__toggle"
-        onClick={toggleInspectorCollapsed}
-        type="button"
+    <>
+      {fxPanelResize && !isInspectorCollapsed ? (
+        <hr
+          className="fx-panel-resize-handle"
+          aria-label="Resize effects panel"
+          aria-valuenow={fxPanelHeight ?? undefined}
+          aria-valuemin={FX_PANEL_MIN_HEIGHT}
+          tabIndex={0}
+          title="Drag to resize. Double-click to fit the contents."
+          {...resizeHandlers}
+        />
+      ) : null}
+      <section
+        className={`fx-panel ${isInspectorCollapsed ? "fx-panel--collapsed" : ""}`}
       >
-        <span>{fxPanelTitle}</span>
-        <ChevronDownIcon aria-hidden="true" />
-      </button>
+        {sheetHeader}
+        <button
+          aria-controls="fx-panel-body"
+          aria-expanded={!isInspectorCollapsed}
+          className="fx-panel__toggle"
+          onClick={toggleInspectorCollapsed}
+          type="button"
+        >
+          <span>{fxPanelTitle}</span>
+          <ChevronDownIcon aria-hidden="true" />
+        </button>
 
-      <div
-        className="fx-panel__body"
-        hidden={isInspectorCollapsed}
-        id="fx-panel-body"
-      >
-        <KeyMapContext.Provider value={keyMap}>
-          <MidiMapContext.Provider value={midiMap}>
-            <FxChain
-              leading={(collapse) => (
-                <>
-                  {fxRecordTrack ? (
-                    <TrackRecordDevice
-                      key={fxRecordTrack.trackId}
-                      trackId={fxRecordTrack.trackId}
-                      trackName={fxRecordTrack.trackName}
+        <div
+          className="fx-panel__body"
+          hidden={isInspectorCollapsed}
+          id="fx-panel-body"
+        >
+          <KeyMapContext.Provider value={keyMap}>
+            <MidiMapContext.Provider value={midiMap}>
+              <FxChain
+                leading={(collapse) => (
+                  <>
+                    {fxRecordTrack ? (
+                      <TrackRecordDevice
+                        key={fxRecordTrack.trackId}
+                        trackId={fxRecordTrack.trackId}
+                        trackName={fxRecordTrack.trackName}
+                      />
+                    ) : null}
+                    {sourceClip ? (
+                      <SourceClipProperties
+                        collapsed={collapse.collapsed.has(
+                          SOURCE_CLIP_COLLAPSE_KEY,
+                        )}
+                        midiClip={
+                          fxMidiClip?.spanId === sourceClip.spanId
+                            ? fxMidiClip
+                            : undefined
+                        }
+                        model={sourceClip}
+                        onSetMidiTimeline={setMidiClipTimeline}
+                        onToggleCollapsed={() =>
+                          collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                        }
+                      />
+                    ) : null}
+                    <MidiDevices
+                      {...collapse}
+                      midiClip={fxMidiClip}
+                      setNotes={setMidiClipNotes}
+                      setTimeline={setMidiClipTimeline}
                     />
-                  ) : null}
-                  {sourceClip ? (
-                    <SourceClipProperties
-                      collapsed={collapse.collapsed.has(
-                        SOURCE_CLIP_COLLAPSE_KEY,
-                      )}
-                      midiClip={
-                        fxMidiClip?.spanId === sourceClip.spanId
-                          ? fxMidiClip
-                          : undefined
-                      }
-                      model={sourceClip}
-                      onSetMidiTimeline={setMidiClipTimeline}
-                      onToggleCollapsed={() =>
-                        collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
-                      }
-                    />
-                  ) : null}
-                  <MidiDevices
-                    {...collapse}
-                    midiClip={fxMidiClip}
-                    setNotes={setMidiClipNotes}
-                    setTimeline={setMidiClipTimeline}
-                  />
-                </>
-              )}
-              devices={fxDevices}
-              kind={fxKind}
-              layerFxEnabled={fxLayerFxEnabled}
-              layers={orderLayerOptions}
-              clipLayers={fxClipLayerOptions}
-              layerLabel={fxLayerLabel}
-              layerName={fxLayerName}
-              layerTrackId={fxLayerTrackId}
-              clipTrackId={fxClipTrackId}
-              clipScope={fxClipScope}
-              clipLeading={
-                fxInheritedSource ? (
-                  <InheritedSourceFx stacks={fxInheritedSource} />
-                ) : null
-              }
-              onAdd={addFxDevice}
-              clipboardEffectName={fxClipboard?.effectName}
-              onClearAll={clearFxDevices}
-              onCopy={copyFxDevice}
-              onCut={cutFxDevice}
-              onDuplicate={duplicateFxDevice}
-              onMove={moveFxDevice}
-              onMoveToStack={moveFxDeviceToStack}
-              onPaste={pasteFxDevice}
-              onRemove={removeFxDevice}
-              onReset={resetFxDevice}
-              onSetLayerFxEnabled={(enabled) => {
-                if (fxSourceTrackId) {
-                  setSourceTrackFxEnabled(fxSourceTrackId, enabled);
-                } else if (fxLaneId) {
-                  setLayerFxEnabled(fxLaneId, enabled);
+                  </>
+                )}
+                devices={fxDevices}
+                kind={fxKind}
+                layerFxEnabled={fxLayerFxEnabled}
+                layers={orderLayerOptions}
+                clipLayers={fxClipLayerOptions}
+                layerLabel={fxLayerLabel}
+                layerName={fxLayerName}
+                layerTrackId={fxLayerTrackId}
+                clipTrackId={fxClipTrackId}
+                clipScope={fxClipScope}
+                clipLeading={
+                  fxInheritedSource ? (
+                    <InheritedSourceFx stacks={fxInheritedSource} />
+                  ) : null
                 }
-              }}
-              onSetEnabled={setFxDeviceEnabled}
-              onSetAnimationEnabled={setFxDeviceAnimationEnabled}
-              onSetAnimation={setFxDeviceAnimation}
-              onSetModulationEnabled={setFxDeviceModulationEnabled}
-              onSetModulation={setFxDeviceModulation}
-              onSetParameter={setFxDeviceParameter}
-            />
-          </MidiMapContext.Provider>
-        </KeyMapContext.Provider>
-      </div>
-    </section>
+                onAdd={addFxDevice}
+                clipboardEffectName={fxClipboard?.effectName}
+                onClearAll={clearFxDevices}
+                onCopy={copyFxDevice}
+                onCut={cutFxDevice}
+                onDuplicate={duplicateFxDevice}
+                onMove={moveFxDevice}
+                onMoveToStack={moveFxDeviceToStack}
+                onPaste={pasteFxDevice}
+                onRemove={removeFxDevice}
+                onReset={resetFxDevice}
+                onSetLayerFxEnabled={(enabled) => {
+                  if (fxSourceTrackId) {
+                    setSourceTrackFxEnabled(fxSourceTrackId, enabled);
+                  } else if (fxLaneId) {
+                    setLayerFxEnabled(fxLaneId, enabled);
+                  }
+                }}
+                onSetEnabled={setFxDeviceEnabled}
+                onSetAnimationEnabled={setFxDeviceAnimationEnabled}
+                onSetAnimation={setFxDeviceAnimation}
+                onSetModulationEnabled={setFxDeviceModulationEnabled}
+                onSetModulation={setFxDeviceModulation}
+                onSetParameter={setFxDeviceParameter}
+              />
+            </MidiMapContext.Provider>
+          </KeyMapContext.Provider>
+        </div>
+      </section>
+    </>
   );
 }

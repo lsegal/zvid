@@ -566,6 +566,7 @@ body:has(.app-shell--phone) :is(.popover-content, .select-content) {
 .app-shell--phone .fx-panel__body {
   flex: 1;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 /* The whole header is the sheet's drag handle (useSheetDrag). */
