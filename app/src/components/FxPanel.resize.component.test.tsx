@@ -150,25 +150,24 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
       body.getBoundingClientRect().bottom - 16,
       0,
     );
+    // The Clip frame fills the height too, but its fields stay packed at the
+    // top rather than stretching down to its bottom edge.
     const fields = document.querySelectorAll<HTMLElement>(
       ".source-clip-properties__fields > *",
     );
-    expect(fields[2].getBoundingClientRect().bottom).toBeGreaterThan(
-      bottom(".source-clip-properties") - 40,
+    expect(bottom(".source-clip-properties")).toBeCloseTo(
+      bottom(".piano-roll"),
+      0,
     );
+    expect(
+      fields[1].getBoundingClientRect().top -
+        fields[0].getBoundingClientRect().bottom,
+    ).toBeCloseTo(8, 0);
 
     // Shorter, the roll gives up height before the body starts to scroll.
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
     await nextFrames();
     expect(height(".piano-roll__scroll")).toBeCloseTo(tallRoll - 32, 0);
     expect(body.scrollHeight).toBe(body.clientHeight);
-
-    // Once it scrolls, the Clip fields pack at the top, where they're in view.
-    await userEvent.keyboard("{Home}");
-    await expect.poll(() => body.hasAttribute("data-fits")).toBe(false);
-    expect(
-      fields[1].getBoundingClientRect().top -
-        fields[0].getBoundingClientRect().bottom,
-    ).toBeCloseTo(8, 0);
   });
 });
