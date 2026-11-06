@@ -1,0 +1,74 @@
+/* An input's off / on / map control: two joined icon segments. */
+.input-mode {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.input-mode__segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.input-mode__segment--off {
+  border-radius: 9px 0 0 9px;
+}
+
+.input-mode__segment--input {
+  border-left: 1px solid var(--line);
+  border-radius: 0 9px 9px 0;
+}
+
+.input-mode__segment:hover {
+  background: rgb(var(--tint) / 0.08);
+}
+
+.input-mode__segment:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.input-mode__segment svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.input-mode__segment--off[aria-pressed="true"] {
+  background: rgb(var(--tint) / 0.12);
+  color: var(--ink);
+}
+
+.input-mode[data-mode="on"] .input-mode__segment--input {
+  background: color-mix(in srgb, var(--fx-accent) 22%, transparent);
+  color: var(--fx-accent);
+}
+
+/* Map has a corner mark as well as its color. */
+.input-mode[data-mode="map"] .input-mode__segment--input {
+  background: color-mix(in srgb, var(--amber) 24%, transparent);
+  color: var(--amber);
+}
+
+.input-mode[data-mode="map"] .input-mode__segment--input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

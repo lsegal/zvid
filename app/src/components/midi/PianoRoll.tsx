@@ -58,8 +58,10 @@ import {
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
 import { ContextMenu } from "../ContextMenu";
+import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
+import { KeyInputControl, MidiInputControl } from "../InputModeControl";
 import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
 import "./midi-devices.css";
@@ -184,6 +186,8 @@ export function PianoRoll({
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const clock = useContext(FxModulationClockContext);
+  const keyMap = useKeyMapControls();
+  const midiMap = useContext(MidiMapContext);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
   const velocityLane = useVelocityLaneHeight();
   const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
@@ -576,10 +580,12 @@ export function PianoRoll({
       >
         <span className="fx-device-panel__name">Notes</span>
         <PianoRollMidiControls hub={midiHub} state={midi}>
-          <PianoRollKeyboardEntry
-            entry={keyboardEntry}
-            state={keyboardEntryState}
-          />
+          <PianoRollKeyboardEntry state={keyboardEntryState} />
+          {/* A phone has no top bar for these. */}
+          <div className="piano-roll__phone-inputs">
+            <KeyInputControl entry={keyboardEntry} map={keyMap} />
+            <MidiInputControl hub={midiHub} map={midiMap} />
+          </div>
         </PianoRollMidiControls>
         <button
           aria-expanded

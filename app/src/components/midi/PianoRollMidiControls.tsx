@@ -74,8 +74,8 @@ function deviceSelection({ enabled, device, access, inputs }: MidiInputState) {
   return { value: MISSING_DEVICE, options, disabled: false };
 }
 
-// The piano roll header's MIDI on/off toggle and device selector. With every
-// device on, the status beside them says which ones are playing the roll.
+// The piano roll header's MIDI device selector. With every device on, the
+// status beside it says which ones are playing the roll.
 export function PianoRollMidiControls({
   hub,
   state,
@@ -106,16 +106,6 @@ export function PianoRollMidiControls({
       data-piano-roll-midi-controls
     >
       {enabled && !device ? <PianoRollMidiStatus inputs={inputs} /> : null}
-      <button
-        aria-label="MIDI input"
-        aria-pressed={enabled}
-        className="piano-roll__midi-toggle"
-        onClick={() => hub.setEnabled(!enabled)}
-        title={enabled ? "Turn MIDI input off" : "Turn MIDI input on"}
-        type="button"
-      >
-        MIDI
-      </button>
       <Select
         aria-label="MIDI device"
         className="piano-roll__midi-device"

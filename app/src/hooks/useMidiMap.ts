@@ -72,7 +72,7 @@ function mapKeyOf(
 // MIDI Map mode and the mapped MIDI keys, and the Key Map's controls with it:
 // the effect buttons belong to whichever is mapping, and turning one on turns
 // the other off, so a click selects a button for one of them. The hub only
-// delivers what the MIDI toggle and device selection let through. It's only
+// delivers what the MIDI control and device selection let through. It's only
 // listened to while there's something to hear, so a session without mappings
 // doesn't ask for MIDI access on launch.
 export function useMidiMap({
@@ -280,18 +280,12 @@ export function useMidiMap({
     }
     setActive(next);
     setSelected(null);
-    if (!next) {
-      setStatus("MIDI Use mode.");
-    } else if (hub.getState().enabled) {
-      setStatus(
-        "MIDI Map mode: click an effect button, then press a MIDI key. Delete removes its key, Esc cancels.",
-      );
-    } else {
-      setStatus(
-        "MIDI Map mode: turn MIDI on in a piano roll's header to assign keys.",
-      );
-    }
-  }, [hub, setStatus]);
+    setStatus(
+      next
+        ? "MIDI Map: click an effect button, then press a MIDI key. Delete removes its key, Esc cancels."
+        : "MIDI Map off.",
+    );
+  }, [setStatus]);
 
   return useMemo(() => {
     const selectedId = selectedTarget && keyMapTargetId(selectedTarget);

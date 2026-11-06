@@ -723,6 +723,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 {...fxPanel}
                 {...layout}
                 keyMap={editing.keyMap}
+                midiMap={editing.midiMap}
                 sourceClip={sourceClip}
                 sheetHeader={
                   <PhoneFxSheetHeader

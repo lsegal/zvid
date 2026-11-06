@@ -358,7 +358,7 @@ test(
       midiInputHub.setEnabled(false);
       localStorage.removeItem(MIDI_INPUT_STORAGE_KEY);
     });
-    await userEvent.click(page.getByRole("button", { name: "MIDI input" }));
+    await userEvent.click(page.getByRole("button", { name: "MIDI on" }));
     await vi.waitFor(() => expect(port.onmidimessage).not.toBeNull());
     // A per-browser preference, not part of the session.
     expect(localStorage.getItem(MIDI_INPUT_STORAGE_KEY)).toContain("true");

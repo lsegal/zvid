@@ -12,6 +12,8 @@ import {
   MIDI_INPUT_STORAGE_KEY,
   type PrefsStorage,
 } from "../../midi-input/preferences.ts";
+import { INACTIVE_KEY_MAP } from "../fx/key-map-context";
+import { MidiInputControl } from "../InputModeControl";
 import { PianoRoll } from "./PianoRoll";
 
 // Turning MIDI on and off and choosing its device in the piano roll's header
@@ -67,32 +69,36 @@ async function renderRoll({
     storage,
   });
   await render(
-    <PianoRoll
-      collapsed={false}
-      midiHub={hub}
-      model={{
-        spanId: "clip",
-        label: "Bassline",
-        accent: "#7ca1ff",
-        notes,
-        startQ: 0,
-        trimStartQ: 0,
-        lengthQ: 8,
-        timeline: defaultMidiTimeline(8),
-        instrument: DEFAULT_INSTRUMENT,
-      }}
-      onAudition={(pitch) => {
-        auditions.push(pitch);
-      }}
-      onSetNotes={onSetNotes}
-      onSetTimeline={() => {}}
-      onToggleCollapsed={onToggleCollapsed}
-    />,
+    <>
+      <MidiInputControl hub={hub} map={INACTIVE_KEY_MAP} />
+      <PianoRoll
+        collapsed={false}
+        midiHub={hub}
+        model={{
+          spanId: "clip",
+          label: "Bassline",
+          accent: "#7ca1ff",
+          notes,
+          startQ: 0,
+          trimStartQ: 0,
+          lengthQ: 8,
+          timeline: defaultMidiTimeline(8),
+          instrument: DEFAULT_INSTRUMENT,
+        }}
+        onAudition={(pitch) => {
+          auditions.push(pitch);
+        }}
+        onSetNotes={onSetNotes}
+        onSetTimeline={() => {}}
+        onToggleCollapsed={onToggleCollapsed}
+      />
+    </>,
   );
   return { access, inputs, request, auditions, onSetNotes, onToggleCollapsed };
 }
 
-const toggle = () => page.getByRole("button", { name: "MIDI input" });
+const toggle = () => page.getByRole("button", { name: "MIDI on" });
+const off = () => page.getByRole("button", { name: "MIDI off" });
 const selector = () => page.getByRole("combobox", { name: "MIDI device" });
 const shown = () => selector().element().textContent;
 
@@ -128,7 +134,7 @@ test("MIDI starts off and asks for no permission until it's turned on", async ()
   press(port, 60);
   expect(roll.auditions).toEqual([60]);
 
-  await userEvent.click(toggle());
+  await userEvent.click(off());
   await expect.element(toggle()).toHaveAttribute("aria-pressed", "false");
   expect(port.onmidimessage).toBeNull();
   expect(roll.auditions).toEqual([60]);

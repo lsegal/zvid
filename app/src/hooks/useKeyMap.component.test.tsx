@@ -1,4 +1,11 @@
-import { afterEach, describe, expect, onTestFinished, test } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -19,14 +26,16 @@ import {
   GLOBAL_EFFECT_TRACK_ID,
   sourceClipEffectTrackId,
 } from "../fx-stack.ts";
-import { computerKeyboardEntry } from "../midi-input/computer-keyboard.ts";
+import {
+  COMPUTER_KEYBOARD_STORAGE_KEY,
+  computerKeyboardEntry,
+} from "../midi-input/computer-keyboard.ts";
 import { createMidiClip } from "../source-clip-edits.ts";
 
 // The Key Map (#1570): mapping keys to effect buttons, and what those keys
 // then do. A new session's Global Order is the mapped device.
 
-const toggleButton = () =>
-  page.getByRole("button", { name: "Key Map", exact: true });
+const toggleButton = () => page.getByRole("button", { name: /^Key (on|map)$/ });
 const orderPower = () =>
   page.getByRole("button", { name: /(Bypass|Enable) Order/ });
 const powerElement = () => orderPower().element();
@@ -65,7 +74,11 @@ async function mapOrderPower(key: string) {
 const reached: string[] = [];
 const recordKey = (event: KeyboardEvent) => reached.push(event.key);
 
+beforeEach(() => computerKeyboardEntry.setEnabled(true));
+
 afterEach(() => {
+  computerKeyboardEntry.setEnabled(false);
+  localStorage.removeItem(COMPUTER_KEYBOARD_STORAGE_KEY);
   window.removeEventListener("keydown", recordKey);
   reached.length = 0;
   for (const input of document.querySelectorAll("input[data-test-field]")) {
@@ -80,8 +93,8 @@ describe("Key Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     await toggleButton().click();
     await expect
-      .element(toggleButton())
-      .toHaveAttribute("aria-pressed", "true");
+      .element(page.getByRole("button", { name: "Key map" }))
+      .toBeVisible();
     await expect
       .element(orderPower())
       .toHaveAttribute("data-key-map", "mappable");
@@ -103,6 +116,17 @@ describe("Key Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     expect(state().project.keyMappings).toEqual([
       { key: "q", target: { kind: "power", effectId: expect.any(String) } },
     ]);
+  });
+
+  test("with key input off, a mapped key does nothing", async () => {
+    const state = await open();
+    await mapOrderPower("q");
+    await page.getByRole("button", { name: "Key off" }).click();
+    await userEvent.keyboard("q");
+    expect(orderEnabled(state())).toBe(true);
+    await page.getByRole("button", { name: "Key on" }).click();
+    await userEvent.keyboard("q");
+    await expect.poll(() => orderEnabled(state())).toBe(false);
   });
 
   test("a mapped letter holds back while the piano roll plays from the keyboard", async () => {

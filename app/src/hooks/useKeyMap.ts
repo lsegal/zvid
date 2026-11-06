@@ -174,8 +174,12 @@ export function useKeyMap({
     };
 
     const pressMappedKey = (event: KeyboardEvent) => {
-      // The piano roll is playing notes from the keyboard's letters.
-      if (computerKeyboardEntry.claimsKey(event)) {
+      // Key input is off, or the piano roll is playing notes from the
+      // keyboard's letters.
+      if (
+        !computerKeyboardEntry.getState().enabled ||
+        computerKeyboardEntry.claimsKey(event)
+      ) {
         return;
       }
       const { effects: current, keyMappings: mappings } = latestRef.current;

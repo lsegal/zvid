@@ -35,3 +35,7 @@ export const KeyMapContext = createContext(INACTIVE_KEY_MAP);
 export function useKeyMapControls() {
   return useContext(KeyMapContext);
 }
+
+// MIDI Map mode's switch, for the phone's piano roll header.
+export const MidiMapContext =
+  createContext<Pick<KeyMapControls, "active" | "toggle">>(INACTIVE_KEY_MAP);
