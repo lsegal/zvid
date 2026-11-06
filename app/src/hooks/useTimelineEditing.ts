@@ -48,6 +48,7 @@ export type TimelineEditingInputs = {
   store: Pick<
     ProjectStore,
     | "commitProjectChange"
+    | "amendProject"
     | "dispatchProject"
     | "canUndo"
     | "canRedo"
@@ -177,6 +178,7 @@ export function useTimelineEditing({
   } = project;
   const {
     commitProjectChange,
+    amendProject,
     dispatchProject,
     canUndo,
     canRedo,
@@ -538,6 +540,7 @@ export function useTimelineEditing({
     effects: project.effects,
     midiMappings: project.midiMappings,
     commitProjectChange,
+    amendProject,
     editEffects: fxEditing.editEffects,
     setStatus,
   });

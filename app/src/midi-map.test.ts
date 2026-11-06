@@ -5,6 +5,7 @@ import type { KeyMapTarget } from "./key-map.ts";
 import {
   assignMidiMapping,
   findMidiMapping,
+  learnMidiMappingsMpe,
   type MidiMapKey,
   type MidiMapping,
   midiMappingMatches,
@@ -71,6 +72,36 @@ describe("midiMappingMatches", () => {
   it("matches in the zone from the first press when assigned from MPE", () => {
     const assigned = { ...mapping(60, 2), mpe: true as const };
     assert.equal(midiMappingMatches(assigned, key(60, 9)), true);
+  });
+});
+
+describe("learning that a mapping is MPE", () => {
+  const assigned = { ...mapping(60, 2), mpe: true as const };
+
+  it("marks a mapping an MPE device plays, wherever in the zone", () => {
+    const mappings = [mapping(60, 2), mapping(62, 2)];
+    assert.deepEqual(learnMidiMappingsMpe(mappings, key(60, 9, true)), [
+      assigned,
+      mapping(62, 2),
+    ]);
+    assert.deepEqual(learnMidiMappingsMpe(mappings, key(60, 2, true)), [
+      assigned,
+      mapping(62, 2),
+    ]);
+  });
+
+  it("leaves mappings as they are when there's nothing to learn", () => {
+    const mappings = [mapping(60, 2), assigned];
+    for (const pressed of [
+      key(60, 2),
+      key(62, 9, true),
+      { ...key(60, 2, true), zoneOf: () => undefined },
+    ]) {
+      assert.equal(learnMidiMappingsMpe(mappings, pressed), mappings);
+    }
+    const known = [assigned];
+    assert.equal(learnMidiMappingsMpe(known, key(60, 9, true)), known);
+    assert.equal(learnMidiMappingsMpe(undefined, key(60, 9, true)), undefined);
   });
 });
 

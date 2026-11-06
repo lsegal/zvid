@@ -42,6 +42,26 @@ export function midiMappingMatches(mapping: MidiMapping, key: MidiMapKey) {
   return zone !== undefined && zone === key.zoneOf(mapping.channel);
 }
 
+/**
+ * `mappings` with those `key` plays marked as MPE, once its device has shown it
+ * plays MPE: the same array when none need it.
+ */
+export function learnMidiMappingsMpe(
+  mappings: readonly MidiMapping[] | undefined,
+  key: MidiMapKey,
+) {
+  if (!key.isMpe || key.zoneOf(key.channel) === undefined) {
+    return mappings;
+  }
+  const learns = (mapping: MidiMapping) =>
+    !mapping.mpe && midiMappingMatches(mapping, key);
+  return mappings?.some(learns)
+    ? mappings.map((mapping) =>
+        learns(mapping) ? { ...mapping, mpe: true as const } : mapping,
+      )
+    : mappings;
+}
+
 export function findMidiMapping(
   mappings: readonly MidiMapping[] | undefined,
   target: KeyMapTarget,

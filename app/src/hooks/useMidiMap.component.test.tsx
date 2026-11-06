@@ -8,8 +8,9 @@ import {
   vi,
 } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { cleanup } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
-import { patchProjectState } from "../app/session-project.ts";
+import { patchProjectState, sessionToProject } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
   EDITOR_TEST_TIMEOUT,
@@ -19,7 +20,7 @@ import {
   withTestPatternTrack,
 } from "../component-test/editor.tsx";
 import { mediaItem, withDroppedMedia } from "../component-test/fx-projects.ts";
-import { undo } from "../component-test/input.ts";
+import { redo, undo } from "../component-test/input.ts";
 import { DRUM_RACK_EFFECT_NAME } from "../fx/effects/drum-rack/drum-rack.ts";
 import {
   createEffect,
@@ -34,6 +35,7 @@ import {
 } from "../midi-input/input-hub.ts";
 import { mpeInputFor } from "../midi-input/mpe.ts";
 import { MIDI_INPUT_STORAGE_KEY } from "../midi-input/preferences.ts";
+import { projectToSession } from "../session-save.ts";
 import { createMidiClip } from "../source-clip-edits.ts";
 
 // The MIDI Map (#1571): mapping MIDI keys to effect buttons, and what those
@@ -265,6 +267,40 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     }
     // A piano roll's own reading of the device is left to it.
     expect(mpeInputFor(midiInputHub, keysPort.id).isActive()).toBe(false);
+  });
+
+  test("a mapping assigned before a device turned out to be MPE works from the first press after a reload", async () => {
+    const state = await open();
+    await mapOrderPower(C4, 2);
+    expect(state().project.midiMappings?.[0]?.mpe).toBeUndefined();
+
+    // The second channel shows the device plays MPE, with no step of its own:
+    // undoing the press leaves only the assignment's step, and keeps what
+    // was learned.
+    tap(keysPort, C4, 3);
+    await expect.poll(() => orderOf(state())?.enabled).toBe(false);
+    expect(state().project.midiMappings?.[0]?.mpe).toBe(true);
+    await undo();
+    await expect.poll(() => orderOf(state())?.enabled).toBe(true);
+    expect(state().project.midiMappings?.[0]?.mpe).toBe(true);
+    await undo();
+    await expect.poll(() => state().project.midiMappings).toBeUndefined();
+    expect(state().canUndo).toBe(false);
+    await redo();
+    await expect.poll(() => state().project.midiMappings?.[0]?.mpe).toBe(true);
+
+    const { project } = state();
+    const session = JSON.parse(
+      JSON.stringify(projectToSession(project, { playheadQ: 0 })),
+    );
+    const { midiMappings } = sessionToProject(session, []);
+    await cleanup();
+
+    // A new listener, which hasn't seen the device play MPE.
+    const reloaded = await open({ ...project, midiMappings });
+    await vi.waitFor(() => expect(keysPort.onmidimessage).not.toBeNull());
+    tap(keysPort, C4, 5);
+    await expect.poll(() => orderOf(reloaded())?.enabled).toBe(false);
   });
 
   test("a mapped Drum Rack pad presses on Note On and releases on Note Off", async () => {
