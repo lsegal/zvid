@@ -12,7 +12,11 @@ import {
 } from "../../component-test/editor.tsx";
 import { redo, undo } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
-import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
+import {
+  DEFAULT_INSTRUMENT,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { addDefaultSynth } from "../../midi-effects.ts";
@@ -506,7 +510,7 @@ test("a recorded bend, swell and slide are heard, the same each render", async (
   const instrument = {
     kind: "synth" as const,
     params: {
-      ...DEFAULT_INSTRUMENT.params,
+      ...DEFAULT_SYNTH_PARAMS,
       wave: "sine" as const,
       cutoff: 20_000,
     },
@@ -549,7 +553,7 @@ test("a recorded bend, swell and slide are heard, the same each render", async (
   // A sawtooth's harmonics through the filter a slide closes.
   const saw = {
     kind: "synth" as const,
-    params: { ...DEFAULT_INSTRUMENT.params, cutoff: 1000 },
+    params: { ...DEFAULT_SYNTH_PARAMS, cutoff: 1000 },
   };
   const sawRender = async (expression?: MidiNote["expression"]) =>
     slice(

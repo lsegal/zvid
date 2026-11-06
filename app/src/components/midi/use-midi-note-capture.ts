@@ -173,6 +173,11 @@ export function useMidiNoteCapture({
     return () => {
       stopListening();
       finishAll(lastQ.current);
+      // The hub no longer tells this listener about keys coming up.
+      for (const { inputId } of pressed.current.values()) {
+        mpeInputFor(hub, inputId).releaseAll();
+      }
+      pressed.current.clear();
     };
   }, [enabled, hub, finish, finishAll]);
 
