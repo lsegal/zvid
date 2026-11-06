@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { expect, test, vi } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
@@ -23,7 +23,9 @@ import { addDefaultSynth } from "../../midi-effects.ts";
 import {
   createMidiInputHub,
   type MidiInputPort,
+  midiInputHub,
 } from "../../midi-input/input-hub.ts";
+import { MIDI_INPUT_STORAGE_KEY } from "../../midi-input/preferences.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import { PianoRoll } from "./PianoRoll";
@@ -91,6 +93,10 @@ async function renderRoll({
   const hub = createMidiInputHub({
     requestAccess: async () => access,
     loadMappings: async () => [MAPPED],
+    storage: {
+      getItem: () => JSON.stringify({ enabled: true }),
+      setItem: () => {},
+    },
   });
   let setPlaying: (next: boolean) => void = () => {};
   function Roll() {
@@ -345,7 +351,18 @@ test(
     await expect
       .element(page.getByRole("region", { name: "Bassline notes" }))
       .toBeVisible();
+    // MIDI starts off, and isn't asked for until it's turned on.
+    expect(port.onmidimessage).toBeNull();
+    const before = state;
+    onTestFinished(() => {
+      midiInputHub.setEnabled(false);
+      localStorage.removeItem(MIDI_INPUT_STORAGE_KEY);
+    });
+    await userEvent.click(page.getByRole("button", { name: "MIDI input" }));
     await vi.waitFor(() => expect(port.onmidimessage).not.toBeNull());
+    // A per-browser preference, not part of the session.
+    expect(localStorage.getItem(MIDI_INPUT_STORAGE_KEY)).toContain("true");
+    expect(state).toBe(before);
     const send = (...bytes: number[]) =>
       port.onmidimessage?.({ data: new Uint8Array(bytes) });
 
@@ -591,6 +608,10 @@ test("an audition follows its key's expression", async () => {
   const hub = createMidiInputHub({
     requestAccess: async () => access,
     loadMappings: async () => [],
+    storage: {
+      getItem: () => JSON.stringify({ enabled: true }),
+      setItem: () => {},
+    },
   });
   const started: unknown[] = [];
   const screen = await render(

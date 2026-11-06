@@ -35,11 +35,12 @@ type PressedKey = {
 // its pitch, and while the transport plays inside `clip` it also writes a
 // note, handed to `onCapture` when the key comes up. The transport stopping
 // or the playhead jumping back ends the held notes where the playhead was,
-// and so does the device going away or the roll closing. Returns the notes
-// held so far and the connected inputs. A device playing MPE (see
-// midi-input/mpe.ts) shapes each key's audition and note by its own channel,
-// and holds the audition until the key comes up, the device goes away or the
-// roll closes. Once a device is shown to play MPE, so do the keys it has down.
+// and so does the device going away, MIDI turning off or the roll closing.
+// The hub decides which ports play. Returns the notes held so far and the
+// hub's state. A device playing MPE (see midi-input/mpe.ts) shapes each key's
+// audition and note by its own channel, and holds the audition until the key
+// comes up, the device goes away, MIDI turns off or the roll closes. Once a
+// device is shown to play MPE, so do the keys it has down.
 export function useMidiNoteCapture({
   enabled,
   hub,
@@ -60,7 +61,7 @@ export function useMidiNoteCapture({
   onCapture: (note: MidiNote) => void;
 }) {
   const [heldNotes, setHeldNotes] = useState(NOT_HELD);
-  const inputs = useSyncExternalStore(hub.subscribeInputs, hub.getInputs);
+  const midi = useSyncExternalStore(hub.subscribe, hub.getState);
   const latest = useRef({ clip, clock, onAudition, onCapture });
   latest.current = { clip, clock, onAudition, onCapture };
   const signal = clock?.signal;
@@ -228,5 +229,5 @@ export function useMidiNoteCapture({
     }
   }, [isPlaying, finishAll]);
 
-  return { heldNotes, inputs };
+  return { heldNotes, midi };
 }
