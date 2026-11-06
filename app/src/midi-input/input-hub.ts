@@ -1,13 +1,15 @@
 // The app's connection to the MIDI ports: asks for Web MIDI once, the first
 // time anything listens, and keeps a handler on each connected input as
-// devices come and go. Without Web MIDI, or without permission, it simply
-// never has any inputs.
+// devices come and go. The desktop app's webviews without Web MIDI read the
+// ports natively instead (native-access.ts). Without either, or without
+// permission, it simply never has any inputs.
 import {
   loadDeviceMappings,
   type MidiDeviceMapping,
   matchDeviceMapping,
 } from "./device-mappings.ts";
 import { type MidiMessage, parseMidiMessage } from "./messages.ts";
+import { requestDesktopAccess } from "./native-access.ts";
 
 // The parts of Web MIDI's MIDIAccess and MIDIInput the hub uses.
 export type MidiInputPort = {
@@ -43,7 +45,7 @@ export type MidiInputHub = {
 const NO_INPUTS: readonly MidiInputInfo[] = [];
 
 export function createMidiInputHub({
-  requestAccess = requestBrowserAccess,
+  requestAccess = requestPlatformAccess,
   loadMappings = loadDeviceMappings,
 }: {
   requestAccess?: () => Promise<MidiAccessLike | undefined>;
@@ -165,11 +167,11 @@ export function createMidiInputHub({
   };
 }
 
-function requestBrowserAccess() {
+function requestPlatformAccess() {
   const request = globalThis.navigator?.requestMIDIAccess;
   return request
     ? (request.call(navigator) as unknown as Promise<MidiAccessLike>)
-    : Promise.resolve(undefined);
+    : requestDesktopAccess();
 }
 
 export const midiInputHub = createMidiInputHub();
