@@ -345,10 +345,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`\n- `allow-chatgpt`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`\n- `allow-chatgpt`\n- `allow-midi`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`\n- `allow-chatgpt`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-list-font-families`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-agent-relay`\n- `allow-chatgpt`\n- `allow-midi`"
         },
         {
           "description": "Enables the agent_relay_ready and agent_relay_respond commands.",
@@ -373,6 +373,12 @@
           "type": "string",
           "const": "allow-list-font-families",
           "markdownDescription": "Enables the list_font_families command."
+        },
+        {
+          "description": "Enables reading MIDI input where the webview has no Web MIDI.",
+          "type": "string",
+          "const": "allow-midi",
+          "markdownDescription": "Enables reading MIDI input where the webview has no Web MIDI."
         },
         {
           "description": "Enables the open_session command.",

@@ -45,6 +45,11 @@ commands.allow = [
   "chatgpt_respond",
 ]
 
+[[permission]]
+identifier = "allow-midi"
+description = "Enables reading MIDI input where the webview has no Web MIDI."
+commands.allow = ["midi_start", "midi_open", "midi_close"]
+
 [default]
 description = "Default application permissions."
 permissions = [
@@ -56,4 +61,5 @@ permissions = [
   "allow-write-file-bytes",
   "allow-agent-relay",
   "allow-chatgpt",
+  "allow-midi",
 ]
