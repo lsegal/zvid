@@ -3,10 +3,14 @@ import { describe, it } from "node:test";
 import { warpSourceTime } from "../clip-warp.ts";
 import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
 import {
+  createEffect,
+  GLOBAL_EFFECT_TRACK_ID,
+  removeEffect,
   type SessionEffect,
   setEffectParameter,
   sourceClipEffectTrackId,
 } from "../fx-stack.ts";
+import type { KeyMapping } from "../key-map.ts";
 import type { MediaItem } from "../media.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { midiChainOf } from "../midi-effects.ts";
@@ -28,7 +32,7 @@ import {
   sessionToProject,
 } from "./session-project.ts";
 import { quartersToSeconds } from "./timeline-math.ts";
-import type { SourceSpan } from "./types.ts";
+import type { ProjectState, SourceSpan } from "./types.ts";
 
 const media = (extra: Partial<MediaItem> = {}): MediaItem => ({
   id: "a",
@@ -479,6 +483,85 @@ describe("source track lock", () => {
       const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
       assert.equal(sessionToProject(reopened, []).sourceTracksLocked, locked);
     }
+  });
+});
+
+describe("key mappings in a session", () => {
+  const session: ProjectSession = {
+    tracks: [{ id: "1", name: "Layer 1", colorIndex: 0 }],
+    effects: [{ id: "gain", trackId: "1", effectName: "Gain", parameters: {} }],
+    timeline: { bpm: 120, fps: 30 },
+  };
+  const mapping = {
+    key: "q",
+    target: { kind: "power", effectId: "gain" },
+  } as const;
+  const save = (keyMappings?: readonly KeyMapping[]) => {
+    const project = sessionToProject({ ...session, keyMappings }, []);
+    return projectToSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        clips: project.arrangementClips,
+        timelineMode: "musical",
+        snapEnabled: true,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+  };
+
+  it("survive a save and reopen", () => {
+    const saved = save([mapping]);
+    assert.deepEqual(saved.keyMappings, [mapping]);
+    const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
+    assert.deepEqual(sessionToProject(reopened, []).keyMappings, [mapping]);
+  });
+
+  it("are left out of a session without any, which opens without any", () => {
+    assert.equal(sessionToProject(session, []).keyMappings, undefined);
+    assert.equal("keyMappings" in save(), false);
+  });
+
+  it("drop those of effects the session doesn't have", () => {
+    const stale = { key: "w", target: { kind: "power", effectId: "gone" } };
+    const opened = sessionToProject(
+      { ...session, keyMappings: [mapping, stale as KeyMapping] },
+      [],
+    );
+    assert.deepEqual(opened.keyMappings, [mapping]);
+  });
+
+  it("go when their effect does, in the same change", () => {
+    const project: ProjectState = {
+      ...INITIAL_PROJECT_STATE,
+      keyMappings: [mapping],
+      effects: [
+        createEffect(GLOBAL_EFFECT_TRACK_ID, "Gain", "gain"),
+        createEffect(GLOBAL_EFFECT_TRACK_ID, "Gain", "other"),
+      ],
+    };
+    const kept = patchProjectState(project, {
+      effects: removeEffect(project.effects, "other"),
+    });
+    assert.equal(kept.keyMappings, project.keyMappings);
+    const removed = patchProjectState(project, {
+      effects: removeEffect(project.effects, "gain"),
+    });
+    assert.equal(removed.keyMappings, undefined);
+  });
+
+  it("are replaced, not kept, by an opened session without any", () => {
+    const project: ProjectState = {
+      ...INITIAL_PROJECT_STATE,
+      keyMappings: [mapping],
+      effects: [createEffect(GLOBAL_EFFECT_TRACK_ID, "Gain", "gain")],
+    };
+    const opened = patchProjectState(project, {
+      effects: [...project.effects],
+      keyMappings: undefined,
+    });
+    assert.equal(opened.keyMappings, undefined);
   });
 });
 

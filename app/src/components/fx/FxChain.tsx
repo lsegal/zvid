@@ -51,6 +51,7 @@ import { useDeviceDrag } from "./use-device-drag";
 import { useWheelScrollX } from "./use-wheel-scroll-x";
 import "./fx-chain.css";
 import "./fx-device-title.css";
+import "./key-map.css";
 
 export type FxChainProps = {
   devices: FxDevice[];

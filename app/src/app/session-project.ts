@@ -8,6 +8,7 @@ import {
   pruneClipEffects,
   pruneSourceEffects,
 } from "../fx-stack.ts";
+import { pruneKeyMappings, readKeyMappings } from "../key-map.ts";
 import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes } from "../midi-clip.ts";
@@ -149,6 +150,16 @@ export function patchProjectState(
     const fitted = fitSourceSpansToMedia(sourceSpans, patch.mediaItems);
     if (fitted !== sourceSpans) {
       patch = { ...patch, sourceSpans: fitted };
+    }
+  }
+
+  // And effects that are gone take their mapped keys with them.
+  if (patch.effects) {
+    const keyMappings =
+      "keyMappings" in patch ? patch.keyMappings : current.keyMappings;
+    const pruned = pruneKeyMappings(keyMappings, patch.effects);
+    if (pruned !== keyMappings) {
+      patch = { ...patch, keyMappings: pruned };
     }
   }
 
@@ -465,6 +476,7 @@ export function sessionToProject(
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
     sourceTracksLocked: session.sourceTracksLocked === true,
+    keyMappings: readKeyMappings(session.keyMappings, audio.effects),
     unresolvedPaths,
     overlapNote: formatOverlapNote(overlaps),
   };

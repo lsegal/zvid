@@ -3,6 +3,7 @@ import { customLutMediaPaths } from "./fx/effects/lut/lut.ts";
 import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
+import type { KeyMapping } from "./key-map.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
 import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
 import type { NoteGenerator } from "./note-generators.ts";
@@ -166,6 +167,8 @@ export type ProjectSession = {
    * from the start of the file.
    */
   mediaRanges?: Array<{ path: string; inSeconds: number; outSeconds: number }>;
+  /** zvid-only: computer keys mapped to buttons in effect devices. */
+  keyMappings?: readonly KeyMapping[];
   // Set on sessions saved since every session got a default Order effect;
   // without it the session is older and opens with one added. Anything that
   // writes a session must set it, or a removed Order comes back on open.

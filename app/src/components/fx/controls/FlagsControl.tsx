@@ -1,4 +1,5 @@
 import { toggleStyleFlag } from "../../../text-style";
+import { useKeyMapControls } from "../key-map-context";
 import type { FxParameterControlProps } from "../types";
 
 export function FlagsControl({
@@ -6,6 +7,7 @@ export function FlagsControl({
   parameter,
   onSetParameter,
 }: FxParameterControlProps) {
+  const keyMap = useKeyMapControls();
   const value = parameter.stringValue ?? "";
   const on = new Set(value.split(","));
   return (
@@ -28,6 +30,12 @@ export function FlagsControl({
             }
             title={flag.title}
             type="button"
+            {...keyMap.buttonProps({
+              kind: "flag",
+              effectId: device.id,
+              parameter: parameter.key,
+              value: flag.value,
+            })}
           >
             {flag.label}
           </button>

@@ -446,6 +446,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         {...fileMenu}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
+        keyMap={editing.keyMap}
         renamingLaneIdRef={selection.renamingLaneIdRef}
         setStatus={setStatus}
       />
@@ -720,6 +721,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 {...fxEditing}
                 {...fxPanel}
                 {...layout}
+                keyMap={editing.keyMap}
                 sourceClip={sourceClip}
                 sheetHeader={
                   <PhoneFxSheetHeader

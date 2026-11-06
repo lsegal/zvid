@@ -1,6 +1,7 @@
 import type { ClipWarp } from "../clip-warp.ts";
 import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
+import type { KeyMapping } from "../key-map.ts";
 import type {
   LaneSelectionGesture,
   SelectionEditKind,
@@ -283,6 +284,9 @@ export type ProjectState = {
   // When set, source clips can't be moved, resized or retimed and source
   // tracks can't be deleted or reordered. Unset reads as unlocked.
   sourceTracksLocked?: boolean;
+  // Computer keys mapped to buttons in effect devices. Unset when there are
+  // none.
+  keyMappings?: readonly KeyMapping[];
   // Set on every state since sessions got a default Order effect. A restored
   // workspace saved without it is older and gets that Order added.
   orderDefaulted?: boolean;

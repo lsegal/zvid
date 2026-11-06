@@ -201,6 +201,7 @@ export function useSessionIO({
         effects: project.effects,
         projectDurationFrames: project.projectDurationFrames,
         sourceTracksLocked: project.sourceTracksLocked,
+        keyMappings: project.keyMappings,
       }),
     );
     // A session opened from a file is saved as it stands. A sample or an
