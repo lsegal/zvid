@@ -64,7 +64,7 @@
   right: 0;
   bottom: 0;
   height: var(--loop-strip-height);
-  background: var(--bg-elevated);
+  background: light-dark(rgb(222, 225, 232), var(--bg-elevated));
   border-top: 1px solid var(--line-strong);
   box-sizing: border-box;
   /* The lanes' drag-to-select cursor. */

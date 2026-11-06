@@ -107,22 +107,22 @@ describe("light theme dark surfaces", () => {
   );
 
   test(
-    "the ruler and Audio lane are dark in the light theme",
+    "the loop strip and Audio lane are light but not white in the light theme",
     async () => {
       await renderIn("light");
-      for (const selector of [
-        ".ruler-row__content",
-        ".ruler-loop-strip",
-        ".track-row--bus",
-      ]) {
+      const scrubArea = luminance(colors(".ruler-row__content").background);
+      for (const selector of [".ruler-loop-strip", ".track-row--bus"]) {
         const { background, ink } = colors(selector);
-        expect(luminance(background), selector).toBeLessThan(0.05);
+        // Darker than the ruler's scrub area, which is itself off-white, but
+        // still a light surface with the light theme's ink.
+        expect(luminance(background), selector).toBeLessThan(scrubArea);
+        expect(luminance(background), selector).toBeGreaterThan(0.5);
         expect(contrast(ink, background), selector).toBeGreaterThan(7);
       }
       expect(
         getComputedStyle(query(".track-row--bus .track-row__content"))
           .colorScheme,
-      ).toBe("dark");
+      ).toBe("light");
     },
     EDITOR_TEST_TIMEOUT,
   );

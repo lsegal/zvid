@@ -197,7 +197,6 @@ export function Ruler({
         className={`ruler-row__content ruler-row__content--interactive ${
           timelineDragState ? "is-dragging" : ""
         }`}
-        data-theme="dark"
         onPointerDown={(event) => {
           const timelineScroll = timelineScrollRef.current;
           // Only the primary button scrubs; the others pan the
