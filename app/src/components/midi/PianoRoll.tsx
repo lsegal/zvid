@@ -11,8 +11,13 @@ import {
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
-import { auditionNote } from "../../midi-audition.ts";
-import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
+import { type AuditionVoice, auditionNote } from "../../midi-audition.ts";
+import {
+  type ExpressionSample,
+  expressionSampleAtStart,
+  type MidiInstrument,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { type MidiInputHub, midiInputHub } from "../../midi-input/input-hub.ts";
@@ -55,7 +60,7 @@ import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
 import "./midi-devices.css";
 import { PianoRollHeldNote } from "./PianoRollHeldNotes";
-import { PianoRollMidiStatus } from "./PianoRollMidiStatus";
+import { isMidiControl, PianoRollMidiControls } from "./PianoRollMidiControls";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
@@ -82,7 +87,12 @@ type PianoRollProps = {
   onSetNotes: SetMidiClipNotes;
   onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's Synth; tests listen instead.
-  onAudition?: (pitch: number, instrument: MidiInstrument) => void;
+  onAudition?: (
+    pitch: number,
+    instrument: MidiInstrument,
+    expression?: ExpressionSample,
+    hold?: boolean,
+  ) => AuditionVoice | undefined;
   // Where MIDI keys come from; tests play a simulated device through it.
   midiHub?: MidiInputHub;
 };
@@ -149,7 +159,7 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // resizable velocity lane along the bottom edits the notes' velocities (see
 // PianoRollVelocity). While the roll is open, MIDI keys audition their pitch
 // and, while the transport plays, write notes at the playhead, each one undo
-// step (see use-midi-note-capture.ts).
+// step (see use-midi-note-capture.ts), once MIDI is on in the header.
 export function PianoRoll({
   model,
   collapsed,
@@ -205,20 +215,30 @@ export function PianoRoll({
     }
   }, [spanId, collapsed]);
 
-  const audition = (pitch: number) => onAudition(pitch, instrument);
+  const audition = (
+    pitch: number,
+    expression?: ExpressionSample,
+    hold = false,
+  ) =>
+    expression || hold
+      ? onAudition(pitch, instrument, expression, hold)
+      : onAudition(pitch, instrument);
+  // A note clicked on sounds as it starts.
+  const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
+    audition(pitch, expression && expressionSampleAtStart(expression));
 
   // The clip's notes with the captures not yet back from the session, since
   // a chord's keys come up faster than the roll re-renders.
   const capturedNotes = useRef(notes);
   capturedNotes.current = notes;
-  const { heldNotes, inputs } = useMidiNoteCapture({
+  const { heldNotes, midi } = useMidiNoteCapture({
     enabled: !collapsed,
     hub: midiHub,
     clip: model,
     clock,
-    onAudition(pitch) {
-      audition(pitch);
+    onAudition(pitch, expression, hold) {
       revealPitch(pitch);
+      return audition(pitch, expression, hold);
     },
     onCapture(note) {
       const next = placeNote(
@@ -281,7 +301,7 @@ export function PianoRoll({
       if (!from) {
         return;
       }
-      audition(from.pitch);
+      auditionNoteFrom(from);
       const key = noteKey(from);
       if (event.shiftKey) {
         select(
@@ -462,7 +482,7 @@ export function PianoRoll({
   // The note action keys act on the selected notes, and Escape clears the
   // selection, unless a note's own button handled the key.
   function handlePanelKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.defaultPrevented || drag) {
+    if (event.defaultPrevented || drag || isMidiControl(event.target)) {
       return;
     }
     const action = noteActionForKey(event, mac);
@@ -530,13 +550,16 @@ export function PianoRoll({
         className="fx-device-panel__title"
         data-theme="dark"
         onDoubleClick={(event) => {
-          if (!(event.target as HTMLElement).closest("button")) {
+          if (
+            !(event.target as HTMLElement).closest("button") &&
+            !isMidiControl(event.target)
+          ) {
             onToggleCollapsed();
           }
         }}
       >
         <span className="fx-device-panel__name">Notes</span>
-        <PianoRollMidiStatus inputs={inputs} />
+        <PianoRollMidiControls hub={midiHub} state={midi} />
         <button
           aria-expanded
           aria-label="Collapse Notes"
@@ -614,7 +637,7 @@ export function PianoRoll({
                     removeNote(index);
                   } else if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    audition(note.pitch);
+                    auditionNoteFrom(note);
                   }
                 }}
                 style={{

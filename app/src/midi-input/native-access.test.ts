@@ -29,13 +29,17 @@ const KEYS = { id: "1", name: "Keys" };
 const PADS = { id: "2", name: "Pads" };
 
 function inputIds(hub: ReturnType<typeof createMidiInputHub>) {
-  return hub.getInputs().map(({ id }) => id);
+  return hub.getState().inputs.map(({ id }) => id);
 }
 
 async function listeningHub(bridge: NativeMidiBridge) {
   const hub = createMidiInputHub({
     requestAccess: () => createNativeMidiAccess(bridge),
     loadMappings: async () => [],
+    storage: {
+      getItem: () => JSON.stringify({ enabled: true }),
+      setItem: () => {},
+    },
   });
   const messages: [string, MidiMessage][] = [];
   const disconnected: string[] = [];

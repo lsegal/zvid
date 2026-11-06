@@ -2,7 +2,7 @@
 // are a MIDI clip's (see midi-clip.ts): `start` and `length` in quarter notes
 // from the clip's content start, so the clip's visible window starts
 // `trimStartQ` quarters in.
-import type { MidiNote } from "./midi-clip.ts";
+import { type MidiNote, withNoteStartMoved } from "./midi-clip.ts";
 
 // Edits snap to sixteenth notes.
 export const PIANO_ROLL_SNAP_Q = 0.25;
@@ -140,7 +140,7 @@ export function resizeNote(
       0,
       Math.min(endQ - PIANO_ROLL_SNAP_Q, snapped(from.start + deltaQ)),
     );
-    return { ...note, start, length: endQ - start };
+    return withNoteStartMoved({ ...note, ...from }, start - from.start);
   });
 }
 
@@ -202,7 +202,7 @@ export function placeNote(
       }
       return left >= right
         ? [{ ...note, length: left }]
-        : [{ ...note, start: placedEnd, length: right }];
+        : [withNoteStartMoved(note, placedEnd - note.start)];
     }),
   );
 }
@@ -239,7 +239,7 @@ export function placeNotes(
       }
       return left >= right
         ? [{ ...other, length: left }]
-        : [{ ...other, start: end, length: right }];
+        : [withNoteStartMoved(other, end - other.start)];
     });
   }
   return sortNotes([
@@ -376,7 +376,8 @@ export function sameNotes(
         note.pitch === other.pitch &&
         note.start === other.start &&
         note.length === other.length &&
-        note.velocity === other.velocity
+        note.velocity === other.velocity &&
+        JSON.stringify(note.expression) === JSON.stringify(other.expression)
       );
     })
   );

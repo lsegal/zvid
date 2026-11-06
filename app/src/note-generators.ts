@@ -3,7 +3,7 @@
 // clip's notes through them before rendering it (see audio-mix/resolve.ts
 // and midi-effects.ts), so preview and export hear the same performance. A
 // disabled generator passes its notes through unchanged.
-import type { MidiNote } from "./midi-clip.ts";
+import { type MidiNote, shiftedExpression } from "./midi-clip.ts";
 
 export const ARP_RATES = [1, 0.5, 0.25, 0.125] as const;
 export const ARP_PATTERNS = ["up", "down", "up-down", "random"] as const;
@@ -164,6 +164,9 @@ export function arpeggiate(
       start: time,
       length: Math.min(step, note.start + note.length - time),
       velocity: note.velocity,
+      ...(note.expression
+        ? { expression: shiftedExpression(note.expression, time - note.start) }
+        : {}),
     });
   }
   return played;
