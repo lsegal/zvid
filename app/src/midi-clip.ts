@@ -6,6 +6,32 @@
 // be linked to, since the import does not read their notes.
 
 /**
+ * A point of a note's expression: `at` quarter notes from the note's start,
+ * so it follows the note and the tempo. A curve ramps linearly from point to
+ * point and holds its first and last values beyond them.
+ */
+export type ExpressionPoint = { at: number; value: number };
+
+/**
+ * What a note does over time, as played on an MPE device (see
+ * midi-input/mpe.ts): `bend` in semitones from the note's pitch, `pressure`
+ * from 0 to 1, and `timbre` (MPE's slide) from 0 to 1. A note without a curve
+ * sounds as a note with no expression does.
+ */
+export type NoteExpression = {
+  bend?: readonly ExpressionPoint[];
+  pressure?: readonly ExpressionPoint[];
+  timbre?: readonly ExpressionPoint[];
+};
+
+/** A note's expression at one moment. */
+export type ExpressionSample = {
+  bend: number;
+  pressure?: number;
+  timbre?: number;
+};
+
+/**
  * A note of a MIDI clip. `start` and `length` are in quarter notes, `start`
  * from the clip's content start, so the clip's notes follow the tempo and
  * trimming its start hides the notes before the new start. `pitch` is a MIDI
@@ -16,6 +42,7 @@ export type MidiNote = {
   start: number;
   length: number;
   velocity: number;
+  expression?: NoteExpression;
 };
 
 export const SYNTH_WAVES = ["sine", "triangle", "sawtooth", "square"] as const;
@@ -147,6 +174,108 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+const EXPRESSION_RANGES = {
+  bend: { min: -192, max: 192 },
+  pressure: { min: 0, max: 1 },
+  timbre: { min: 0, max: 1 },
+};
+const EXPRESSION_CURVES = ["bend", "pressure", "timbre"] as const;
+
+/** `curve`'s value `at` quarter notes from its note's start. */
+export function expressionValueAt(
+  curve: readonly ExpressionPoint[],
+  at: number,
+) {
+  let index = 0;
+  while (index < curve.length && curve[index].at <= at) {
+    index++;
+  }
+  const after = curve[index];
+  const before = curve[index - 1];
+  if (!before || !after) {
+    return (before ?? after).value;
+  }
+  const along = (at - before.at) / (after.at - before.at);
+  return before.value + (after.value - before.value) * along;
+}
+
+/** What `expression` is at its note's start. */
+export function expressionSampleAtStart({
+  bend,
+  pressure,
+  timbre,
+}: NoteExpression): ExpressionSample {
+  return {
+    bend: bend ? expressionValueAt(bend, 0) : 0,
+    ...(pressure ? { pressure: expressionValueAt(pressure, 0) } : {}),
+    ...(timbre ? { timbre: expressionValueAt(timbre, 0) } : {}),
+  };
+}
+
+/**
+ * `note` starting `byQ` quarter notes later, shorter by as much, with its
+ * expression staying where it was in time rather than moving with the start.
+ */
+export function withNoteStartMoved(note: MidiNote, byQ: number): MidiNote {
+  const moved = {
+    ...note,
+    start: note.start + byQ,
+    length: note.length - byQ,
+  };
+  return note.expression
+    ? { ...moved, expression: shiftedExpression(note.expression, byQ) }
+    : moved;
+}
+
+/** `expression` as heard from `byQ` quarter notes into its note on. */
+export function shiftedExpression(
+  expression: NoteExpression,
+  byQ: number,
+): NoteExpression {
+  const shifted: NoteExpression = {};
+  for (const name of EXPRESSION_CURVES) {
+    const curve = expression[name];
+    if (curve) {
+      shifted[name] = [
+        { at: 0, value: expressionValueAt(curve, byQ) },
+        ...curve
+          .filter((point) => point.at > byQ)
+          .map((point) => ({ at: point.at - byQ, value: point.value })),
+      ];
+    }
+  }
+  return shifted;
+}
+
+// A session note's `expression`, read from parsed JSON: invalid points are
+// dropped and the rest sorted and held to their ranges, and a curve left with
+// no points goes. Undefined when no curve remains.
+function readNoteExpression(value: unknown): NoteExpression | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const expression: NoteExpression = {};
+  for (const name of EXPRESSION_CURVES) {
+    const curve = record[name];
+    const { min, max } = EXPRESSION_RANGES[name];
+    const points = (Array.isArray(curve) ? curve : [])
+      .filter(
+        (point) =>
+          point && isFiniteNumber(point.at) && isFiniteNumber(point.value),
+      )
+      .map((point) => ({
+        at: Math.max(0, point.at),
+        value: clamp(point.value, min, max),
+      }))
+      .sort((left, right) => left.at - right.at);
+    if (points.length) {
+      expression[name] = points;
+    }
+  }
+  return Object.keys(expression).length ? expression : undefined;
+}
+
 /**
  * The notes of a session clip's `notes`, read from parsed JSON: notes that
  * are not objects or lack a finite pitch, start or length are dropped, the
@@ -168,6 +297,7 @@ export function readMidiNotes(value: unknown): MidiNote[] | undefined {
       ) {
         return [];
       }
+      const expression = readNoteExpression(note.expression);
       return [
         {
           pitch: clamp(Math.round(note.pitch), 0, 127),
@@ -176,6 +306,7 @@ export function readMidiNotes(value: unknown): MidiNote[] | undefined {
           velocity: isFiniteNumber(note.velocity)
             ? clamp(Math.round(note.velocity), 1, 127)
             : 100,
+          ...(expression ? { expression } : {}),
         },
       ];
     })
