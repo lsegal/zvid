@@ -1,32 +1,23 @@
-import type {
-  ComputerKeyboardEntry,
-  ComputerKeyboardState,
-} from "../../midi-input/computer-keyboard.ts";
+import type { ComputerKeyboardState } from "../../midi-input/computer-keyboard.ts";
 import { pitchName } from "../../midi-piano-roll.ts";
 
-// The piano roll header's toggle for playing notes from the typing keyboard.
-// While it's on it names the C that the A key plays.
+// While the typing keyboard plays notes, the piano roll header names the C
+// that the A key plays.
 export function PianoRollKeyboardEntry({
-  entry,
   state: { enabled, basePitch },
 }: {
-  entry: ComputerKeyboardEntry;
   state: ComputerKeyboardState;
 }) {
+  if (!enabled) {
+    return null;
+  }
+  const pitch = pitchName(basePitch);
   return (
-    <button
-      aria-label="Computer keyboard note entry"
-      aria-pressed={enabled}
-      className="piano-roll__midi-toggle"
-      onClick={() => entry.setEnabled(!enabled)}
-      title={
-        enabled
-          ? "Turn computer keyboard note entry off (Z and X shift the octave)"
-          : "Play notes from the computer keyboard"
-      }
-      type="button"
+    <span
+      className="piano-roll__keyboard-octave"
+      title={`The A key plays ${pitch}. Z and X shift the octave.`}
     >
-      {enabled ? `Keys ${pitchName(basePitch)}` : "Keys"}
-    </button>
+      {pitch}
+    </span>
   );
 }

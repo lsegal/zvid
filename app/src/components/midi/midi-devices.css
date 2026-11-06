@@ -365,22 +365,32 @@
   cursor: default;
 }
 
-.piano-roll__midi-toggle {
+.piano-roll__keyboard-octave {
   flex: none;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
+  color: var(--fx-accent);
   font-size: 10px;
   font-weight: 600;
 }
 
-.piano-roll__midi-toggle[aria-pressed="true"] {
-  border-color: var(--fx-accent);
-  background: color-mix(in srgb, var(--fx-accent) 22%, transparent);
-  color: var(--fx-accent);
+.piano-roll__phone-inputs {
+  display: none;
+  flex: none;
+  gap: 6px;
+}
+
+/* They take their own row beneath the header's first, which keeps its name. */
+.app-shell--phone .piano-roll .fx-device-panel__name {
+  flex: none;
+}
+
+.app-shell--phone .piano-roll__midi-controls {
+  flex-wrap: wrap;
+}
+
+.app-shell--phone .piano-roll__phone-inputs {
+  display: flex;
+  order: 1;
+  flex-basis: 100%;
 }
 
 .piano-roll__midi-device {

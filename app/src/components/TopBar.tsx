@@ -24,6 +24,7 @@ import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
 import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
 import type { KeyMapControls } from "./fx/key-map-context";
+import { KeyInputControl, MidiInputControl } from "./InputModeControl";
 import { MenuChevron } from "./MenuChevron";
 import { ShareLinkIconButton } from "./ShareLinkButton";
 import {
@@ -55,7 +56,7 @@ export type TopBarProps = FileMenuInputs &
   };
 
 // The app's top bar: the brand mark, the File, Edit and Help menubar, and
-// the Key Map and MIDI Map toggles, and the export, collaboration status and share controls.
+// the Key and MIDI input controls, and the export, collaboration status and share controls.
 export function TopBar(props: TopBarProps) {
   const {
     collaboration,
@@ -207,28 +208,8 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className="topbar__group topbar__group--right">
-        <button
-          aria-pressed={keyMap.active}
-          className="ghost-button key-map-toggle"
-          onClick={keyMap.toggle}
-          title="Map computer keys to effect buttons"
-          type="button"
-        >
-          Key Map
-        </button>
-        <button
-          aria-pressed={midiMap.active}
-          className="ghost-button key-map-toggle"
-          onClick={midiMap.toggle}
-          title={
-            midiMap.active
-              ? "MIDI Map mode: MIDI keys assign to effect buttons. Click for Use mode."
-              : "MIDI Use mode: mapped MIDI keys trigger effect buttons. Click for Map mode."
-          }
-          type="button"
-        >
-          {midiMap.active ? "MIDI: Map" : "MIDI: Use"}
-        </button>
+        <KeyInputControl map={keyMap} />
+        <MidiInputControl map={midiMap} />
         {/* One export at a time: a running one is managed from the status
             bar's export progress, which reopens its dialog. */}
         <button

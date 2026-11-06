@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-react";
 import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
@@ -12,6 +12,8 @@ import {
   MIDI_INPUT_STORAGE_KEY,
   type PrefsStorage,
 } from "../../midi-input/preferences.ts";
+import { INACTIVE_KEY_MAP } from "../fx/key-map-context";
+import { MidiInputControl } from "../InputModeControl";
 import { PianoRoll } from "./PianoRoll";
 
 // Turning MIDI on and off and choosing its device in the piano roll's header
@@ -67,32 +69,36 @@ async function renderRoll({
     storage,
   });
   await render(
-    <PianoRoll
-      collapsed={false}
-      midiHub={hub}
-      model={{
-        spanId: "clip",
-        label: "Bassline",
-        accent: "#7ca1ff",
-        notes,
-        startQ: 0,
-        trimStartQ: 0,
-        lengthQ: 8,
-        timeline: defaultMidiTimeline(8),
-        instrument: DEFAULT_INSTRUMENT,
-      }}
-      onAudition={(pitch) => {
-        auditions.push(pitch);
-      }}
-      onSetNotes={onSetNotes}
-      onSetTimeline={() => {}}
-      onToggleCollapsed={onToggleCollapsed}
-    />,
+    <>
+      <MidiInputControl hub={hub} map={INACTIVE_KEY_MAP} />
+      <PianoRoll
+        collapsed={false}
+        midiHub={hub}
+        model={{
+          spanId: "clip",
+          label: "Bassline",
+          accent: "#7ca1ff",
+          notes,
+          startQ: 0,
+          trimStartQ: 0,
+          lengthQ: 8,
+          timeline: defaultMidiTimeline(8),
+          instrument: DEFAULT_INSTRUMENT,
+        }}
+        onAudition={(pitch) => {
+          auditions.push(pitch);
+        }}
+        onSetNotes={onSetNotes}
+        onSetTimeline={() => {}}
+        onToggleCollapsed={onToggleCollapsed}
+      />
+    </>,
   );
   return { access, inputs, request, auditions, onSetNotes, onToggleCollapsed };
 }
 
-const toggle = () => page.getByRole("button", { name: "MIDI input" });
+const toggle = () => page.getByRole("button", { name: "MIDI on" });
+const off = () => page.getByRole("button", { name: "MIDI off" });
 const selector = () => page.getByRole("combobox", { name: "MIDI device" });
 const shown = () => selector().element().textContent;
 
@@ -128,7 +134,7 @@ test("MIDI starts off and asks for no permission until it's turned on", async ()
   press(port, 60);
   expect(roll.auditions).toEqual([60]);
 
-  await userEvent.click(toggle());
+  await userEvent.click(off());
   await expect.element(toggle()).toHaveAttribute("aria-pressed", "false");
   expect(port.onmidimessage).toBeNull();
   expect(roll.auditions).toEqual([60]);
@@ -236,4 +242,15 @@ test("the controls keep the roll's keys and double-click to themselves", async (
   await userEvent.dblClick(selector());
   expect(roll.onToggleCollapsed).not.toHaveBeenCalled();
   await userEvent.keyboard("{Escape}");
+});
+
+test("a phone, with no top bar, has the input controls in the header", async () => {
+  await renderRoll({});
+  const shown = (name: string) =>
+    page.getByRole("region", { name: /notes/i }).getByRole("group", { name });
+  await expect.element(shown("Key input")).not.toBeInTheDocument();
+  document.body.classList.add("app-shell--phone");
+  onTestFinished(() => document.body.classList.remove("app-shell--phone"));
+  await expect.element(shown("Key input")).toBeVisible();
+  await expect.element(shown("MIDI input")).toBeVisible();
 });

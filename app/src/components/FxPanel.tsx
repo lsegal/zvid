@@ -10,6 +10,7 @@ import {
   INACTIVE_KEY_MAP,
   KeyMapContext,
   type KeyMapControls,
+  MidiMapContext,
 } from "./fx/key-map-context";
 import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";
@@ -70,6 +71,7 @@ export type FxPanelProps = Pick<
     sheetHeader?: ReactNode;
     // Mapping mode, which marks the devices' mappable buttons.
     keyMap?: KeyMapControls;
+    midiMap?: Pick<KeyMapControls, "active" | "toggle">;
   };
 
 // The collapsible FX panel under the editor: its header toggle, the title
@@ -101,6 +103,7 @@ export function FxPanel({
   fxMidiClip,
   isInspectorCollapsed,
   keyMap = INACTIVE_KEY_MAP,
+  midiMap = INACTIVE_KEY_MAP,
   moveFxDevice,
   moveFxDeviceToStack,
   orderLayerOptions,
@@ -143,79 +146,83 @@ export function FxPanel({
         id="fx-panel-body"
       >
         <KeyMapContext.Provider value={keyMap}>
-          <FxChain
-            leading={(collapse) => (
-              <>
-                {fxRecordTrack ? (
-                  <TrackRecordDevice
-                    key={fxRecordTrack.trackId}
-                    trackId={fxRecordTrack.trackId}
-                    trackName={fxRecordTrack.trackName}
+          <MidiMapContext.Provider value={midiMap}>
+            <FxChain
+              leading={(collapse) => (
+                <>
+                  {fxRecordTrack ? (
+                    <TrackRecordDevice
+                      key={fxRecordTrack.trackId}
+                      trackId={fxRecordTrack.trackId}
+                      trackName={fxRecordTrack.trackName}
+                    />
+                  ) : null}
+                  {sourceClip ? (
+                    <SourceClipProperties
+                      collapsed={collapse.collapsed.has(
+                        SOURCE_CLIP_COLLAPSE_KEY,
+                      )}
+                      midiClip={
+                        fxMidiClip?.spanId === sourceClip.spanId
+                          ? fxMidiClip
+                          : undefined
+                      }
+                      model={sourceClip}
+                      onSetMidiTimeline={setMidiClipTimeline}
+                      onToggleCollapsed={() =>
+                        collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                      }
+                    />
+                  ) : null}
+                  <MidiDevices
+                    {...collapse}
+                    midiClip={fxMidiClip}
+                    setNotes={setMidiClipNotes}
+                    setTimeline={setMidiClipTimeline}
                   />
-                ) : null}
-                {sourceClip ? (
-                  <SourceClipProperties
-                    collapsed={collapse.collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
-                    midiClip={
-                      fxMidiClip?.spanId === sourceClip.spanId
-                        ? fxMidiClip
-                        : undefined
-                    }
-                    model={sourceClip}
-                    onSetMidiTimeline={setMidiClipTimeline}
-                    onToggleCollapsed={() =>
-                      collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
-                    }
-                  />
-                ) : null}
-                <MidiDevices
-                  {...collapse}
-                  midiClip={fxMidiClip}
-                  setNotes={setMidiClipNotes}
-                  setTimeline={setMidiClipTimeline}
-                />
-              </>
-            )}
-            devices={fxDevices}
-            kind={fxKind}
-            layerFxEnabled={fxLayerFxEnabled}
-            layers={orderLayerOptions}
-            clipLayers={fxClipLayerOptions}
-            layerLabel={fxLayerLabel}
-            layerName={fxLayerName}
-            layerTrackId={fxLayerTrackId}
-            clipTrackId={fxClipTrackId}
-            clipScope={fxClipScope}
-            clipLeading={
-              fxInheritedSource ? (
-                <InheritedSourceFx stacks={fxInheritedSource} />
-              ) : null
-            }
-            onAdd={addFxDevice}
-            clipboardEffectName={fxClipboard?.effectName}
-            onClearAll={clearFxDevices}
-            onCopy={copyFxDevice}
-            onCut={cutFxDevice}
-            onDuplicate={duplicateFxDevice}
-            onMove={moveFxDevice}
-            onMoveToStack={moveFxDeviceToStack}
-            onPaste={pasteFxDevice}
-            onRemove={removeFxDevice}
-            onReset={resetFxDevice}
-            onSetLayerFxEnabled={(enabled) => {
-              if (fxSourceTrackId) {
-                setSourceTrackFxEnabled(fxSourceTrackId, enabled);
-              } else if (fxLaneId) {
-                setLayerFxEnabled(fxLaneId, enabled);
+                </>
+              )}
+              devices={fxDevices}
+              kind={fxKind}
+              layerFxEnabled={fxLayerFxEnabled}
+              layers={orderLayerOptions}
+              clipLayers={fxClipLayerOptions}
+              layerLabel={fxLayerLabel}
+              layerName={fxLayerName}
+              layerTrackId={fxLayerTrackId}
+              clipTrackId={fxClipTrackId}
+              clipScope={fxClipScope}
+              clipLeading={
+                fxInheritedSource ? (
+                  <InheritedSourceFx stacks={fxInheritedSource} />
+                ) : null
               }
-            }}
-            onSetEnabled={setFxDeviceEnabled}
-            onSetAnimationEnabled={setFxDeviceAnimationEnabled}
-            onSetAnimation={setFxDeviceAnimation}
-            onSetModulationEnabled={setFxDeviceModulationEnabled}
-            onSetModulation={setFxDeviceModulation}
-            onSetParameter={setFxDeviceParameter}
-          />
+              onAdd={addFxDevice}
+              clipboardEffectName={fxClipboard?.effectName}
+              onClearAll={clearFxDevices}
+              onCopy={copyFxDevice}
+              onCut={cutFxDevice}
+              onDuplicate={duplicateFxDevice}
+              onMove={moveFxDevice}
+              onMoveToStack={moveFxDeviceToStack}
+              onPaste={pasteFxDevice}
+              onRemove={removeFxDevice}
+              onReset={resetFxDevice}
+              onSetLayerFxEnabled={(enabled) => {
+                if (fxSourceTrackId) {
+                  setSourceTrackFxEnabled(fxSourceTrackId, enabled);
+                } else if (fxLaneId) {
+                  setLayerFxEnabled(fxLaneId, enabled);
+                }
+              }}
+              onSetEnabled={setFxDeviceEnabled}
+              onSetAnimationEnabled={setFxDeviceAnimationEnabled}
+              onSetAnimation={setFxDeviceAnimation}
+              onSetModulationEnabled={setFxDeviceModulationEnabled}
+              onSetModulation={setFxDeviceModulation}
+              onSetParameter={setFxDeviceParameter}
+            />
+          </MidiMapContext.Provider>
         </KeyMapContext.Provider>
       </div>
     </section>

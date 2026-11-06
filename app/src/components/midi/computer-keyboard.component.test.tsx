@@ -23,7 +23,9 @@ import {
 import { createMidiInputHub } from "../../midi-input/input-hub.ts";
 import { NEW_NOTE_VELOCITY } from "../../midi-piano-roll.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
+import { INACTIVE_KEY_MAP } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
+import { KeyInputControl } from "../InputModeControl";
 import { PianoRoll } from "./PianoRoll";
 
 // Playing the piano roll from the typing keyboard (#1569): keys audition, and
@@ -72,6 +74,7 @@ async function renderRoll({
     return (
       <FxModulationClockContext.Provider value={clock}>
         <input aria-label="Text field" />
+        <KeyInputControl entry={entry} map={INACTIVE_KEY_MAP} />
         <PianoRoll
           collapsed={false}
           keyboardEntry={entry}
@@ -110,8 +113,9 @@ async function renderRoll({
     request,
     signal,
     held: () => document.querySelector("[data-piano-roll-held-note]"),
-    toggle: () =>
-      page.getByRole("button", { name: "Computer keyboard note entry" }),
+    toggle: () => page.getByRole("button", { name: "Key on" }),
+    off: () => page.getByRole("button", { name: "Key off" }),
+    octave: () => document.querySelector(".piano-roll__keyboard-octave"),
   };
 }
 
@@ -166,9 +170,9 @@ test("with the transport stopped a key auditions and writes nothing", async () =
 
 test("Z and X shift the octave up to the roll's limits", async () => {
   const roll = await renderRoll({ playing: false });
-  await expect.element(roll.toggle()).toHaveTextContent("Keys C4");
+  expect(roll.octave()?.textContent).toBe("C4");
   fire("keydown", "KeyX");
-  await expect.element(roll.toggle()).toHaveTextContent("Keys C5");
+  await expect.poll(() => roll.octave()?.textContent).toBe("C5");
   fire("keyup", "KeyX");
   fire("keydown", "KeyK");
   fire("keyup", "KeyK");
@@ -216,7 +220,7 @@ test("the toggle turns entry on and off without touching MIDI", async () => {
   fire("keyup", "KeyA");
   expect(roll.auditions).toEqual([60]);
   expect(roll.request).not.toHaveBeenCalled();
-  await userEvent.click(roll.toggle());
+  await userEvent.click(roll.off());
   await expect.element(roll.toggle()).toHaveAttribute("aria-pressed", "false");
   expect(fire("keydown", "KeyA")).toBe(true);
   expect(roll.auditions).toEqual([60]);
@@ -360,9 +364,7 @@ test(
       throw new Error("missing the MIDI clip");
     }
     await userEvent.click(clip);
-    await userEvent.click(
-      page.getByRole("button", { name: "Computer keyboard note entry" }),
-    );
+    await userEvent.click(page.getByRole("button", { name: "Key on" }));
     expect(localStorage.getItem(COMPUTER_KEYBOARD_STORAGE_KEY)).toContain(
       "true",
     );

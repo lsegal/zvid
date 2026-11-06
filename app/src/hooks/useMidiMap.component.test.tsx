@@ -29,6 +29,10 @@ import {
 } from "../fx-stack.ts";
 import { addDefaultSynth } from "../midi-effects.ts";
 import {
+  COMPUTER_KEYBOARD_STORAGE_KEY,
+  computerKeyboardEntry,
+} from "../midi-input/computer-keyboard.ts";
+import {
   type MidiAccessLike,
   type MidiInputPort,
   midiInputHub,
@@ -82,9 +86,9 @@ function tap(port: MidiInputPort, note: number, channel = 1) {
   noteOff(port, note, channel);
 }
 
-const toggleButton = () => page.getByRole("button", { name: /^MIDI: / });
-const keyMapButton = () =>
-  page.getByRole("button", { name: "Key Map", exact: true });
+const toggleButton = () =>
+  page.getByRole("button", { name: /^MIDI (on|map)$/ });
+const keyMapButton = () => page.getByRole("button", { name: /^Key (on|map)$/ });
 const orderPower = () =>
   page.getByRole("button", { name: /(Bypass|Enable) Order/ });
 
@@ -124,6 +128,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   midiInputHub.setEnabled(true);
+  computerKeyboardEntry.setEnabled(true);
   keysPort = plugIn("Keys");
   padsPort = plugIn("Pads");
 });
@@ -132,6 +137,8 @@ afterEach(() => {
   midiInputHub.chooseDevice(null);
   midiInputHub.setEnabled(false);
   localStorage.removeItem(MIDI_INPUT_STORAGE_KEY);
+  computerKeyboardEntry.setEnabled(false);
+  localStorage.removeItem(COMPUTER_KEYBOARD_STORAGE_KEY);
   ports.clear();
   access.onstatechange?.();
 });
@@ -139,17 +146,15 @@ afterEach(() => {
 describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("starts in Use mode, and the toggle shows which mode is on", async () => {
     await open();
-    await expect.element(toggleButton()).toHaveTextContent("MIDI: Use");
     await expect
-      .element(toggleButton())
-      .toHaveAttribute("aria-pressed", "false");
+      .element(page.getByRole("button", { name: "MIDI on" }))
+      .toBeVisible();
     await expect.element(orderPower()).not.toHaveAttribute("data-key-map");
 
     await toggleButton().click();
-    await expect.element(toggleButton()).toHaveTextContent("MIDI: Map");
     await expect
-      .element(toggleButton())
-      .toHaveAttribute("aria-pressed", "true");
+      .element(page.getByRole("button", { name: "MIDI map" }))
+      .toBeVisible();
     await expect
       .element(orderPower())
       .toHaveAttribute("data-key-map", "mappable");
@@ -433,16 +438,20 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await open();
     await toggleButton().click();
     await keyMapButton().click();
-    await expect.element(toggleButton()).toHaveTextContent("MIDI: Use");
     await expect
-      .element(keyMapButton())
-      .toHaveAttribute("aria-pressed", "true");
+      .element(page.getByRole("button", { name: "MIDI on" }))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole("button", { name: "Key map" }))
+      .toBeVisible();
 
     await toggleButton().click();
-    await expect.element(toggleButton()).toHaveTextContent("MIDI: Map");
     await expect
-      .element(keyMapButton())
-      .toHaveAttribute("aria-pressed", "false");
+      .element(page.getByRole("button", { name: "MIDI map" }))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole("button", { name: "Key on" }))
+      .toBeVisible();
   });
 
   test("a button can have a computer key and a MIDI key", async () => {
