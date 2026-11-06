@@ -43,6 +43,10 @@ async function renderRoll({
   const hub = createMidiInputHub({
     requestAccess: async () => access,
     loadMappings: async () => [],
+    storage: {
+      getItem: () => JSON.stringify({ enabled: true }),
+      setItem: () => {},
+    },
   });
   const roll = (collapsed: boolean) => (
     <PianoRoll
