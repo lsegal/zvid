@@ -32,6 +32,7 @@ import {
   type MidiInputPort,
   midiInputHub,
 } from "../midi-input/input-hub.ts";
+import { mpeInputFor } from "../midi-input/mpe.ts";
 import { MIDI_INPUT_STORAGE_KEY } from "../midi-input/preferences.ts";
 import { createMidiClip } from "../source-clip-edits.ts";
 
@@ -262,6 +263,8 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       tap(keysPort, C4, channel);
       await expect.poll(() => orderOf(state())?.enabled).toBe(enabled);
     }
+    // A piano roll's own reading of the device is left to it.
+    expect(mpeInputFor(midiInputHub, keysPort.id).isActive()).toBe(false);
   });
 
   test("a mapped Drum Rack pad presses on Note On and releases on Note Off", async () => {

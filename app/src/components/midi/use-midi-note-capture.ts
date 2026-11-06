@@ -39,7 +39,8 @@ type PressedKey = {
 // The hub decides which ports play. Returns the notes held so far and the
 // hub's state. A device playing MPE (see midi-input/mpe.ts) shapes each key's
 // audition and note by its own channel, and holds the audition until the key
-// comes up, the device goes away, MIDI turns off or the roll closes.
+// comes up, the device goes away, MIDI turns off or the roll closes. Once a
+// device is shown to play MPE, so do the keys it has down.
 export function useMidiNoteCapture({
   enabled,
   hub,
@@ -104,6 +105,18 @@ export function useMidiNoteCapture({
     if (!enabled) {
       return undefined;
     }
+    const holdPressedKeys = (inputId: string) => {
+      const mpe = mpeInputFor(hub, inputId);
+      for (const press of pressed.current.values()) {
+        if (press.inputId === inputId) {
+          press.voice?.hold();
+          const sample = mpe.sampleOf(press.channel);
+          if (sample) {
+            press.voice?.update(sample);
+          }
+        }
+      }
+    };
     const stopListening = hub.listen({
       message(input, message) {
         const mpe = mpeInputFor(hub, input.id);
@@ -112,7 +125,11 @@ export function useMidiNoteCapture({
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           if (message.type !== "note-on" && message.type !== "note-off") {
+            const wasActive = mpe.isActive();
             mpe.receive(message);
+            if (!wasActive && mpe.isActive()) {
+              holdPressedKeys(input.id);
+            }
             for (const press of pressed.current.values()) {
               const sample =
                 press.inputId === input.id && mpe.sampleOf(press.channel);
@@ -136,7 +153,12 @@ export function useMidiNoteCapture({
         }
         finish(heldKey, playheadQ);
         pressed.current.get(heldKey)?.voice?.release();
+        pressed.current.delete(heldKey);
+        const wasActive = mpe.isActive();
         mpe.pressed(key.channel, key.pitch);
+        if (!wasActive && mpe.isActive()) {
+          holdPressedKeys(input.id);
+        }
         const sample = mpe.sampleOf(key.channel);
         const voice = mpe.isActive()
           ? onAudition(key.pitch, sample, true)

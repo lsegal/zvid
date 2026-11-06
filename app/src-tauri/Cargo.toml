@@ -27,6 +27,10 @@ tempfile = "3"
 tokio = { version = "1", features = ["io-util", "macros", "net", "sync", "time"] }
 url = "2"
 
+# Windows reads MIDI through WebView2's Web MIDI instead.
+[target.'cfg(not(windows))'.dependencies]
+midir = "0.10"
+
 # The native side only hosts the webview, so optimize the release binary for
 # size: drop symbols, link-time optimize in one codegen unit, and abort on
 # panic rather than carry unwinding tables.

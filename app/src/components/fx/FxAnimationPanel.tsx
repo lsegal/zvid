@@ -139,7 +139,7 @@ export function FxAnimationPanel({
 
   return (
     <section aria-label={label} className={className} style={style}>
-      <header className="fx-animation-panel__title" data-theme="dark">
+      <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Animation</span>
         <FxAnimationGraph animation={animation} device={device} />
         <button

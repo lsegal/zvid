@@ -109,10 +109,10 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* Source tracks and the section headers keep the dark theme (#1492). Their
-   washes are translucent, so in the light theme they need the dark theme's
-   timeline surface beneath them. */
-[data-theme='light'] :is(.track-row--source, .source-header, .layers-header) {
+/* Source track lanes keep the dark theme (#1492), while their labels follow
+   the app's theme (#1563). The lanes' washes are translucent, so in the light
+   theme they need the dark theme's timeline surface beneath them. */
+[data-theme='light'] .track-row--source {
   background: #1f2030;
 }
 

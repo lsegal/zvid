@@ -54,11 +54,11 @@ export type MidiMapInputs = {
 
 // How the mappings read a key of `input`, from what its device has shown so far.
 function mapKeyOf(
-  hub: MidiInputHub,
+  mpeOwner: object,
   input: MidiInputInfo,
   { channel, pitch }: MidiKeyEvent,
 ): MidiMapKey {
-  const mpe = mpeInputFor(hub, input.id);
+  const mpe = mpeInputFor(mpeOwner, input.id);
   return {
     note: pitch,
     channel,
@@ -114,6 +114,10 @@ export function useMidiMap({
     if (!listening) {
       return undefined;
     }
+    // What each device has shown of MPE, kept apart from the hub's: it has to
+    // be known with no piano roll open, and a roll watches for a device turning
+    // out to play MPE as it reads the same messages into the hub's.
+    const mpeOwner = {};
     // The keys down that this claimed, with the pads each holds.
     const heldKeys = new Map<string, readonly string[]>();
 
@@ -147,9 +151,7 @@ export function useMidiMap({
 
     const stopListening = hub.listen({
       claims(input, message) {
-        // Zones and channels played have to be known with no piano roll open.
-        // A roll hearing the same message as well changes nothing.
-        const mpe = mpeInputFor(hub, input.id);
+        const mpe = mpeInputFor(mpeOwner, input.id);
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           mpe.receive(message);
@@ -162,7 +164,7 @@ export function useMidiMap({
         mpe.pressed(key.channel, key.pitch);
         return (
           latestRef.current.active ||
-          targetsOf(mapKeyOf(hub, input, key)).length > 0
+          targetsOf(mapKeyOf(mpeOwner, input, key)).length > 0
         );
       },
       message(input, message) {
@@ -176,7 +178,7 @@ export function useMidiMap({
           return;
         }
         const latest = latestRef.current;
-        const mapKey = mapKeyOf(hub, input, key);
+        const mapKey = mapKeyOf(mpeOwner, input, key);
         if (latest.active) {
           heldKeys.set(id, []);
           const { selected: target } = latest;
@@ -211,7 +213,7 @@ export function useMidiMap({
             releaseKey(id);
           }
         }
-        mpeInputFor(hub, input.id).releaseAll();
+        mpeInputFor(mpeOwner, input.id).releaseAll();
       },
     });
     return () => {

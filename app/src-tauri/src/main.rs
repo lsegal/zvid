@@ -2,6 +2,8 @@
 
 mod agent_relay;
 mod chatgpt;
+#[cfg(not(windows))]
+mod midi;
 
 use agent_relay::AgentRelay;
 use serde::Serialize;
@@ -262,6 +264,8 @@ fn main() {
     .setup(|app| {
       let dir = app.path().app_config_dir()?;
       app.manage(chatgpt::ChatGpt::new(dir));
+      #[cfg(not(windows))]
+      app.manage(midi::MidiBackend::default());
       start_agent_relay(app);
       Ok(())
     })
@@ -280,7 +284,13 @@ fn main() {
       chatgpt::chatgpt_cancel_sign_in,
       chatgpt::chatgpt_sign_out,
       chatgpt::chatgpt_open_usage,
-      chatgpt::chatgpt_respond
+      chatgpt::chatgpt_respond,
+      #[cfg(not(windows))]
+      midi::midi_start,
+      #[cfg(not(windows))]
+      midi::midi_open,
+      #[cfg(not(windows))]
+      midi::midi_close
     ])
     .build(tauri::generate_context!())
     .expect("error while building tauri application")
