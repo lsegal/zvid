@@ -195,6 +195,7 @@ function PlayheadJumpButton({
   return (
     <button
       className={`playhead-jump playhead-jump--${side}`}
+      data-theme="dark"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

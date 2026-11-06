@@ -9,6 +9,7 @@ import { DesktopShell } from "../component-test/shells.tsx";
 import { setViewport } from "../component-test/viewport.ts";
 import { IDENTITY_TRANSFORM } from "../composition-transform.ts";
 import { createPlayheadSignal } from "../playhead-signal.ts";
+import { applyTheme } from "../theme.ts";
 import { PreviewPanel, type PreviewPanelProps } from "./PreviewPanel";
 
 // The preview panel in the editor grid, at the width the app gives it, with
@@ -182,6 +183,29 @@ describe("header", () => {
         1.5,
       );
     }
+  });
+});
+
+describe("light theme", () => {
+  afterEach(() => applyTheme("dark"));
+
+  // The stage is the video's surround, not app chrome (#1563): the bands
+  // around a letterboxed frame stay as dark as in the dark theme.
+  test("the preview stage keeps the dark theme's surface", async () => {
+    await render(editorGrid(PREVIEW_DEFAULT_WIDTH));
+    const stage = document.querySelector(".composition-player");
+    if (!stage) {
+      throw new Error("the preview stage is not rendered");
+    }
+    const stageStyle = () => {
+      const { backgroundImage, colorScheme } = getComputedStyle(stage);
+      return { backgroundImage, colorScheme };
+    };
+    const dark = stageStyle();
+
+    applyTheme("light");
+    expect(stageStyle()).toEqual(dark);
+    expect(dark.colorScheme).toBe("dark");
   });
 });
 

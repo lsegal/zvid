@@ -107,7 +107,7 @@ describe("light theme dark surfaces", () => {
   );
 
   test(
-    "the ruler, Audio lane and preview stage are dark in the light theme",
+    "the ruler and Audio lane are dark in the light theme",
     async () => {
       await renderIn("light");
       for (const selector of [
@@ -119,16 +119,10 @@ describe("light theme dark surfaces", () => {
         expect(luminance(background), selector).toBeLessThan(0.05);
         expect(contrast(ink, background), selector).toBeGreaterThan(7);
       }
-      for (const selector of [
-        ".track-row--bus .track-row__content",
-        ".composition-player",
-      ]) {
-        expect(getComputedStyle(query(selector)).colorScheme, selector).toBe(
-          "dark",
-        );
-      }
-      expect(getComputedStyle(query(".composition-player")).backgroundImage)
-        .toContain("rgb(17, 19, 29)");
+      expect(
+        getComputedStyle(query(".track-row--bus .track-row__content"))
+          .colorScheme,
+      ).toBe("dark");
     },
     EDITOR_TEST_TIMEOUT,
   );
