@@ -8,11 +8,11 @@ import {
   pruneClipEffects,
   pruneSourceEffects,
 } from "../fx-stack.ts";
+import { pruneKeyMappings, readKeyMappings } from "../key-map.ts";
 import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes } from "../midi-clip.ts";
 import { readMidiTimeline } from "../midi-clip-timeline.ts";
-import { pruneKeyMappings, readKeyMappings } from "../key-map.ts";
 import { migrateMidiClipEffects } from "../midi-effects.ts";
 import {
   fitSourceSpansToMedia,

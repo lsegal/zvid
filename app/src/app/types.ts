@@ -1,13 +1,13 @@
 import type { ClipWarp } from "../clip-warp.ts";
 import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
+import type { KeyMapping } from "../key-map.ts";
 import type {
   LaneSelectionGesture,
   SelectionEditKind,
 } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { MidiNote } from "../midi-clip.ts";
-import type { KeyMapping } from "../key-map.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";

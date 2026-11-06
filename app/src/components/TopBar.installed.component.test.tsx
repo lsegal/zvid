@@ -38,6 +38,7 @@ const props: TopBarProps = {
   handleDisconnectConnection: noop,
   handleSaveToLibrary: async () => true,
   isExporting: false,
+  keyMap: { active: false, toggle: noop },
   openExportDialog: noop,
   setIsMediaStorageDialogOpen: setOpen,
   setIsMediaSyncDialogOpen: setOpen,
