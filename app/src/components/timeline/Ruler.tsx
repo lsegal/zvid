@@ -144,7 +144,7 @@ export function Ruler({
         }
       }}
     >
-      <div className="track-label track-label--header" data-theme="dark">
+      <div className="track-label track-label--header">
         <div>
           <span>{sessionName ?? "Session"}</span>
           {mediaSyncStatusLabel ? (
