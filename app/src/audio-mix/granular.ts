@@ -6,9 +6,14 @@
 // every time, in the preview and in export alike. The grains are mixed here,
 // in a worker where one can start, and the mix goes through the lowpass filter the Synth's voices do (see
 // synth.ts).
-import type { GranularParams, MidiNote } from "../midi-clip.ts";
+import {
+  expressionValueAt,
+  type GranularParams,
+  type MidiNote,
+} from "../midi-clip.ts";
 import type { GranularWorkerMessage } from "./granular.worker.ts";
 import type { DecodedAudio } from "./mix.ts";
+import { bendRate, pressureLevel, TIMBRE_CENTER } from "./note-expression.ts";
 
 // A cloud's peak level at full velocity, leaving headroom for chords.
 export const GRANULAR_VOICE_LEVEL = 0.25;
@@ -20,6 +25,8 @@ const MIN_RAMP_SECONDS = 0.002;
 // the other way, so it never jumps (see mirror).
 const SOURCE_SECONDS = 2;
 const SOURCE_PARTIALS = 12;
+// The shortest a looped cloud lasts before it repeats.
+const LOOP_SECONDS = 1;
 
 /** A grain, in seconds from the clip's content start. */
 export type Grain = {
@@ -114,7 +121,10 @@ function noteSeed(note: MidiNote, index: number) {
  * The grains `notes` play through `params` at `bpm`, in seconds from the
  * clip's content start, leaving out grains that start at or after
  * `endSeconds`, where the clip's audio ends. Each note's cloud fades in over
- * the attack, holds until the note ends and fades out over the release.
+ * the attack, holds until the note ends and fades out over the release. A
+ * note's expression sets each of its grains as it starts: bend its rate,
+ * pressure its level, and timbre where it reads, the source being brighter
+ * further along.
  */
 export function granularGrains(
   notes: readonly MidiNote[],
@@ -140,6 +150,7 @@ export function granularGrains(
     const rate = 2 ** ((note.pitch + params.transpose - 60) / 12);
     const offLevel = Math.min(1, (off - start) / attack);
     const random = seededRandom(noteSeed(note, index));
+    const { bend, pressure, timbre } = note.expression ?? {};
     const grains: Grain[] = [];
     for (let step = 0; start + step * interval < cloudEnd; step++) {
       const at = start + step * interval;
@@ -155,16 +166,47 @@ export function granularGrains(
       if (startSeconds >= cloudEnd || envelope <= 0) {
         continue;
       }
+      const atQ = (middle - start) / secondsPerQuarter;
+      const brightness = timbre
+        ? expressionValueAt(timbre, atQ) - TIMBRE_CENTER
+        : 0;
       grains.push({
         startSeconds,
         durationSeconds: params.grainSize,
-        offset: mirror(params.position + stray, 1),
-        rate,
-        level: peak * envelope,
+        offset: mirror(params.position + stray + brightness, 1),
+        rate: bend ? rate * bendRate(expressionValueAt(bend, atQ)) : rate,
+        level:
+          peak *
+          envelope *
+          (pressure ? pressureLevel(expressionValueAt(pressure, atQ)) : 1),
       });
     }
     return grains;
   });
+}
+
+/**
+ * A cloud of `note`'s grains at its full level, mixed so that it can loop: a
+ * whole number of grain starts, at least LOOP_SECONDS of them, with the grains
+ * still sounding at its end carried on around at its start. It has no attack or
+ * release, which are for whatever plays it, and ignores the note's length.
+ */
+export function granularLoop(
+  note: MidiNote,
+  params: GranularParams,
+  sampleRate: number,
+): Float32Array<ArrayBuffer> {
+  const seconds = Math.ceil(LOOP_SECONDS * params.density) / params.density;
+  const held = { ...note, start: 0, length: seconds + params.grainSize };
+  const grains = granularGrains([held], params, 60, seconds);
+  const length = Math.round(seconds * sampleRate);
+  const tail = Math.ceil(params.grainSize * sampleRate) + 1;
+  const mixed = mixGrains(grains, sampleRate, length + tail);
+  const loop = mixed.slice(0, length);
+  for (let index = length; index < mixed.length; index++) {
+    loop[index % length] += mixed[index];
+  }
+  return loop;
 }
 
 // The Hann window over `count` samples, kept for the last count asked for,

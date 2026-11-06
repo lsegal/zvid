@@ -106,3 +106,33 @@ describe("mixDrumHits", () => {
     assert.ok(mixed.slice(choke + fade).every((sample) => sample === 0));
   });
 });
+
+describe("mixDrumHits, with expression", () => {
+  const SAMPLE_RATE = 1000;
+  const ramp = Float32Array.from({ length: 1000 }, (_, index) => index / 1000);
+  // A kick, on the first pad; at 60 bpm a quarter note lasts a second.
+  const hit = (expression: MidiNote["expression"]) => {
+    const [only] = drumHits([{ ...note(36, 0), expression }], 60);
+    return mixDrumHits([only], [ramp], SAMPLE_RATE, 1000);
+  };
+
+  it("reads the sample faster for a bend up", () => {
+    const plain = hit(undefined);
+    const bent = hit({ bend: [{ at: 0, value: 12 }] });
+    assert.ok(Math.abs(bent[100] - 2 * plain[100]) < 1e-3);
+    // Twice as fast, it runs out in half the time.
+    assert.equal(bent[600], 0);
+  });
+
+  it("follows pressure", () => {
+    const plain = hit(undefined);
+    const full = hit({ pressure: [{ at: 0, value: 1 }] });
+    const none = hit({ pressure: [{ at: 0, value: 0 }] });
+    assert.ok(Math.abs(full[500] - plain[500]) < 1e-6);
+    assert.ok(none[500] < plain[500] / 2);
+  });
+
+  it("does not use timbre on a one-shot", () => {
+    assert.deepEqual(hit({ timbre: [{ at: 0, value: 1 }] }), hit(undefined));
+  });
+});

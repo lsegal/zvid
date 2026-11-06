@@ -4,6 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../../app/constants.ts";
 import type { ProjectState } from "../../app/types.ts";
+import { renderSynthClip } from "../../audio-mix/synth.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
@@ -11,7 +12,11 @@ import {
 } from "../../component-test/editor.tsx";
 import { redo, undo } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
-import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
+import {
+  DEFAULT_INSTRUMENT,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { addDefaultSynth } from "../../midi-effects.ts";
@@ -117,7 +122,10 @@ async function renderRoll({
             timeline: defaultMidiTimeline(8),
             instrument: DEFAULT_INSTRUMENT,
           }}
-          onAudition={(pitch) => auditions.push(pitch)}
+          onAudition={(pitch) => {
+            auditions.push(pitch);
+            return undefined;
+          }}
           onSetNotes={(_, next, label) => {
             edits.push({ notes: next, label });
             setCurrent(next);
@@ -364,3 +372,260 @@ test(
   },
   EDITOR_TEST_TIMEOUT,
 );
+
+// MPE (#1556), through the same simulated device: a note on each channel, its
+// bend, pressure and CC 74 its own.
+function mpeBytes(roll: { send: (...bytes: number[]) => void }) {
+  return {
+    configure(manager: number, members: number) {
+      const status = 0xb0 | (manager - 1);
+      roll.send(status, 101, 0);
+      roll.send(status, 100, 6);
+      roll.send(status, 6, members);
+    },
+    bendUp: (channel: number) => roll.send(0xe0 | (channel - 1), 0x7f, 0x7f),
+    bendDown: (channel: number) => roll.send(0xe0 | (channel - 1), 0, 0),
+    press: (channel: number, pressure: number) =>
+      roll.send(0xd0 | (channel - 1), pressure),
+    slide: (channel: number, value: number) =>
+      roll.send(0xb0 | (channel - 1), 74, value),
+    on: (channel: number, pitch: number) =>
+      roll.send(0x90 | (channel - 1), pitch, 100),
+    off: (channel: number, pitch: number) =>
+      roll.send(0x80 | (channel - 1), pitch, 0),
+  };
+}
+
+test("two held MPE notes bend to different pitches independently", async () => {
+  const roll = await renderRoll({ playing: true });
+  const mpe = mpeBytes(roll);
+  mpe.configure(1, 15);
+  roll.signal.set(1);
+  mpe.on(2, 60);
+  mpe.on(3, 64);
+  roll.signal.set(2);
+  mpe.bendUp(2);
+  mpe.bendDown(3);
+  roll.signal.set(3);
+  mpe.off(2, 60);
+  mpe.off(3, 64);
+  await expect.poll(() => roll.notes().length).toBe(2);
+  const notes = roll.edits.at(-1)?.notes ?? [];
+  expect(notes.find((note) => note.pitch === 60)?.expression).toEqual({
+    bend: [
+      { at: 0, value: 0 },
+      { at: 1, value: 48 },
+    ],
+  });
+  expect(notes.find((note) => note.pitch === 64)?.expression).toEqual({
+    bend: [
+      { at: 0, value: 0 },
+      { at: 1, value: -48 },
+    ],
+  });
+  roll.unmount();
+});
+
+test("pressure and slide go to the note on their channel, and a manager to all", async () => {
+  const roll = await renderRoll({ playing: true });
+  const mpe = mpeBytes(roll);
+  mpe.configure(16, 15);
+  roll.signal.set(1);
+  mpe.on(15, 60);
+  mpe.on(14, 64);
+  roll.signal.set(1.5);
+  mpe.press(15, 127);
+  mpe.slide(14, 127);
+  roll.signal.set(2);
+  mpe.bendUp(16);
+  roll.signal.set(3);
+  mpe.off(15, 60);
+  mpe.off(14, 64);
+  await expect.poll(() => roll.notes().length).toBe(2);
+  const notes = roll.edits.at(-1)?.notes ?? [];
+  const first = notes.find((note) => note.pitch === 60)?.expression;
+  const second = notes.find((note) => note.pitch === 64)?.expression;
+  expect(first?.pressure).toEqual([{ at: 0, value: 1 }]);
+  expect(first?.timbre).toBeUndefined();
+  expect(second?.timbre).toEqual([{ at: 0, value: 1 }]);
+  expect(second?.pressure).toBeUndefined();
+  for (const expression of [first, second]) {
+    expect(expression?.bend).toEqual([
+      { at: 0, value: 0 },
+      { at: 1, value: 2 },
+    ]);
+  }
+  roll.unmount();
+});
+
+test("a device that plays two member channels counts as MPE unconfigured", async () => {
+  const roll = await renderRoll({ playing: true });
+  const mpe = mpeBytes(roll);
+  roll.signal.set(1);
+  mpe.on(2, 60);
+  roll.signal.set(1.5);
+  mpe.bendUp(2);
+  mpe.on(3, 64);
+  roll.signal.set(2);
+  mpe.off(2, 60);
+  mpe.off(3, 64);
+  await expect.poll(() => roll.notes().length).toBe(2);
+  const notes = roll.edits.at(-1)?.notes ?? [];
+  expect(
+    notes.find((note) => note.pitch === 60)?.expression?.bend?.at(-1),
+  ).toEqual({ at: 0.5, value: 48 });
+  roll.unmount();
+});
+
+test("a keyboard that isn't MPE records no expression from its wheel", async () => {
+  const roll = await renderRoll({ playing: true });
+  const mpe = mpeBytes(roll);
+  roll.signal.set(1);
+  mpe.on(1, 60);
+  roll.signal.set(2);
+  mpe.bendUp(1);
+  mpe.press(1, 100);
+  roll.signal.set(3);
+  mpe.off(1, 60);
+  await expect.poll(() => roll.notes().length).toBe(1);
+  expect(roll.edits.at(-1)?.notes).toEqual([
+    { pitch: 60, start: 1, length: 2, velocity: 100 },
+  ]);
+  roll.unmount();
+});
+
+// The strongest frequency's period in `samples`, from their rising crossings.
+function frequencyOf(samples: Float32Array, sampleRate: number) {
+  const crossings: number[] = [];
+  for (let index = 1; index < samples.length; index++) {
+    if (samples[index - 1] < 0 && samples[index] >= 0) {
+      crossings.push(index);
+    }
+  }
+  const span = crossings[crossings.length - 1] - crossings[0];
+  return ((crossings.length - 1) / span) * sampleRate;
+}
+
+test("a recorded bend, swell and slide are heard, the same each render", async () => {
+  const instrument = {
+    kind: "synth" as const,
+    params: {
+      ...DEFAULT_SYNTH_PARAMS,
+      wave: "sine" as const,
+      cutoff: 20_000,
+    },
+  };
+  const sampleRate = 44_100;
+  const render = (expression?: MidiNote["expression"]) =>
+    renderSynthClip(
+      {
+        notes: [
+          {
+            pitch: 69,
+            start: 0,
+            length: 2,
+            velocity: 127,
+            ...(expression ? { expression } : {}),
+          },
+        ],
+        instrument,
+        durationSeconds: 1,
+      },
+      120,
+      sampleRate,
+    );
+  const slice = (audio: { channels: Float32Array[] }) =>
+    audio.channels[0].subarray(sampleRate * 0.2, sampleRate * 0.8);
+  const plain = slice(await render());
+  const peak = (samples: Float32Array) =>
+    samples.reduce((most, value) => Math.max(most, Math.abs(value)), 0);
+
+  // A held note an octave up: its preview and export both render through here.
+  const bend = [{ at: 0, value: 12 }];
+  const bent = slice(await render({ bend }));
+  expect(frequencyOf(plain, sampleRate)).toBeCloseTo(440, 0);
+  expect(frequencyOf(bent, sampleRate)).toBeCloseTo(880, 0);
+  expect(slice(await render({ bend }))).toEqual(bent);
+
+  const unpressed = slice(await render({ pressure: [{ at: 0, value: 0 }] }));
+  expect(peak(unpressed)).toBeLessThan(peak(plain) / 2);
+
+  // A sawtooth's harmonics through the filter a slide closes.
+  const saw = {
+    kind: "synth" as const,
+    params: { ...DEFAULT_SYNTH_PARAMS, cutoff: 1000 },
+  };
+  const sawRender = async (expression?: MidiNote["expression"]) =>
+    slice(
+      await renderSynthClip(
+        {
+          notes: [
+            {
+              pitch: 69,
+              start: 0,
+              length: 2,
+              velocity: 127,
+              ...(expression ? { expression } : {}),
+            },
+          ],
+          instrument: saw,
+          durationSeconds: 1,
+        },
+        120,
+        sampleRate,
+      ),
+    );
+  expect(peak(await sawRender({ timbre: [{ at: 0, value: 0 }] }))).toBeLessThan(
+    peak(await sawRender()),
+  );
+});
+
+test("an audition follows its key's expression", async () => {
+  const updates: unknown[] = [];
+  const access = {
+    inputs: new Map<string, MidiInputPort>(),
+    onstatechange: null as (() => void) | null,
+  };
+  const port = connectedPort("Test MPE");
+  access.inputs.set(port.id, port);
+  const hub = createMidiInputHub({
+    requestAccess: async () => access,
+    loadMappings: async () => [],
+  });
+  const started: unknown[] = [];
+  const screen = await render(
+    <PianoRoll
+      collapsed={false}
+      midiHub={hub}
+      model={{
+        spanId: "clip",
+        label: "Bassline",
+        accent: "#7ca1ff",
+        notes: [],
+        startQ: 0,
+        trimStartQ: 0,
+        lengthQ: 8,
+        timeline: defaultMidiTimeline(8),
+        instrument: DEFAULT_INSTRUMENT,
+      }}
+      onAudition={(pitch, _, expression) => {
+        started.push([pitch, expression]);
+        return { update: (sample) => updates.push(sample), release() {} };
+      }}
+      onSetNotes={() => {}}
+      onSetTimeline={() => {}}
+      onToggleCollapsed={() => {}}
+    />,
+  );
+  await vi.waitFor(() => expect(port.onmidimessage).not.toBeNull());
+  const send = (...bytes: number[]) =>
+    port.onmidimessage?.({ data: new Uint8Array(bytes) });
+  const mpe = mpeBytes({ send });
+  mpe.configure(1, 15);
+  mpe.press(2, 127);
+  mpe.on(2, 60);
+  expect(started).toEqual([[60, { bend: 0, pressure: 1 }]]);
+  mpe.bendUp(2);
+  expect(updates).toEqual([{ bend: 48, pressure: 1 }]);
+  screen.unmount();
+});

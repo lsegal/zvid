@@ -40,3 +40,14 @@ popular maker's current and recent ranges, and capped at 200:
 - [Galaxus: MIDI controllers top list](https://www.galaxus.de/en/s1/producttype/toplist/relevance/midi-controllers-520)
 - [Midination: the best MIDI keyboards](https://midination.com/?p=30)
 - [Hip Hop Makers: best MIDI keyboards](https://hiphopmakers.com/best-midi-controller-keyboards)
+
+## MPE
+
+MPE devices need no mapping: `mpe.ts` reads each input's zones and per-note
+expression whatever the device. A device that hasn't sent an MPE Configuration
+Message counts as MPE once it plays on two member channels of the
+specification's default zone, so ordinary keyboards stay as they are.
+
+A key from a device playing MPE auditions until it comes up. A device with no
+configuration message isn't known to play MPE until its second member channel,
+so its first key after connecting auditions for the fixed time.
