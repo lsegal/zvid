@@ -4,13 +4,6 @@
   --record-red: #ff5c5c;
 }
 
-/* App.css caps the FX row under the editor at 40%; rounding that down to a
-   whole pixel keeps this bar, and its icons, on whole pixels (#1224).
-   Browsers without round() keep the unrounded cap. */
-.workspace__main {
-  grid-template-rows: minmax(0, 1fr) fit-content(round(down, 40%, 1px));
-}
-
 /* Equal side columns keep the transport cluster centered in the row however
    wide the zoom and volume controls are. */
 .transport-bar {

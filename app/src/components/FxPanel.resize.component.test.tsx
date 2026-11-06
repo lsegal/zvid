@@ -90,7 +90,7 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
     await setViewport({ width: 1280, height: 720 });
     await renderApp();
     const start = center(handle());
-    await drag(start, { x: start.x, y: 10_000 });
+    await drag(start, { x: start.x, y: innerHeight - 1 });
     await expect.poll(() => height(".fx-panel")).toBe(120);
 
     const body = query(".fx-panel__body");

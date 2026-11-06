@@ -1,3 +1,18 @@
+.workspace__main {
+  position: relative;
+  height: 100%;
+  display: grid;
+  /* cap the FX row so a tall device chain scrolls instead of squeezing the arrangement;
+     resizing the panel sets its row instead (useAppLayout) */
+  grid-template-rows: minmax(0, 1fr) var(--fx-panel-row, fit-content(40%));
+  /* Rounding the cap down to a whole pixel keeps the transport bar above, and
+     its icons, on whole pixels (#1224). Browsers without round() keep the
+     unrounded cap. */
+  grid-template-rows: minmax(0, 1fr)
+    var(--fx-panel-row, fit-content(round(down, 40%, 1px)));
+  gap: 14px;
+}
+
 .fx-panel {
   display: flex;
   flex-direction: column;
@@ -94,6 +109,12 @@
 }
 
 @media (max-width: 900px), (max-height: 559px) {
+  .workspace__main {
+    height: auto;
+    /* The page scrolls here, so the panel fits its content, resized or not. */
+    grid-template-rows: minmax(0, 1fr) fit-content(40%);
+  }
+
   .fx-panel-resize-handle {
     display: none;
   }

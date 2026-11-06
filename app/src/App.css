@@ -780,16 +780,6 @@
   padding: 0 16px 16px 0;
 }
 
-.workspace__main {
-  position: relative;
-  height: 100%;
-  display: grid;
-  /* cap the FX row so a tall device chain scrolls instead of squeezing the arrangement;
-     resizing the panel sets its row instead (useAppLayout) */
-  grid-template-rows: minmax(0, 1fr) var(--fx-panel-row, fit-content(40%));
-  gap: 14px;
-}
-
 .status-bar {
   flex: none;
   height: 24px;
@@ -1276,12 +1266,6 @@
 
   .workspace {
     padding: 0 10px 10px 0;
-  }
-
-  .workspace__main {
-    height: auto;
-    /* The page scrolls here, so the panel fits its content, resized or not. */
-    grid-template-rows: minmax(0, 1fr) fit-content(40%);
   }
 
   .editor-panel {
