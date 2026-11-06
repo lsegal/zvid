@@ -1,23 +1,43 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { MidiNote } from "../../midi-clip.ts";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import type { AuditionVoice } from "../../midi-audition.ts";
+import type { ExpressionSample, MidiNote } from "../../midi-clip.ts";
 import type { MidiInputHub } from "../../midi-input/input-hub.ts";
 import { midiKeyEvent } from "../../midi-input/keyboard-layout.ts";
 import {
   type CaptureClip,
   captureNote,
+  createExpressionRecorder,
+  type ExpressionRecorder,
   type HeldNote,
   pressNote,
 } from "../../midi-input/note-capture.ts";
+import { mpeInputFor } from "../../midi-input/mpe.ts";
 import type { FxModulationClock } from "../fx/modulation-clock";
 
 const NOT_HELD: readonly HeldNote[] = [];
+
+// A key that is down, as its device's expression reaches it.
+type PressedKey = {
+  inputId: string;
+  channel: number;
+  pressedAtQ: number;
+  recorder: ExpressionRecorder;
+  voice: AuditionVoice | undefined;
+};
 
 // Plays the piano roll from MIDI keys while `enabled`: every key auditions
 // its pitch, and while the transport plays inside `clip` it also writes a
 // note, handed to `onCapture` when the key comes up. The transport stopping
 // or the playhead jumping back ends the held notes where the playhead was,
 // and so does the device going away or the roll closing. Returns the notes
-// held so far and the connected inputs.
+// held so far and the connected inputs. A device playing MPE (see
+// midi-input/mpe.ts) shapes each key's audition and note by its own channel.
 export function useMidiNoteCapture({
   enabled,
   hub,
@@ -30,7 +50,10 @@ export function useMidiNoteCapture({
   hub: MidiInputHub;
   clip: CaptureClip;
   clock: FxModulationClock | null;
-  onAudition: (pitch: number) => void;
+  onAudition: (
+    pitch: number,
+    expression?: ExpressionSample,
+  ) => AuditionVoice | undefined;
   onCapture: (note: MidiNote) => void;
 }) {
   const [heldNotes, setHeldNotes] = useState(NOT_HELD);
@@ -40,24 +63,33 @@ export function useMidiNoteCapture({
   const signal = clock?.signal;
   const isPlaying = Boolean(clock?.isPlaying);
   const held = useRef(new Map<string, HeldNote>());
+  const pressed = useRef(new Map<string, PressedKey>());
   // Where the playhead last was, which is where held notes end if it jumps.
   const lastQ = useRef(signal?.get() ?? 0);
 
-  const finish = useRef((key: string, playheadQ: number) => {
+  const finish = useCallback((key: string, playheadQ: number) => {
     const note = held.current.get(key);
+    const press = pressed.current.get(key);
     if (note) {
       held.current.delete(key);
       setHeldNotes([...held.current.values()]);
+      const keepExpression =
+        press && mpeInputFor(hub, press.inputId).isActive();
       latest.current.onCapture(
-        captureNote(latest.current.clip, note, playheadQ),
+        captureNote(
+          latest.current.clip,
+          note,
+          playheadQ,
+          keepExpression ? press.recorder : undefined,
+        ),
       );
     }
-  }).current;
-  const finishAll = useRef((playheadQ: number) => {
+  }, [hub]);
+  const finishAll = useCallback((playheadQ: number) => {
     for (const key of [...held.current.keys()]) {
       finish(key, playheadQ);
     }
-  }).current;
+  }, [finish]);
 
   useEffect(() => {
     if (!enabled) {
@@ -65,19 +97,51 @@ export function useMidiNoteCapture({
     }
     const stopListening = hub.listen({
       message(input, message) {
+        const mpe = mpeInputFor(hub, input.id);
+        const { clip, clock, onAudition } = latest.current;
+        const playheadQ = clock?.signal.get() ?? lastQ.current;
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
+          if (message.type !== "note-on" && message.type !== "note-off") {
+            mpe.receive(message);
+            for (const press of pressed.current.values()) {
+              const sample =
+                press.inputId === input.id && mpe.sampleOf(press.channel);
+              if (sample) {
+                press.recorder.add(playheadQ - press.pressedAtQ, sample);
+                if (mpe.isActive()) {
+                  press.voice?.update(sample);
+                }
+              }
+            }
+          }
           return;
         }
         const heldKey = `${input.id}:${key.channel}:${key.pitch}`;
-        const { clip, clock, onAudition } = latest.current;
-        const playheadQ = clock?.signal.get() ?? lastQ.current;
         if (!key.down) {
           finish(heldKey, playheadQ);
+          pressed.current.delete(heldKey);
+          mpe.released(key.channel, key.pitch);
           return;
         }
-        onAudition(key.pitch);
         finish(heldKey, playheadQ);
+        mpe.pressed(key.channel, key.pitch);
+        const sample = mpe.sampleOf(key.channel);
+        const voice =
+          sample && mpe.isActive()
+            ? onAudition(key.pitch, sample)
+            : onAudition(key.pitch);
+        const recorder = createExpressionRecorder();
+        if (sample) {
+          recorder.add(0, sample);
+        }
+        pressed.current.set(heldKey, {
+          inputId: input.id,
+          channel: key.channel,
+          pressedAtQ: playheadQ,
+          recorder,
+          voice,
+        });
         if (clock?.isPlaying) {
           const note = pressNote(clip, key.pitch, key.velocity, playheadQ);
           if (note) {
@@ -92,6 +156,12 @@ export function useMidiNoteCapture({
             finish(key, lastQ.current);
           }
         }
+        for (const [key, press] of [...pressed.current]) {
+          if (press.inputId === input.id) {
+            pressed.current.delete(key);
+          }
+        }
+        mpeInputFor(hub, input.id).releaseAll();
       },
     });
     return () => {

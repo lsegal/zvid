@@ -11,6 +11,13 @@ import type { MidiInstrument, MidiNote, SynthParams } from "../midi-clip.ts";
 import { renderDrumClip } from "./drum-rack.ts";
 import { renderGranularClip } from "./granular.ts";
 import type { DecodedAudio } from "./mix.ts";
+import {
+  pressureLevel,
+  scheduleVoiceCurve,
+  timbreCutoff,
+  type VoiceCurvePoint,
+  voiceCurve,
+} from "./note-expression.ts";
 
 // What a MIDI clip in the mix plays: its notes through its instrument,
 // rendered `durationSeconds` long from its content start.
@@ -35,6 +42,11 @@ export type SynthVoice = {
   // When its gain is back to 0 and its oscillator stops.
   stopSeconds: number;
   envelope: EnvelopePoint[];
+  // What its expression does, for a note with any: its oscillator's detune in
+  // cents, a further gain, and its filter's cutoff in Hz.
+  detune?: VoiceCurvePoint[];
+  level?: VoiceCurvePoint[];
+  cutoff?: VoiceCurvePoint[];
 };
 
 /** The frequency `pitch` sounds at, `octave` octaves up. */
@@ -101,12 +113,28 @@ export function synthVoices(
       startSeconds,
       startSeconds + note.length * secondsPerQuarter,
     );
+    const { bend, pressure, timbre } = note.expression ?? {};
+    const curve = (
+      points: typeof bend,
+      value: (point: number) => number,
+    ) => voiceCurve(points ?? [], startSeconds, secondsPerQuarter, value);
     return [
       {
         frequency: noteFrequency(note.pitch, params.octave),
         startSeconds,
         stopSeconds: envelope[envelope.length - 1].seconds,
         envelope,
+        ...(bend
+          ? { detune: curve(bend, (value) => params.detune + value * 100) }
+          : {}),
+        ...(pressure ? { level: curve(pressure, pressureLevel) } : {}),
+        ...(timbre
+          ? {
+              cutoff: curve(timbre, (value) =>
+                timbreCutoff(params.cutoff, value),
+              ),
+            }
+          : {}),
       },
     ];
   });
@@ -183,7 +211,20 @@ export async function renderSynthClip(
     for (const point of rest) {
       gain.gain.linearRampToValueAtTime(point.level, point.seconds);
     }
-    oscillator.connect(filter).connect(gain).connect(context.destination);
+    if (voice.detune) {
+      scheduleVoiceCurve(oscillator.detune, voice.detune);
+    }
+    if (voice.cutoff) {
+      scheduleVoiceCurve(filter.frequency, voice.cutoff);
+    }
+    const shaped = oscillator.connect(filter).connect(gain);
+    if (voice.level) {
+      const pressure = context.createGain();
+      scheduleVoiceCurve(pressure.gain, voice.level);
+      shaped.connect(pressure).connect(context.destination);
+    } else {
+      shaped.connect(context.destination);
+    }
     oscillator.start(voice.startSeconds);
     oscillator.stop(voice.stopSeconds);
   }
