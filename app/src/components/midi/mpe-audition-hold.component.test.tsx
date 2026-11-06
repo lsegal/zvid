@@ -138,7 +138,7 @@ test("a device going away releases the voices it was holding", async () => {
   expect(released).toEqual([60, 64]);
 });
 
-test("the roll collapsing or closing releases the voices it was holding", async () => {
+test("the roll collapsing releases the voices it was holding", async () => {
   const { released, onAudition } = listeningVoices();
   const roll = await renderRoll({ onAudition });
   roll.configureMpe();
@@ -146,13 +146,15 @@ test("the roll collapsing or closing releases the voices it was holding", async 
   await roll.collapse();
   expect(released).toEqual([60]);
   roll.unmount();
+});
 
-  const closing = listeningVoices();
-  const closed = await renderRoll({ onAudition: closing.onAudition });
-  closed.configureMpe();
-  closed.send(0x91, 64, 100);
-  closed.unmount();
-  expect(closing.released).toEqual([64]);
+test("the roll closing releases the voices it was holding", async () => {
+  const { released, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.configureMpe();
+  roll.send(0x91, 60, 100);
+  roll.unmount();
+  expect(released).toEqual([60]);
 });
 
 test("clicks and keys from a device not playing MPE don't hold", async () => {
@@ -183,11 +185,11 @@ function listenToAuditions() {
         analyser.fftSize = 2048;
         const idle = this.context.createConstantSource();
         idle.offset.value = 0;
-        connect.call(idle, analyser);
+        idle.connect(analyser);
         idle.start();
         tap = { context: this.context, analyser };
       }
-      connect.call(this, tap.analyser);
+      connect.call(this, tap.analyser as never);
     }
     return connect.apply(this, args as Parameters<typeof connect>) as never;
   });
@@ -200,16 +202,16 @@ function listenToAuditions() {
     tap?.context.state === "running"
       ? samples().reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)
       : 0;
-  // How much it moves for its size: higher for a higher or brighter sound.
+  // How sharply it turns for its size: higher for a higher or brighter sound.
   const brightness = () => {
     const data = samples();
-    let moved = 0;
+    let turned = 0;
     let size = 0;
-    for (let index = 1; index < data.length; index++) {
-      moved += Math.abs(data[index] - data[index - 1]);
-      size += Math.abs(data[index]);
+    for (let index = 2; index < data.length; index++) {
+      turned += (data[index] - 2 * data[index - 1] + data[index - 2]) ** 2;
+      size += data[index] ** 2;
     }
-    return moved / Math.max(size, 1e-6);
+    return Math.sqrt(turned / Math.max(size, 1e-12));
   };
   return { level, brightness };
 }
