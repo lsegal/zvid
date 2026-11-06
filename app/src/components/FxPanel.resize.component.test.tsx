@@ -95,7 +95,12 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
 
     const body = query(".fx-panel__body");
     expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
-    // Classic, so it takes room: an overlay scrollbar hides until a scroll.
-    expect(body.offsetWidth - body.clientWidth).toBeGreaterThan(0);
+    // Either standard property would leave macOS's overlay scrollbar, hidden
+    // until a scroll, in place of the app's ::-webkit-scrollbar styles. (The
+    // width itself is 0 where Playwright hides scrollbars, as headless does.)
+    const style = getComputedStyle(body);
+    expect(style.scrollbarWidth).toBe("auto");
+    expect(style.scrollbarColor).toBe("auto");
+    expect(getComputedStyle(body, "::-webkit-scrollbar").width).toBe("10px");
   });
 });
