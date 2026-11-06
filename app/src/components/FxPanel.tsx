@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import type { ReactNode } from "react";
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { FX_PANEL_MIN_HEIGHT } from "../app/constants.ts";
 import { SOURCE_CLIP_COLLAPSE_KEY } from "../fx-chain.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
@@ -78,6 +78,27 @@ export type FxPanelProps = Pick<
     midiMap?: Pick<KeyMapControls, "active" | "toggle">;
   };
 
+// Marks the panel's body with data-fits while its chain fits without scrolling.
+// The attribute only moves the Clip fields within their region, so it can't
+// change the chain's height and flip itself back.
+function useFitsAttribute() {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const chain = body?.firstElementChild;
+    if (!body || !chain) {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      body.toggleAttribute("data-fits", body.scrollHeight <= body.clientHeight);
+    });
+    observer.observe(body);
+    observer.observe(chain);
+    return () => observer.disconnect();
+  }, []);
+  return bodyRef;
+}
+
 // The collapsible, resizable FX panel under the editor: its header toggle, the title
 // for the selected layer or clip, and the FX chain. A source track's Record
 // device leads the chain, ahead of the selected source clip's properties,
@@ -130,6 +151,7 @@ export function FxPanel({
   toggleInspectorCollapsed,
 }: FxPanelProps) {
   const { height: fxPanelHeight, ...resizeHandlers } = fxPanelResize ?? {};
+  const bodyRef = useFitsAttribute();
   return (
     <>
       {fxPanelResize && !isInspectorCollapsed ? (
@@ -162,6 +184,7 @@ export function FxPanel({
           className="fx-panel__body"
           hidden={isInspectorCollapsed}
           id="fx-panel-body"
+          ref={bodyRef}
         >
           <KeyMapContext.Provider value={keyMap}>
             <MidiMapContext.Provider value={midiMap}>

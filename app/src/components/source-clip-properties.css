@@ -28,8 +28,9 @@
 
 /* A MIDI clip's timeline fields sit in a column beside the clip's own. */
 .source-clip-properties__device .source-clip-properties__columns {
+  flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   padding: 0;
 }
 
@@ -39,6 +40,13 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px 12px;
+}
+
+/* Spreads the fields over a panel taller than they are. While the panel
+   scrolls the chain's height isn't all in view, so they stay at the top, where
+   they can be reached. */
+.fx-panel__body[data-fits] .source-clip-properties__fields {
+  justify-content: space-between;
 }
 
 /* The fields stack one per row, so the widget is only as wide as one field.
