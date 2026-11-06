@@ -13,6 +13,7 @@ const NO_CHOICE = "none";
 const INPUT_VALUE_PREFIX = "input:";
 
 const ACCESS_MESSAGES = {
+  idle: "Requesting MIDI access",
   requesting: "Requesting MIDI access",
   unavailable: "MIDI unavailable",
   denied: "MIDI permission denied",
@@ -36,10 +37,13 @@ function deviceSelection({ enabled, device, access, inputs }: MidiInputState) {
     options: [{ value: NO_CHOICE, label }],
     disabled: true,
   });
+  const chosen = device && findChosenInput(inputs, device);
   if (!enabled) {
-    return only(device?.name ?? allDevices.label);
+    return only(
+      chosen ? midiInputLabel(chosen) : (device?.name ?? allDevices.label),
+    );
   }
-  if (access !== "ready" && access !== "idle") {
+  if (access !== "ready") {
     return only(ACCESS_MESSAGES[access]);
   }
   if (!inputs.length && !device) {
@@ -55,7 +59,6 @@ function deviceSelection({ enabled, device, access, inputs }: MidiInputState) {
   if (!device) {
     return { value: ALL_DEVICES, options, disabled: false };
   }
-  const chosen = findChosenInput(inputs, device);
   if (chosen) {
     return {
       value: `${INPUT_VALUE_PREFIX}${chosen.id}`,
