@@ -50,4 +50,5 @@ specification's default zone, so ordinary keyboards stay as they are.
 
 A key from a device playing MPE auditions until it comes up. A device with no
 configuration message isn't known to play MPE until its second member channel,
-so its first key after connecting auditions for the fixed time.
+so its first key after connecting starts on the fixed audition, and holds from
+then on if it is still down and that audition hasn't ended.
