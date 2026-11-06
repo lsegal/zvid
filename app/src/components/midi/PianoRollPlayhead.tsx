@@ -1,6 +1,6 @@
 import { useContext, useSyncExternalStore } from "react";
-import { midiSoundingQ } from "../../midi-clip-timeline.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
+import { clipSoundingQ } from "../../midi-input/note-capture.ts";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 
 // The transport playhead on the piano roll's grid, read-only: a line at
@@ -47,14 +47,8 @@ type PlayheadModel = Pick<
  * The note quarter (from the clip's content start) the clip sounds at
  * timeline quarter `playheadQ`, or undefined outside the clip.
  */
-export function pianoRollPlayheadQ(
-  { startQ, trimStartQ, lengthQ, timeline }: PlayheadModel,
-  playheadQ: number,
-) {
-  const intoClipQ = playheadQ - startQ;
-  return intoClipQ >= 0 && intoClipQ < lengthQ
-    ? midiSoundingQ(timeline, trimStartQ + intoClipQ)
-    : undefined;
+export function pianoRollPlayheadQ(model: PlayheadModel, playheadQ: number) {
+  return clipSoundingQ(model, playheadQ);
 }
 
 function noSubscription() {

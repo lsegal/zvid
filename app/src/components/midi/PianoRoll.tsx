@@ -15,6 +15,10 @@ import { auditionNote } from "../../midi-audition.ts";
 import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
+import {
+  type MidiInputHub,
+  midiInputHub,
+} from "../../midi-input/input-hub.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
   addNote,
@@ -53,9 +57,12 @@ import type { FxEditMode } from "../fx/types";
 import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
 import "./midi-devices.css";
+import { PianoRollHeldNote } from "./PianoRollHeldNotes";
+import { PianoRollMidiStatus } from "./PianoRollMidiStatus";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
+import { useMidiNoteCapture } from "./use-midi-note-capture";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -79,6 +86,8 @@ type PianoRollProps = {
   onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's Synth; tests listen instead.
   onAudition?: (pitch: number, instrument: MidiInstrument) => void;
+  // Where MIDI keys come from; tests play a simulated device through it.
+  midiHub?: MidiInputHub;
 };
 
 // A key row's height and a quarter note's width on the roll's grid.
@@ -141,7 +150,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // auditions it through the clip's instrument. A read-only line follows the
 // transport playhead to the note sounding (see PianoRollPlayhead), and a
 // resizable velocity lane along the bottom edits the notes' velocities (see
-// PianoRollVelocity).
+// PianoRollVelocity). While the roll is open, MIDI keys audition their pitch
+// and, while the transport plays, write notes at the playhead, each one undo
+// step (see use-midi-note-capture.ts).
 export function PianoRoll({
   model,
   collapsed,
@@ -149,6 +160,7 @@ export function PianoRoll({
   onSetNotes,
   onSetTimeline,
   onAudition = auditionNote,
+  midiHub = midiInputHub,
 }: PianoRollProps) {
   const { spanId, label, accent, notes, timeline, instrument } = model;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -197,6 +209,28 @@ export function PianoRoll({
   }, [spanId, collapsed]);
 
   const audition = (pitch: number) => onAudition(pitch, instrument);
+
+  // The clip's notes with the captures not yet back from the session, since
+  // a chord's keys come up faster than the roll re-renders.
+  const capturedNotes = useRef(notes);
+  capturedNotes.current = notes;
+  const { heldNotes, inputs } = useMidiNoteCapture({
+    enabled: !collapsed,
+    hub: midiHub,
+    clip: model,
+    clock,
+    onAudition: audition,
+    onCapture(note) {
+      const next = placeNote(
+        [...capturedNotes.current, note],
+        capturedNotes.current.length,
+      );
+      capturedNotes.current = next;
+      // A note drag's snapshot of the clip would overwrite the new note.
+      setDrag(null);
+      onSetNotes(spanId, next, midiHistoryLabels.recordNote);
+    },
+  });
 
   // The pitch and quarter (from the clip's content start) under a point of
   // the grid.
@@ -486,6 +520,7 @@ export function PianoRoll({
         }}
       >
         <span className="fx-device-panel__name">Notes</span>
+        <PianoRollMidiStatus inputs={inputs} />
         <button
           aria-expanded
           aria-label="Collapse Notes"
@@ -585,6 +620,15 @@ export function PianoRoll({
               </button>
             );
           })}
+          {heldNotes.map((note) => (
+            <PianoRollHeldNote
+              clip={model}
+              key={`${note.pitch}:${note.startQ}`}
+              note={note}
+              quarterPx={PIANO_ROLL_QUARTER_PX}
+              top={rowOf(note.pitch) * PIANO_ROLL_ROW_PX}
+            />
+          ))}
           <PianoRollPlayhead model={model} quarterPx={PIANO_ROLL_QUARTER_PX} />
         </div>
         <PianoRollVelocity

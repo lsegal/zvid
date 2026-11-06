@@ -10,6 +10,7 @@ import type {
 
 export const midiHistoryLabels = {
   addNote: "Add Note",
+  recordNote: "Record Note",
   moveNote: "Move Note",
   resizeNote: "Resize Note",
   deleteNote: "Delete Note",
