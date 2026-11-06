@@ -60,6 +60,8 @@ export type MidiDeviceMapping = {
     // the source lists the controls but not their messages, which follow
     // the convention for that kind of device.
     verification: "documented" | "inventory";
+    // Any exception: a weak source, or controls it couldn't account for.
+    note?: string;
   };
   controls: MidiControlEntry[];
 };
