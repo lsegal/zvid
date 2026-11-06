@@ -129,6 +129,20 @@ export function useProjectStore({
     [],
   );
 
+  // A correction that isn't an edit of its own, which the session still has to
+  // save. A read-only tab leaves it to the tab that owns the session, without
+  // asking to take over for what the user didn't do.
+  const amendProject = useCallback(
+    (updater: (current: ProjectState) => ProjectState) => {
+      if (isWorkspaceReadOnlyRef.current) {
+        return;
+      }
+      setHasUnsavedChanges(true);
+      dispatchProjectHistory({ type: "amend", updater });
+    },
+    [],
+  );
+
   const commitProjectPatch = useCallback(
     (label: string, patch: Partial<ProjectState>) => {
       commitProjectChange(label, (current) =>
@@ -164,6 +178,7 @@ export function useProjectStore({
     projectSnapshotRef,
     commitProjectChange,
     commitViewChange,
+    amendProject,
     commitProjectPatch,
   };
 }

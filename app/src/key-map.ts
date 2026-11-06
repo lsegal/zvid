@@ -153,7 +153,7 @@ export function pruneKeyMappings(
   return kept?.length ? kept : undefined;
 }
 
-function readTarget(raw: unknown): KeyMapTarget | undefined {
+export function readKeyMapTarget(raw: unknown): KeyMapTarget | undefined {
   const target = raw as Partial<Record<string, unknown>> | null;
   const { kind, effectId, parameter, value, pad } = target ?? {};
   if (typeof effectId !== "string") {
@@ -190,7 +190,7 @@ export function readKeyMappings(
   }
   let mappings: readonly KeyMapping[] | undefined;
   for (const entry of raw) {
-    const target = readTarget(entry?.target);
+    const target = readKeyMapTarget(entry?.target);
     const key = entry?.key;
     if (
       target &&

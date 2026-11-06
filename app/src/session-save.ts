@@ -17,6 +17,7 @@ import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { MidiNote } from "./midi-clip.ts";
 import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
+import type { MidiMapping } from "./midi-map.ts";
 import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {
@@ -129,6 +130,7 @@ export type SaveableProject = {
   projectDurationFrames?: number;
   sourceTracksLocked?: boolean;
   keyMappings?: readonly KeyMapping[];
+  midiMappings?: readonly MidiMapping[];
 };
 
 export type SaveableView = {
@@ -392,6 +394,9 @@ export function projectToSession(
     ...(mediaRanges.length ? { mediaRanges } : {}),
     ...(project.keyMappings?.length
       ? { keyMappings: project.keyMappings }
+      : {}),
+    ...(project.midiMappings?.length
+      ? { midiMappings: project.midiMappings }
       : {}),
     // The effects are written as they are, so a removed Order stays removed.
     orderDefaulted: true,

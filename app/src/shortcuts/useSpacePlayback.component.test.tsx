@@ -89,6 +89,7 @@ function EditorTopBar({ openSettings }: { openSettings: () => void }) {
       handleNewSession={noop}
       handleOpenSession={async () => {}}
       keyMap={{ active: false, toggle: noop }}
+      midiMap={{ active: false, toggle: noop }}
       handleSaveToLibrary={async () => true}
       handleStopShare={noop}
       isExporting={false}

@@ -20,6 +20,10 @@ import {
 } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
+import {
+  type ComputerKeyboardEntry,
+  computerKeyboardEntry,
+} from "../../midi-input/computer-keyboard.ts";
 import { type MidiInputHub, midiInputHub } from "../../midi-input/input-hub.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
@@ -60,10 +64,12 @@ import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
 import "./midi-devices.css";
 import { PianoRollHeldNote } from "./PianoRollHeldNotes";
+import { PianoRollKeyboardEntry } from "./PianoRollKeyboardEntry";
 import { isMidiControl, PianoRollMidiControls } from "./PianoRollMidiControls";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
+import { useComputerKeyboardEntry } from "./use-computer-keyboard-entry";
 import { useMidiNoteCapture } from "./use-midi-note-capture";
 
 export type SetMidiClipNotes = (
@@ -95,6 +101,8 @@ type PianoRollProps = {
   ) => AuditionVoice | undefined;
   // Where MIDI keys come from; tests play a simulated device through it.
   midiHub?: MidiInputHub;
+  // Whether the typing keyboard plays notes; tests keep their own.
+  keyboardEntry?: ComputerKeyboardEntry;
 };
 
 // A key row's height and a quarter note's width on the roll's grid.
@@ -159,7 +167,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // resizable velocity lane along the bottom edits the notes' velocities (see
 // PianoRollVelocity). While the roll is open, MIDI keys audition their pitch
 // and, while the transport plays, write notes at the playhead, each one undo
-// step (see use-midi-note-capture.ts), once MIDI is on in the header.
+// step (see use-midi-note-capture.ts), once MIDI is on in the header. The
+// header's other toggle has the typing keyboard do the same (see
+// use-computer-keyboard-entry.ts).
 export function PianoRoll({
   model,
   collapsed,
@@ -168,6 +178,7 @@ export function PianoRoll({
   onSetTimeline,
   onAudition = auditionNote,
   midiHub = midiInputHub,
+  keyboardEntry = computerKeyboardEntry,
 }: PianoRollProps) {
   const { spanId, label, accent, notes, timeline, instrument } = model;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -231,7 +242,7 @@ export function PianoRoll({
   // a chord's keys come up faster than the roll re-renders.
   const capturedNotes = useRef(notes);
   capturedNotes.current = notes;
-  const { heldNotes, midi } = useMidiNoteCapture({
+  const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
     enabled: !collapsed,
     hub: midiHub,
     clip: model,
@@ -251,8 +262,14 @@ export function PianoRoll({
       onSetNotes(spanId, next, midiHistoryLabels.recordNote);
     },
   });
+  const keyboardEntryState = useComputerKeyboardEntry({
+    active: !collapsed,
+    entry: keyboardEntry,
+    press: playKey,
+    release: releaseKey,
+  });
 
-  // Scrolls a pitch played from a MIDI key into view, centered, if it isn't.
+  // Scrolls a pitch played from a key into view, centered, if it isn't.
   function revealPitch(pitch: number) {
     const scroller = scrollRef.current;
     if (!scroller) {
@@ -558,7 +575,12 @@ export function PianoRoll({
         }}
       >
         <span className="fx-device-panel__name">Notes</span>
-        <PianoRollMidiControls hub={midiHub} state={midi} />
+        <PianoRollMidiControls hub={midiHub} state={midi}>
+          <PianoRollKeyboardEntry
+            entry={keyboardEntry}
+            state={keyboardEntryState}
+          />
+        </PianoRollMidiControls>
         <button
           aria-expanded
           aria-label="Collapse Notes"

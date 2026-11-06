@@ -333,3 +333,30 @@ test("unreadable saved preferences start off, on every device", () => {
   assert.equal(hub.getState().enabled, false);
   assert.equal(hub.getState().device, null);
 });
+
+test("a listener that claims a message is the only one told", async () => {
+  const input = port("a", "Keys");
+  const { access } = fakeAccess(input);
+  const hub = enabledHub({
+    requestAccess: async () => access,
+    loadMappings: async () => [],
+  });
+  const heard: string[] = [];
+  hub.listen({
+    message: () => heard.push("first"),
+    disconnected: () => {},
+  });
+  hub.listen({
+    claims: (_input, message) =>
+      message.type === "note-on" && message.note === 60,
+    message: () => heard.push("claimant"),
+    disconnected: () => {},
+  });
+  await settle();
+
+  input.onmidimessage?.({ data: new Uint8Array([0x90, 60, 100]) });
+  assert.deepEqual(heard, ["claimant"]);
+  heard.length = 0;
+  input.onmidimessage?.({ data: new Uint8Array([0x90, 61, 100]) });
+  assert.deepEqual(heard, ["first", "claimant"]);
+});

@@ -6,6 +6,7 @@ import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import type { KeyMapping } from "./key-map.ts";
 import type { MidiNote, SynthParams } from "./midi-clip.ts";
 import type { MidiClipTimeline } from "./midi-clip-timeline.ts";
+import type { MidiMapping } from "./midi-map.ts";
 import type { NoteGenerator } from "./note-generators.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 
@@ -169,6 +170,8 @@ export type ProjectSession = {
   mediaRanges?: Array<{ path: string; inSeconds: number; outSeconds: number }>;
   /** zvid-only: computer keys mapped to buttons in effect devices. */
   keyMappings?: readonly KeyMapping[];
+  /** zvid-only: MIDI keys mapped to buttons in effect devices. */
+  midiMappings?: readonly MidiMapping[];
   // Set on sessions saved since every session got a default Order effect;
   // without it the session is older and opens with one added. Anything that
   // writes a session must set it, or a removed Order comes back on open.

@@ -9,6 +9,7 @@ import type {
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { MidiNote } from "../midi-clip.ts";
 import type { MidiClipTimeline } from "../midi-clip-timeline.ts";
+import type { MidiMapping } from "../midi-map.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 import type { ClipGroupMember } from "./clip-group-move.ts";
@@ -287,6 +288,8 @@ export type ProjectState = {
   // Computer keys mapped to buttons in effect devices. Unset when there are
   // none.
   keyMappings?: readonly KeyMapping[];
+  // MIDI keys mapped to buttons in effect devices. Unset when there are none.
+  midiMappings?: readonly MidiMapping[];
   // Set on every state since sessions got a default Order effect. A restored
   // workspace saved without it is older and gets that Order added.
   orderDefaulted?: boolean;

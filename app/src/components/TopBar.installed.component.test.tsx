@@ -39,6 +39,7 @@ const props: TopBarProps = {
   handleSaveToLibrary: async () => true,
   isExporting: false,
   keyMap: { active: false, toggle: noop },
+  midiMap: { active: false, toggle: noop },
   openExportDialog: noop,
   setIsMediaStorageDialogOpen: setOpen,
   setIsMediaSyncDialogOpen: setOpen,

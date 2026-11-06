@@ -24,6 +24,12 @@ export type ProjectHistoryAction<State> =
       updater: (current: State) => State;
     }
   | {
+      // Corrects a fact in every state of the history, so it's no edit of its
+      // own: no undo step, and no undo or redo goes back to before it.
+      type: "amend";
+      updater: (current: State) => State;
+    }
+  | {
       type: "undo";
     }
   | {
@@ -47,6 +53,7 @@ export function isProjectEditAction<State>(
   return (
     action.type === "commit" ||
     action.type === "transient" ||
+    action.type === "amend" ||
     action.type === "undo" ||
     action.type === "redo"
   );
@@ -93,6 +100,26 @@ export function projectHistoryReducer<State>(
         ...state,
         present: next,
         transientBase: state.transientBase ?? state.present,
+      };
+    }
+
+    case "amend": {
+      const present = action.updater(state.present);
+      if (present === state.present) {
+        return state;
+      }
+
+      const amend = (entry: ProjectHistoryEntry<State>) => {
+        const snapshot = action.updater(entry.snapshot);
+        return snapshot === entry.snapshot ? entry : { ...entry, snapshot };
+      };
+      return {
+        past: state.past.map(amend),
+        present,
+        future: state.future.map(amend),
+        ...(state.transientBase === undefined
+          ? {}
+          : { transientBase: action.updater(state.transientBase) }),
       };
     }
 
