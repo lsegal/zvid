@@ -16,6 +16,8 @@ fn has_origin(uri: &str, origin: &str) -> bool {
 
 #[cfg(windows)]
 fn app_origin(window: &tauri::WebviewWindow) -> String {
+  use tauri::Manager;
+
   let dev_url = window.config().build.dev_url.as_ref();
   match dev_url.filter(|_| tauri::is_dev()) {
     Some(url) => url.origin().ascii_serialization(),
