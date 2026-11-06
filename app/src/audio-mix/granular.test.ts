@@ -5,6 +5,7 @@ import { DEFAULT_GRANULAR_PARAMS, type MidiNote } from "../midi-clip.ts";
 import {
   GRANULAR_VOICE_LEVEL,
   granularGrains,
+  granularLoop,
   granularSource,
   mixGrains,
   mixGrainsOffThread,
@@ -254,5 +255,39 @@ describe("granularGrains, with expression", () => {
 
   it("leaves a note without expression exactly as it was", () => {
     assert.deepEqual(grains({ ...plain, expression: {} }), grains(plain));
+  });
+});
+
+describe("granularLoop", () => {
+  const SAMPLE_RATE = 8000;
+  const params = { ...DEFAULT_GRANULAR_PARAMS, grainSize: 0.2, density: 15 };
+
+  it("lasts a whole number of grain starts", () => {
+    const seconds = (density: number) =>
+      granularLoop(NOTE, { ...params, density }, SAMPLE_RATE).length /
+      SAMPLE_RATE;
+    assert.equal(seconds(30), 1);
+    assert.ok(Math.abs(seconds(1.5) - 4 / 3) < 0.001);
+  });
+
+  it("carries the grains still sounding at its end around to its start", () => {
+    const loop = granularLoop(NOTE, params, SAMPLE_RATE);
+    const steps = Array.from(loop, (sample, index) =>
+      Math.abs(sample - loop[index === 0 ? loop.length - 1 : index - 1]),
+    );
+    const [seam, ...rest] = steps;
+    assert.ok(seam <= Math.max(...rest));
+    // Grains overlap from its first sample, as they do everywhere else.
+    assert.ok(Math.abs(loop[1]) > 0 && steps[1] > 0);
+  });
+
+  it("holds its level from start to end, the same every time", () => {
+    const loop = granularLoop(NOTE, params, SAMPLE_RATE);
+    const peak = (from: number, to: number) =>
+      loop.subarray(from, to).reduce((p, v) => Math.max(p, Math.abs(v)), 0);
+    const half = loop.length >> 1;
+    const ratio = peak(0, half) / peak(half, loop.length);
+    assert.ok(ratio > 0.5 && ratio < 2, `${ratio}`);
+    assert.deepEqual(granularLoop(NOTE, params, SAMPLE_RATE), loop);
   });
 });
