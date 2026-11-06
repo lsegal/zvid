@@ -378,8 +378,19 @@
   gap: 6px;
 }
 
+/* They take their own row beneath the header's first, which keeps its name. */
+.app-shell--phone .piano-roll .fx-device-panel__name {
+  flex: none;
+}
+
+.app-shell--phone .piano-roll__midi-controls {
+  flex-wrap: wrap;
+}
+
 .app-shell--phone .piano-roll__phone-inputs {
   display: flex;
+  order: 1;
+  flex-basis: 100%;
 }
 
 .piano-roll__midi-device {

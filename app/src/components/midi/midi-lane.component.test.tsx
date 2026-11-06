@@ -380,7 +380,7 @@ test(
       .getByRole("region", { name: "Bassline notes" })
       .element()
       .querySelector("header");
-    expect(header?.textContent?.trim()).toBe("NotesMIDIAll devicesKeys");
+    expect(header?.textContent?.trim()).toBe("NotesAll devices");
   },
   EDITOR_TEST_TIMEOUT,
 );

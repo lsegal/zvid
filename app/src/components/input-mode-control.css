@@ -72,3 +72,8 @@
   border-radius: 50%;
   background: currentColor;
 }
+
+/* The phone's piano roll header is narrow; the height keeps the touch area. */
+.app-shell--phone .input-mode__segment {
+  min-width: 36px;
+}

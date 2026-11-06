@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { expect, onTestFinished, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-react";
 import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
@@ -242,4 +242,15 @@ test("the controls keep the roll's keys and double-click to themselves", async (
   await userEvent.dblClick(selector());
   expect(roll.onToggleCollapsed).not.toHaveBeenCalled();
   await userEvent.keyboard("{Escape}");
+});
+
+test("a phone, with no top bar, has the input controls in the header", async () => {
+  await renderRoll({});
+  const shown = (name: string) =>
+    page.getByRole("region", { name: /notes/i }).getByRole("group", { name });
+  await expect.element(shown("Key input")).not.toBeInTheDocument();
+  document.body.classList.add("app-shell--phone");
+  onTestFinished(() => document.body.classList.remove("app-shell--phone"));
+  await expect.element(shown("Key input")).toBeVisible();
+  await expect.element(shown("MIDI input")).toBeVisible();
 });
