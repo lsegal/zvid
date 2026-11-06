@@ -91,6 +91,7 @@ type PianoRollProps = {
     pitch: number,
     instrument: MidiInstrument,
     expression?: ExpressionSample,
+    hold?: boolean,
   ) => AuditionVoice | undefined;
   // Where MIDI keys come from; tests play a simulated device through it.
   midiHub?: MidiInputHub;
@@ -214,9 +215,13 @@ export function PianoRoll({
     }
   }, [spanId, collapsed]);
 
-  const audition = (pitch: number, expression?: ExpressionSample) =>
-    expression
-      ? onAudition(pitch, instrument, expression)
+  const audition = (
+    pitch: number,
+    expression?: ExpressionSample,
+    hold = false,
+  ) =>
+    expression || hold
+      ? onAudition(pitch, instrument, expression, hold)
       : onAudition(pitch, instrument);
   // A note clicked on sounds as it starts.
   const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
@@ -231,9 +236,9 @@ export function PianoRoll({
     hub: midiHub,
     clip: model,
     clock,
-    onAudition(pitch, expression) {
+    onAudition(pitch, expression, hold) {
       revealPitch(pitch);
-      return audition(pitch, expression);
+      return audition(pitch, expression, hold);
     },
     onCapture(note) {
       const next = placeNote(
