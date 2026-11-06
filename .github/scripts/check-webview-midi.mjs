@@ -8,17 +8,25 @@ const REQUEST = `Promise.race([
 ])`;
 
 async function findPage() {
+  let seen = "no response";
   for (let attempt = 0; attempt < 60; attempt++) {
     try {
-      const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      const page = targets.find((target) => target.type === "page" && target.url.startsWith("http://tauri.localhost"));
+      const targets = await (
+        await fetch(`http://127.0.0.1:${port}/json/list`)
+      ).json();
+      seen = JSON.stringify(targets.map((target) => target.url));
+      const page = targets.find(
+        (target) =>
+          target.type === "page" &&
+          target.url.startsWith("http://tauri.localhost"),
+      );
       if (page) return page;
     } catch {
       // The webview hasn't opened its debugging port yet.
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  throw new Error("the app's page never appeared");
+  throw new Error(`the app's page never appeared; last saw ${seen}`);
 }
 
 function evaluate(page, expression) {
@@ -26,7 +34,13 @@ function evaluate(page, expression) {
     const socket = new WebSocket(page.webSocketDebuggerUrl);
     socket.onerror = () => reject(new Error("the DevTools connection failed"));
     socket.onopen = () => {
-      socket.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, awaitPromise: true } }));
+      socket.send(
+        JSON.stringify({
+          id: 1,
+          method: "Runtime.evaluate",
+          params: { expression, awaitPromise: true },
+        }),
+      );
     };
     socket.onmessage = ({ data }) => {
       const message = JSON.parse(data);
