@@ -82,6 +82,7 @@ export function TopBarHarness({ sharing = false }: TopBarHarnessProps) {
         handleStopShare={() => setCollaborationMode("idle")}
         isExporting={false}
         keyMap={{ active: false, toggle: noop }}
+        midiMap={{ active: false, toggle: noop }}
         offlineMedia={[]}
         openExportDialog={noop}
         renamingLaneIdRef={{ current: undefined }}

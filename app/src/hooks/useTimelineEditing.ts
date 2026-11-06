@@ -25,6 +25,7 @@ import type { useFxEditing } from "./useFxEditing.ts";
 import { useKeyMap } from "./useKeyMap.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
+import { useMidiMap } from "./useMidiMap.ts";
 import { useMarqueeSelection } from "./useMarqueeSelection.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
 import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
@@ -526,9 +527,16 @@ export function useTimelineEditing({
     totalQuarters,
   });
 
-  const keyMap = useKeyMap({
+  const { keyMap, midiMap } = useMidiMap({
+    keyMap: useKeyMap({
+      effects: project.effects,
+      keyMappings: project.keyMappings,
+      commitProjectChange,
+      editEffects: fxEditing.editEffects,
+      setStatus,
+    }),
     effects: project.effects,
-    keyMappings: project.keyMappings,
+    midiMappings: project.midiMappings,
     commitProjectChange,
     editEffects: fxEditing.editEffects,
     setStatus,
@@ -619,6 +627,7 @@ export function useTimelineEditing({
   return {
     ...rowHandlers,
     keyMap,
+    midiMap,
     marqueeRect: marquee.marqueeRect,
     handleRandomizeTimeline,
     handleCreateLayer,

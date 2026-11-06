@@ -14,6 +14,7 @@ import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes } from "../midi-clip.ts";
 import { readMidiTimeline } from "../midi-clip-timeline.ts";
 import { migrateMidiClipEffects } from "../midi-effects.ts";
+import { pruneMidiMappings, readMidiMappings } from "../midi-map.ts";
 import {
   fitSourceSpansToMedia,
   migrateClipContentEffects,
@@ -160,6 +161,12 @@ export function patchProjectState(
     const pruned = pruneKeyMappings(keyMappings, patch.effects);
     if (pruned !== keyMappings) {
       patch = { ...patch, keyMappings: pruned };
+    }
+    const midiMappings =
+      "midiMappings" in patch ? patch.midiMappings : current.midiMappings;
+    const prunedMidi = pruneMidiMappings(midiMappings, patch.effects);
+    if (prunedMidi !== midiMappings) {
+      patch = { ...patch, midiMappings: prunedMidi };
     }
   }
 
@@ -477,6 +484,7 @@ export function sessionToProject(
     playStartPositionFrames: session.playStartPosition ?? 0,
     sourceTracksLocked: session.sourceTracksLocked === true,
     keyMappings: readKeyMappings(session.keyMappings, audio.effects),
+    midiMappings: readMidiMappings(session.midiMappings, audio.effects),
     unresolvedPaths,
     overlapNote: formatOverlapNote(overlaps),
   };

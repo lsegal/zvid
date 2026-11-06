@@ -29,8 +29,47 @@ function padId(effectId: string, pad: number) {
   return `${effectId}:${pad}`;
 }
 
+type EditEffects = (
+  label: string,
+  updater: (effects: SessionEffect[]) => SessionEffect[],
+) => void;
+
+/**
+ * Does what clicking each of `targets` does, skipping buttons that are gone.
+ * Returns whether any was there, and the Drum Rack pads this holds down.
+ */
+export function fireMappedButtons(
+  targets: readonly KeyMapTarget[],
+  effects: SessionEffect[],
+  editEffects: EditEffects,
+) {
+  const pads: string[] = [];
+  let fired = false;
+  for (const target of targets) {
+    const press = pressKeyMapTarget(effects, target);
+    if (!press) {
+      continue;
+    }
+    fired = true;
+    if (press.kind === "pad") {
+      pads.push(padId(target.effectId, press.pad));
+      void auditionDrumPad(
+        press.pad,
+        drumRackParams(parseDrumRack(press.settings)),
+      );
+    } else {
+      // Each works from the edit before it, as separate clicks would.
+      editEffects(press.label, (effects) => {
+        const next = pressKeyMapTarget(effects, target);
+        return next?.kind === "edit" ? next.effects : effects;
+      });
+    }
+  }
+  return { fired, pads };
+}
+
 // A key press a menu or dialog should get, not a mapping.
-function isKeyForPopup() {
+export function isKeyForPopup() {
   return (
     hasOpenPopup(document) ||
     Boolean(document.querySelector('[role="dialog"], [role="alertdialog"]'))
@@ -44,10 +83,7 @@ export type KeyMapInputs = {
     label: string,
     updater: (current: ProjectState) => ProjectState,
   ) => void;
-  editEffects: (
-    label: string,
-    updater: (effects: SessionEffect[]) => SessionEffect[],
-  ) => void;
+  editEffects: EditEffects;
   setStatus: (status: string) => void;
 };
 
@@ -139,15 +175,15 @@ export function useKeyMap({
     const pressMappedKey = (event: KeyboardEvent) => {
       const { effects: current, keyMappings: mappings } = latestRef.current;
       const key = mappableKey(event);
-      const presses =
+      const targets =
         key === undefined
           ? []
-          : (mappings ?? []).flatMap(({ key: mapped, target }) => {
-              const press =
-                mapped === key && pressKeyMapTarget(current, target);
-              return press ? [{ press, target }] : [];
-            });
-      if (!presses.length) {
+          : (mappings ?? []).flatMap(({ key: mapped, target }) =>
+              mapped === key && pressKeyMapTarget(current, target)
+                ? [target]
+                : [],
+            );
+      if (!targets.length) {
         return;
       }
       event.preventDefault();
@@ -158,22 +194,11 @@ export function useKeyMap({
         return;
       }
 
-      const pads: string[] = [];
-      for (const { press, target } of presses) {
-        if (press.kind === "pad") {
-          pads.push(padId(target.effectId, press.pad));
-          void auditionDrumPad(
-            press.pad,
-            drumRackParams(parseDrumRack(press.settings)),
-          );
-        } else {
-          // Each works from the edit before it, as separate clicks would.
-          latestRef.current.editEffects(press.label, (effects) => {
-            const next = pressKeyMapTarget(effects, target);
-            return next?.kind === "edit" ? next.effects : effects;
-          });
-        }
-      }
+      const { pads } = fireMappedButtons(
+        targets,
+        current,
+        latestRef.current.editEffects,
+      );
       heldKeysRef.current.set(code, pads);
       if (pads.length) {
         setHeldPads((held) => new Set([...held, ...pads]));
