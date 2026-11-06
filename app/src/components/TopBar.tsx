@@ -48,13 +48,14 @@ export type TopBarProps = FileMenuInputs &
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
     keyMap: Pick<KeyMapControls, "active" | "toggle">;
+    midiMap: Pick<KeyMapControls, "active" | "toggle">;
     renamingLaneIdRef: RefObject<string | undefined>;
     setIsCaptureInstallerDialogOpen: SetOpen;
     setStatus: (message: string) => void;
   };
 
 // The app's top bar: the brand mark, the File, Edit and Help menubar, and
-// the Key Map toggle, and the export, collaboration status and share controls.
+// the Key Map and MIDI Map toggles, and the export, collaboration status and share controls.
 export function TopBar(props: TopBarProps) {
   const {
     collaboration,
@@ -63,6 +64,7 @@ export function TopBar(props: TopBarProps) {
     handleStopShare,
     isExporting,
     keyMap,
+    midiMap,
     openExportDialog,
     renamingLaneIdRef,
     setIsCaptureInstallerDialogOpen,
@@ -213,6 +215,19 @@ export function TopBar(props: TopBarProps) {
           type="button"
         >
           Key Map
+        </button>
+        <button
+          aria-pressed={midiMap.active}
+          className="ghost-button key-map-toggle"
+          onClick={midiMap.toggle}
+          title={
+            midiMap.active
+              ? "MIDI Map mode: MIDI keys assign to effect buttons. Click for Use mode."
+              : "MIDI Use mode: mapped MIDI keys trigger effect buttons. Click for Map mode."
+          }
+          type="button"
+        >
+          {midiMap.active ? "MIDI: Map" : "MIDI: Use"}
         </button>
         {/* One export at a time: a running one is managed from the status
             bar's export progress, which reopens its dialog. */}

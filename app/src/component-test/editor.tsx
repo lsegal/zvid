@@ -368,6 +368,7 @@ export function Editor({
     <div className="app-shell" ref={appShellRef}>
       <TopBar
         keyMap={editing.keyMap}
+        midiMap={editing.midiMap}
         canStartNewSession={false}
         handleNewSession={noop}
         handleOpenSession={noopAsync}

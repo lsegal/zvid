@@ -53,6 +53,8 @@ export type MpeInput = {
   released: (channel: number, pitch: number) => void;
   /** Whether the device has been shown to play MPE. */
   isActive: () => boolean;
+  /** The zone `channel` belongs to, or undefined outside every zone. */
+  zoneNameOf: (channel: number) => "lower" | "upper" | undefined;
   /** A channel's expression now, or undefined outside every zone. */
   sampleOf: (channel: number) => ExpressionSample | undefined;
   /** Forgets every held note, keeping the zones, as when a device goes away. */
@@ -239,6 +241,13 @@ export function createMpeInput(): MpeInput {
       return configured
         ? Boolean(zones.lower || zones.upper)
         : playedMembers.size >= 2;
+    },
+    zoneNameOf(channel) {
+      const target = zoneOf(channel);
+      if (!target) {
+        return undefined;
+      }
+      return target === zones.lower ? "lower" : "upper";
     },
     sampleOf(channel) {
       const target = zoneOf(channel);

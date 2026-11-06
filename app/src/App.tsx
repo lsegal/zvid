@@ -447,6 +447,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
         keyMap={editing.keyMap}
+        midiMap={editing.midiMap}
         renamingLaneIdRef={selection.renamingLaneIdRef}
         setStatus={setStatus}
       />

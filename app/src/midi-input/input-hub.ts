@@ -39,6 +39,9 @@ export type MidiInputInfo = {
 };
 
 export type MidiInputListener = {
+  // Asked before any listener hears a message. One that says yes is the only
+  // one told, as when a key is mapped to a button rather than playing a note.
+  claims?: (input: MidiInputInfo, message: MidiMessage) => boolean;
   message: (input: MidiInputInfo, message: MidiMessage) => void;
   disconnected: (input: MidiInputInfo) => void;
 };
@@ -166,7 +169,10 @@ export function createMidiInputHub({
         port.onmidimessage = (event) => {
           const message = event.data && parseMidiMessage(event.data);
           if (message) {
-            for (const listener of listeners) {
+            const claimant = [...listeners].find((listener) =>
+              listener.claims?.(added.info, message),
+            );
+            for (const listener of claimant ? [claimant] : listeners) {
               listener.message(added.info, message);
             }
           }

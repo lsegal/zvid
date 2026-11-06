@@ -14,6 +14,7 @@ import type { KeyMapping } from "../key-map.ts";
 import type { MediaItem } from "../media.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { midiChainOf } from "../midi-effects.ts";
+import type { MidiMapping } from "../midi-map.ts";
 import { DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import type { ProjectSession } from "../session.ts";
 import { projectToSession } from "../session-save.ts";
@@ -483,6 +484,64 @@ describe("source track lock", () => {
       const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
       assert.equal(sessionToProject(reopened, []).sourceTracksLocked, locked);
     }
+  });
+});
+
+describe("MIDI mappings in a session", () => {
+  const session: ProjectSession = {
+    tracks: [{ id: "1", name: "Layer 1", colorIndex: 0 }],
+    effects: [{ id: "gain", trackId: "1", effectName: "Gain", parameters: {} }],
+    timeline: { bpm: 120, fps: 30 },
+  };
+  const mapping = {
+    note: 60,
+    channel: 2,
+    target: { kind: "power", effectId: "gain" },
+  } as const;
+  const save = (midiMappings?: readonly MidiMapping[]) => {
+    const project = sessionToProject({ ...session, midiMappings }, []);
+    return projectToSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        clips: project.arrangementClips,
+        timelineMode: "musical",
+        snapEnabled: true,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+  };
+
+  it("survive a save and reopen", () => {
+    const saved = save([mapping]);
+    assert.deepEqual(saved.midiMappings, [mapping]);
+    const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
+    assert.deepEqual(sessionToProject(reopened, []).midiMappings, [mapping]);
+  });
+
+  it("are left out of a session without any, which opens without any", () => {
+    assert.equal(sessionToProject(session, []).midiMappings, undefined);
+    assert.equal("midiMappings" in save(), false);
+  });
+
+  it("go when their effect does, in the same change", () => {
+    const project: ProjectState = {
+      ...INITIAL_PROJECT_STATE,
+      midiMappings: [mapping],
+      effects: [
+        createEffect(GLOBAL_EFFECT_TRACK_ID, "Gain", "gain"),
+        createEffect(GLOBAL_EFFECT_TRACK_ID, "Gain", "other"),
+      ],
+    };
+    const kept = patchProjectState(project, {
+      effects: removeEffect(project.effects, "other"),
+    });
+    assert.equal(kept.midiMappings, project.midiMappings);
+    const removed = patchProjectState(project, {
+      effects: removeEffect(project.effects, "gain"),
+    });
+    assert.equal(removed.midiMappings, undefined);
   });
 });
 
