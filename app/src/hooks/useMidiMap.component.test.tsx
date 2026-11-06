@@ -7,8 +7,8 @@ import {
   test,
   vi,
 } from "vitest";
-import { cleanup } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";
+import { cleanup } from "vitest-browser-react";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { patchProjectState, sessionToProject } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -287,9 +287,7 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await expect.poll(() => state().project.midiMappings).toBeUndefined();
     expect(state().canUndo).toBe(false);
     await redo();
-    await expect
-      .poll(() => state().project.midiMappings?.[0]?.mpe)
-      .toBe(true);
+    await expect.poll(() => state().project.midiMappings?.[0]?.mpe).toBe(true);
 
     const { project } = state();
     const session = JSON.parse(

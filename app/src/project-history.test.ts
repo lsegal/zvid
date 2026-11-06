@@ -51,7 +51,7 @@ describe("amending", () => {
       present: { value: 2, known: true },
       future: [{ snapshot: { value: 3, known: true }, label: "Three" }],
     });
-    const undone = projectHistoryReducer(next, { type: "undo" });
+    const undone = projectHistoryReducer<State>(next, { type: "undo" });
     assert.deepEqual(undone.present, { value: 1, known: true });
     const redone = projectHistoryReducer(undone, { type: "redo" });
     assert.deepEqual(redone.present, { value: 2, known: true });
@@ -76,8 +76,10 @@ describe("amending", () => {
   });
 
   it("is no change when the present state has nothing to amend", () => {
-    const present = { value: 2, known: true as const };
-    const current = { ...history, present };
+    const current: ProjectHistoryState<State> = {
+      ...history,
+      present: { value: 2, known: true },
+    };
     const next = projectHistoryReducer(current, {
       type: "amend",
       updater: known,
