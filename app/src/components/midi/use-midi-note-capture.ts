@@ -39,7 +39,8 @@ type PressedKey = {
 // The hub decides which ports play. Returns the notes held so far, the hub's
 // state, and `playKey` and `releaseKey` for playing keys from elsewhere. A
 // device playing MPE (see midi-input/mpe.ts) shapes each key's audition and
-// note by its own channel.
+// note by its own channel, and holds the audition until the key comes up, the
+// device goes away, MIDI turns off or the roll closes.
 export function useMidiNoteCapture({
   enabled,
   hub,
@@ -54,7 +55,8 @@ export function useMidiNoteCapture({
   clock: FxModulationClock | null;
   onAudition: (
     pitch: number,
-    expression?: ExpressionSample,
+    expression: ExpressionSample | undefined,
+    hold: boolean,
   ) => AuditionVoice | undefined;
   onCapture: (note: MidiNote) => void;
 }) {
@@ -115,7 +117,7 @@ export function useMidiNoteCapture({
   const playKey = useCallback(
     (heldKey: string, pitch: number, velocity: number) => {
       const playheadQ = latest.current.clock?.signal.get() ?? lastQ.current;
-      latest.current.onAudition(pitch);
+      latest.current.onAudition(pitch, undefined, false);
       finish(heldKey, playheadQ);
       holdNote(heldKey, pitch, velocity, playheadQ);
     },
@@ -157,17 +159,18 @@ export function useMidiNoteCapture({
         const heldKey = `${input.id}:${key.channel}:${key.pitch}`;
         if (!key.down) {
           finish(heldKey, playheadQ);
+          pressed.current.get(heldKey)?.voice?.release();
           pressed.current.delete(heldKey);
           mpe.released(key.channel, key.pitch);
           return;
         }
         finish(heldKey, playheadQ);
+        pressed.current.get(heldKey)?.voice?.release();
         mpe.pressed(key.channel, key.pitch);
         const sample = mpe.sampleOf(key.channel);
-        const voice =
-          sample && mpe.isActive()
-            ? onAudition(key.pitch, sample)
-            : onAudition(key.pitch);
+        const voice = mpe.isActive()
+          ? onAudition(key.pitch, sample, true)
+          : onAudition(key.pitch, undefined, false);
         const recorder = createExpressionRecorder();
         if (sample) {
           recorder.add(0, sample);
@@ -189,6 +192,7 @@ export function useMidiNoteCapture({
         }
         for (const [key, press] of [...pressed.current]) {
           if (press.inputId === input.id) {
+            press.voice?.release();
             pressed.current.delete(key);
           }
         }
@@ -199,7 +203,8 @@ export function useMidiNoteCapture({
       stopListening();
       finishAll(lastQ.current);
       // The hub no longer tells this listener about keys coming up.
-      for (const { inputId } of pressed.current.values()) {
+      for (const { inputId, voice } of pressed.current.values()) {
+        voice?.release();
         mpeInputFor(hub, inputId).releaseAll();
       }
       pressed.current.clear();

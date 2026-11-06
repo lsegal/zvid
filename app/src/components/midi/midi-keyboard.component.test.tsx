@@ -631,7 +631,7 @@ test("an audition follows its key's expression", async () => {
       }}
       onAudition={(pitch, _, expression) => {
         started.push([pitch, expression]);
-        return { update: (sample) => updates.push(sample) };
+        return { update: (sample) => updates.push(sample), release() {} };
       }}
       onSetNotes={() => {}}
       onSetTimeline={() => {}}
