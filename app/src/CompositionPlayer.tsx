@@ -792,7 +792,7 @@ export const CompositionPlayer = forwardRef<
   ]);
 
   return (
-    <div className="composition-player">
+    <div className="composition-player" data-theme="dark">
       <canvas className="composition-player__canvas" ref={canvasRef} />
     </div>
   );

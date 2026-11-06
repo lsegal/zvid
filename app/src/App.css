@@ -1184,7 +1184,7 @@
   height: 100%;
   background:
     radial-gradient(circle at top, rgb(var(--tint) / 0.08), transparent 45%),
-    linear-gradient(180deg, light-dark(rgb(253, 254, 255), #11131d) 0%, light-dark(rgb(253, 254, 255), #07080f) 100%);
+    linear-gradient(180deg, #11131d 0%, #07080f 100%);
 }
 
 /* Letterboxed inside the monitor, so every layer band stays visible whatever

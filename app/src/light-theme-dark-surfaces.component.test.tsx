@@ -107,6 +107,33 @@ describe("light theme dark surfaces", () => {
   );
 
   test(
+    "the ruler, Audio lane and preview stage are dark in the light theme",
+    async () => {
+      await renderIn("light");
+      for (const selector of [
+        ".ruler-row__content",
+        ".ruler-loop-strip",
+        ".track-row--bus",
+      ]) {
+        const { background, ink } = colors(selector);
+        expect(luminance(background), selector).toBeLessThan(0.05);
+        expect(contrast(ink, background), selector).toBeGreaterThan(7);
+      }
+      for (const selector of [
+        ".track-row--bus .track-row__content",
+        ".composition-player",
+      ]) {
+        expect(getComputedStyle(query(selector)).colorScheme, selector).toBe(
+          "dark",
+        );
+      }
+      expect(getComputedStyle(query(".composition-player")).backgroundImage)
+        .toContain("rgb(17, 19, 29)");
+    },
+    EDITOR_TEST_TIMEOUT,
+  );
+
+  test(
     "FX device titles get a dark surface in the light theme only",
     async () => {
       await renderIn("dark");

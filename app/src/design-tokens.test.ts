@@ -83,6 +83,25 @@ describe("shared design tokens", () => {
     }
   });
 
+  // The production build lowers light-dark() to variables that resolve where
+  // the custom property is declared, so a :root one is stuck on the root
+  // theme's value inside a data-theme subtree (#1563). The dev server keeps
+  // light-dark() native, so only a production build shows this.
+  it("redeclares :root light-dark() variables on theme subtrees", () => {
+    const themed = ruleBody(indexCss, "[data-theme]");
+    const lightDarkVariables = appStylesheets(new URL("./", import.meta.url))
+      .flatMap((css) =>
+        [...css.matchAll(/^:root \{([^}]*)\}/gm)].flatMap(([, body]) => [
+          ...body.matchAll(/^\s*(--[\w-]+):\s*(light-dark\([^;]*\));/gm),
+        ]),
+      )
+      .map(([, name, value]) => ({ name, value }));
+    assert.ok(lightDarkVariables.length > 0);
+    for (const { name, value } of lightDarkVariables) {
+      assert.ok(themed.includes(`${name}: ${value};`), `missing ${name}`);
+    }
+  });
+
   it("keeps light-theme text and accents readable", () => {
     const light = ruleBody(tokensCss, "[data-theme='light']");
     const surfaces = ["--bg", "--bg-elevated", "--bg-panel", "--bg-soft"];
