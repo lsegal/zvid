@@ -145,6 +145,14 @@ test("every shipped mapping is valid and sourced", () => {
   assert.deepEqual(DEVICES.flatMap(mappingProblems), []);
 });
 
+test("every estimated mapping says why no chart backs it", () => {
+  for (const device of DEVICES) {
+    if (device.source.verification === "inventory") {
+      assert.match(device.source.note ?? "", /no .*chart/i, device.id);
+    }
+  }
+});
+
 test("shipped ids are unique, and each model's port names its own", () => {
   assert.equal(
     new Set(DEVICES.map((device) => device.id)).size,
