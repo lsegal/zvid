@@ -128,6 +128,32 @@ describe("arpeggiate", () => {
   });
 });
 
+describe("arpeggiate, with expression", () => {
+  it("plays each step from where its held note's curve has got to", () => {
+    const played = arpeggiate(
+      [
+        {
+          pitch: 60,
+          start: 0,
+          length: 2,
+          velocity: 100,
+          expression: {
+            bend: [
+              { at: 0, value: 0 },
+              { at: 2, value: 4 },
+            ],
+          },
+        },
+      ],
+      { ...DEFAULT_ARPEGGIATOR, enabled: true },
+    );
+    assert.equal(played[0].expression?.bend?.[0].value, 0);
+    const later = played.at(-1);
+    assert.ok(later && later.start > 0);
+    assert.equal(later.expression?.bend?.[0].value, later.start * 2);
+  });
+});
+
 describe("arpIndex", () => {
   it("walks each pattern over a chord of one note", () => {
     for (const pattern of ["up", "down", "up-down", "random"] as const) {
