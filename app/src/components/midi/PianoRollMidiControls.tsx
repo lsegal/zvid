@@ -68,7 +68,7 @@ function deviceSelection({ enabled, device, access, inputs }: MidiInputState) {
   }
   options.push({
     value: MISSING_DEVICE,
-    label: `${device.name} (not connected)`,
+    label: `Not connected: ${device.name}`,
   });
   return { value: MISSING_DEVICE, options, disabled: false };
 }

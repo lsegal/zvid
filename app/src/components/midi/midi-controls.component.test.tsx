@@ -207,13 +207,13 @@ test("the choice survives a reload, and a missing device says so and comes back"
   const returned = connectedPort("Homemade Thing");
   const second = await renderRoll({ ports: [other], storage });
   await expect.element(toggle()).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(() => shown()).toContain("Homemade Thing (not connected)");
+  await expect.poll(() => shown()).toContain("Not connected: Homemade Thing");
   expect(second.request).toHaveBeenCalledTimes(1);
   expect(other.onmidimessage).toBeNull();
 
   second.inputs.set(returned.id, returned);
   second.access.onstatechange?.();
-  await expect.poll(() => shown()).not.toContain("not connected");
+  await expect.poll(() => shown()).not.toContain("Not connected");
   press(returned, 67);
   expect(second.auditions).toEqual([67]);
 });
