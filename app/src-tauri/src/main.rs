@@ -4,6 +4,8 @@ mod agent_relay;
 mod chatgpt;
 #[cfg(not(windows))]
 mod midi;
+#[cfg(any(windows, test))]
+mod webview_permissions;
 
 use agent_relay::AgentRelay;
 use serde::Serialize;
@@ -266,6 +268,10 @@ fn main() {
       app.manage(chatgpt::ChatGpt::new(dir));
       #[cfg(not(windows))]
       app.manage(midi::MidiBackend::default());
+      #[cfg(windows)]
+      if let Some(window) = app.get_webview_window("main") {
+        webview_permissions::grant_midi(&window)?;
+      }
       start_agent_relay(app);
       Ok(())
     })

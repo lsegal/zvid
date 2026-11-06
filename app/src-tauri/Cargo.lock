@@ -6071,4 +6071,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "url",
+ "webview2-com",
+ "windows-core 0.61.2",
 ]
