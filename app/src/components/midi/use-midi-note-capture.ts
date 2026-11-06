@@ -17,8 +17,8 @@ const NOT_HELD: readonly HeldNote[] = [];
 // note, handed to `onCapture` when the key comes up. The transport stopping
 // or the playhead jumping back ends the held notes where the playhead was,
 // and so does the device going away, MIDI turning off or the roll closing.
-// The hub decides which ports play. Returns the notes held so far and the
-// hub's state.
+// The hub decides which ports play. Returns the notes held so far, the hub's
+// state, and `press` and `release` for playing keys from elsewhere.
 export function useMidiNoteCapture({
   enabled,
   hub,
@@ -59,6 +59,23 @@ export function useMidiNoteCapture({
       finish(key, playheadQ);
     }
   }).current;
+  // Each key has its own `heldKey`, so a press ends its last note, if any.
+  const press = useRef((heldKey: string, pitch: number, velocity: number) => {
+    const { clip, clock, onAudition } = latest.current;
+    const playheadQ = clock?.signal.get() ?? lastQ.current;
+    onAudition(pitch);
+    finish(heldKey, playheadQ);
+    if (clock?.isPlaying) {
+      const note = pressNote(clip, pitch, velocity, playheadQ);
+      if (note) {
+        held.current.set(heldKey, note);
+        setHeldNotes([...held.current.values()]);
+      }
+    }
+  }).current;
+  const release = useRef((heldKey: string) => {
+    finish(heldKey, latest.current.clock?.signal.get() ?? lastQ.current);
+  }).current;
 
   useEffect(() => {
     if (!enabled) {
@@ -71,20 +88,10 @@ export function useMidiNoteCapture({
           return;
         }
         const heldKey = `${input.id}:${key.channel}:${key.pitch}`;
-        const { clip, clock, onAudition } = latest.current;
-        const playheadQ = clock?.signal.get() ?? lastQ.current;
-        if (!key.down) {
-          finish(heldKey, playheadQ);
-          return;
-        }
-        onAudition(key.pitch);
-        finish(heldKey, playheadQ);
-        if (clock?.isPlaying) {
-          const note = pressNote(clip, key.pitch, key.velocity, playheadQ);
-          if (note) {
-            held.current.set(heldKey, note);
-            setHeldNotes([...held.current.values()]);
-          }
+        if (key.down) {
+          press(heldKey, key.pitch, key.velocity);
+        } else {
+          release(heldKey);
         }
       },
       disconnected(input) {
@@ -99,7 +106,7 @@ export function useMidiNoteCapture({
       stopListening();
       finishAll(lastQ.current);
     };
-  }, [enabled, hub, finish, finishAll]);
+  }, [enabled, hub, finish, finishAll, press, release]);
 
   useEffect(() => {
     if (!signal) {
@@ -121,5 +128,5 @@ export function useMidiNoteCapture({
     }
   }, [isPlaying, finishAll]);
 
-  return { heldNotes, midi };
+  return { heldNotes, midi, press, release };
 }
