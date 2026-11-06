@@ -25,6 +25,7 @@ import { mpeInputFor } from "../midi-input/mpe.ts";
 import {
   assignMidiMapping,
   findMidiMapping,
+  learnMidiMappingsMpe,
   type MidiMapKey,
   midiMappingMatches,
   removeMidiMapping,
@@ -48,6 +49,7 @@ export type MidiMapInputs = {
     label: string,
     updater: (current: ProjectState) => ProjectState,
   ) => void;
+  amendProject: (updater: (current: ProjectState) => ProjectState) => void;
   editEffects: Parameters<typeof fireMappedButtons>[2];
   setStatus: (status: string) => void;
 };
@@ -79,6 +81,7 @@ export function useMidiMap({
   effects,
   midiMappings,
   commitProjectChange,
+  amendProject,
   editEffects,
   setStatus,
 }: MidiMapInputs): {
@@ -98,6 +101,7 @@ export function useMidiMap({
     effects,
     midiMappings,
     commitProjectChange,
+    amendProject,
     editEffects,
   });
   latestRef.current = {
@@ -106,6 +110,7 @@ export function useMidiMap({
     effects,
     midiMappings,
     commitProjectChange,
+    amendProject,
     editEffects,
   };
 
@@ -196,6 +201,18 @@ export function useMidiMap({
             );
           }
           return;
+        }
+        // A mapping made before the device was seen to be MPE saves that it is,
+        // as one made after does, so it matches from the first press next time.
+        if (
+          learnMidiMappingsMpe(latest.midiMappings, mapKey) !==
+          latest.midiMappings
+        ) {
+          latest.amendProject((current) =>
+            patchProjectState(current, {
+              midiMappings: learnMidiMappingsMpe(current.midiMappings, mapKey),
+            }),
+          );
         }
         const { pads } = fireMappedButtons(
           targetsOf(mapKey),
