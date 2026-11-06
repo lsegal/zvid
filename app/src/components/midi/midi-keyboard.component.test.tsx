@@ -183,6 +183,21 @@ test("a chord released together keeps all of its notes", async () => {
   roll.unmount();
 });
 
+test("a key played out of view scrolls the roll to its pitch", async () => {
+  const roll = await renderRoll({ playing: false });
+  const scroller = document.querySelector(".piano-roll__scroll");
+  const row = () => scroller?.scrollTop;
+  const before = row();
+  roll.send(0x90, 106, 90);
+  roll.send(0x80, 106, 0);
+  expect(row()).not.toBe(before);
+  const afterHigh = row();
+  // Already in view: stays put.
+  roll.send(0x90, 105, 90);
+  expect(row()).toBe(afterHigh);
+  roll.unmount();
+});
+
 test("a key played while stopped auditions and writes nothing", async () => {
   const roll = await renderRoll({ playing: false });
   roll.send(0x90, 60, 90);

@@ -216,7 +216,10 @@ export function PianoRoll({
     hub: midiHub,
     clip: model,
     clock,
-    onAudition: audition,
+    onAudition(pitch) {
+      audition(pitch);
+      revealPitch(pitch);
+    },
     onCapture(note) {
       const next = placeNote(
         [...capturedNotes.current, note],
@@ -228,6 +231,22 @@ export function PianoRoll({
       onSetNotes(spanId, next, midiHistoryLabels.recordNote);
     },
   });
+
+  // Scrolls a pitch played from a MIDI key into view, centered, if it isn't.
+  function revealPitch(pitch: number) {
+    const scroller = scrollRef.current;
+    if (!scroller) {
+      return;
+    }
+    const y = PIANO_ROLL_RULER_PX + (rowOf(pitch) + 0.5) * PIANO_ROLL_ROW_PX;
+    const top = scroller.scrollTop + PIANO_ROLL_RULER_PX;
+    const bottom =
+      scroller.scrollTop + scroller.clientHeight - velocityLane.height;
+    if (y < top || y > bottom) {
+      scroller.scrollTop =
+        y - (scroller.clientHeight - velocityLane.height) / 2;
+    }
+  }
 
   // The pitch and quarter (from the clip's content start) under a point of
   // the grid.

@@ -1,1 +1,8687 @@
-[]
+[
+  {
+    "id": "arturia-minilab",
+    "manufacturer": "Arturia",
+    "model": "MiniLab",
+    "portNames": [
+      "minilab"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/minilab/manual/MiniLab_Manual_EN.pdf",
+      "title": "MiniLab user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Knob 1",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 10
+      },
+      {
+        "name": "Knob 2",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Knob 3",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Knob 4",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Knob 5",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Knob 6",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Knob 7",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Knob 8",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Knob 9",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 114
+      },
+      {
+        "name": "Knob 10",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Knob 11",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Knob 12",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Knob 13",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Knob 14",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 91
+      },
+      {
+        "name": "Knob 15",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Knob 16",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-minilab-mkii",
+    "manufacturer": "Arturia",
+    "model": "MiniLab mkII",
+    "portNames": [
+      "minilab mkii"
+    ],
+    "source": {
+      "url": "https://www.scribd.com/document/572091977/minilab-mkii-Manual-1-1-EN",
+      "title": "MiniLab mkII Manual 1.1 (third-party listing; text not readable, control list from memory)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Knob 1",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 10
+      },
+      {
+        "name": "Knob 2",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Knob 3",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Knob 4",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Knob 5",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Knob 6",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Knob 7",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Knob 8",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Knob 9",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 114
+      },
+      {
+        "name": "Knob 10",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Knob 11",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Knob 12",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Knob 13",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Knob 14",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 91
+      },
+      {
+        "name": "Knob 15",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Knob 16",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-minilab-3",
+    "manufacturer": "Arturia",
+    "model": "MiniLab 3",
+    "portNames": [
+      "minilab3",
+      "minilab 3"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/minilab-3/manual/minilab-3_Manual_1_0_0-cheatsheet_EN.pdf",
+      "title": "MiniLab 3 cheat sheet",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Knob 1",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Knob 2",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Knob 3",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Knob 4",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Knob 5",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Knob 6",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Knob 7",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Knob 8",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 114
+      },
+      {
+        "name": "Main Encoder",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 28
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 14
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 15
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 30
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 31
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-microlab",
+    "manufacturer": "Arturia",
+    "model": "MicroLab",
+    "portNames": [
+      "microlab"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/microlab/manual/MicroLab_Manual_1_0_0_EN.pdf",
+      "title": "MicroLab user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      }
+    ]
+  },
+  {
+    "id": "arturia-keystep",
+    "manufacturer": "Arturia",
+    "model": "KeyStep",
+    "portNames": [
+      "keystep",
+      "keystep 32"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keystep/manual/KeyStep_Manual_1_1_2_EN.pdf",
+      "title": "KeyStep user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 32
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-keystep-37",
+    "manufacturer": "Arturia",
+    "model": "KeyStep 37",
+    "portNames": [
+      "keystep 37"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keystep-37/manual/keystep-37_Manual_1_1_EN.pdf",
+      "title": "KeyStep 37 user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-keystep-pro",
+    "manufacturer": "Arturia",
+    "model": "KeyStep Pro",
+    "portNames": [
+      "keystep pro"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keystep-pro/manual/keystep-pro_Manual_2_5_2_EN.pdf",
+      "title": "KeyStep Pro user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      }
+    ]
+  },
+  {
+    "id": "arturia-keystep-mk2",
+    "manufacturer": "Arturia",
+    "model": "KeyStep mk2",
+    "portNames": [
+      "keystep mk2",
+      "keystep 32 mk2"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keystep-mk2/manual/keystep-mk2_Manual_1_1_0_EN.pdf",
+      "title": "KeyStep mk2 user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 32
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Strip",
+        "kind": "strip",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Strip",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "arturia-beatstep",
+    "manufacturer": "Arturia",
+    "model": "BeatStep",
+    "portNames": [
+      "beatstep"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/beatstep/manual/BeatStep_Manual_1_0_1_EN.pdf",
+      "title": "BeatStep user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 44,
+        "count": 16
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 10
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 74
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 71
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 76
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 77
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 93
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 73
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 75
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 114
+      },
+      {
+        "name": "Encoder 10",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 18
+      },
+      {
+        "name": "Encoder 11",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 19
+      },
+      {
+        "name": "Encoder 12",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 16
+      },
+      {
+        "name": "Encoder 13",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 17
+      },
+      {
+        "name": "Encoder 14",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 91
+      },
+      {
+        "name": "Encoder 15",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 79
+      },
+      {
+        "name": "Encoder 16",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 72
+      },
+      {
+        "name": "Big Knob",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 7
+      }
+    ]
+  },
+  {
+    "id": "arturia-beatstep-pro",
+    "manufacturer": "Arturia",
+    "model": "BeatStep Pro",
+    "portNames": [
+      "beatstep pro"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/beatstep-pro/manual/beatstep-pro_Manual_2_0_EN.pdf",
+      "title": "BeatStep Pro manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 10
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 74
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 71
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 76
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 77
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 93
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 73
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 75
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 114
+      },
+      {
+        "name": "Encoder 10",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 18
+      },
+      {
+        "name": "Encoder 11",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 19
+      },
+      {
+        "name": "Encoder 12",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 16
+      },
+      {
+        "name": "Encoder 13",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 17
+      },
+      {
+        "name": "Encoder 14",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 91
+      },
+      {
+        "name": "Encoder 15",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 79
+      },
+      {
+        "name": "Encoder 16",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 10,
+        "number": 72
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-essential-49",
+    "manufacturer": "Arturia",
+    "model": "KeyLab Essential 49",
+    "portNames": [
+      "keylab essential 49"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-essential-49/manual/keylab-essential_Manual_1_0_3_EN.pdf",
+      "title": "KeyLab Essential user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-essential-61",
+    "manufacturer": "Arturia",
+    "model": "KeyLab Essential 61",
+    "portNames": [
+      "keylab essential 61"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-essential-49/manual/keylab-essential_Manual_1_0_3_EN.pdf",
+      "title": "KeyLab Essential user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-essential-49-mk3",
+    "manufacturer": "Arturia",
+    "model": "KeyLab Essential 49 mk3",
+    "portNames": [
+      "keylab essential 49 mk3",
+      "keylab essential mk3 49"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-essential-49-mk3/manual/keylab-essential-mk3_Manual_1_1_6_EN.pdf",
+      "title": "KeyLab Essential mk3 user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-essential-61-mk3",
+    "manufacturer": "Arturia",
+    "model": "KeyLab Essential 61 mk3",
+    "portNames": [
+      "keylab essential 61 mk3",
+      "keylab essential mk3 61"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-essential-49-mk3/manual/keylab-essential-mk3_Manual_1_1_6_EN.pdf",
+      "title": "KeyLab Essential mk3 user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-essential-88-mk3",
+    "manufacturer": "Arturia",
+    "model": "KeyLab Essential 88 mk3",
+    "portNames": [
+      "keylab essential 88 mk3",
+      "keylab essential mk3 88"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-essential-49-mk3/manual/keylab-essential-mk3_Manual_1_1_6_EN.pdf",
+      "title": "KeyLab Essential mk3 user manual",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-49-mkii",
+    "manufacturer": "Arturia",
+    "model": "KeyLab 49 MkII",
+    "portNames": [
+      "keylab 49 mkii",
+      "keylab mkii 49"
+    ],
+    "source": {
+      "url": "https://www.allfordj.ru/upload/iblock/c3e/rukovodstvo_polzovatelya_arturia_keylab_88_mkii.pdf",
+      "title": "KeyLab mkII user manual (Spanish, 88 edition)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-61-mkii",
+    "manufacturer": "Arturia",
+    "model": "KeyLab 61 MkII",
+    "portNames": [
+      "keylab 61 mkii",
+      "keylab mkii 61"
+    ],
+    "source": {
+      "url": "https://www.allfordj.ru/upload/iblock/c3e/rukovodstvo_polzovatelya_arturia_keylab_88_mkii.pdf",
+      "title": "KeyLab mkII user manual (Spanish, 88 edition)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-88-mkii",
+    "manufacturer": "Arturia",
+    "model": "KeyLab 88 MkII",
+    "portNames": [
+      "keylab 88 mkii",
+      "keylab mkii 88"
+    ],
+    "source": {
+      "url": "https://www.allfordj.ru/upload/iblock/c3e/rukovodstvo_polzovatelya_arturia_keylab_88_mkii.pdf",
+      "title": "KeyLab mkII user manual (Spanish, 88 edition)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-49-mk3",
+    "manufacturer": "Arturia",
+    "model": "KeyLab 49 mk3",
+    "portNames": [
+      "keylab 49 mk3",
+      "keylab mk3 49"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-49-mk3/manual/keylab-mk3_Manual_1_0_4_EN.pdf",
+      "title": "KeyLab mk3 user manual (pad notes read; other numbers estimated)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      },
+      {
+        "name": "Pad 1",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 44
+      },
+      {
+        "name": "Pad 2",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 45
+      },
+      {
+        "name": "Pad 3",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 46
+      },
+      {
+        "name": "Pad 4",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 47
+      },
+      {
+        "name": "Pad 5",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 40
+      },
+      {
+        "name": "Pad 6",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 41
+      },
+      {
+        "name": "Pad 7",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 42
+      },
+      {
+        "name": "Pad 8",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 43
+      },
+      {
+        "name": "Pad 9",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36
+      },
+      {
+        "name": "Pad 10",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 37
+      },
+      {
+        "name": "Pad 11",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 38
+      },
+      {
+        "name": "Pad 12",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 39
+      }
+    ]
+  },
+  {
+    "id": "arturia-keylab-61-mk3",
+    "manufacturer": "Arturia",
+    "model": "KeyLab 61 mk3",
+    "portNames": [
+      "keylab 61 mk3",
+      "keylab mk3 61"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/api/download/products/keylab-49-mk3/manual/keylab-mk3_Manual_1_0_4_EN.pdf",
+      "title": "KeyLab mk3 user manual (pad notes read; other numbers estimated)",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Encoder 1",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Encoder 2",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "Encoder 3",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Encoder 4",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "Encoder 5",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Encoder 6",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Encoder 7",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Encoder 8",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder 9",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 85
+      },
+      {
+        "name": "Pad 1",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 44
+      },
+      {
+        "name": "Pad 2",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 45
+      },
+      {
+        "name": "Pad 3",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 46
+      },
+      {
+        "name": "Pad 4",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 47
+      },
+      {
+        "name": "Pad 5",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 40
+      },
+      {
+        "name": "Pad 6",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 41
+      },
+      {
+        "name": "Pad 7",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 42
+      },
+      {
+        "name": "Pad 8",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 43
+      },
+      {
+        "name": "Pad 9",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36
+      },
+      {
+        "name": "Pad 10",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 37
+      },
+      {
+        "name": "Pad 11",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 38
+      },
+      {
+        "name": "Pad 12",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 39
+      }
+    ]
+  },
+  {
+    "id": "m-audio-keystation-mini-32-mk3",
+    "manufacturer": "M-Audio",
+    "model": "Keystation Mini 32 MK3",
+    "portNames": [
+      "keystation mini 32 mk3",
+      "keystation mini 32"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/keystation-mini32-mk3.html",
+      "title": "Keystation Mini 32 MK3 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 32
+      },
+      {
+        "name": "Pitch Bend Down",
+        "kind": "button",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Button",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Volume Knob",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      },
+      {
+        "name": "Sustain Button",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "m-audio-keystation-49-mk3",
+    "manufacturer": "M-Audio",
+    "model": "Keystation 49 MK3",
+    "portNames": [
+      "keystation 49 mk3",
+      "keystation 49"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/keystation-49-mk3.html",
+      "title": "Keystation 49 MK3 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Volume Fader",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "m-audio-keystation-61-mk3",
+    "manufacturer": "M-Audio",
+    "model": "Keystation 61 MK3",
+    "portNames": [
+      "keystation 61 mk3",
+      "keystation 61"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/keystation-61-mk3.html",
+      "title": "Keystation 61 MK3 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Volume Fader",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "m-audio-keystation-88-mk3",
+    "manufacturer": "M-Audio",
+    "model": "Keystation 88 MK3",
+    "portNames": [
+      "keystation 88 mk3",
+      "keystation 88"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/keystation-88-mk3.html",
+      "title": "Keystation 88 MK3 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Volume Fader",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-25-mkv",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen 25 MKV",
+    "portNames": [
+      "oxygen 25 mkv",
+      "oxygen v 25",
+      "oxygen 25"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-v-25.html",
+      "title": "Oxygen 25 (MKV) - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-49-mkv",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen 49 MKV",
+    "portNames": [
+      "oxygen 49 mkv",
+      "oxygen v 49",
+      "oxygen 49"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-v-49.html",
+      "title": "Oxygen 49 (MKV) - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-61-mkv",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen 61 MKV",
+    "portNames": [
+      "oxygen 61 mkv",
+      "oxygen v 61",
+      "oxygen 61"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-v-61.html",
+      "title": "Oxygen 61 (MKV) - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-pro-mini",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen Pro Mini",
+    "portNames": [
+      "oxygen pro mini"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-pro-mini.html",
+      "title": "Oxygen Pro Mini - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 32
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 4
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 4
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-pro-25",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen Pro 25",
+    "portNames": [
+      "oxygen pro 25"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-pro-25.html",
+      "title": "Oxygen Pro 25 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51,
+        "count": 8
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-pro-49",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen Pro 49",
+    "portNames": [
+      "oxygen pro 49"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-pro-49.html",
+      "title": "Oxygen Pro 49 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51,
+        "count": 8
+      }
+    ]
+  },
+  {
+    "id": "m-audio-oxygen-pro-61",
+    "manufacturer": "M-Audio",
+    "model": "Oxygen Pro 61",
+    "portNames": [
+      "oxygen pro 61"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/oxygen-pro-61.html",
+      "title": "Oxygen Pro 61 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51,
+        "count": 8
+      }
+    ]
+  },
+  {
+    "id": "m-audio-hammer-88",
+    "manufacturer": "M-Audio",
+    "model": "Hammer 88",
+    "portNames": [
+      "hammer 88"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/hammer88.html",
+      "title": "Hammer 88 - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Slider",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "m-audio-hammer-88-pro",
+    "manufacturer": "M-Audio",
+    "model": "Hammer 88 Pro",
+    "portNames": [
+      "hammer 88 pro"
+    ],
+    "source": {
+      "url": "https://www.m-audio.com/keyboard-controllers/hammer-88-pro.html",
+      "title": "Hammer 88 Pro - M-Audio",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51,
+        "count": 8
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Footswitch 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 66
+      },
+      {
+        "name": "Footswitch 3",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 67
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "alesis-v25",
+    "manufacturer": "Alesis",
+    "model": "V25",
+    "portNames": [
+      "v25"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view2/v25.html",
+      "title": "Alesis V25",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 4
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "alesis-v49",
+    "manufacturer": "Alesis",
+    "model": "V49",
+    "portNames": [
+      "v49"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view/v49",
+      "title": "Alesis V49",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 4
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "alesis-v61",
+    "manufacturer": "Alesis",
+    "model": "V61",
+    "portNames": [
+      "v61"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view/v61",
+      "title": "Alesis V61",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 4
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "alesis-vi25",
+    "manufacturer": "Alesis",
+    "model": "VI25",
+    "portNames": [
+      "vi25"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view2/vi25.html",
+      "title": "Alesis VI25",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 8
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 24
+      }
+    ]
+  },
+  {
+    "id": "alesis-vi49",
+    "manufacturer": "Alesis",
+    "model": "VI49",
+    "portNames": [
+      "vi49"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view2/vi49",
+      "title": "Alesis VI49",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 12
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80,
+        "count": 36
+      }
+    ]
+  },
+  {
+    "id": "alesis-vmini",
+    "manufacturer": "Alesis",
+    "model": "V Mini",
+    "portNames": [
+      "vmini",
+      "v mini"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view/vmini",
+      "title": "Alesis V Mini",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend Down",
+        "kind": "button",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Button",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Button",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "alesis-q49",
+    "manufacturer": "Alesis",
+    "model": "Q49",
+    "portNames": [
+      "q49"
+    ],
+    "source": {
+      "url": "https://www.alesis.com/products/view/q49",
+      "title": "Alesis Q49",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Data Entry Slider",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 7
+      }
+    ]
+  },
+  {
+    "id": "korg-nanokey2",
+    "manufacturer": "Korg",
+    "model": "nanoKEY2",
+    "portNames": [
+      "nanokey2"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/nanokey2/",
+      "title": "KORG nanoKEY2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "button",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-nanokey-studio",
+    "manufacturer": "Korg",
+    "model": "nanoKEY Studio",
+    "portNames": [
+      "nanokey studio"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/nanokey_studio/",
+      "title": "KORG nanoKEY Studio product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "button",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Touch Pad X",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "Touch Pad Y",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      }
+    ]
+  },
+  {
+    "id": "korg-nanokontrol2",
+    "manufacturer": "Korg",
+    "model": "nanoKONTROL2",
+    "portNames": [
+      "nanokontrol2"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/nanokontrol2/",
+      "title": "KORG nanoKONTROL2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 0,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Solo {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 32,
+        "count": 8
+      },
+      {
+        "name": "Mute {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 48,
+        "count": 8
+      },
+      {
+        "name": "Rec {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64,
+        "count": 8
+      },
+      {
+        "name": "Play",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      },
+      {
+        "name": "Stop",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 42
+      },
+      {
+        "name": "Rewind",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Fast Forward",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "Record",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 45
+      },
+      {
+        "name": "Cycle",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 46
+      },
+      {
+        "name": "Track Previous",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 58
+      },
+      {
+        "name": "Track Next",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 59
+      },
+      {
+        "name": "Marker Set",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 60
+      },
+      {
+        "name": "Marker Previous",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 61
+      },
+      {
+        "name": "Marker Next",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 62
+      }
+    ]
+  },
+  {
+    "id": "korg-nanokontrol-studio",
+    "manufacturer": "Korg",
+    "model": "nanoKONTROL Studio",
+    "portNames": [
+      "nanokontrol studio"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/nanokontrol_studio/",
+      "title": "KORG nanoKONTROL Studio product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 0,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Solo {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 32,
+        "count": 8
+      },
+      {
+        "name": "Mute {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 48,
+        "count": 8
+      },
+      {
+        "name": "Rec {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64,
+        "count": 8
+      },
+      {
+        "name": "Play",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      },
+      {
+        "name": "Stop",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 42
+      },
+      {
+        "name": "Rewind",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Fast Forward",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "Record",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 45
+      },
+      {
+        "name": "Cycle",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 46
+      },
+      {
+        "name": "Track Previous",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 58
+      },
+      {
+        "name": "Track Next",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 59
+      },
+      {
+        "name": "Marker Set",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 60
+      },
+      {
+        "name": "Marker Previous",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 61
+      },
+      {
+        "name": "Marker Next",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 62
+      },
+      {
+        "name": "Jog Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      }
+    ]
+  },
+  {
+    "id": "korg-nanopad2",
+    "manufacturer": "Korg",
+    "model": "nanoPAD2",
+    "portNames": [
+      "nanopad2"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/nanopad2/",
+      "title": "KORG nanoPAD2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "Touch Pad X",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "Touch Pad Y",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey2-25",
+    "manufacturer": "Korg",
+    "model": "microKEY2 25",
+    "portNames": [
+      "microkey2 25",
+      "microkey 25"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2/",
+      "title": "KORG microKEY2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey2-37",
+    "manufacturer": "Korg",
+    "model": "microKEY2 37",
+    "portNames": [
+      "microkey2 37",
+      "microkey 37"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2/",
+      "title": "KORG microKEY2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 37
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey2-49",
+    "manufacturer": "Korg",
+    "model": "microKEY2 49",
+    "portNames": [
+      "microkey2 49",
+      "microkey 49"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2/",
+      "title": "KORG microKEY2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey2-61",
+    "manufacturer": "Korg",
+    "model": "microKEY2 61",
+    "portNames": [
+      "microkey2 61",
+      "microkey 61"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2/",
+      "title": "KORG microKEY2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey-air-25",
+    "manufacturer": "Korg",
+    "model": "microKEY Air 25",
+    "portNames": [
+      "microkey2 25 air",
+      "microkey air 25"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2_air/",
+      "title": "KORG microKEY Air product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey-air-37",
+    "manufacturer": "Korg",
+    "model": "microKEY Air 37",
+    "portNames": [
+      "microkey2 37 air",
+      "microkey air 37"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2_air/",
+      "title": "KORG microKEY Air product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 37
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey-air-49",
+    "manufacturer": "Korg",
+    "model": "microKEY Air 49",
+    "portNames": [
+      "microkey2 49 air",
+      "microkey air 49"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2_air/",
+      "title": "KORG microKEY Air product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-microkey-air-61",
+    "manufacturer": "Korg",
+    "model": "microKEY Air 61",
+    "portNames": [
+      "microkey2 61 air",
+      "microkey air 61"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/microkey2_air/",
+      "title": "KORG microKEY Air product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Joystick Pitch Bend",
+        "kind": "joystick",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Joystick Modulation",
+        "kind": "joystick",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-keystage-49",
+    "manufacturer": "Korg",
+    "model": "Keystage 49",
+    "portNames": [
+      "keystage 49"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/keystage/",
+      "title": "KORG Keystage product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Wheel",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Channel Pressure",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Pedal 1",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pedal 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "korg-keystage-61",
+    "manufacturer": "Korg",
+    "model": "Keystage 61",
+    "portNames": [
+      "keystage 61"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/keystage/",
+      "title": "KORG Keystage product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Wheel",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Channel Pressure",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Pedal 1",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pedal 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "korg-padkontrol",
+    "manufacturer": "Korg",
+    "model": "padKONTROL",
+    "portNames": [
+      "padkontrol"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/padkontrol/",
+      "title": "KORG padKONTROL product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      },
+      {
+        "name": "X-Y Pad X",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "X-Y Pad Y",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 14,
+        "count": 2
+      }
+    ]
+  },
+  {
+    "id": "korg-taktile-25",
+    "manufacturer": "Korg",
+    "model": "Taktile 25",
+    "portNames": [
+      "taktile 25"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/taktile/",
+      "title": "KORG taktile product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 25
+      },
+      {
+        "name": "Pitch Wheel",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Slider {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 20,
+        "count": 9
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 30,
+        "count": 8
+      },
+      {
+        "name": "Sustain",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Touch Pad X",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "Touch Pad Y",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      }
+    ]
+  },
+  {
+    "id": "korg-taktile-49",
+    "manufacturer": "Korg",
+    "model": "Taktile 49",
+    "portNames": [
+      "taktile 49"
+    ],
+    "source": {
+      "url": "https://www.korg.com/us/products/computergear/taktile/",
+      "title": "KORG taktile product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Wheel",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Slider {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 20,
+        "count": 9
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 30,
+        "count": 8
+      },
+      {
+        "name": "Sustain",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Touch Pad X",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "Touch Pad Y",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      }
+    ]
+  },
+  {
+    "id": "behringer-x-touch-mini",
+    "manufacturer": "Behringer",
+    "model": "X-Touch Mini",
+    "portNames": [
+      "x touch mini"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0808-AAF",
+      "title": "BEHRINGER X-TOUCH MINI product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Encoder {n}",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 11,
+        "number": 1,
+        "count": 8
+      },
+      {
+        "name": "Encoder {n} Push",
+        "kind": "button",
+        "type": "note",
+        "channel": 11,
+        "number": 0,
+        "count": 8
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 11,
+        "number": 8,
+        "count": 16
+      },
+      {
+        "name": "Fader",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 11,
+        "number": 9
+      }
+    ]
+  },
+  {
+    "id": "behringer-x-touch-one",
+    "manufacturer": "Behringer",
+    "model": "X-Touch One",
+    "portNames": [
+      "x touch one"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0808-AAG",
+      "title": "BEHRINGER X-TOUCH ONE product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Fader",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Fader Touch",
+        "kind": "fader",
+        "type": "note",
+        "channel": 1,
+        "number": 104
+      },
+      {
+        "name": "Rec",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 0
+      },
+      {
+        "name": "Solo",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 8
+      },
+      {
+        "name": "Mute",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Select",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 24
+      },
+      {
+        "name": "Encoder",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Encoder Push",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 32
+      },
+      {
+        "name": "Play",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 94
+      },
+      {
+        "name": "Stop",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Rewind",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 91
+      },
+      {
+        "name": "Fast Forward",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 92
+      },
+      {
+        "name": "Record",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 95
+      },
+      {
+        "name": "Jog Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 60
+      }
+    ]
+  },
+  {
+    "id": "behringer-x-touch",
+    "manufacturer": "Behringer",
+    "model": "X-Touch",
+    "portNames": [
+      "x touch"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0808-AAD",
+      "title": "BEHRINGER X-TOUCH product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Fader 1",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Fader 2",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 2
+      },
+      {
+        "name": "Fader 3",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 3
+      },
+      {
+        "name": "Fader 4",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 4
+      },
+      {
+        "name": "Fader 5",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 5
+      },
+      {
+        "name": "Fader 6",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 6
+      },
+      {
+        "name": "Fader 7",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 7
+      },
+      {
+        "name": "Fader 8",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 8
+      },
+      {
+        "name": "Fader 9",
+        "kind": "fader",
+        "type": "pitchbend",
+        "channel": 9
+      },
+      {
+        "name": "Fader Touch {n}",
+        "kind": "fader",
+        "type": "note",
+        "channel": 1,
+        "number": 104,
+        "count": 9
+      },
+      {
+        "name": "Rec {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 0,
+        "count": 8
+      },
+      {
+        "name": "Solo {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 8,
+        "count": 8
+      },
+      {
+        "name": "Mute {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Select {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 24,
+        "count": 8
+      },
+      {
+        "name": "Encoder {n}",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 8
+      },
+      {
+        "name": "Encoder {n} Push",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 32,
+        "count": 8
+      },
+      {
+        "name": "Play",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 94
+      },
+      {
+        "name": "Stop",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 93
+      },
+      {
+        "name": "Rewind",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 91
+      },
+      {
+        "name": "Fast Forward",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 92
+      },
+      {
+        "name": "Record",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 95
+      },
+      {
+        "name": "Jog Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 60
+      }
+    ]
+  },
+  {
+    "id": "behringer-bcr2000",
+    "manufacturer": "Behringer",
+    "model": "BCR2000",
+    "portNames": [
+      "bcr2000"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0808-AAA",
+      "title": "BEHRINGER BCR2000 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Encoder {n}",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 1,
+        "count": 32
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 1,
+        "count": 24
+      }
+    ]
+  },
+  {
+    "id": "behringer-bcf2000",
+    "manufacturer": "Behringer",
+    "model": "BCF2000",
+    "portNames": [
+      "bcf2000"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0808-AAB",
+      "title": "BEHRINGER BCF2000 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Fader {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 1,
+        "count": 8
+      },
+      {
+        "name": "Encoder {n}",
+        "kind": "encoder",
+        "type": "cc",
+        "channel": 1,
+        "number": 9,
+        "count": 8
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "note",
+        "channel": 1,
+        "number": 1,
+        "count": 20
+      }
+    ]
+  },
+  {
+    "id": "behringer-umx610",
+    "manufacturer": "Behringer",
+    "model": "UMX610",
+    "portNames": [
+      "umx610",
+      "umx 610"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0715-AAI",
+      "title": "BEHRINGER UMX610 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Modulation",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Controller {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 22
+      }
+    ]
+  },
+  {
+    "id": "roland-a-49",
+    "manufacturer": "Roland",
+    "model": "A-49",
+    "portNames": [
+      "a-49"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/a-49/",
+      "title": "Roland A-49 MIDI Keyboard Controller",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Control Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 74,
+        "count": 2
+      },
+      {
+        "name": "D-Beam",
+        "kind": "strip",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      }
+    ]
+  },
+  {
+    "id": "roland-a-88mkii",
+    "manufacturer": "Roland",
+    "model": "A-88MKII",
+    "portNames": [
+      "a-88mkii"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/a-88mk2/",
+      "title": "Roland A-88MKII MIDI Keyboard Controller",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pedal 1",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pedal 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 67
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      }
+    ]
+  },
+  {
+    "id": "roland-a-500pro",
+    "manufacturer": "Roland",
+    "model": "A-500PRO",
+    "portNames": [
+      "a-500pro"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/a-500pro/",
+      "title": "Roland A-500PRO MIDI Keyboard Controller",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Slider {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 50,
+        "count": 4
+      },
+      {
+        "name": "Transport {n}",
+        "kind": "button",
+        "type": "sysex",
+        "channel": 1,
+        "count": 6
+      }
+    ]
+  },
+  {
+    "id": "roland-a-800pro",
+    "manufacturer": "Roland",
+    "model": "A-800PRO",
+    "portNames": [
+      "a-800pro"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/a-800pro/",
+      "title": "Roland A-800PRO MIDI Keyboard Controller",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Expression Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 8
+      },
+      {
+        "name": "Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21,
+        "count": 8
+      },
+      {
+        "name": "Slider {n}",
+        "kind": "fader",
+        "type": "cc",
+        "channel": 1,
+        "number": 41,
+        "count": 9
+      },
+      {
+        "name": "Button {n}",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 50,
+        "count": 4
+      },
+      {
+        "name": "Transport {n}",
+        "kind": "button",
+        "type": "sysex",
+        "channel": 1,
+        "count": 6
+      }
+    ]
+  },
+  {
+    "id": "roland-fp-10",
+    "manufacturer": "Roland",
+    "model": "FP-10",
+    "portNames": [
+      "fp-10"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/fp-10/",
+      "title": "Roland FP-10 Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "roland-fp-30x",
+    "manufacturer": "Roland",
+    "model": "FP-30X",
+    "portNames": [
+      "fp-30x"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/fp-30x/",
+      "title": "Roland FP-30X Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "roland-fp-60x",
+    "manufacturer": "Roland",
+    "model": "FP-60X",
+    "portNames": [
+      "fp-60x"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/fp-60x/",
+      "title": "Roland FP-60X Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "roland-rd-88",
+    "manufacturer": "Roland",
+    "model": "RD-88",
+    "portNames": [
+      "rd-88"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/rd-88/",
+      "title": "Roland RD-88 Stage Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Pedal 2",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Pedal 3",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 67
+      }
+    ]
+  },
+  {
+    "id": "yamaha-p-45",
+    "manufacturer": "Yamaha",
+    "model": "P-45",
+    "portNames": [
+      "p-45"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/musical_instruments/pianos/p_series/p-45/index.html",
+      "title": "Yamaha P-45 Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "yamaha-p-125",
+    "manufacturer": "Yamaha",
+    "model": "P-125",
+    "portNames": [
+      "p-125"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/musical_instruments/pianos/p_series/p-125/index.html",
+      "title": "Yamaha P-125 Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "yamaha-p-225",
+    "manufacturer": "Yamaha",
+    "model": "P-225",
+    "portNames": [
+      "p-225"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/musical_instruments/pianos/p_series/p-225/index.html",
+      "title": "Yamaha P-225 Digital Piano",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "yamaha-cp88",
+    "manufacturer": "Yamaha",
+    "model": "CP88",
+    "portNames": [
+      "cp88"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/music_production/stagekeyboards/cp88_73/index.html",
+      "title": "Yamaha CP Series Stage Keyboards",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Foot Controller",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "yamaha-modx6",
+    "manufacturer": "Yamaha",
+    "model": "MODX6",
+    "portNames": [
+      "modx6"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/music_production/synthesizers/modx/index.html",
+      "title": "Yamaha MODX Synthesizers",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Channel Aftertouch",
+        "kind": "key",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Foot Controller",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      },
+      {
+        "name": "Assign Knob {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 2
+      },
+      {
+        "name": "Super Knob",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      }
+    ]
+  },
+  {
+    "id": "yamaha-mx49",
+    "manufacturer": "Yamaha",
+    "model": "MX49",
+    "portNames": [
+      "mx49"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/music_production/synthesizers/mx_bk_bu/index.html",
+      "title": "Yamaha MX Series Synthesizers",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 49
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Foot Controller",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "yamaha-mx61",
+    "manufacturer": "Yamaha",
+    "model": "MX61",
+    "portNames": [
+      "mx61"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/music_production/synthesizers/mx_bk_bu/index.html",
+      "title": "Yamaha MX Series Synthesizers",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod Wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Foot Controller",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 11
+      }
+    ]
+  },
+  {
+    "id": "yamaha-psr-e373",
+    "manufacturer": "Yamaha",
+    "model": "PSR-E373",
+    "portNames": [
+      "psr-e373"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/products/musical_instruments/keyboards/portable_keyboards/psr-e373/index.html",
+      "title": "Yamaha PSR-E373 Portable Keyboard",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "yamaha-reface-cs",
+    "manufacturer": "Yamaha",
+    "model": "reface CS",
+    "portNames": [
+      "reface cs"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/files/download/other_assets/7/794817/reface_en_dl_b0.pdf",
+      "title": "Yamaha reface Data List (CS section)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "LFO Assign",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 78
+      },
+      {
+        "name": "LFO Depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 77
+      },
+      {
+        "name": "LFO Speed",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 76
+      },
+      {
+        "name": "Portamento",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 20
+      },
+      {
+        "name": "Osc Type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Osc Texture",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Osc Mod",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 82
+      },
+      {
+        "name": "Filter Cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 74
+      },
+      {
+        "name": "Filter Resonance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 71
+      },
+      {
+        "name": "EG FEG-AEG Balance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      },
+      {
+        "name": "EG Attack",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 73
+      },
+      {
+        "name": "EG Decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 75
+      },
+      {
+        "name": "EG Sustain",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 79
+      },
+      {
+        "name": "EG Release",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 72
+      },
+      {
+        "name": "Effect Type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Effect Depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Effect Rate",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      }
+    ]
+  },
+  {
+    "id": "yamaha-reface-dx",
+    "manufacturer": "Yamaha",
+    "model": "reface DX",
+    "portNames": [
+      "reface dx"
+    ],
+    "source": {
+      "url": "https://usa.yamaha.com/files/download/other_assets/7/794817/reface_en_dl_b0.pdf",
+      "title": "Yamaha reface Data List (DX section)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch Bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Algorithm",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Op1 Parameter {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 85,
+        "count": 6
+      },
+      {
+        "name": "Op2-4 Parameter {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 102,
+        "count": 18
+      }
+    ]
+  },
+  {
+    "id": "casio-cdp-s110",
+    "manufacturer": "Casio",
+    "model": "CDP-S110",
+    "portNames": [
+      "cdp-s110"
+    ],
+    "source": {
+      "url": "https://www.casio.com/content/dam/casio/global/support/manuals/electronic-musical-instruments/pdf/008-en/c/CDPS110_usersguide_EN.pdf",
+      "title": "Casio CDP-S110 User's Guide (MIDI Implementation Chart)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "casio-px-s1100",
+    "manufacturer": "Casio",
+    "model": "PX-S1100",
+    "portNames": [
+      "px-s1100"
+    ],
+    "source": {
+      "url": "https://www.casio.com/content/dam/casio/global/support/manuals/electronic-musical-instruments/pdf/008-en/p/PXS1100_usersguide_EN.pdf",
+      "title": "Casio PX-S1100 User's Guide (MIDI Implementation Chart)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Sostenuto Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 66
+      },
+      {
+        "name": "Soft Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 67
+      }
+    ]
+  },
+  {
+    "id": "casio-ct-s300",
+    "manufacturer": "Casio",
+    "model": "CT-S300",
+    "portNames": [
+      "ct-s300"
+    ],
+    "source": {
+      "url": "https://support.casio.com/global/en/emi/manual/CT-S300/",
+      "title": "CT-S300 Support - CASIO",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "kawai-vpc1",
+    "manufacturer": "Kawai",
+    "model": "VPC1",
+    "portNames": [
+      "vpc1"
+    ],
+    "source": {
+      "url": "https://www.kawai-global.com/product/vpc1/",
+      "title": "Kawai VPC1 Virtual Piano Controller",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 21,
+        "count": 88
+      },
+      {
+        "name": "Sustain Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      {
+        "name": "Sostenuto Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 66
+      },
+      {
+        "name": "Soft Pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 67
+      }
+    ]
+  },
+  {
+    "id": "korg-minilogue",
+    "manufacturer": "Korg",
+    "model": "minilogue",
+    "portNames": [
+      "minilogue"
+    ],
+    "source": {
+      "url": "https://aadl.org/files/catalog_guides/minilogue_OM_E3.pdf",
+      "title": "minilogue Owner's Manual (MIDI Implementation Chart, p. 63)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "VCO 1 pitch",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 34
+      },
+      {
+        "name": "VCO 2 pitch",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 35
+      },
+      {
+        "name": "VCO 1 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 36
+      },
+      {
+        "name": "VCO 2 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 37
+      },
+      {
+        "name": "VCO 1 level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 39
+      },
+      {
+        "name": "VCO 2 level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 40
+      },
+      {
+        "name": "Noise level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 33
+      },
+      {
+        "name": "Cross mod depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      },
+      {
+        "name": "Pitch EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 42
+      },
+      {
+        "name": "Cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Resonance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "Filter EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 45
+      },
+      {
+        "name": "Amp EG {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 4
+      },
+      {
+        "name": "EG {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 20,
+        "count": 4
+      },
+      {
+        "name": "LFO rate",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 24
+      },
+      {
+        "name": "LFO int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 26
+      },
+      {
+        "name": "Voice mode depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 27
+      },
+      {
+        "name": "Delay hi pass",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 29
+      },
+      {
+        "name": "Delay time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 30
+      },
+      {
+        "name": "Delay feedback",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 31
+      }
+    ]
+  },
+  {
+    "id": "korg-minilogue-xd",
+    "manufacturer": "Korg",
+    "model": "minilogue xd",
+    "portNames": [
+      "minilogue xd"
+    ],
+    "source": {
+      "url": "https://cdn.korg.com/us/support/download/files/1362ee55daa0ec780da684b9ad9ad99b.pdf",
+      "title": "minilogue xd Owner's Manual (MIDI Implementation Chart, p. 61)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "VCO 1 octave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 48
+      },
+      {
+        "name": "VCO 2 octave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 49
+      },
+      {
+        "name": "VCO 1 wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 50
+      },
+      {
+        "name": "VCO 2 wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51
+      },
+      {
+        "name": "VCO 1 pitch",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 34
+      },
+      {
+        "name": "VCO 2 pitch",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 35
+      },
+      {
+        "name": "VCO 1 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 36
+      },
+      {
+        "name": "VCO 2 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 37
+      },
+      {
+        "name": "Multi engine shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 54
+      },
+      {
+        "name": "Multi engine shift shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 104
+      },
+      {
+        "name": "Mixer VCO 1",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 39
+      },
+      {
+        "name": "Mixer VCO 2",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 40
+      },
+      {
+        "name": "Mixer multi",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 33
+      },
+      {
+        "name": "Cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Resonance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "Amp EG {n}",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16,
+        "count": 4
+      },
+      {
+        "name": "EG attack/decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 20
+      },
+      {
+        "name": "EG attack/decay 2",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21
+      },
+      {
+        "name": "EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22
+      },
+      {
+        "name": "EG target",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 23
+      },
+      {
+        "name": "LFO rate",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 24
+      },
+      {
+        "name": "LFO int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 26
+      },
+      {
+        "name": "Voice mode depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 27
+      },
+      {
+        "name": "Mod FX time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 28
+      },
+      {
+        "name": "Mod FX depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 29
+      },
+      {
+        "name": "Delay time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 105
+      },
+      {
+        "name": "Delay depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 112
+      },
+      {
+        "name": "Reverb time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 114
+      },
+      {
+        "name": "Reverb depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 115
+      },
+      {
+        "name": "Sync",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 80
+      },
+      {
+        "name": "Ring",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 81
+      },
+      {
+        "name": "Cross mod depth",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      },
+      {
+        "name": "Damper",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "korg-monologue",
+    "manufacturer": "Korg",
+    "model": "monologue",
+    "portNames": [
+      "monologue"
+    ],
+    "source": {
+      "url": "https://cdn.korg.com/us/support/download/files/3393f3e21655946d9a32dc0b2d21f277.pdf",
+      "title": "monologue Owner's Manual (MIDI Implementation Chart, p. 57)",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Drive",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 28
+      },
+      {
+        "name": "VCO 2 pitch",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 35
+      },
+      {
+        "name": "VCO 1 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 36
+      },
+      {
+        "name": "VCO 2 shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 37
+      },
+      {
+        "name": "VCO 1 level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 39
+      },
+      {
+        "name": "VCO 2 level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 40
+      },
+      {
+        "name": "Cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Resonance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "EG attack",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "EG decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 25
+      },
+      {
+        "name": "LFO rate",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 24
+      },
+      {
+        "name": "LFO int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 26
+      },
+      {
+        "name": "VCO 2 octave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 49
+      },
+      {
+        "name": "VCO 1 wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 50
+      },
+      {
+        "name": "VCO 2 wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 51
+      },
+      {
+        "name": "LFO target",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 56
+      },
+      {
+        "name": "LFO wave",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 58
+      },
+      {
+        "name": "LFO mode",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 59
+      },
+      {
+        "name": "Sync/ring",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 60
+      },
+      {
+        "name": "EG type",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 61
+      },
+      {
+        "name": "EG target",
+        "kind": "button",
+        "type": "cc",
+        "channel": 1,
+        "number": 62
+      }
+    ]
+  },
+  {
+    "id": "korg-volca-keys",
+    "manufacturer": "Korg",
+    "model": "volca keys",
+    "portNames": [
+      "volca keys"
+    ],
+    "source": {
+      "url": "https://cdn.korg.com/us/support/download/files/d9a276cdfce7ff88c32a38ba6f3ba8aa.pdf",
+      "title": "volca keys MIDI Implementation Chart",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 27
+      },
+      {
+        "name": "Portamento",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 5
+      },
+      {
+        "name": "Voice",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 40
+      },
+      {
+        "name": "Octave",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 41
+      },
+      {
+        "name": "Detune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 42
+      },
+      {
+        "name": "VCO EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 43
+      },
+      {
+        "name": "Cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 44
+      },
+      {
+        "name": "VCF EG int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 45
+      },
+      {
+        "name": "LFO rate",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 46
+      },
+      {
+        "name": "LFO pitch int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 47
+      },
+      {
+        "name": "LFO cutoff int",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 48
+      },
+      {
+        "name": "EG attack",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 49
+      },
+      {
+        "name": "EG decay/release",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 50
+      },
+      {
+        "name": "EG sustain",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 51
+      },
+      {
+        "name": "Delay time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 52
+      },
+      {
+        "name": "Delay feedback",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 53
+      }
+    ]
+  },
+  {
+    "id": "roland-jd-xi",
+    "manufacturer": "Roland",
+    "model": "JD-Xi",
+    "portNames": [
+      "jd xi"
+    ],
+    "source": {
+      "url": "https://www.roland.com/global/products/jd-xi/",
+      "title": "Roland JD-Xi product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      }
+    ]
+  },
+  {
+    "id": "roland-sp-404mkii",
+    "manufacturer": "Roland",
+    "model": "SP-404MKII",
+    "portNames": [
+      "sp 404mkii",
+      "sp 404mk2"
+    ],
+    "source": {
+      "url": "https://static.roland.com/manuals/sp-404mk2_reference_v4/en-US/8012353178593931.html",
+      "title": "SP-404MK2 Reference Manual: MIDI note map",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Pad row 1 column {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 4
+      },
+      {
+        "name": "Pad row 2 column {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 44,
+        "count": 4
+      },
+      {
+        "name": "Pad row 3 column {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 40,
+        "count": 4
+      },
+      {
+        "name": "Pad row 4 column {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 4
+      }
+    ]
+  },
+  {
+    "id": "roland-tr-8s",
+    "manufacturer": "Roland",
+    "model": "TR-8S",
+    "portNames": [
+      "tr 8s"
+    ],
+    "source": {
+      "url": "https://static.roland.com/assets/media/pdf/TR-8S_MIDIImpleChart_eng02_W.pdf",
+      "title": "TR-8S MIDI Implementation Chart v1.10",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Bass drum",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36
+      },
+      {
+        "name": "Snare drum",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 38
+      },
+      {
+        "name": "Low tom",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 43
+      },
+      {
+        "name": "Mid tom",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 47
+      },
+      {
+        "name": "High tom",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 50
+      },
+      {
+        "name": "Rim shot",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 37
+      },
+      {
+        "name": "Hand clap",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 39
+      },
+      {
+        "name": "Closed hi-hat",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 42
+      },
+      {
+        "name": "Open hi-hat",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 46
+      },
+      {
+        "name": "Crash cymbal",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 49
+      },
+      {
+        "name": "Ride cymbal",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 51
+      },
+      {
+        "name": "BD tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 20
+      },
+      {
+        "name": "BD decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 23
+      },
+      {
+        "name": "BD level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 24
+      },
+      {
+        "name": "SD tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 25
+      },
+      {
+        "name": "SD decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 28
+      },
+      {
+        "name": "SD level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 29
+      },
+      {
+        "name": "LT tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 46
+      },
+      {
+        "name": "LT decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 47
+      },
+      {
+        "name": "LT level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 48
+      },
+      {
+        "name": "MT tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 49
+      },
+      {
+        "name": "MT decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 50
+      },
+      {
+        "name": "MT level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 51
+      },
+      {
+        "name": "HT tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 52
+      },
+      {
+        "name": "HT decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 53
+      },
+      {
+        "name": "HT level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 54
+      },
+      {
+        "name": "RS tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 55
+      },
+      {
+        "name": "RS decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 56
+      },
+      {
+        "name": "RS level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 57
+      },
+      {
+        "name": "HC tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 58
+      },
+      {
+        "name": "HC decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 59
+      },
+      {
+        "name": "HC level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 60
+      },
+      {
+        "name": "CH tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 61
+      },
+      {
+        "name": "CH decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 62
+      },
+      {
+        "name": "CH level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 63
+      },
+      {
+        "name": "OH tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 80
+      },
+      {
+        "name": "OH decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 81
+      },
+      {
+        "name": "OH level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 82
+      },
+      {
+        "name": "CC tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 83
+      },
+      {
+        "name": "CC decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 84
+      },
+      {
+        "name": "CC level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 85
+      },
+      {
+        "name": "RC tune",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 86
+      },
+      {
+        "name": "RC decay",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 87
+      },
+      {
+        "name": "RC level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 88
+      },
+      {
+        "name": "Shuffle",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 9
+      },
+      {
+        "name": "External in level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 12
+      },
+      {
+        "name": "Delay level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 16
+      },
+      {
+        "name": "Delay time",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 17
+      },
+      {
+        "name": "Delay feedback",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 18
+      },
+      {
+        "name": "Master FX ctrl",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 19
+      },
+      {
+        "name": "Accent",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 71
+      },
+      {
+        "name": "Reverb level",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 10,
+        "number": 91
+      }
+    ]
+  },
+  {
+    "id": "arturia-microfreak",
+    "manufacturer": "Arturia",
+    "model": "MicroFreak",
+    "portNames": [
+      "microfreak"
+    ],
+    "source": {
+      "url": "https://www.arturia.com/products/hardware-synths/microfreak/overview",
+      "title": "Arturia MicroFreak product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 25
+      },
+      {
+        "name": "Aftertouch",
+        "kind": "strip",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Spice",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 2
+      },
+      {
+        "name": "Oscillator type",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 9
+      },
+      {
+        "name": "Oscillator wave",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 10
+      },
+      {
+        "name": "Oscillator timbre",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 12
+      },
+      {
+        "name": "Oscillator shape",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 13
+      },
+      {
+        "name": "Filter cutoff",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 23
+      },
+      {
+        "name": "Filter resonance",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 83
+      }
+    ]
+  },
+  {
+    "id": "behringer-crave",
+    "manufacturer": "Behringer",
+    "model": "Crave",
+    "portNames": [
+      "crave"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0718-AAJ",
+      "title": "Behringer Crave product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 13
+      }
+    ]
+  },
+  {
+    "id": "behringer-model-d",
+    "manufacturer": "Behringer",
+    "model": "Model D",
+    "portNames": [
+      "model d"
+    ],
+    "source": {
+      "url": "https://www.behringer.com/en/products/0718-AAC",
+      "title": "Behringer Model D product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n} (received)",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      }
+    ]
+  },
+  {
+    "id": "teenage-engineering-op-1-field",
+    "manufacturer": "Teenage Engineering",
+    "model": "OP-1 field",
+    "portNames": [
+      "op 1 field",
+      "op 1"
+    ],
+    "source": {
+      "url": "https://teenage.engineering/products/op-1",
+      "title": "OP-1 field product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 53,
+        "count": 24
+      }
+    ]
+  },
+  {
+    "id": "teenage-engineering-op-z",
+    "manufacturer": "Teenage Engineering",
+    "model": "OP-Z",
+    "portNames": [
+      "op z"
+    ],
+    "source": {
+      "url": "https://teenage.engineering/products/op-z",
+      "title": "OP-Z product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Step key {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 16
+      }
+    ]
+  },
+  {
+    "id": "elektron-digitakt",
+    "manufacturer": "Elektron",
+    "model": "Digitakt",
+    "portNames": [
+      "digitakt"
+    ],
+    "source": {
+      "url": "https://www.elektron.se/wp-content/uploads/2026/09/Digitakt-User-Manual_ENG_OS1.53_260909.pdf",
+      "title": "Digitakt User Manual, Appendix B: MIDI",
+      "verification": "documented"
+    },
+    "controls": [
+      {
+        "name": "Knob A (tune)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 16
+      },
+      {
+        "name": "Knob B (play mode)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 17
+      },
+      {
+        "name": "Knob C (bit reduction)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 18
+      },
+      {
+        "name": "Knob D (sample select)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 19
+      },
+      {
+        "name": "Knob E",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 20
+      },
+      {
+        "name": "Knob F",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 21
+      },
+      {
+        "name": "Knob G",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 22
+      },
+      {
+        "name": "Knob H (sample level)",
+        "kind": "knob",
+        "type": "cc",
+        "channel": 1,
+        "number": 23
+      }
+    ]
+  },
+  {
+    "id": "sequential-prophet-rev2",
+    "manufacturer": "Sequential",
+    "model": "Prophet Rev2",
+    "portNames": [
+      "prophet rev2"
+    ],
+    "source": {
+      "url": "https://www.sequential.com/product/prophet-rev2/",
+      "title": "Sequential Prophet Rev2 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 61
+      },
+      {
+        "name": "Pitch bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Aftertouch",
+        "kind": "strip",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Sustain pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "moog-subsequent-37",
+    "manufacturer": "Moog",
+    "model": "Subsequent 37",
+    "portNames": [
+      "subsequent 37",
+      "sub 37"
+    ],
+    "source": {
+      "url": "https://www.moogmusic.com/synthesizers/subsequent-37/",
+      "title": "Moog Subsequent 37 product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Key {n}",
+        "kind": "key",
+        "type": "note",
+        "channel": 1,
+        "number": 48,
+        "count": 37
+      },
+      {
+        "name": "Pitch bend",
+        "kind": "wheel",
+        "type": "pitchbend",
+        "channel": 1
+      },
+      {
+        "name": "Mod wheel",
+        "kind": "wheel",
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      {
+        "name": "Aftertouch",
+        "kind": "strip",
+        "type": "pressure",
+        "channel": 1
+      },
+      {
+        "name": "Sustain pedal",
+        "kind": "pedal",
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      }
+    ]
+  },
+  {
+    "id": "akai-mpc-one",
+    "manufacturer": "Akai",
+    "model": "MPC One",
+    "portNames": [
+      "mpc one"
+    ],
+    "source": {
+      "url": "https://www.akaipro.com/mpc-one.html",
+      "title": "Akai Professional MPC One product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      }
+    ]
+  },
+  {
+    "id": "akai-mpc-live-ii",
+    "manufacturer": "Akai",
+    "model": "MPC Live II",
+    "portNames": [
+      "mpc live ii"
+    ],
+    "source": {
+      "url": "https://www.akaipro.com/mpc-live-2",
+      "title": "Akai Professional MPC Live II product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 10,
+        "number": 36,
+        "count": 16
+      }
+    ]
+  },
+  {
+    "id": "akai-force",
+    "manufacturer": "Akai",
+    "model": "Force",
+    "portNames": [
+      "akai force",
+      "force"
+    ],
+    "source": {
+      "url": "https://www.akaipro.com/force",
+      "title": "Akai Professional Force product page",
+      "verification": "inventory"
+    },
+    "controls": [
+      {
+        "name": "Pad {n}",
+        "kind": "pad",
+        "type": "note",
+        "channel": 1,
+        "number": 36,
+        "count": 64
+      }
+    ]
+  }
+]
