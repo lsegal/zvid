@@ -90,3 +90,14 @@ describe.each(["Key", "MIDI"])("%s input control", (name) => {
     expect(input.querySelectorAll("button svg")).toHaveLength(2);
   });
 });
+
+test("both MIDI segments draw piano keys, not a DIN port", async () => {
+  await render(<Controls />);
+  const segments = group("MIDI input").element().querySelectorAll("button svg");
+  expect(segments).toHaveLength(2);
+  for (const icon of segments) {
+    expect(icon.querySelector("circle")).toBeNull();
+    // The filled path is the black keys, which the off segment masks with its slash.
+    expect(icon.querySelectorAll('path[fill="currentColor"]')).toHaveLength(1);
+  }
+});
