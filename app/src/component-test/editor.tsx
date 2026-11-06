@@ -367,6 +367,7 @@ export function Editor({
   return (
     <div className="app-shell" ref={appShellRef}>
       <TopBar
+        keyMap={editing.keyMap}
         canStartNewSession={false}
         handleNewSession={noop}
         handleOpenSession={noopAsync}
@@ -647,6 +648,7 @@ export function Editor({
           <FxModulationClockContext.Provider value={modulationClock}>
             <FxAnimationTimelineContext.Provider value={animationTimeline}>
               <FxPanel
+                keyMap={editing.keyMap}
                 {...fxEditing}
                 {...fxPanel}
                 {...layout}

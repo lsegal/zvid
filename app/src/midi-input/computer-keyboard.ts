@@ -71,7 +71,17 @@ export type ComputerKeyboardEntry = {
   getState: () => ComputerKeyboardState;
   setEnabled: (enabled: boolean) => void;
   shiftOctave: (direction: -1 | 1) => void;
+  // Marks entry as playing a roll until the returned function is called.
+  claimKeys: () => () => void;
+  // Whether entry is playing a roll and would take this key press, which
+  // other plain-letter keys hold back for.
+  claimsKey: (event: ClaimedKeyEvent) => boolean;
 };
+
+type ClaimedKeyEvent = Pick<
+  KeyboardEvent,
+  "code" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey"
+>;
 
 function readEnabled(storage: PrefsStorage | undefined) {
   try {
@@ -102,6 +112,7 @@ export function createComputerKeyboardEntry({
   storage?: PrefsStorage;
 } = {}): ComputerKeyboardEntry {
   const listeners = new Set<() => void>();
+  let claims = 0;
   let state: ComputerKeyboardState = {
     enabled: readEnabled(storage),
     basePitch: DEFAULT_BASE_PITCH,
@@ -132,6 +143,19 @@ export function createComputerKeyboardEntry({
         publish({ basePitch });
       }
     },
+    claimKeys() {
+      claims += 1;
+      return () => {
+        claims -= 1;
+      };
+    },
+    claimsKey: (event) =>
+      claims > 0 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.shiftKey &&
+      computerKeyboardKey(event.code) !== undefined,
   };
 }
 

@@ -242,6 +242,20 @@ test("an open menu keeps its letter keys", async () => {
   expect(roll.auditions).toEqual([]);
 });
 
+test("a key Key Map mode just took plays nothing", async () => {
+  const roll = await renderRoll();
+  const take = (event: KeyboardEvent) => event.preventDefault();
+  window.addEventListener("keydown", take, true);
+  onTestFinished(() => window.removeEventListener("keydown", take, true));
+  // The entry's listener came first in this test, so re-add it after `take`.
+  roll.entry.setEnabled(false);
+  await expect.element(roll.toggle()).toHaveAttribute("aria-pressed", "false");
+  roll.entry.setEnabled(true);
+  await expect.element(roll.toggle()).toHaveAttribute("aria-pressed", "true");
+  fire("keydown", "KeyA");
+  expect(roll.auditions).toEqual([]);
+});
+
 test("holding a key plays one note", async () => {
   const roll = await renderRoll();
   fire("keydown", "KeyA");

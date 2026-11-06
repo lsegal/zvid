@@ -225,3 +225,8 @@
     padding-block: 9px;
   }
 }
+
+.key-map-toggle[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 24%, transparent);
+}

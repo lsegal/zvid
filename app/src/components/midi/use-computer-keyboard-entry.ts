@@ -21,9 +21,10 @@ function keepsTypedKeys(target: EventTarget | null) {
 }
 
 // Plays the piano roll from the typing keyboard while `active`. The window's
-// capture phase gets each note key first, which suspends any plain letter
-// shortcut it collides with; every other key, and any key with a modifier
-// down, carries on as usual. A held key plays one note, ending when it comes
+// capture phase gets each note key before the shortcuts, which suspends any
+// plain letter shortcut it collides with, and mapped keys (see useKeyMap.ts)
+// ask `claimsKey`; every other key, and any key with a modifier down, carries
+// on as usual. A held key plays one note, ending when it comes
 // up, when the window loses focus or when entry goes off. Returns the entry's
 // state.
 export function useComputerKeyboardEntry({
@@ -44,6 +45,7 @@ export function useComputerKeyboardEntry({
     if (!listening) {
       return undefined;
     }
+    const stopClaiming = entry.claimKeys();
     const pressed = new Set<string>();
     const releaseAll = () => {
       for (const code of pressed) {
@@ -60,10 +62,9 @@ export function useComputerKeyboardEntry({
       const key = computerKeyboardKey(event.code);
       if (
         !key ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        event.shiftKey ||
+        !entry.claimsKey(event) ||
+        // Key Map mode just took it, to map it to an effect button.
+        event.defaultPrevented ||
         keepsTypedKeys(event.target)
       ) {
         return;
@@ -99,6 +100,7 @@ export function useComputerKeyboardEntry({
       window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("blur", releaseAll);
       releaseAll();
+      stopClaiming();
     };
   }, [listening, entry, press, release]);
 

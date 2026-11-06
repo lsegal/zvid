@@ -22,6 +22,7 @@ import { useClipActions } from "./useClipActions.ts";
 import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
+import { useKeyMap } from "./useKeyMap.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
 import { useMarqueeSelection } from "./useMarqueeSelection.ts";
@@ -115,7 +116,7 @@ export type TimelineEditingInputs = {
   historyCommands: ReturnType<typeof useProjectHistoryCommands>;
   fxEditing: Pick<
     ReturnType<typeof useFxEditing>,
-    "addFxDevice" | "setLayerFxEnabled"
+    "addFxDevice" | "editEffects" | "setLayerFxEnabled"
   >;
   // Re-resolves the audio mix, from the Audio row's menu.
   refreshAudio: () => void;
@@ -525,6 +526,14 @@ export function useTimelineEditing({
     totalQuarters,
   });
 
+  const keyMap = useKeyMap({
+    effects: project.effects,
+    keyMappings: project.keyMappings,
+    commitProjectChange,
+    editEffects: fxEditing.editEffects,
+    setStatus,
+  });
+
   const marquee = useMarqueeSelection({
     timelineScrollRef,
     sourceSpans,
@@ -609,6 +618,7 @@ export function useTimelineEditing({
 
   return {
     ...rowHandlers,
+    keyMap,
     marqueeRect: marquee.marqueeRect,
     handleRandomizeTimeline,
     handleCreateLayer,

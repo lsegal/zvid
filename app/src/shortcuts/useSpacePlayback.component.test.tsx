@@ -88,6 +88,7 @@ function EditorTopBar({ openSettings }: { openSettings: () => void }) {
       handleImport={async () => {}}
       handleNewSession={noop}
       handleOpenSession={async () => {}}
+      keyMap={{ active: false, toggle: noop }}
       handleSaveToLibrary={async () => true}
       handleStopShare={noop}
       isExporting={false}

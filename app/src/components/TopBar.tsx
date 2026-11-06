@@ -23,6 +23,7 @@ import { setTheme } from "../theme.ts";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
 import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
+import type { KeyMapControls } from "./fx/key-map-context";
 import { MenuChevron } from "./MenuChevron";
 import { ShareLinkIconButton } from "./ShareLinkButton";
 import {
@@ -46,13 +47,14 @@ export type TopBarProps = FileMenuInputs &
     collaboration: CollaborationStateResult;
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
+    keyMap: Pick<KeyMapControls, "active" | "toggle">;
     renamingLaneIdRef: RefObject<string | undefined>;
     setIsCaptureInstallerDialogOpen: SetOpen;
     setStatus: (message: string) => void;
   };
 
 // The app's top bar: the brand mark, the File, Edit and Help menubar, and
-// the export, collaboration status and share controls.
+// the Key Map toggle, and the export, collaboration status and share controls.
 export function TopBar(props: TopBarProps) {
   const {
     collaboration,
@@ -60,6 +62,7 @@ export function TopBar(props: TopBarProps) {
     getEditMenuEntries,
     handleStopShare,
     isExporting,
+    keyMap,
     openExportDialog,
     renamingLaneIdRef,
     setIsCaptureInstallerDialogOpen,
@@ -202,6 +205,15 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className="topbar__group topbar__group--right">
+        <button
+          aria-pressed={keyMap.active}
+          className="ghost-button key-map-toggle"
+          onClick={keyMap.toggle}
+          title="Map computer keys to effect buttons"
+          type="button"
+        >
+          Key Map
+        </button>
         {/* One export at a time: a running one is managed from the status
             bar's export progress, which reopens its dialog. */}
         <button

@@ -101,3 +101,23 @@ test("listeners hear changes only when the state changes", () => {
   entry.setEnabled(false);
   assert.equal(calls, 1);
 });
+
+test("entry claims plain note keys only while it's playing a roll", () => {
+  const entry = createComputerKeyboardEntry({ storage: memoryStorage() });
+  const press = {
+    code: "KeyA",
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+  };
+  assert.equal(entry.claimsKey(press), false);
+  const stop = entry.claimKeys();
+  assert.equal(entry.claimsKey(press), true);
+  assert.equal(entry.claimsKey({ ...press, code: "KeyZ" }), true);
+  assert.equal(entry.claimsKey({ ...press, code: "KeyQ" }), false);
+  assert.equal(entry.claimsKey({ ...press, shiftKey: true }), false);
+  assert.equal(entry.claimsKey({ ...press, ctrlKey: true }), false);
+  stop();
+  assert.equal(entry.claimsKey(press), false);
+});

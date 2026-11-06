@@ -1,0 +1,32 @@
+/* Mapping mode's marks on the effect buttons it can map. */
+[data-key-map] {
+  position: relative;
+  outline: 2px solid color-mix(in srgb, var(--amber) 70%, transparent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+}
+
+[data-key-map="selected"] {
+  outline-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 42%, transparent);
+}
+
+[data-key-map-key]::after {
+  content: attr(data-key-map-key);
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  z-index: 1;
+  min-width: 14px;
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: var(--amber);
+  color: #15171f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 12px;
+  text-align: center;
+  text-transform: none;
+  white-space: nowrap;
+}

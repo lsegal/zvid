@@ -81,6 +81,7 @@ export function TopBarHarness({ sharing = false }: TopBarHarnessProps) {
         handleSaveToLibrary={async () => true}
         handleStopShare={() => setCollaborationMode("idle")}
         isExporting={false}
+        keyMap={{ active: false, toggle: noop }}
         offlineMedia={[]}
         openExportDialog={noop}
         renamingLaneIdRef={{ current: undefined }}

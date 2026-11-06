@@ -16,9 +16,12 @@
 }
 
 /* App variables built from tokens resolve where they're declared, so an
-   element that switches theme declares them again. */
+   element that switches theme declares them again. So do those using
+   light-dark(): the production build lowers it to variables that resolve on
+   the declaring element too, while the dev server keeps it native. */
 [data-theme] {
   --lane-selected-accent: var(--amber);
+  --lane-selected-label: light-dark(rgb(243, 244, 245), #3a3d53);
 }
 
 * {
