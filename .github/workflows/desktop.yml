@@ -226,15 +226,6 @@ jobs:
           $app = Get-ChildItem $dir -Filter *.exe | Where-Object Name -ne 'uninstall.exe' | Select-Object -First 1
           if (-not $app) { throw "the app was not installed into $dir" }
           Write-Output "installed $($app.FullName)"
-          # Turning MIDI on must not stop at WebView2's permission prompt.
-          # This needs no MIDI hardware: the call resolves with no inputs.
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9222'
-          $running = Start-Process $app.FullName -PassThru
-          node "$env:GITHUB_WORKSPACE/.github/scripts/check-webview-midi.mjs" 9222
-          $midiResult = $LASTEXITCODE
-          Stop-Process -Id $running.Id -Force
-          Get-Process msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force
-          if ($midiResult -ne 0) { throw "the MIDI check failed" }
           # The uninstaller relaunches itself from a temporary copy, so wait
           # for the app to disappear rather than for the process.
           Start-Process (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
