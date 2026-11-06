@@ -6,10 +6,8 @@ import {
 } from "./component-test/editor.tsx";
 import { applyTheme, type Theme } from "./theme.ts";
 
-// The light theme keeps headers and source tracks dark (#1492): the track
-// header column (layer, Audio, source track and section headers), source
-// track rows and FX device titles take the dark palette, with the dark
-// theme's ink on them. Everything else still follows the light theme.
+// In the light theme, the track header column and FX device titles follow the
+// theme (#1563). Source track lanes keep the dark palette (#1492).
 
 const HEADERS = {
   "layer header": ".track-label--lane",
@@ -55,12 +53,6 @@ function colors(selector: string) {
   return { background: style.backgroundColor, ink: style.color };
 }
 
-function accent(selector: string) {
-  return getComputedStyle(query(selector))
-    .getPropertyValue("--lane-selected-accent")
-    .trim();
-}
-
 async function renderIn(theme: Theme) {
   applyTheme(theme);
   await renderEditor({ project: withTestPatternTrack() });
@@ -72,42 +64,38 @@ async function renderIn(theme: Theme) {
     .not.toBeNull();
 }
 
-describe("light theme dark surfaces", () => {
+describe("light theme surfaces", () => {
   test(
-    "headers and source tracks keep the dark theme's surfaces and ink",
+    "headers are light and readable",
     async () => {
-      await renderIn("dark");
-      const dark = Object.fromEntries(
-        Object.entries(HEADERS).map(([name, selector]) => [
-          name,
-          colors(selector),
-        ]),
-      );
-      const darkInk = colors(".track-row--source").ink;
-      const darkAccent = accent(".track-label--lane");
-
-      applyTheme("light");
+      await renderIn("light");
       for (const [name, selector] of Object.entries(HEADERS)) {
-        const light = colors(selector);
-        expect(light, name).toEqual(dark[name]);
-        expect(luminance(light.background), name).toBeLessThan(0.05);
-        expect(contrast(light.ink, light.background), name).toBeGreaterThan(7);
+        const { background, ink } = colors(selector);
+        expect(luminance(background), name).toBeGreaterThan(0.5);
+        expect(contrast(ink, background), name).toBeGreaterThan(7);
       }
-      // Source tracks and section headers sit on the dark timeline surface.
-      for (const selector of [".track-row--source", ".source-header"]) {
-        const light = colors(selector);
-        expect(light.ink, selector).toBe(darkInk);
-        expect(luminance(light.background), selector).toBeLessThan(0.05);
-        expect(getComputedStyle(query(selector)).colorScheme).toBe("dark");
-      }
-      // The selected row's accent is the dark theme's amber, too.
-      expect(accent(".track-label--lane")).toBe(darkAccent);
     },
     EDITOR_TEST_TIMEOUT,
   );
 
   test(
-    "the loop strip and Audio lane are light but not white in the light theme",
+    "source track lanes stay dark beside their light labels",
+    async () => {
+      await renderIn("light");
+      const lane = ".track-row__content--source";
+      expect(getComputedStyle(query(lane)).colorScheme).toBe("dark");
+      expect(luminance(colors(".track-row--source").background)).toBeLessThan(
+        0.05,
+      );
+      expect(getComputedStyle(query(".track-label--source")).colorScheme).toBe(
+        "light",
+      );
+    },
+    EDITOR_TEST_TIMEOUT,
+  );
+
+  test(
+    "the loop strip and Audio lane are light but not white",
     async () => {
       await renderIn("light");
       const scrubArea = luminance(colors(".ruler-row__content").background);
@@ -119,44 +107,20 @@ describe("light theme dark surfaces", () => {
         expect(luminance(background), selector).toBeGreaterThan(0.5);
         expect(contrast(ink, background), selector).toBeGreaterThan(7);
       }
-      expect(
-        getComputedStyle(query(".track-row--bus .track-row__content"))
-          .colorScheme,
-      ).toBe("light");
     },
     EDITOR_TEST_TIMEOUT,
   );
 
   test(
-    "FX device titles get a dark surface in the light theme only",
-    async () => {
-      await renderIn("dark");
-      const title = ".fx-device-panel__title";
-      expect(channels(colors(title).background)[3]).toBe(0);
-
-      applyTheme("light");
-      const { background, ink } = colors(title);
-      expect(luminance(background)).toBeLessThan(0.05);
-      expect(contrast(ink, background)).toBeGreaterThan(7);
-    },
-    EDITOR_TEST_TIMEOUT,
-  );
-
-  test(
-    "the rest of the light theme stays light",
+    "FX device titles follow the theme",
     async () => {
       await renderIn("light");
-      const ink = getComputedStyle(document.documentElement).color;
-      expect(luminance(ink)).toBeLessThan(0.05);
-      for (const selector of [
-        '[data-layer-row-id="1"] .track-row__content',
-        ".fx-device-panel",
-      ]) {
-        expect(getComputedStyle(query(selector)).color, selector).toBe(ink);
-      }
-      expect(getComputedStyle(query(".fx-device-panel")).colorScheme).toBe(
-        "light",
-      );
+      const title = ".fx-device-panel__title";
+      const { ink } = colors(title);
+      expect(ink).toBe(getComputedStyle(document.documentElement).color);
+      expect(getComputedStyle(query(title)).colorScheme).toBe("light");
+      const power = '.fx-device-panel__power[aria-pressed="true"]';
+      expect(contrast(colors(power).ink, "#fff")).toBeGreaterThan(4.5);
     },
     EDITOR_TEST_TIMEOUT,
   );
