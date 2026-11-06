@@ -1,6 +1,6 @@
 import { useContext, useSyncExternalStore } from "react";
-import type { MidiClipModel } from "../../midi-panel-model.ts";
 import { clipSoundingQ } from "../../midi-input/note-capture.ts";
+import type { MidiClipModel } from "../../midi-panel-model.ts";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 
 // The transport playhead on the piano roll's grid, read-only: a line at

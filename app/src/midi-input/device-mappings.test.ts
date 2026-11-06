@@ -146,7 +146,10 @@ test("every shipped mapping is valid and sourced", () => {
 });
 
 test("shipped ids are unique, and each model's port names its own", () => {
-  assert.equal(new Set(DEVICES.map((device) => device.id)).size, DEVICES.length);
+  assert.equal(
+    new Set(DEVICES.map((device) => device.id)).size,
+    DEVICES.length,
+  );
   for (const device of DEVICES) {
     for (const name of device.portNames) {
       assert.equal(

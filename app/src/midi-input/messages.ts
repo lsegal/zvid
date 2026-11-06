@@ -23,7 +23,9 @@ export function parseMidiMessage(
   const second = data[2] ?? 0;
   switch (status & 0xf0) {
     case 0x80:
-      return data.length < 3 ? undefined : { type: "note-off", channel, note: first };
+      return data.length < 3
+        ? undefined
+        : { type: "note-off", channel, note: first };
     case 0x90:
       if (data.length < 3) {
         return undefined;
@@ -33,14 +35,22 @@ export function parseMidiMessage(
         ? { type: "note-off", channel, note: first }
         : { type: "note-on", channel, note: first, velocity: second };
     case 0xb0:
-      return data.length < 3 ? undefined : { type: "cc", channel, controller: first, value: second };
+      return data.length < 3
+        ? undefined
+        : { type: "cc", channel, controller: first, value: second };
     case 0xc0:
-      return data.length < 2 ? undefined : { type: "program", channel, value: first };
+      return data.length < 2
+        ? undefined
+        : { type: "program", channel, value: first };
     case 0xd0:
-      return data.length < 2 ? undefined : { type: "pressure", channel, value: first };
+      return data.length < 2
+        ? undefined
+        : { type: "pressure", channel, value: first };
     case 0xe0:
       // Fourteen bits, least significant byte first.
-      return data.length < 3 ? undefined : { type: "pitchbend", channel, value: (second << 7) | first };
+      return data.length < 3
+        ? undefined
+        : { type: "pitchbend", channel, value: (second << 7) | first };
     default:
       return undefined;
   }

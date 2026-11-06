@@ -4,8 +4,8 @@
 // never has any inputs.
 import {
   loadDeviceMappings,
-  matchDeviceMapping,
   type MidiDeviceMapping,
+  matchDeviceMapping,
 } from "./device-mappings.ts";
 import { type MidiMessage, parseMidiMessage } from "./messages.ts";
 

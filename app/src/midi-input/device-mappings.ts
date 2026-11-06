@@ -179,7 +179,11 @@ export function mappingProblems(mapping: MidiDeviceMapping): string[] {
     if (!MIDI_CONTROL_TYPES.includes(entry.type)) {
       problem(`${entry.name}: unknown type ${entry.type}`);
     }
-    if (!Number.isInteger(entry.channel) || entry.channel < 1 || entry.channel > 16) {
+    if (
+      !Number.isInteger(entry.channel) ||
+      entry.channel < 1 ||
+      entry.channel > 16
+    ) {
       problem(`${entry.name}: channel must be 1 to 16`);
     }
     const count = entry.count ?? 1;

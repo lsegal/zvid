@@ -15,10 +15,7 @@ import { auditionNote } from "../../midi-audition.ts";
 import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
-import {
-  type MidiInputHub,
-  midiInputHub,
-} from "../../midi-input/input-hub.ts";
+import { type MidiInputHub, midiInputHub } from "../../midi-input/input-hub.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
   addNote,

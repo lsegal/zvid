@@ -24,7 +24,9 @@ export function PianoRollMidiStatus({
         )
         .join("\n")}
     >
-      {inputs.length > 1 ? `${inputs.length} MIDI inputs` : inputLabel(inputs[0])}
+      {inputs.length > 1
+        ? `${inputs.length} MIDI inputs`
+        : inputLabel(inputs[0])}
     </span>
   );
 }
