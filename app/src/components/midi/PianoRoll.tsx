@@ -61,6 +61,7 @@ import { ContextMenu } from "../ContextMenu";
 import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
+import { useMidiPassActive } from "../../recording/record-source.ts";
 import { KeyInputControl, MidiInputControl } from "../InputModeControl";
 import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
@@ -246,8 +247,10 @@ export function PianoRoll({
   // a chord's keys come up faster than the roll re-renders.
   const capturedNotes = useRef(notes);
   capturedNotes.current = notes;
+  // A MIDI recording pass takes the keys for the clip it records.
+  const midiPassActive = useMidiPassActive();
   const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
-    enabled: !collapsed,
+    enabled: !collapsed && !midiPassActive,
     hub: midiHub,
     clip: model,
     clock,
@@ -267,7 +270,7 @@ export function PianoRoll({
     },
   });
   const keyboardEntryState = useComputerKeyboardEntry({
-    active: !collapsed,
+    active: !collapsed && !midiPassActive,
     entry: keyboardEntry,
     press: playKey,
     release: releaseKey,

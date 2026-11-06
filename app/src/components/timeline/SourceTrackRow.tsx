@@ -28,6 +28,7 @@ import {
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { isTrackHidden } from "../../track-visibility.ts";
 import { NameInput } from "../NameInput";
+import { LiveMidiClip } from "./LiveMidiClip";
 import { LiveRecordingClip } from "./LiveRecordingClip";
 import { arePropsEqualWithContexts } from "./memo-props.ts";
 import { RowResizeHandle } from "./RowResizeHandle";
@@ -248,7 +249,13 @@ export const SourceTrackRow = memo(function SourceTrackRow({
             {...span}
           />
         ))}
-        {liveTake ? (
+        {liveTake?.midi ? (
+          <LiveMidiClip
+            bpm={span.bpm}
+            quarterPx={span.quarterPx}
+            take={liveTake}
+          />
+        ) : liveTake ? (
           <LiveRecordingClip
             bpm={span.bpm}
             quarterPx={span.quarterPx}
