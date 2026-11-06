@@ -25,6 +25,8 @@ const MIN_RAMP_SECONDS = 0.002;
 // the other way, so it never jumps (see mirror).
 const SOURCE_SECONDS = 2;
 const SOURCE_PARTIALS = 12;
+// The shortest a looped cloud lasts before it repeats.
+const LOOP_SECONDS = 1;
 
 /** A grain, in seconds from the clip's content start. */
 export type Grain = {
@@ -181,6 +183,30 @@ export function granularGrains(
     }
     return grains;
   });
+}
+
+/**
+ * A cloud of `note`'s grains at its full level, mixed so that it can loop: a
+ * whole number of grain starts, at least LOOP_SECONDS of them, with the grains
+ * still sounding at its end carried on around at its start. It has no attack or
+ * release, which are for whatever plays it, and ignores the note's length.
+ */
+export function granularLoop(
+  note: MidiNote,
+  params: GranularParams,
+  sampleRate: number,
+): Float32Array<ArrayBuffer> {
+  const seconds = Math.ceil(LOOP_SECONDS * params.density) / params.density;
+  const held = { ...note, start: 0, length: seconds + params.grainSize };
+  const grains = granularGrains([held], params, 60, seconds);
+  const length = Math.round(seconds * sampleRate);
+  const tail = Math.ceil(params.grainSize * sampleRate) + 1;
+  const mixed = mixGrains(grains, sampleRate, length + tail);
+  const loop = mixed.slice(0, length);
+  for (let index = length; index < mixed.length; index++) {
+    loop[index % length] += mixed[index];
+  }
+  return loop;
 }
 
 // The Hann window over `count` samples, kept for the last count asked for,
