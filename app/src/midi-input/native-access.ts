@@ -72,8 +72,7 @@ export async function requestDesktopAccess() {
     return undefined;
   }
   return createNativeMidiAccess({
-    start: (onEvent) =>
-      invoke("midi_start", { events: new Channel(onEvent) }),
+    start: (onEvent) => invoke("midi_start", { events: new Channel(onEvent) }),
     open: (id) => invoke("midi_open", { id }),
     close: (id) => invoke("midi_close", { id }),
   });
