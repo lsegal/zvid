@@ -14,6 +14,7 @@ import {
 } from "../../recording/record-source.ts";
 import { PianoRollMidiControls } from "../midi/PianoRollMidiControls";
 import { Select } from "../ui/select";
+import "../midi/midi-devices.css";
 import "./record-midi-panel.css";
 
 const QUANTIZE_OPTIONS = RECORD_QUANTIZE_VALUES.map((value) => ({

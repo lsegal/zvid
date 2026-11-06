@@ -19,6 +19,7 @@ import {
   withBrowserDefaults,
   writeTrackInputOverride,
 } from "../recording/record-inputs.ts";
+import { useMidiEnabled, useRecordSource } from "../recording/record-source.ts";
 import {
   buildTrackInputOptions,
   describeDefaultInput,
@@ -28,7 +29,6 @@ import {
   toggleRecordDeviceFold,
   trackInputValue,
 } from "../recording/track-record-device.ts";
-import { useMidiEnabled, useRecordSource } from "../recording/record-source.ts";
 import { useMediaInputDevices } from "../recording/use-media-input-devices.ts";
 import { RecordMidiPanel, RecordSourceTabs } from "./media/RecordMidiPanel";
 import "./fx/fx-chain.css";

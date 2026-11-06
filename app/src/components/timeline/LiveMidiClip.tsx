@@ -29,7 +29,10 @@ export function LiveMidiClip({
       className={`live-recording-clip live-recording-clip--midi ${take.ended ? "live-recording-clip--ended" : ""}`}
       data-live-recording-track-id={take.trackId}
       role="img"
-      style={{ left: take.startQ * quarterPx, width: Math.max(2, lengthQ * quarterPx) }}
+      style={{
+        left: take.startQ * quarterPx,
+        width: Math.max(2, lengthQ * quarterPx),
+      }}
     >
       <MidiClipThumbnail
         lengthQ={lengthQ}

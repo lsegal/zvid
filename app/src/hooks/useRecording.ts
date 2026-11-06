@@ -24,16 +24,16 @@ import { MidiTake } from "../recording/midi-take.ts";
 import { useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
 import {
+  getRecordSourcePrefs,
+  resolveRecordSource,
+  setMidiPassActive,
+} from "../recording/record-source.ts";
+import {
   canPressRecord,
   playbackEndsRecording,
   pressRecord,
   type RecordPhase,
 } from "../recording/record-transport.ts";
-import {
-  getRecordSourcePrefs,
-  resolveRecordSource,
-  setMidiPassActive,
-} from "../recording/record-source.ts";
 import {
   addRecordedMidiTakes,
   addRecordedTakes,

@@ -21,7 +21,6 @@ import { type SkipDirection, skipTarget } from "../../app/transport-skip";
 import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import type { PlayheadSignal } from "../../playhead-signal";
 import type { MidiTake } from "../../recording/midi-take.ts";
-import { MidiTakeCapture } from "./MidiTakeCapture";
 import {
   formatZoomFactor,
   sliderPositionToZoom,
@@ -33,6 +32,7 @@ import {
   zoomToSliderPosition,
 } from "../../zoom";
 import { PromptButton } from "../prompt/PromptButton";
+import { MidiTakeCapture } from "./MidiTakeCapture";
 import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
 import { ZoomReadout } from "./ZoomReadout";

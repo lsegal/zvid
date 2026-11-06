@@ -57,11 +57,11 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
+import { useMidiPassActive } from "../../recording/record-source.ts";
 import { ContextMenu } from "../ContextMenu";
 import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
-import { useMidiPassActive } from "../../recording/record-source.ts";
 import { KeyInputControl, MidiInputControl } from "../InputModeControl";
 import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";

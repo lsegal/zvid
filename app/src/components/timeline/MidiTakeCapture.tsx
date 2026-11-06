@@ -5,8 +5,8 @@ import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
 import { midiInputHub } from "../../midi-input/input-hub.ts";
 import type { PlayheadSignal } from "../../playhead-signal.ts";
 import type { MidiTake } from "../../recording/midi-take.ts";
-import { useMidiNoteCapture } from "../midi/use-midi-note-capture";
 import { useComputerKeyboardEntry } from "../midi/use-computer-keyboard-entry";
+import { useMidiNoteCapture } from "../midi/use-midi-note-capture";
 
 // Plays a MIDI pass's notes into its take, from the chosen input: the keys of
 // the MIDI device or the typing keyboard, each auditioning through the Synth
