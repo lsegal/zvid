@@ -1,5 +1,14 @@
-import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
@@ -7,6 +16,7 @@ import {
   type EditorState,
   renderEditor,
   sessionWithLayers,
+  withTestPatternTrack,
 } from "../component-test/editor.tsx";
 import { mediaItem, withDroppedMedia } from "../component-test/fx-projects.ts";
 import { undo } from "../component-test/input.ts";
@@ -29,15 +39,20 @@ import { createMidiClip } from "../source-clip-edits.ts";
 // keys then do, through simulated devices. A new session's Global Order is the
 // mapped device. The hub is the app's own, so one Web MIDI grant serves all.
 
-const keysPort = connectedPort("Keys");
-const padsPort = connectedPort("Pads");
-const access: MidiAccessLike = {
-  inputs: new Map([
-    [keysPort.id, keysPort],
-    [padsPort.id, padsPort],
-  ]),
-  onstatechange: null,
-};
+const ports = new Map<string, MidiInputPort>();
+const access: MidiAccessLike = { inputs: ports, onstatechange: null };
+// New for each test, since a device's MPE state outlives the test that played it.
+let keysPort: MidiInputPort;
+let padsPort: MidiInputPort;
+let portCount = 0;
+
+function plugIn(name: string) {
+  portCount += 1;
+  const port = connectedPort(`${name} ${portCount}`);
+  ports.set(port.id, port);
+  access.onstatechange?.();
+  return port;
+}
 
 function connectedPort(name: string): MidiInputPort {
   return { id: name, name, state: "connected", onmidimessage: null };
@@ -55,6 +70,9 @@ function noteOn(port: MidiInputPort, note: number, channel = 1) {
 function noteOff(port: MidiInputPort, note: number, channel = 1) {
   port.onmidimessage?.({ data: new Uint8Array([0x80 + channel - 1, note, 0]) });
 }
+
+// Long enough for an edit to have reached the state, for checking there's none.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 100));
 
 function tap(port: MidiInputPort, note: number, channel = 1) {
   noteOn(port, note, channel);
@@ -84,11 +102,11 @@ async function open(project: Partial<ProjectState> = sessionWithLayers(1)) {
 }
 
 // Maps the Order's power to `note`, and goes back to Use mode.
-async function mapOrderPower(note = C4, channel = 1, port = keysPort) {
+async function mapOrderPower(note = C4, channel = 1) {
   await toggleButton().click();
   await orderPower().click();
-  await vi.waitFor(() => expect(port.onmidimessage).not.toBeNull());
-  tap(port, note, channel);
+  await vi.waitFor(() => expect(keysPort.onmidimessage).not.toBeNull());
+  tap(keysPort, note, channel);
   await expect.element(orderPower()).toHaveAttribute("data-key-map-key");
   await toggleButton().click();
   await expect.element(orderPower()).not.toHaveAttribute("data-key-map");
@@ -101,15 +119,22 @@ beforeAll(() => {
   });
 });
 
+beforeEach(() => {
+  midiInputHub.setEnabled(true);
+  keysPort = plugIn("Keys");
+  padsPort = plugIn("Pads");
+});
+
 afterEach(() => {
   midiInputHub.chooseDevice(null);
-  midiInputHub.setEnabled(true);
+  midiInputHub.setEnabled(false);
   localStorage.removeItem(MIDI_INPUT_STORAGE_KEY);
+  ports.clear();
+  access.onstatechange?.();
 });
 
 describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   test("starts in Use mode, and the toggle shows which mode is on", async () => {
-    midiInputHub.setEnabled(true);
     await open();
     await expect.element(toggleButton()).toHaveTextContent("MIDI: Use");
     await expect
@@ -128,7 +153,6 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("Map mode selects a button, and a MIDI key assigns without triggering", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await toggleButton().click();
     await orderPower().click();
@@ -153,7 +177,6 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("a mapped key bypasses like a click, and undo reverts it", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await mapOrderPower();
 
@@ -164,6 +187,7 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       .toBeVisible();
     // The same note on another channel is another key.
     tap(keysPort, C4, 10);
+    await settle();
     expect(orderOf(state())?.enabled).toBe(false);
 
     await undo();
@@ -173,7 +197,6 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("a mapping can be changed and removed, and Escape cancels", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await toggleButton().click();
     await orderPower().click();
@@ -198,11 +221,11 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       .element(orderPower())
       .toHaveAttribute("data-key-map", "mappable");
     tap(keysPort, C4);
+    await settle();
     expect(state().project.midiMappings).toBeUndefined();
   });
 
   test("removing a device removes its mappings", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await mapOrderPower();
     await page.getByRole("button", { name: "Remove Order" }).click();
@@ -210,12 +233,12 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("mapped keys do nothing while MIDI is off or from another device", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await mapOrderPower();
 
-    midiInputHub.chooseDevice({ id: padsPort.id, name: "Pads" });
+    midiInputHub.chooseDevice({ id: padsPort.id, name: padsPort.name ?? "" });
     tap(keysPort, C4);
+    await settle();
     expect(orderOf(state())?.enabled).toBe(true);
     tap(padsPort, C4);
     await expect.poll(() => orderOf(state())?.enabled).toBe(false);
@@ -223,31 +246,25 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     midiInputHub.setEnabled(false);
     expect(padsPort.onmidimessage).toBeNull();
     tap(padsPort, C4);
+    await settle();
     expect(orderOf(state())?.enabled).toBe(false);
   });
 
   test("an MPE note triggers on every press, whichever channel it arrives on", async () => {
-    midiInputHub.setEnabled(true);
-    const mpePort = connectedPort("MPE");
-    (access.inputs as Map<string, MidiInputPort>).set(mpePort.id, mpePort);
-    access.onstatechange?.();
     const state = await open();
-    await mapOrderPower(C4, 2, mpePort);
+    await mapOrderPower(C4, 2);
 
     for (const [channel, enabled] of [
       [3, false],
       [4, true],
       [9, false],
     ] as const) {
-      tap(mpePort, C4, channel);
+      tap(keysPort, C4, channel);
       await expect.poll(() => orderOf(state())?.enabled).toBe(enabled);
     }
-    (access.inputs as Map<string, MidiInputPort>).delete(mpePort.id);
-    access.onstatechange?.();
   });
 
   test("a mapped Drum Rack pad presses on Note On and releases on Note Off", async () => {
-    midiInputHub.setEnabled(true);
     const dropped = withDroppedMedia(
       sessionWithLayers(1),
       mediaItem({ kind: "audio", durationSeconds: 2 }),
@@ -293,20 +310,23 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("in Use mode unmapped keys draw notes and mapped keys don't", async () => {
-    midiInputHub.setEnabled(true);
-    const base = sessionWithLayers(1);
-    const effects = [
-      ...base.effects,
-      createEffect(GLOBAL_EFFECT_TRACK_ID, "Bloom", "bloom"),
-      ...addDefaultSynth([], "bassline", "bass-synth"),
-    ];
+    const base = withTestPatternTrack(INITIAL_PROJECT_STATE);
+    const effects = addDefaultSynth(
+      [...base.effects, createEffect(GLOBAL_EFFECT_TRACK_ID, "Bloom", "bloom")],
+      "bassline",
+      "bass-synth",
+    );
     let state: EditorState | undefined;
     await renderEditor({
       project: {
         ...base,
         effects,
         midiMappings: [
-          { note: C4, channel: 1, target: { kind: "power", effectId: "bloom" } },
+          {
+            note: C4,
+            channel: 1,
+            target: { kind: "power", effectId: "bloom" },
+          },
         ],
         sourceTracks: [
           ...base.sourceTracks,
@@ -364,17 +384,13 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     noteOn(keysPort, D4);
     await expect
-      .poll(() =>
-        document.querySelector(`[data-piano-roll-held-note='${D4}']`),
-      )
+      .poll(() => document.querySelector(`[data-piano-roll-held-note='${D4}']`))
       .not.toBeNull();
     noteOff(keysPort, D4);
     await expect.poll(() => notes()?.map((note) => note.pitch)).toEqual([D4]);
-    await userEvent.click(page.getByRole("button", { name: "Pause timeline" }));
   });
 
   test("Key Map and MIDI Map take turns with the buttons", async () => {
-    midiInputHub.setEnabled(true);
     await open();
     await toggleButton().click();
     await keyMapButton().click();
@@ -391,7 +407,6 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("a button can have a computer key and a MIDI key", async () => {
-    midiInputHub.setEnabled(true);
     const state = await open();
     await mapOrderPower();
     await keyMapButton().click();
