@@ -12,6 +12,7 @@ import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
 import { addDefaultGain } from "./default-gain.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
+import type { MidiNote } from "./midi-clip.ts";
 import { newMidiTimeline } from "./midi-clip-timeline.ts";
 import { addDefaultSynth } from "./midi-effects.ts";
 import {
@@ -288,7 +289,36 @@ export function createMidiClip(
   if (durationQ <= 0) {
     return undefined;
   }
+  return placeMidiClip(current, track, atQ, durationQ, [], id);
+}
 
+/**
+ * A recorded MIDI clip `id` with `notes`, placed the way a recorded take is,
+ * overwriting what it lands on, with the stack a new MIDI clip gets (see
+ * createMidiClip). Undefined without the track.
+ */
+export function createRecordedMidiClip(
+  current: SourceClipProject,
+  trackId: string,
+  startQ: number,
+  durationQ: number,
+  notes: readonly MidiNote[],
+  id: string,
+): SourceClipPatch | undefined {
+  const track = current.sourceTracks.find((item) => item.id === trackId);
+  return track
+    ? placeMidiClip(current, track, Math.max(0, startQ), durationQ, notes, id)
+    : undefined;
+}
+
+function placeMidiClip(
+  current: SourceClipProject,
+  track: SourceClipProject["sourceTracks"][number],
+  atQ: number,
+  durationQ: number,
+  notes: readonly MidiNote[],
+  id: string,
+): SourceClipPatch {
   const swatch = getSwatch(track.colorIndex);
   const patch = placeSourceSpans(
     current,
@@ -296,13 +326,13 @@ export function createMidiClip(
     [
       {
         id,
-        sourceTrackId: trackId,
+        sourceTrackId: track.id,
         label: NEW_MIDI_CLIP_LABEL,
         mediaPath: "",
         startQ: atQ,
         durationSeconds: quartersToSeconds(durationQ, current.bpm),
         trimStartSeconds: 0,
-        notes: [],
+        notes: [...notes],
         midiTimeline: newMidiTimeline(durationQ),
         tint: swatch.color,
         accent: swatch.accent,

@@ -59,3 +59,13 @@
   outline: 2px solid var(--fx-accent);
   outline-offset: 2px;
 }
+
+.track-record-device__source {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 0;
+}
+
+.track-record-device__source:last-child {
+  padding-bottom: 12px;
+}

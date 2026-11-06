@@ -21,7 +21,12 @@ import {
   subscribeRecordInputs,
   writeDefaultInput,
 } from "../../recording/record-inputs.ts";
+import {
+  useMidiEnabled,
+  useRecordSource,
+} from "../../recording/record-source.ts";
 import { useMediaInputDevices } from "../../recording/use-media-input-devices.ts";
+import { RecordMidiPanel, RecordSourceTabs } from "./RecordMidiPanel";
 
 type RecordTabProps = {
   // Whether the user has asked for the inputs this page load. Until then
@@ -99,12 +104,15 @@ function DefaultRecordInputs() {
 }
 
 // The Media drawer's Record tab: the default camera and mic that recording
-// into a source track uses, unless the track overrides them.
+// into a source track uses, unless the track overrides them. While MIDI is on
+// it also offers recording MIDI instead, which needs neither.
 export function RecordTab({
   requested,
   onRequest,
   closeButton,
 }: RecordTabProps) {
+  const midiEnabled = useMidiEnabled();
+  const source = useRecordSource();
   return (
     <div className="media-drawer__record">
       <div className="media-drawer__record-header">
@@ -114,7 +122,10 @@ export function RecordTab({
       <p className="media-drawer__record-subtitle">
         Configure your record inputs
       </p>
-      {requested ? (
+      {midiEnabled ? <RecordSourceTabs source={source} /> : null}
+      {source === "midi" ? (
+        <RecordMidiPanel />
+      ) : requested ? (
         <DefaultRecordInputs />
       ) : (
         <button

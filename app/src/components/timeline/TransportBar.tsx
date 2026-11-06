@@ -20,6 +20,7 @@ import { getShortcutLabels } from "../../app/shortcut-labels";
 import { type SkipDirection, skipTarget } from "../../app/transport-skip";
 import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import type { PlayheadSignal } from "../../playhead-signal";
+import type { MidiTake } from "../../recording/midi-take.ts";
 import {
   formatZoomFactor,
   sliderPositionToZoom,
@@ -31,6 +32,7 @@ import {
   zoomToSliderPosition,
 } from "../../zoom";
 import { PromptButton } from "../prompt/PromptButton";
+import { MidiTakeCapture } from "./MidiTakeCapture";
 import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
 import { ZoomReadout } from "./ZoomReadout";
@@ -60,6 +62,8 @@ type TransportBarProps = {
   // Record is enabled while recording or with a source track armed.
   canRecord: boolean;
   isRecording: boolean;
+  // The take a MIDI pass is playing notes into.
+  midiTake?: MidiTake | null;
   toggleRecording: () => void;
 };
 
@@ -120,6 +124,7 @@ export function TransportBar({
   getMeterTap,
   canRecord,
   isRecording,
+  midiTake,
   toggleRecording,
   skipToEdge,
   playheadSignal,
@@ -255,6 +260,13 @@ export function TransportBar({
         >
           <RecordIcon />
         </button>
+        {midiTake ? (
+          <MidiTakeCapture
+            isPlaying={isPlaying}
+            playheadSignal={playheadSignal}
+            take={midiTake}
+          />
+        ) : null}
       </div>
 
       <div

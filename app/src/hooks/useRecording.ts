@@ -13,13 +13,21 @@ import { pluralize } from "../app/util.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { getHarness } from "../harness";
 import type { MediaItem } from "../media";
+import { computerKeyboardEntry } from "../midi-input/computer-keyboard.ts";
+import { midiInputHub } from "../midi-input/input-hub.ts";
 import { LiveTakeMonitor } from "../recording/live-take-monitor.ts";
 import {
   LiveTakeStore,
   recordingEndStepQ,
 } from "../recording/live-take-store.ts";
+import { MidiTake } from "../recording/midi-take.ts";
 import { useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
+import {
+  getRecordSourcePrefs,
+  resolveRecordSource,
+  setMidiPassActive,
+} from "../recording/record-source.ts";
 import {
   canPressRecord,
   playbackEndsRecording,
@@ -27,6 +35,7 @@ import {
   type RecordPhase,
 } from "../recording/record-transport.ts";
 import {
+  addRecordedMidiTakes,
   addRecordedTakes,
   remuxRecording,
 } from "../recording/recorded-takes.ts";
@@ -47,16 +56,25 @@ const LIVE_TICK_MS = 200;
 
 // A track's clip while it records: where it starts, where to read how long
 // it is so far, and what it has captured.
-export type LiveTake = {
+export type LiveMediaTake = {
   trackId: string;
   startQ: number;
   store: LiveTakeStore;
+  midi?: undefined;
   hasVideo: boolean;
   hasAudio: boolean;
   monitor: LiveTakeMonitor;
   // Set once the track stopped early or the pass is being saved.
   ended: boolean;
 };
+
+// A track's MIDI clip while it records; the pass's tracks share one `midi`.
+export type LiveMidiTake = Omit<
+  LiveMediaTake,
+  "midi" | "hasVideo" | "hasAudio" | "monitor"
+> & { midi: MidiTake };
+
+export type LiveTake = LiveMediaTake | LiveMidiTake;
 
 export type RecordingInputs = {
   sourceTracks: ProjectState["sourceTracks"];
@@ -84,7 +102,9 @@ export type RecordingInputs = {
 };
 
 type ActivePass = RecordedPass & {
-  session: RecordingSession;
+  session: Pick<RecordingSession, "elapsedSeconds" | "stop">;
+  // The take a MIDI pass records, which saves no media.
+  midiTake?: MidiTake;
   store: LiveTakeStore;
   // The last end reported to `setRecordingEndQ`.
   endQ: number;
@@ -121,7 +141,11 @@ export function useRecording({
   // Reports the takes the last pass couldn't keep, until dismissed.
   const [failureNotice, setFailureNotice] =
     useState<ImportNoticeContent | null>(null);
+  // The MIDI pass's take, while keys are to play into it.
+  const [midiTake, setMidiTake] = useState<MidiTake | null>(null);
   const passRef = useRef<ActivePass | null>(null);
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
   const sourceTracksRef = useRef(sourceTracks);
   sourceTracksRef.current = sourceTracks;
 
@@ -212,6 +236,30 @@ export function useRecording({
     for (const trackId of pass.trackIds) pass.store.end(trackId);
     setLiveTakes((current) => markEnded(current, () => true));
     try {
+      if (pass.midiTake) {
+        const { notes, durationQ } = pass.midiTake.finish();
+        if (notes.length) {
+          commitProjectChange("Record", (current) =>
+            addRecordedMidiTakes(
+              current,
+              pass.trackIds.map((trackId) => ({
+                trackId,
+                id: `source-span-${crypto.randomUUID()}`,
+                startQ: pass.startQ,
+                durationQ,
+                notes,
+              })),
+            ),
+          );
+          setSourceTracksCollapsed(false);
+        }
+        setStatus(
+          notes.length
+            ? `Recorded ${pluralize(pass.trackIds.length, "MIDI clip")}.`
+            : "Recording stopped before any notes were played.",
+        );
+        return;
+      }
       let finished: FinishedTake[];
       try {
         finished = await pass.session.stop();
@@ -228,11 +276,83 @@ export function useRecording({
       await saveTakes(pass, finished);
     } finally {
       for (const monitor of pass.monitors) monitor.dispose();
+      setMidiTake(null);
+      setMidiPassActive(false);
       setLiveTakes(new Map());
       setRecordingEndQ(0);
       setPhase("idle");
     }
-  }, [saveTakes, setRecordingEndQ]);
+  }, [
+    commitProjectChange,
+    saveTakes,
+    setRecordingEndQ,
+    setSourceTracksCollapsed,
+    setStatus,
+  ]);
+
+  // Records MIDI on `trackIds`: no camera or microphone is involved, so none
+  // is asked for.
+  const startMidiPass = useCallback(
+    (trackIds: readonly string[]) => {
+      const { access } = midiInputHub.getState();
+      const prefs = getRecordSourcePrefs();
+      if (
+        prefs.midiInput === "device" &&
+        (access === "denied" || access === "unavailable")
+      ) {
+        setStatus(
+          access === "denied"
+            ? "Can't record MIDI: permission to use MIDI devices was denied."
+            : "Can't record MIDI: this browser has no access to MIDI devices.",
+        );
+        return;
+      }
+      if (prefs.midiInput === "keyboard") {
+        computerKeyboardEntry.setEnabled(true);
+      }
+      const startQ = playheadQRef.current;
+      const take = new MidiTake({
+        startQ,
+        input: prefs.midiInput,
+        quantize: prefs.quantize,
+        playheadQ: () => playheadQRef.current,
+        bpm: () => bpmRef.current,
+      });
+      const store = new LiveTakeStore(trackIds);
+      passRef.current = {
+        session: take,
+        midiTake: take,
+        trackIds,
+        startQ: take.clipStartQ,
+        startedAt: new Date(),
+        store,
+        endQ: 0,
+        endedReasons: new Map(),
+        monitors: [],
+      };
+      setMidiPassActive(true);
+      setMidiTake(take);
+      setLiveTakes(
+        new Map(
+          trackIds.map((trackId) => [
+            trackId,
+            {
+              trackId,
+              startQ: take.clipStartQ,
+              store,
+              midi: take,
+              ended: false,
+            },
+          ]),
+        ),
+      );
+      setPhase("recording");
+      setSourceTracksCollapsed(false);
+      startPlayback(startQ, { open: true });
+      setStatus(`Recording MIDI on ${pluralize(trackIds.length, "track")}.`);
+    },
+    [playheadQRef, setSourceTracksCollapsed, setStatus, startPlayback],
+  );
 
   const startRecording = useCallback(async () => {
     if (phase !== "idle" || refuseReadOnlyEdit()) return;
@@ -240,6 +360,15 @@ export function useRecording({
       .map((track) => track.id)
       .filter((id) => armedTrackIds.has(id));
     if (!trackIds.length) return;
+    if (
+      resolveRecordSource(
+        getRecordSourcePrefs(),
+        midiInputHub.getState().enabled,
+      ) === "midi"
+    ) {
+      startMidiPass(trackIds);
+      return;
+    }
     const recordingDeps =
       deps === undefined
         ? getBrowserRecordingDeps((trackId, available) =>
@@ -287,7 +416,7 @@ export function useRecording({
     const store = new LiveTakeStore(
       session.getTakes().map((take) => take.trackId),
     );
-    const takes = session.getTakes().map<LiveTake>((take) => ({
+    const takes = session.getTakes().map<LiveMediaTake>((take) => ({
       trackId: take.trackId,
       startQ,
       store,
@@ -326,6 +455,7 @@ export function useRecording({
     refuseReadOnlyEdit,
     setSourceTracksCollapsed,
     setStatus,
+    startMidiPass,
     startPlayback,
     trackName,
   ]);
@@ -369,6 +499,7 @@ export function useRecording({
       if (!pass) return;
       void pass.session.stop();
       for (const monitor of pass.monitors) monitor.dispose();
+      setMidiPassActive(false);
     },
     [],
   );
@@ -390,6 +521,7 @@ export function useRecording({
     isRecording: phase === "recording",
     isStartingRecording: phase === "starting",
     liveTakes,
+    midiTake,
     toggleRecording,
   };
 }

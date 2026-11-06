@@ -1,0 +1,55 @@
+/* The record panels' Video/Audio and MIDI tabs and the MIDI tab's controls. */
+.record-source-tabs {
+  align-self: flex-start;
+  margin-bottom: 12px;
+}
+
+.record-source-tabs button {
+  padding: 5px 10px;
+  font-size: 0.74rem;
+}
+
+.record-midi-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.record-midi-panel__source {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.record-midi-panel legend,
+.record-midi-panel__quantize > span {
+  margin-bottom: 4px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.record-midi-panel__option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.record-midi-panel__option label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.record-midi-panel__quantize {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}

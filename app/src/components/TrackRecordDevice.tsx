@@ -19,6 +19,7 @@ import {
   withBrowserDefaults,
   writeTrackInputOverride,
 } from "../recording/record-inputs.ts";
+import { useMidiEnabled, useRecordSource } from "../recording/record-source.ts";
 import {
   buildTrackInputOptions,
   describeDefaultInput,
@@ -29,6 +30,7 @@ import {
   trackInputValue,
 } from "../recording/track-record-device.ts";
 import { useMediaInputDevices } from "../recording/use-media-input-devices.ts";
+import { RecordMidiPanel, RecordSourceTabs } from "./media/RecordMidiPanel";
 import "./fx/fx-chain.css";
 import "./fx/fx-device-title.css";
 import "./track-record-device.css";
@@ -49,9 +51,10 @@ function ArmButton({
   onToggle: () => void;
   trackName: string;
 }) {
+  const source = useRecordSource();
   const label = armed
     ? `Disarm ${trackName}`
-    : `Arm ${trackName} for recording`;
+    : `Arm ${trackName} for ${source === "midi" ? "MIDI recording" : "recording"}`;
   return (
     <button
       aria-label={label}
@@ -126,6 +129,8 @@ export function TrackRecordDevice({
   trackName,
 }: TrackRecordDeviceProps) {
   const armed = useTrackArmed(trackId);
+  const midiEnabled = useMidiEnabled();
+  const source = useRecordSource();
   const [fold, setFold] = useState(() => initialRecordDeviceFold(armed));
   const [foldArmed, setFoldArmed] = useState(armed);
   if (armed !== foldArmed) {
@@ -191,7 +196,13 @@ export function TrackRecordDevice({
           <ChevronLeftIcon aria-hidden="true" />
         </button>
       </header>
-      <TrackRecordInputs trackId={trackId} />
+      {midiEnabled ? (
+        <div className="fx-device-panel__body track-record-device__source">
+          <RecordSourceTabs source={source} />
+          {source === "midi" ? <RecordMidiPanel /> : null}
+        </div>
+      ) : null}
+      {source === "media" ? <TrackRecordInputs trackId={trackId} /> : null}
     </section>
   );
 }

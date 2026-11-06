@@ -37,7 +37,8 @@ type PressedKey = {
 // or the playhead jumping back ends the held notes where the playhead was,
 // and so does the device going away, MIDI turning off or the roll closing.
 // The hub decides which ports play. Returns the notes held so far, the hub's
-// state, and `playKey` and `releaseKey` for playing keys from elsewhere. A
+// state, `playKey` and `releaseKey` for playing keys from elsewhere, and
+// `finishHeld` for ending the held notes at a given quarter. A
 // device playing MPE (see midi-input/mpe.ts) shapes each key's audition and
 // note by its own channel, and holds the audition until the key comes up, the
 // device goes away, MIDI turns off or the roll closes. Once a device is shown
@@ -53,7 +54,7 @@ export function useMidiNoteCapture({
   enabled: boolean;
   hub: MidiInputHub;
   clip: CaptureClip;
-  clock: FxModulationClock | null;
+  clock: Pick<FxModulationClock, "signal" | "isPlaying"> | null;
   onAudition: (
     pitch: number,
     expression: ExpressionSample | undefined,
@@ -253,5 +254,5 @@ export function useMidiNoteCapture({
     }
   }, [isPlaying, finishAll]);
 
-  return { heldNotes, midi, playKey, releaseKey };
+  return { heldNotes, midi, playKey, releaseKey, finishHeld: finishAll };
 }

@@ -1,14 +1,14 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { formatDuration } from "../../app/format.ts";
 import { secondsToQuarters } from "../../app/timeline-math.ts";
-import type { LiveTake } from "../../hooks/useRecording.ts";
+import type { LiveMediaTake } from "../../hooks/useRecording.ts";
 import { LIVE_PEAK_INTERVAL_SECONDS } from "../../recording/live-take-monitor.ts";
 import { getVisibleClipSlice } from "../../waveform-range.ts";
 import { LiveClipPainter } from "./live-recording-clip-draw.ts";
 import "./live-recording-clip.css";
 
 type LiveRecordingClipProps = {
-  take: LiveTake;
+  take: LiveMediaTake;
   bpm: number;
   quarterPx: number;
   // What of the timeline is visible, in pixels, so only that part of a

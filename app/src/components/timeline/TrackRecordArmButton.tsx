@@ -1,4 +1,5 @@
 import { toggleTrackArmed, useTrackArmed } from "../../recording/record-arm.ts";
+import { useRecordSource } from "../../recording/record-source.ts";
 import "./track-record-arm-button.css";
 
 type TrackRecordArmButtonProps = {
@@ -12,9 +13,10 @@ type TrackRecordArmButtonProps = {
 // leave it out, so clicking it never selects the track.
 export function TrackRecordArmButton({ track }: TrackRecordArmButtonProps) {
   const armed = useTrackArmed(track.id);
+  const source = useRecordSource();
   const label = armed
     ? `Disarm ${track.name}`
-    : `Arm ${track.name} for recording`;
+    : `Arm ${track.name} for ${source === "midi" ? "MIDI recording" : "recording"}`;
   return (
     <button
       aria-label={label}

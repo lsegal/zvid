@@ -4,6 +4,8 @@
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { MediaItem } from "../media.ts";
+import type { MidiNote } from "../midi-clip.ts";
+import { createRecordedMidiClip } from "../source-clip-edits.ts";
 import { addMediaToSourceTrack } from "../source-track-media.ts";
 
 export type PlacedTake = {
@@ -47,6 +49,39 @@ export function addRecordedTakes(
     clips: next.clips,
     effects: next.effects,
   });
+}
+
+export type PlacedMidiTake = {
+  trackId: string;
+  id: string;
+  startQ: number;
+  durationQ: number;
+  notes: readonly MidiNote[];
+};
+
+/**
+ * Adds a MIDI clip of every take at its start on its track, overwriting what
+ * it lands on, in one project change. Takes whose track is gone are left out.
+ */
+export function addRecordedMidiTakes(
+  current: ProjectState,
+  takes: readonly PlacedMidiTake[],
+): ProjectState {
+  let next = current;
+  for (const { trackId, id, startQ, durationQ, notes } of takes) {
+    const patch = createRecordedMidiClip(
+      next,
+      trackId,
+      startQ,
+      durationQ,
+      notes,
+      id,
+    );
+    if (patch) {
+      next = patchProjectState(next, patch);
+    }
+  }
+  return next;
 }
 
 /** The take's file name: its track's name and when the pass started. */
