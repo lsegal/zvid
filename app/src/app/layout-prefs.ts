@@ -1,4 +1,7 @@
 import {
+  FX_PANEL_HEIGHT_STORAGE_KEY,
+  FX_PANEL_MIN_HEIGHT,
+  FX_PANEL_RESERVED_HEIGHT,
   INSPECTOR_COLLAPSED_STORAGE_KEY,
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_MAX,
@@ -63,6 +66,39 @@ export function readInspectorCollapsed() {
   } catch {
     return false;
   }
+}
+
+// The FX panel's resized height, or null while it still fits its content.
+export function readFxPanelHeight() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = Number(
+      window.localStorage.getItem(FX_PANEL_HEIGHT_STORAGE_KEY),
+    );
+    return Number.isFinite(stored) && stored
+      ? Math.max(Math.round(stored), FX_PANEL_MIN_HEIGHT)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// The tallest the FX panel gets in a workspace of this height. Never under
+// FX_PANEL_MIN_HEIGHT, so a short window keeps its strip of devices.
+export function getFxPanelMaxHeight(workspaceHeight: number) {
+  return Math.max(
+    FX_PANEL_MIN_HEIGHT,
+    Math.floor(workspaceHeight - FX_PANEL_RESERVED_HEIGHT),
+  );
+}
+
+// The workspace's grid row for a resized FX panel, which the window shrinking
+// can't push past what the editor panel needs above it.
+export function fxPanelRow(height: number) {
+  return `minmax(0, min(${height}px, calc(100% - ${FX_PANEL_RESERVED_HEIGHT}px)))`;
 }
 
 export function readPreviewWidth() {

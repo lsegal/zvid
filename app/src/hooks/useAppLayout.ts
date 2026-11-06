@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -15,6 +16,7 @@ import {
   PREVIEW_WIDTH_STORAGE_KEY,
 } from "../app/constants.ts";
 import {
+  fxPanelRow,
   getPreviewMaxWidth,
   readInspectorCollapsed,
   readPreviewWidth,
@@ -46,6 +48,7 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "../source-tracks-section.ts";
+import { useFxPanelResize } from "./useFxPanelResize.ts";
 import { useLabelResize } from "./useLabelResize.ts";
 import { useShellKind } from "./useShellKind.ts";
 
@@ -53,7 +56,7 @@ export type AppLayoutInputs = {
   sourceTrackCount: number;
 };
 
-// The editor's layout preferences: the FX panel's collapsed state, the
+// The editor's layout preferences: the FX panel's collapsed state and height, the
 // source tracks section, the Layers area, the Audio row, each row's height, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference. On a phone it picks the mobile shell, where the FX
@@ -65,6 +68,13 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     readInspectorCollapsed,
   );
   const isInspectorCollapsed = isInspectorCollapsedPref && !isPhone;
+  const fxPanelResize = useFxPanelResize();
+  const workspaceMainStyle =
+    fxPanelResize.height === null || isPhone || isInspectorCollapsed
+      ? undefined
+      : ({
+          "--fx-panel-row": fxPanelRow(fxPanelResize.height),
+        } as CSSProperties);
   const [sourceTracksCollapsedPref, setSourceTracksCollapsedPref] = useState(
     () =>
       readSourceTracksCollapsed(
@@ -276,6 +286,9 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     isPhone,
     isInspectorCollapsed,
     toggleInspectorCollapsed,
+    // The phone's FX panel is a sheet, with its own drag.
+    fxPanelResize: isPhone ? undefined : fxPanelResize,
+    workspaceMainStyle,
     isSourceTracksCollapsed,
     setSourceTracksCollapsed,
     isLayersCollapsed,

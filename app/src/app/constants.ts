@@ -78,6 +78,18 @@ export const PHONE_LABEL_WIDTH = {
 
 export const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
 
+export const FX_PANEL_HEIGHT_STORAGE_KEY = "zvid-fx-panel-height";
+
+// The shortest the FX panel gets when resized: its header and a useful strip
+// of devices, which scroll within it.
+export const FX_PANEL_MIN_HEIGHT = 120;
+
+// What the FX panel leaves above it when resized: the 14px gap and an editor
+// panel with its toolbar, transport and a track.
+export const FX_PANEL_RESERVED_HEIGHT = 14 + 220;
+
+export const FX_PANEL_RESIZE_KEY_STEP = 16;
+
 export const PREVIEW_VOLUME_STORAGE_KEY = "zvid-preview-volume";
 
 export const PREVIEW_TAB_STORAGE_KEY = "zvid-preview-tab";
