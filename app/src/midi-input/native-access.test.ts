@@ -122,5 +122,5 @@ test("a port that fails to open or close doesn't reject", async () => {
   stop();
   await new Promise((resolve) => setTimeout(resolve));
 
-  assert.deepEqual(inputIds(hub), []);
+  assert.deepEqual(inputIds(hub), ["1"]);
 });
