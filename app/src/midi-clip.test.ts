@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_SYNTH_PARAMS,
+  expressionSampleAtStart,
+  expressionValueAt,
   readMidiNotes,
   readSynthParams,
+  shiftedExpression,
+  withNoteStartMoved,
 } from "./midi-clip.ts";
 
 describe("readMidiNotes", () => {
@@ -76,5 +80,109 @@ describe("readSynthParams", () => {
         sustain: 0,
       },
     );
+  });
+});
+
+describe("a note's expression", () => {
+  const curve = [
+    { at: 1, value: 2 },
+    { at: 2, value: 4 },
+  ];
+
+  it("ramps between its points and holds beyond them", () => {
+    assert.equal(expressionValueAt(curve, 0), 2);
+    assert.equal(expressionValueAt(curve, 1.5), 3);
+    assert.equal(expressionValueAt(curve, 2), 4);
+    assert.equal(expressionValueAt(curve, 3), 4);
+  });
+
+  it("survives a session's JSON", () => {
+    const note = {
+      pitch: 60,
+      start: 0,
+      length: 1,
+      velocity: 100,
+      expression: {
+        bend: [
+          { at: 0, value: 0 },
+          { at: 0.5, value: 2 },
+        ],
+        pressure: [{ at: 0, value: 0.5 }],
+        timbre: [{ at: 0.25, value: 1 }],
+      },
+    };
+    assert.deepEqual(readMidiNotes(JSON.parse(JSON.stringify([note]))), [note]);
+  });
+
+  it("is absent from a note without one", () => {
+    const [note] =
+      readMidiNotes([{ pitch: 60, start: 0, length: 1, velocity: 100 }]) ?? [];
+    assert.equal("expression" in note, false);
+  });
+
+  it("is read defensively: bad points go and the rest hold to their ranges", () => {
+    const [note] =
+      readMidiNotes([
+        {
+          pitch: 60,
+          start: 0,
+          length: 1,
+          velocity: 100,
+          expression: {
+            bend: [{ at: 1, value: 999 }, { at: 0, value: -999 }, "nonsense"],
+            pressure: [{ at: "soon", value: 1 }],
+            timbre: "bright",
+          },
+        },
+      ]) ?? [];
+    assert.deepEqual(note.expression, {
+      bend: [
+        { at: 0, value: -192 },
+        { at: 1, value: 192 },
+      ],
+    });
+  });
+
+  it("is dropped when nothing in it can be read", () => {
+    const [note] =
+      readMidiNotes([
+        {
+          pitch: 60,
+          start: 0,
+          length: 1,
+          velocity: 100,
+          expression: { bend: [] },
+        },
+      ]) ?? [];
+    assert.equal("expression" in note, false);
+  });
+
+  it("gives its values at the note's start", () => {
+    assert.deepEqual(expressionSampleAtStart({ pressure: curve }), {
+      bend: 0,
+      pressure: 2,
+    });
+  });
+
+  it("stays where it was in time when the note's start moves", () => {
+    assert.deepEqual(shiftedExpression({ bend: curve }, 1.5), {
+      bend: [
+        { at: 0, value: 3 },
+        { at: 0.5, value: 4 },
+      ],
+    });
+    const moved = withNoteStartMoved(
+      {
+        pitch: 60,
+        start: 4,
+        length: 4,
+        velocity: 100,
+        expression: { bend: curve },
+      },
+      1.5,
+    );
+    assert.equal(moved.start, 5.5);
+    assert.equal(moved.length, 2.5);
+    assert.equal(moved.expression?.bend?.[0].value, 3);
   });
 });

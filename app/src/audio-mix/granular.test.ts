@@ -210,3 +210,49 @@ describe("seededRandom", () => {
     }
   });
 });
+
+describe("granularGrains, with expression", () => {
+  const plain: MidiNote = { pitch: 60, start: 0, length: 1, velocity: 127 };
+  const params = { ...DEFAULT_GRANULAR_PARAMS, spray: 0, release: 0.01 };
+  const grains = (note: MidiNote) => granularGrains([note], params, 60);
+
+  it("bends each grain's rate at its moment", () => {
+    const bent = grains({
+      ...plain,
+      expression: {
+        bend: [
+          { at: 0, value: 0 },
+          { at: 1, value: 12 },
+        ],
+      },
+    });
+    assert.ok(bent[0].rate < 1.1);
+    assert.ok((bent.at(-1)?.rate ?? 0) > 1.8);
+  });
+
+  it("scales each grain's level by pressure", () => {
+    const pressed = grains({
+      ...plain,
+      expression: { pressure: [{ at: 0, value: 0 }] },
+    });
+    const full = grains(plain);
+    assert.ok(pressed[5].level < full[5].level);
+    assert.equal(
+      grains({ ...plain, expression: { pressure: [{ at: 0, value: 1 }] } })[5]
+        .level,
+      full[5].level,
+    );
+  });
+
+  it("reads further along the source for more timbre", () => {
+    const bright = grains({
+      ...plain,
+      expression: { timbre: [{ at: 0, value: 1 }] },
+    });
+    assert.ok(bright[0].offset > grains(plain)[0].offset);
+  });
+
+  it("leaves a note without expression exactly as it was", () => {
+    assert.deepEqual(grains({ ...plain, expression: {} }), grains(plain));
+  });
+});

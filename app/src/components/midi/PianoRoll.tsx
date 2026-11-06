@@ -11,8 +11,13 @@ import {
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
-import { auditionNote } from "../../midi-audition.ts";
-import type { MidiInstrument, MidiNote } from "../../midi-clip.ts";
+import { type AuditionVoice, auditionNote } from "../../midi-audition.ts";
+import {
+  type ExpressionSample,
+  expressionSampleAtStart,
+  type MidiInstrument,
+  type MidiNote,
+} from "../../midi-clip.ts";
 import type { MidiClipTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import {
@@ -88,7 +93,11 @@ type PianoRollProps = {
   onSetNotes: SetMidiClipNotes;
   onSetTimeline: SetMidiClipTimeline;
   // Plays a note through the clip's Synth; tests listen instead.
-  onAudition?: (pitch: number, instrument: MidiInstrument) => void;
+  onAudition?: (
+    pitch: number,
+    instrument: MidiInstrument,
+    expression?: ExpressionSample,
+  ) => AuditionVoice | undefined;
   // Where MIDI keys come from; tests play a simulated device through it.
   midiHub?: MidiInputHub;
   // Whether the typing keyboard plays notes; tests keep their own.
@@ -216,20 +225,26 @@ export function PianoRoll({
     }
   }, [spanId, collapsed]);
 
-  const audition = (pitch: number) => onAudition(pitch, instrument);
+  const audition = (pitch: number, expression?: ExpressionSample) =>
+    expression
+      ? onAudition(pitch, instrument, expression)
+      : onAudition(pitch, instrument);
+  // A note clicked on sounds as it starts.
+  const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
+    audition(pitch, expression && expressionSampleAtStart(expression));
 
   // The clip's notes with the captures not yet back from the session, since
   // a chord's keys come up faster than the roll re-renders.
   const capturedNotes = useRef(notes);
   capturedNotes.current = notes;
-  const { heldNotes, midi, press, release } = useMidiNoteCapture({
+  const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
     enabled: !collapsed,
     hub: midiHub,
     clip: model,
     clock,
-    onAudition(pitch) {
-      audition(pitch);
+    onAudition(pitch, expression) {
       revealPitch(pitch);
+      return audition(pitch, expression);
     },
     onCapture(note) {
       const next = placeNote(
@@ -245,8 +260,8 @@ export function PianoRoll({
   const keyboardEntryState = useComputerKeyboardEntry({
     active: !collapsed,
     entry: keyboardEntry,
-    press,
-    release,
+    press: playKey,
+    release: releaseKey,
   });
 
   // Scrolls a pitch played from a key into view, centered, if it isn't.
@@ -298,7 +313,7 @@ export function PianoRoll({
       if (!from) {
         return;
       }
-      audition(from.pitch);
+      auditionNoteFrom(from);
       const key = noteKey(from);
       if (event.shiftKey) {
         select(
@@ -639,7 +654,7 @@ export function PianoRoll({
                     removeNote(index);
                   } else if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    audition(note.pitch);
+                    auditionNoteFrom(note);
                   }
                 }}
                 style={{
