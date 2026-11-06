@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { nextFrame, queryAll, renderApp } from "../../component-test/app.tsx";
+import {
+  nextFrame,
+  query,
+  queryAll,
+  renderApp,
+} from "../../component-test/app.tsx";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
 import {
   type MidiAccessLike,
@@ -162,7 +167,8 @@ test(
     await armButton().click();
     await recordButton().click();
     await expect.element(stopButton()).toBeVisible();
-    await nextFrame();
+    // Well clear of the first grid line, so only quantize lands it on one.
+    await new Promise((resolve) => setTimeout(resolve, 330));
 
     await userEvent.keyboard("{a>}");
     await expect.poll(() => queryAll(LIVE_NOTES).length).toBe(1);
@@ -170,9 +176,11 @@ test(
     await stopButton().click();
 
     await expect.poll(() => queryAll(CLIP_NOTES).length).toBe(1);
-    // Played right away, the note lands on the clip's first grid line.
-    const [note] = queryAll(CLIP_NOTES);
-    expect(Number.parseFloat(note?.style.left ?? "")).toBeCloseTo(0, 3);
+    await userEvent.click(query("[data-source-span-id]"));
+    await expect.poll(() => queryAll(".piano-roll__note").length).toBe(1);
+    const label = queryAll(".piano-roll__note")[0]?.getAttribute("aria-label");
+    const beat = Number(label?.match(/at beat (.+)$/)?.[1]);
+    expect(Number.isInteger(beat)).toBe(true);
     expect(getUserMedia).not.toHaveBeenCalled();
   },
   TEST_TIMEOUT,
