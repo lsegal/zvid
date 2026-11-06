@@ -1,4 +1,5 @@
 import { Select } from "../../ui/select";
+import { useKeyMapControls } from "../key-map-context";
 import type { FxParameterControlProps } from "../types";
 
 export function EnumControl({
@@ -6,6 +7,7 @@ export function EnumControl({
   parameter,
   onSetParameter,
 }: FxParameterControlProps) {
+  const keyMap = useKeyMapControls();
   // Long option lists, such as font weights, pick from a menu instead.
   if (parameter.menu) {
     return (
@@ -39,6 +41,12 @@ export function EnumControl({
               onSetParameter(device, parameter.key, option, "commit")
             }
             type="button"
+            {...keyMap.buttonProps({
+              kind: "option",
+              effectId: device.id,
+              parameter: parameter.key,
+              value: option,
+            })}
           >
             {option}
           </button>

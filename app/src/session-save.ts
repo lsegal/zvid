@@ -12,6 +12,7 @@ import {
   renameClipEffectTracks,
   renameSourceClipEffectTracks,
 } from "./fx-stack.ts";
+import type { KeyMapping } from "./key-map.ts";
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { MidiNote } from "./midi-clip.ts";
@@ -127,6 +128,7 @@ export type SaveableProject = {
   >;
   projectDurationFrames?: number;
   sourceTracksLocked?: boolean;
+  keyMappings?: readonly KeyMapping[];
 };
 
 export type SaveableView = {
@@ -388,6 +390,9 @@ export function projectToSession(
     playPosition: toFrames(quartersToSeconds(view.playheadQ, bpm), fps),
     sourceTracksLocked: project.sourceTracksLocked === true,
     ...(mediaRanges.length ? { mediaRanges } : {}),
+    ...(project.keyMappings?.length
+      ? { keyMappings: project.keyMappings }
+      : {}),
     // The effects are written as they are, so a removed Order stays removed.
     orderDefaulted: true,
     // Text and Color are written on the clips that carry them.

@@ -37,6 +37,7 @@ import { useSourceClipActions } from "./useSourceClipActions.ts";
 import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import { useSourceTrackActions } from "./useSourceTrackActions.ts";
 import { useTimelineFocusRelease } from "./useTimelineFocusRelease.ts";
+import { useKeyMap } from "./useKeyMap.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
 import type { useTimelineViewport } from "./useTimelineViewport.ts";
@@ -115,7 +116,7 @@ export type TimelineEditingInputs = {
   historyCommands: ReturnType<typeof useProjectHistoryCommands>;
   fxEditing: Pick<
     ReturnType<typeof useFxEditing>,
-    "addFxDevice" | "setLayerFxEnabled"
+    "addFxDevice" | "editEffects" | "setLayerFxEnabled"
   >;
   // Re-resolves the audio mix, from the Audio row's menu.
   refreshAudio: () => void;
@@ -525,6 +526,14 @@ export function useTimelineEditing({
     totalQuarters,
   });
 
+  const keyMap = useKeyMap({
+    effects: project.effects,
+    keyMappings: project.keyMappings,
+    commitProjectChange,
+    editEffects: fxEditing.editEffects,
+    setStatus,
+  });
+
   const marquee = useMarqueeSelection({
     timelineScrollRef,
     sourceSpans,
@@ -609,6 +618,7 @@ export function useTimelineEditing({
 
   return {
     ...rowHandlers,
+    keyMap,
     marqueeRect: marquee.marqueeRect,
     handleRandomizeTimeline,
     handleCreateLayer,

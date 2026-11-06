@@ -24,6 +24,7 @@ import type { FxDevice } from "../../fx-stack";
 import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
+import { useKeyMapControls } from "./key-map-context";
 import { MoveDeviceBody } from "./MoveDeviceBody";
 import "./fx-device-audio.css";
 import "./fx-device-pinned.css";
@@ -95,6 +96,7 @@ export function FxDevicePanel({
   onSetParameter,
   layers,
 }: FxDevicePanelProps) {
+  const keyMap = useKeyMapControls();
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const powerLabel = `${device.enabled ? "Bypass" : "Enable"} ${device.name}`;
   const className = [
@@ -118,6 +120,7 @@ export function FxDevicePanel({
       onClick={() => onSetEnabled(device, !device.enabled)}
       title={powerLabel}
       type="button"
+      {...keyMap.buttonProps({ kind: "power", effectId: device.id })}
     >
       <PowerIcon aria-hidden="true" />
     </button>
@@ -149,6 +152,7 @@ export function FxDevicePanel({
       onClick={() => modifier.setEnabled?.(device, !modifier.on)}
       title={modifierLabel}
       type="button"
+      {...keyMap.buttonProps({ kind: "modifier", effectId: device.id })}
     >
       <MotionIcon />
     </button>

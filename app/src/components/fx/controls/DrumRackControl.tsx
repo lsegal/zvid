@@ -43,6 +43,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
+import { useKeyMapControls } from "../key-map-context";
 import type { FxParameterControlProps } from "../types";
 import "./drum-rack-control.css";
 
@@ -128,6 +129,7 @@ export function DrumRackControl({
   parameter,
   onSetParameter,
 }: FxParameterControlProps) {
+  const keyMap = useKeyMapControls();
   const media = useDrumSampleMedia();
   const value = parameter.stringValue ?? "";
   const settings = parseDrumRack(value);
@@ -210,6 +212,7 @@ export function DrumRackControl({
           const name = path ? drumPadFileName(path) : bank.pads[pad].name;
           const note = pitchName(FIRST_PAD_NOTE + pad);
           const custom = path ? findDrumSampleMedia(path) : undefined;
+          const hit = lit.has(pad) || keyMap.isPadHeld(device.id, pad);
           return (
             // biome-ignore lint/a11y/noStaticElementInteractions: dropping a file or media on a pad is a pointer shortcut; the pad's menu loads the same samples from the keyboard
             <div
@@ -217,7 +220,7 @@ export function DrumRackControl({
                 "fx-drum-pad",
                 path ? "is-custom" : "",
                 offline ? "is-offline" : "",
-                lit.has(pad) ? "is-hit" : "",
+                hit ? "is-hit" : "",
                 dropPad === pad ? "is-drop-target" : "",
               ]
                 .filter(Boolean)
@@ -237,7 +240,7 @@ export function DrumRackControl({
               <button
                 aria-label={`Pad ${pad + 1}: ${name}`}
                 className="fx-drum-pad__hit"
-                data-hit={lit.has(pad) ? "" : undefined}
+                data-hit={hit ? "" : undefined}
                 onClick={(event) => {
                   // Keyboard and assistive presses; a pointer plays on
                   // its press, without waiting for the release.
@@ -256,6 +259,12 @@ export function DrumRackControl({
                     : `${name} (${note})`
                 }
                 type="button"
+                {...keyMap.buttonProps({
+                  kind: "pad",
+                  effectId: device.id,
+                  parameter: parameter.key,
+                  pad,
+                })}
               >
                 <span className="fx-drum-pad__name">{name}</span>
                 <span className="fx-drum-pad__note">
