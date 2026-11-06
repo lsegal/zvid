@@ -17,7 +17,8 @@ import { PianoRoll } from "./PianoRoll";
 
 // Holding an audition while a key is down on a device playing MPE (#1567),
 // through a simulated device: first the voices the roll asks for, then what
-// the real voices sound like.
+// the real voices sound like. A device with no configuration message is first
+// shown to play MPE by its second member channel (#1575).
 
 const TIMEOUT = { timeout: 8000 };
 
@@ -92,16 +93,18 @@ async function renderRoll({
 // Records what the roll asks to audition, and which voices it has released.
 function listeningVoices() {
   const holds: (boolean | undefined)[] = [];
+  const held: number[] = [];
   const released: number[] = [];
   const onAudition: Auditioning = (pitch, _, __, hold) => {
     holds.push(hold);
     const voice: AuditionVoice = {
       update() {},
+      hold: () => held.push(pitch),
       release: () => released.push(pitch),
     };
     return voice;
   };
-  return { holds, released, onAudition };
+  return { holds, held, released, onAudition };
 }
 
 test("an MPE key holds its voice until the key comes up", async () => {
@@ -169,6 +172,89 @@ test("clicks and keys from a device not playing MPE don't hold", async () => {
   document.querySelector<HTMLElement>("[aria-label='Play C4']")?.click();
   expect(holds).toEqual([undefined, undefined]);
   roll.unmount();
+});
+
+test("a key already down holds once its device is shown to play MPE", async () => {
+  const { holds, held, released, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x91, 60, 100);
+  expect(holds).toEqual([undefined]);
+  expect(held).toEqual([]);
+  roll.send(0x92, 64, 100);
+  expect(holds).toEqual([undefined, true]);
+  expect(held).toEqual([60]);
+  roll.send(0x81, 60, 0);
+  expect(released).toEqual([60]);
+  roll.send(0x82, 64, 0);
+  expect(released).toEqual([60, 64]);
+  roll.unmount();
+});
+
+test("a key that came up before the device was shown stays as it is", async () => {
+  const { held, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x91, 60, 100);
+  roll.send(0x81, 60, 0);
+  roll.send(0x92, 64, 100);
+  expect(held).toEqual([]);
+  roll.unmount();
+});
+
+test("a configuration message holds the keys already down", async () => {
+  const { held, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x90, 60, 100);
+  expect(held).toEqual([]);
+  roll.configureMpe();
+  expect(held).toEqual([60]);
+  roll.unmount();
+});
+
+test("a key's expression reaches it once its device is shown to play MPE", async () => {
+  const samples: unknown[] = [];
+  const onAudition: Auditioning = () => ({
+    update: (sample) => samples.push(sample),
+    hold() {},
+    release() {},
+  });
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x91, 60, 100);
+  roll.send(0xb1, 74, 127);
+  expect(samples).toEqual([]);
+  roll.send(0x92, 64, 100);
+  expect(samples).toContainEqual({ bend: 0, timbre: 1 });
+  roll.unmount();
+});
+
+test("a keyboard that never counts as MPE doesn't hold", async () => {
+  const { holds, held, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  // Keys on the first channel, and a pad on the tenth.
+  roll.send(0x90, 60, 100);
+  roll.send(0x90, 64, 100);
+  roll.send(0x99, 36, 100);
+  expect(holds).toEqual([undefined, undefined, undefined]);
+  expect(held).toEqual([]);
+  roll.unmount();
+});
+
+test("a device going away releases a key that started holding", async () => {
+  const { released, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x91, 60, 100);
+  roll.send(0x92, 64, 100);
+  roll.disconnect();
+  await expect.poll(() => released).toEqual([60, 64]);
+  roll.unmount();
+});
+
+test("the roll closing releases a key that started holding", async () => {
+  const { released, onAudition } = listeningVoices();
+  const roll = await renderRoll({ onAudition });
+  roll.send(0x91, 60, 100);
+  roll.send(0x92, 64, 100);
+  roll.unmount();
+  expect(released).toEqual([60, 64]);
 });
 
 // Tees whatever reaches a context's destination into an analyser of its own,
@@ -312,6 +398,44 @@ test.each(INSTRUMENTS)(
     roll.send(0x90, 60, 100);
     await wait(100);
     expect(level()).toBeGreaterThan(SOUNDING);
+    await expect.poll(level, TIMEOUT).toBeLessThan(SOUNDING);
+    roll.unmount();
+  },
+  30_000,
+);
+
+test.each(INSTRUMENTS)(
+  "a first chord on an unconfigured device holds both notes through %s",
+  async (_, __, instrument) => {
+    const { level } = listenToAuditions();
+    const roll = await renderRoll({ instrument });
+    roll.send(0x91, 60, 100);
+    await wait(100);
+    roll.send(0x92, 67, 100);
+    roll.send(0x82, 67, 0);
+    // The second note has gone, or nearly, so what's left is mostly the first.
+    await wait(PAST_A_FIXED_AUDITION_MS + RELEASE * 1000);
+    expect(level()).toBeGreaterThan(SOUNDING);
+    roll.send(0x81, 60, 0);
+    await wait(500);
+    expect(level()).toBeGreaterThan(SOUNDING);
+    await expect.poll(level, TIMEOUT).toBeLessThan(SOUNDING);
+    roll.unmount();
+  },
+  30_000,
+);
+
+test.each(INSTRUMENTS)(
+  "a key whose fixed audition has ended doesn't start again through %s",
+  async (_, instrument) => {
+    const { level } = listenToAuditions();
+    const roll = await renderRoll({ instrument });
+    roll.send(0x91, 60, 100);
+    await expect.poll(level, TIMEOUT).toBeLessThan(SOUNDING);
+    await wait(PAST_A_FIXED_AUDITION_MS);
+    roll.send(0x92, 67, 100);
+    await wait(100);
+    roll.send(0x82, 67, 0);
     await expect.poll(level, TIMEOUT).toBeLessThan(SOUNDING);
     roll.unmount();
   },

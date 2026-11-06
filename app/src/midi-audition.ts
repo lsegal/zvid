@@ -3,7 +3,8 @@
 // the ones the mix renders (see audio-mix/synth.ts, audio-mix/granular.ts
 // and audio-mix/drum-rack.ts), played straight away on a context of its
 // own, suspended again once nothing is sounding. A key from a device playing
-// MPE holds its voice until the key comes up, so its expression stays audible.
+// MPE holds its voice until the key comes up, so its expression stays audible,
+// and a voice already sounding starts holding once its device is shown to.
 import { audioDiagnostics } from "./audio-mix/audio-diagnostics.ts";
 import { DRUM_VOICE_LEVEL, loadDrumSample } from "./audio-mix/drum-rack.ts";
 import {
@@ -46,15 +47,23 @@ const auditionContext = new SharedAudioContext(() => {
 });
 
 /**
- * An audition still sounding, which expression can go on changing. `release`
- * ends a held voice through its instrument's release, once; a voice that isn't
- * held ends by itself, and ignores it.
+ * An audition still sounding, which expression can go on changing. `hold` keeps
+ * a voice in its fixed time sounding until it is released, and does nothing on
+ * one past that time or held already. `release` ends a held voice through its
+ * instrument's release, once; a voice that isn't held ends by itself, and
+ * ignores it.
  */
 export type AuditionVoice = {
   update: (sample: ExpressionSample) => void;
+  hold: () => void;
   release: () => void;
 };
 
+// How long a fixed grain cloud takes to give way to a looping one.
+const CLOUD_CROSSFADE_SECONDS = 0.03;
+// How far off a voice that has started holding moves the stop it had scheduled,
+// which can only be replaced. Its release replaces it again.
+const UNTIL_RELEASED_SECONDS = 1e8;
 // How quickly a live change of expression takes effect, so it never clicks.
 const EXPRESSION_GLIDE_SECONDS = 0.01;
 
@@ -81,21 +90,43 @@ function scheduleEnvelope(
   }
 }
 
-// Plays an envelope on `param` as far as its sustain. Returns what releases
-// it, from the level it has reached, which answers when it will be silent.
+// Where an envelope held from `start` has reached at `seconds`.
+function envelopeAt(
+  params: EnvelopeParams,
+  peak: number,
+  start: number,
+  seconds: number,
+) {
+  return synthEnvelope(params, peak, start, seconds).slice(-2)[0];
+}
+
+// Plays an envelope on `param` as far as its sustain, from where it has reached
+// at `from` on, replacing what was scheduled, or rising from silence to there
+// over `fadeIn`. Returns what releases it, from the level it has reached, which
+// answers when it will be silent.
 function holdEnvelope(
   param: AudioParam,
   params: EnvelopeParams,
   start: number,
   peak: number,
+  from = start,
+  fadeIn = 0,
 ) {
-  const held = synthEnvelope(params, peak, start, Number.POSITIVE_INFINITY);
+  const joined = from + fadeIn;
+  const later = synthEnvelope(
+    params,
+    peak,
+    start,
+    Number.POSITIVE_INFINITY,
+  ).filter(({ seconds }) => seconds > joined && Number.isFinite(seconds));
+  const points = [envelopeAt(params, peak, start, joined), ...later];
+  param.cancelScheduledValues(from);
   scheduleEnvelope(
     param,
-    held.filter((point) => Number.isFinite(point.seconds)),
+    fadeIn ? [{ seconds: from, level: 0 }, ...points] : points,
   );
   return (now: number) => {
-    const off = Math.max(now, start);
+    const off = Math.max(now, joined);
     const [released, silent] = synthEnvelope(params, peak, start, off).slice(
       -2,
     );
@@ -170,21 +201,35 @@ function auditionSynth(
   };
   oscillator.start(start);
   let release = () => {};
-  if (hold) {
-    const releaseGain = holdEnvelope(gain.gain, params, start, AUDITION_LEVEL);
-    release = () => oscillator.stop(releaseGain(context.currentTime));
-  } else {
-    const envelope = synthEnvelope(
+  const holdFrom = (from: number) => {
+    const releaseGain = holdEnvelope(
+      gain.gain,
       params,
-      AUDITION_LEVEL,
       start,
-      start + AUDITION_HOLD_SECONDS,
+      AUDITION_LEVEL,
+      from,
     );
+    release = () => oscillator.stop(releaseGain(context.currentTime));
+  };
+  let fixedUntil = 0;
+  if (hold) {
+    holdFrom(start);
+  } else {
+    fixedUntil = start + AUDITION_HOLD_SECONDS;
+    const envelope = synthEnvelope(params, AUDITION_LEVEL, start, fixedUntil);
     scheduleEnvelope(gain.gain, envelope);
     oscillator.stop(envelope[envelope.length - 1].seconds);
   }
   return {
-    release,
+    hold() {
+      const now = context.currentTime;
+      if (now < fixedUntil) {
+        fixedUntil = 0;
+        oscillator.stop(now + UNTIL_RELEASED_SECONDS);
+        holdFrom(Math.max(now, start));
+      }
+    },
+    release: () => release(),
     update(sample) {
       glide(oscillator.detune, params.detune + sample.bend * 100, context);
       glide(pressure.gain, expressionGain(sample), context);
@@ -200,7 +245,8 @@ function auditionSynth(
 }
 
 // A grain cloud held as long as a synth audition's note, at about its level,
-// or looped under an envelope of its own until it is released.
+// or looped under an envelope of its own until it is released. A fixed cloud
+// that starts holding fades into a loop, since it can't go on past its end.
 function auditionGranular(
   pitch: number,
   params: GranularParams,
@@ -223,48 +269,95 @@ function auditionGranular(
       ? {}
       : { expression: { timbre: [{ at: 0, value: expression.timbre }] } }),
   };
-  const samples = hold
-    ? granularLoop(note, params, sampleRate)
-    : mixGranularAudition(note, params, sampleRate);
-  const buffer = context.createBuffer(1, samples.length, sampleRate);
-  buffer.copyToChannel(samples, 0);
-  const source = context.createBufferSource();
-  source.buffer = buffer;
-  source.loop = hold;
-  source.playbackRate.value = bendRate(expression?.bend ?? 0);
   const filter = context.createBiquadFilter();
   filter.type = "lowpass";
   filter.frequency.value = params.cutoff;
   filter.Q.value = params.resonance;
-  const envelope = context.createGain();
   const pressure = context.createGain();
   pressure.gain.value = expressionGain(expression);
-  source
-    .connect(filter)
-    .connect(envelope)
-    .connect(pressure)
-    .connect(context.destination);
-  source.onended = () => {
-    source.disconnect();
-    filter.disconnect();
-    envelope.disconnect();
-    pressure.disconnect();
-    auditionContext.release();
+  filter.connect(pressure).connect(context.destination);
+  let sounding = 0;
+  const playCloud = (
+    samples: Float32Array<ArrayBuffer>,
+    from: number,
+    rate: number,
+    loop: boolean,
+  ) => {
+    const buffer = context.createBuffer(1, samples.length, sampleRate);
+    buffer.copyToChannel(samples, 0);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = loop;
+    source.playbackRate.value = rate;
+    const envelope = context.createGain();
+    source.connect(envelope).connect(filter);
+    sounding++;
+    source.onended = () => {
+      source.disconnect();
+      envelope.disconnect();
+      sounding--;
+      if (!sounding) {
+        filter.disconnect();
+        pressure.disconnect();
+        auditionContext.release();
+      }
+    };
+    source.start(from);
+    return { source, envelope };
   };
-  source.start(start);
   let release = () => {};
-  if (hold) {
+  const holdCloud = (
+    samples: Float32Array<ArrayBuffer>,
+    from: number,
+    rate: number,
+    fadeIn: number,
+  ) => {
+    const { source, envelope } = playCloud(samples, from, rate, true);
     const releaseCloud = holdEnvelope(
       envelope.gain,
       { attack: params.attack, decay: 0, sustain: 1, release: params.release },
       start,
       1,
+      from,
+      fadeIn,
     );
     release = () => source.stop(releaseCloud(context.currentTime));
-  }
+    return source;
+  };
+  const rate = bendRate(expression?.bend ?? 0);
+  const fixed = hold
+    ? undefined
+    : playCloud(
+        mixGranularAudition(note, params, sampleRate),
+        start,
+        rate,
+        false,
+      );
+  let source =
+    fixed?.source ??
+    holdCloud(granularLoop(note, params, sampleRate), start, rate, 0);
+  let fixedUntil = fixed ? start + AUDITION_HOLD_SECONDS : 0;
   const pressedTimbre = expression?.timbre ?? TIMBRE_CENTER;
   return {
-    release,
+    hold() {
+      if (!fixed || context.currentTime >= fixedUntil) {
+        return;
+      }
+      fixedUntil = 0;
+      const samples = granularLoop(note, params, sampleRate);
+      const from = Math.max(context.currentTime + 0.01, start);
+      const joined = from + CLOUD_CROSSFADE_SECONDS;
+      fixed.envelope.gain.setValueAtTime(1, from);
+      fixed.envelope.gain.linearRampToValueAtTime(0, joined);
+      fixed.source.stop(joined);
+      source = holdCloud(
+        samples,
+        from,
+        source.playbackRate.value,
+        CLOUD_CROSSFADE_SECONDS,
+      );
+    },
+    release: () => release(),
     update(sample) {
       glide(source.playbackRate, bendRate(sample.bend), context);
       glide(pressure.gain, expressionGain(sample), context);
@@ -303,6 +396,7 @@ function drumPadVoice(initial: ExpressionSample | undefined): DrumPadVoice {
   let applied: ((sample: ExpressionSample) => void) | undefined;
   return {
     sample: () => current,
+    hold() {},
     release() {},
     attach(apply) {
       applied = apply;
