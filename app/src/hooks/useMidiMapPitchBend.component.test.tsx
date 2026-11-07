@@ -166,18 +166,22 @@ describe("MIDI Map pitch bend mappings", {
       expect(get().project.midiMappings?.[0]?.pitchBend).toBe(true),
     );
     await toggleButton().click();
-    const gain = () => get().project.effects.length;
-    const effectsBefore = gain();
+    const volume = page.getByRole("slider", { name: /volume/i });
+    const volumeOf = () => (volume.element() as HTMLInputElement).value;
+    const volumeBefore = volumeOf();
 
     bend(port, 1, 16383);
     await vi.waitFor(() => expect(value()).toBe(knob.max));
-    expect(gain()).toBe(effectsBefore);
+    expect(volumeOf()).toBe(volumeBefore);
 
     // With its effect gone, the mapping goes too.
     await page
       .getByRole("button", { name: `Remove ${delay.effectName}` })
       .click();
     await vi.waitFor(() => expect(get().project.midiMappings).toBeUndefined());
+    // The fader has its role back.
+    bend(port, 1, 0);
+    await expect.element(volume).toHaveValue("0");
   });
 
   test("a pitch wheel played with a key doesn't map, nor does its spring back", async () => {

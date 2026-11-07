@@ -8,6 +8,7 @@ import {
   findMidiMapping,
   learnMidiMappingsMpe,
   type MidiCcMapping,
+  type MidiKnobTarget,
   type MidiMapKey,
   type MidiNoteMapping,
   midiCcTargets,
@@ -221,7 +222,7 @@ describe("CC mappings", () => {
 });
 
 describe("pitch bend mappings", () => {
-  const bend = (channel: number, target = CUTOFF) => ({
+  const bend = (channel: number, target: MidiKnobTarget = CUTOFF) => ({
     pitchBend: true as const,
     channel,
     target,
