@@ -61,7 +61,6 @@ export type TimelineEditingInputs = {
   >;
   selection: Pick<
     TimelineSelectionState,
-    | "dragPreviewClips"
     | "setDragPreviewClips"
     | "setSelectedClipId"
     | "setClipMenu"
@@ -76,7 +75,6 @@ export type TimelineEditingInputs = {
     | "timelineDragState"
     | "sourceSpanDrag"
     | "setSourceSpanDrag"
-    | "dragPreviewSourceSpans"
     | "setDragPreviewSourceSpans"
     | "timelineClips"
     | "selectedClip"
@@ -190,7 +188,6 @@ export function useTimelineEditing({
     refuseReadOnlyEdit,
   } = store;
   const {
-    dragPreviewClips,
     setDragPreviewClips,
     setSelectedClipId,
     setClipMenu,
@@ -209,7 +206,6 @@ export function useTimelineEditing({
     focusLaneLabel,
     sourceSpanDrag,
     setSourceSpanDrag,
-    dragPreviewSourceSpans,
     setDragPreviewSourceSpans,
     sourceSelection,
     selectSource,
@@ -555,9 +551,7 @@ export function useTimelineEditing({
   useClipDrag({
     dragState,
     setDragState,
-    dragPreviewClips,
     setDragPreviewClips,
-    dragPreviewSourceSpans,
     setDragPreviewSourceSpans,
     setPendingSelection,
     setSelectedClipId,
