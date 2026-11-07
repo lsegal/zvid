@@ -97,7 +97,7 @@ export function keyLabel(key: string) {
 }
 
 /** One button's identity, for comparing targets. */
-export function keyMapTargetId(target: KeyMapTarget) {
+export function keyMapTargetId(target: { kind: string; effectId: string }) {
   return JSON.stringify(Object.values(target));
 }
 

@@ -1,7 +1,8 @@
 // The MIDI Map: MIDI keys mapped to buttons in effect devices, as the Key Map
-// (key-map.ts) maps computer keys, and to the same targets. A mapping matches
-// a note and channel on whichever device plays it. One key can drive several
-// buttons; each button has one key.
+// (key-map.ts) maps computer keys, and to the same targets, and CC controls
+// mapped to their knobs and faders. A mapping matches a note or controller and
+// a channel on whichever device sends it. One key or control can drive several
+// targets; each target has one.
 import type { SessionEffect } from "./fx-stack.ts";
 import {
   type KeyMapTarget,
@@ -9,14 +10,34 @@ import {
   readKeyMapTarget,
 } from "./key-map.ts";
 
-export type MidiMapping = {
+/** A knob or fader of an effect device: one of its number parameters. */
+export type MidiKnobTarget = {
+  kind: "number";
+  effectId: string;
+  parameter: string;
+};
+
+export type MidiMapTarget = KeyMapTarget | MidiKnobTarget;
+
+export type MidiNoteMapping = {
   note: number;
   channel: number;
   // Assigned from a device playing MPE, whose notes each get their own channel
   // of a zone: it matches the note anywhere in `channel`'s zone.
   mpe?: true;
+  controller?: undefined;
   target: KeyMapTarget;
 };
+
+export type MidiCcMapping = {
+  controller: number;
+  channel: number;
+  note?: undefined;
+  mpe?: undefined;
+  target: MidiKnobTarget;
+};
+
+export type MidiMapping = MidiNoteMapping | MidiCcMapping;
 
 /** A key as a device plays it. */
 export type MidiMapKey = {
@@ -27,7 +48,10 @@ export type MidiMapKey = {
   isMpe: boolean;
 };
 
-export function midiMappingMatches(mapping: MidiMapping, key: MidiMapKey) {
+export function midiMappingMatches(
+  mapping: MidiMapping,
+  key: MidiMapKey,
+): mapping is MidiNoteMapping {
   if (mapping.note !== key.note) {
     return false;
   }
@@ -53,7 +77,7 @@ export function learnMidiMappingsMpe(
   if (!key.isMpe || key.zoneOf(key.channel) === undefined) {
     return mappings;
   }
-  const learns = (mapping: MidiMapping) =>
+  const learns = (mapping: MidiMapping): mapping is MidiNoteMapping =>
     !mapping.mpe && midiMappingMatches(mapping, key);
   return mappings?.some(learns)
     ? mappings.map((mapping) =>
@@ -62,9 +86,22 @@ export function learnMidiMappingsMpe(
     : mappings;
 }
 
+/** The knobs and faders mapped to `controller` on `channel`. */
+export function midiCcTargets(
+  mappings: readonly MidiMapping[] | undefined,
+  channel: number,
+  controller: number,
+) {
+  return (mappings ?? []).flatMap((mapping) =>
+    mapping.controller === controller && mapping.channel === channel
+      ? [mapping.target]
+      : [],
+  );
+}
+
 export function findMidiMapping(
   mappings: readonly MidiMapping[] | undefined,
-  target: KeyMapTarget,
+  target: MidiMapTarget,
 ) {
   const id = keyMapTargetId(target);
   return mappings?.find((mapping) => keyMapTargetId(mapping.target) === id);
@@ -73,7 +110,7 @@ export function findMidiMapping(
 /** `mappings` without `target`'s; undefined once none are left. */
 export function removeMidiMapping(
   mappings: readonly MidiMapping[] | undefined,
-  target: KeyMapTarget,
+  target: MidiMapTarget,
 ) {
   const existing = findMidiMapping(mappings, target);
   if (!existing) {
@@ -83,7 +120,7 @@ export function removeMidiMapping(
   return rest?.length ? rest : undefined;
 }
 
-/** Maps a key to `mapping.target`, in place of any key it had. */
+/** Maps a key or control to `mapping.target`, in place of any it had. */
 export function assignMidiMapping(
   mappings: readonly MidiMapping[] | undefined,
   mapping: MidiMapping,
@@ -105,6 +142,16 @@ export function pruneMidiMappings(
     return mappings;
   }
   return kept?.length ? kept : undefined;
+}
+
+function readKnobTarget(raw: unknown): MidiKnobTarget | undefined {
+  const target = raw as Partial<Record<string, unknown>> | null;
+  const { kind, effectId, parameter } = target ?? {};
+  return kind === "number" &&
+    typeof effectId === "string" &&
+    typeof parameter === "string"
+    ? { kind, effectId, parameter }
+    : undefined;
 }
 
 function inRange(value: unknown, low: number, high: number): value is number {
@@ -130,8 +177,15 @@ export function readMidiMappings(
   let mappings: readonly MidiMapping[] | undefined;
   for (const entry of raw) {
     const target = readKeyMapTarget(entry?.target);
-    const { note, channel, mpe } = entry ?? {};
-    if (target && inRange(note, 0, 127) && inRange(channel, 1, 16)) {
+    const knob = readKnobTarget(entry?.target);
+    const { note, controller, channel, mpe } = entry ?? {};
+    if (knob && inRange(controller, 0, 127) && inRange(channel, 1, 16)) {
+      mappings = assignMidiMapping(mappings, {
+        controller,
+        channel,
+        target: knob,
+      });
+    } else if (target && inRange(note, 0, 127) && inRange(channel, 1, 16)) {
       mappings = assignMidiMapping(mappings, {
         note,
         channel,

@@ -68,6 +68,25 @@ export function moveEffectKnob(
     : effects;
 }
 
+/** The knob or fader `key` of `effect`, unless it's gone. */
+export function knobParameter(effect: SessionEffect, key: string) {
+  return knobParameters(effect).find((parameter) => parameter.key === key);
+}
+
+/** `effects` with the knob or fader `key` of `effectId` moved. */
+export function moveEffectParameter(
+  effects: SessionEffect[],
+  effectId: string,
+  key: string,
+  move: DeviceControlMove,
+) {
+  const effect = effects.find((candidate) => candidate.id === effectId);
+  const parameter = effect && knobParameter(effect, key);
+  return parameter
+    ? setEffectParameter(effects, effectId, key, movedValue(parameter, move))
+    : effects;
+}
+
 /**
  * `effects` with `sourceTrackId`'s volume moved: the first Gain of its own
  * stack, which it gets if it has none, as a fader there is nothing without one.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GAIN_KEY } from "./fx/effects/gain/gain.ts";
+import { GAIN_KEY, MUTE_KEY } from "./fx/effects/gain/gain.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import {
   createEffect,
@@ -8,8 +8,10 @@ import {
   sourceTrackEffectTrackId,
 } from "./fx-stack.ts";
 import {
+  knobParameter,
   knobParameters,
   moveEffectKnob,
+  moveEffectParameter,
   movePosition,
   moveTrackVolume,
 } from "./midi-device-targets.ts";
@@ -88,4 +90,26 @@ test("positions stay within the travel", () => {
   assert.equal(movePosition(0.9, { by: 0.5 }), 1);
   assert.equal(movePosition(0.1, { by: -0.5 }), 0);
   assert.equal(movePosition(0.1, { to: 0.5 }), 0.5);
+});
+
+test("a mapped control moves its one parameter, unless it's gone", () => {
+  const delay = createEffect("1", "Delay");
+  const [first, second] = knobParameters(delay);
+  assert.ok(first && second);
+  assert.equal(knobParameter(delay, "nope"), undefined);
+  const moved = moveEffectParameter([delay], delay.id, second.key, { to: 1 });
+  assert.equal(parameterValue(moved[0], second.key), second.max);
+  assert.equal(
+    parameterValue(moved[0], first.key),
+    parameterValue(delay, first.key),
+  );
+  const same = [delay];
+  assert.equal(moveEffectParameter(same, delay.id, "nope", { to: 1 }), same);
+  assert.equal(moveEffectParameter(same, "gone", second.key, { to: 1 }), same);
+});
+
+test("a toggle isn't a mappable knob", () => {
+  const gain = createEffect("1", "Gain");
+  assert.equal(knobParameter(gain, GAIN_KEY)?.key, GAIN_KEY);
+  assert.equal(knobParameter(gain, MUTE_KEY), undefined);
 });
