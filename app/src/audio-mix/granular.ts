@@ -6,14 +6,25 @@
 // every time, in the preview and in export alike. The grains are mixed here,
 // in a worker where one can start, and the mix goes through the lowpass filter the Synth's voices do (see
 // synth.ts).
+import { GRANULAR_KEYS } from "../fx/effects/granular/granular.ts";
 import {
   expressionValueAt,
   type GranularParams,
   type MidiNote,
 } from "../midi-clip.ts";
 import type { GranularWorkerMessage } from "./granular.worker.ts";
+import {
+  controlCurve,
+  type MidiModulator,
+  modulatedParams,
+} from "./midi-modulation.ts";
 import type { DecodedAudio } from "./mix.ts";
-import { bendRate, pressureLevel, TIMBRE_CENTER } from "./note-expression.ts";
+import {
+  bendRate,
+  pressureLevel,
+  scheduleVoiceCurve,
+  TIMBRE_CENTER,
+} from "./note-expression.ts";
 
 // A cloud's peak level at full velocity, leaving headroom for chords.
 export const GRANULAR_VOICE_LEVEL = 0.25;
@@ -124,36 +135,53 @@ function noteSeed(note: MidiNote, index: number) {
  * the attack, holds until the note ends and fades out over the release. A
  * note's expression sets each of its grains as it starts: bend its rate,
  * pressure its level, and timbre where it reads, the source being brighter
- * further along.
+ * further along. With `modulator`, a note's cloud takes its Attack and Release
+ * from where the knobs are as it starts, and each grain the rest as it starts.
  */
 export function granularGrains(
   notes: readonly MidiNote[],
-  params: GranularParams,
+  baseParams: GranularParams,
   bpm: number,
   endSeconds = Number.POSITIVE_INFINITY,
+  modulator?: MidiModulator,
 ): Grain[] {
   const secondsPerQuarter = 60 / bpm;
-  const attack = Math.max(MIN_RAMP_SECONDS, params.attack);
-  const release = Math.max(MIN_RAMP_SECONDS, params.release);
-  const interval = 1 / params.density;
-  // Overlapping grains add up, so denser clouds play each one quieter.
-  const overlap = Math.max(1, params.density * params.grainSize);
+  const paramsAt = (seconds: number) => {
+    if (!modulator) {
+      return baseParams;
+    }
+    const moved = modulatedParams(
+      baseParams,
+      GRANULAR_KEYS,
+      modulator,
+      seconds,
+    );
+    return { ...moved, transpose: Math.round(moved.transpose) };
+  };
   return notes.flatMap((note, index) => {
     const start = note.start * secondsPerQuarter;
     if (start >= endSeconds || note.length <= 0) {
       return [];
     }
+    const struck = paramsAt(start);
+    const attack = Math.max(MIN_RAMP_SECONDS, struck.attack);
+    const release = Math.max(MIN_RAMP_SECONDS, struck.release);
     const off = start + note.length * secondsPerQuarter;
     const cloudEnd = Math.min(endSeconds, off + release);
-    const peak =
-      (GRANULAR_VOICE_LEVEL * note.velocity) / 127 / Math.sqrt(overlap);
-    const rate = 2 ** ((note.pitch + params.transpose - 60) / 12);
     const offLevel = Math.min(1, (off - start) / attack);
     const random = seededRandom(noteSeed(note, index));
     const { bend, pressure, timbre } = note.expression ?? {};
     const grains: Grain[] = [];
-    for (let step = 0; start + step * interval < cloudEnd; step++) {
-      const at = start + step * interval;
+    // Unmodulated, grains land on exact multiples of a steady interval.
+    let at = start;
+    for (let step = 0; at < cloudEnd; step++) {
+      const params = paramsAt(at);
+      const interval = 1 / params.density;
+      // Overlapping grains add up, so denser clouds play each one quieter.
+      const overlap = Math.max(1, params.density * params.grainSize);
+      const peak =
+        (GRANULAR_VOICE_LEVEL * note.velocity) / 127 / Math.sqrt(overlap);
+      const rate = 2 ** ((note.pitch + params.transpose - 60) / 12);
       const jitter = (random() - 0.5) * params.spray * interval;
       const stray = (random() - 0.5) * params.spray;
       const startSeconds = Math.max(start, at + jitter);
@@ -163,6 +191,7 @@ export function granularGrains(
         middle < off
           ? Math.min(1, (middle - start) / attack)
           : offLevel * (1 - (middle - off) / release);
+      at = modulator ? at + interval : start + (step + 1) * interval;
       if (startSeconds >= cloudEnd || envelope <= 0) {
         continue;
       }
@@ -312,11 +341,15 @@ export function mixGrainsOffThread(
   });
 }
 
-/** `samples` at `sampleRate` through `params`' lowpass filter. */
+/**
+ * `samples` at `sampleRate` through `params`' lowpass filter, its knobs moving
+ * as `modulator` has them.
+ */
 export async function filterGranular(
   samples: Float32Array<ArrayBuffer>,
   params: Pick<GranularParams, "cutoff" | "resonance">,
   sampleRate: number,
+  modulator?: MidiModulator,
 ): Promise<Float32Array> {
   const context = new OfflineAudioContext(1, samples.length, sampleRate);
   const buffer = context.createBuffer(1, samples.length, sampleRate);
@@ -327,6 +360,17 @@ export async function filterGranular(
   filter.type = "lowpass";
   filter.frequency.value = params.cutoff;
   filter.Q.value = params.resonance;
+  const seconds = samples.length / sampleRate;
+  const sweep = (param: AudioParam, key: string, base: number) => {
+    if (modulator?.moves(key)) {
+      scheduleVoiceCurve(
+        param,
+        controlCurve(0, seconds, (at) => modulator.value(key, base, at)),
+      );
+    }
+  };
+  sweep(filter.frequency, GRANULAR_KEYS.cutoff, params.cutoff);
+  sweep(filter.Q, GRANULAR_KEYS.resonance, params.resonance);
   source.connect(filter).connect(context.destination);
   source.start(0);
   const rendered = await context.startRendering();
@@ -343,12 +387,19 @@ export async function renderGranularClip(
   durationSeconds: number,
   bpm: number,
   sampleRate: number,
+  modulator?: MidiModulator,
 ): Promise<DecodedAudio> {
   const length = Math.max(1, Math.ceil(durationSeconds * sampleRate));
-  const grains = granularGrains(notes, params, bpm, durationSeconds);
+  const grains = granularGrains(
+    notes,
+    params,
+    bpm,
+    durationSeconds,
+    modulator,
+  );
   const mixed = await mixGrainsOffThread(grains, sampleRate, length);
   return {
     sampleRate,
-    channels: [await filterGranular(mixed, params, sampleRate)],
+    channels: [await filterGranular(mixed, params, sampleRate, modulator)],
   };
 }

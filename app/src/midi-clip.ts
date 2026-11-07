@@ -5,6 +5,8 @@
 // clips imported from a Live set stay media-less placeholders that video can
 // be linked to, since the import does not read their notes.
 
+import type { MidiModulation } from "./audio-mix/midi-modulation.ts";
+
 /**
  * A point of a note's expression: `at` quarter notes from the note's start,
  * so it follows the note and the tempo. A curve ramps linearly from point to
