@@ -87,6 +87,32 @@ export function chainHandlers<A extends object, B extends object>(
   return chained as A & B;
 }
 
+// Returns a function that swallows the next contextmenu anywhere, until the
+// next press, so neither the browser's menu nor one under the pointer opens.
+export function useContextMenuSwallow() {
+  // Removes the window listeners, should the contextmenu not come.
+  const disarmRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => disarmRef.current?.(), []);
+
+  return useCallback(() => {
+    disarmRef.current?.();
+    const swallow = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      disarm();
+    };
+    const disarm = () => {
+      window.removeEventListener("contextmenu", swallow, true);
+      window.removeEventListener("pointerdown", disarm, true);
+      disarmRef.current = null;
+    };
+    window.addEventListener("contextmenu", swallow, true);
+    window.addEventListener("pointerdown", disarm, true);
+    disarmRef.current = disarm;
+  }, []);
+}
+
 // Hand-grab panning: pressing where `canStart` allows and dragging past a
 // small threshold scrolls `scrollRef` with the pointer, with momentum on
 // release unless `momentum` is off. Spread `handlers` on the grabbed
@@ -107,31 +133,10 @@ export function useDragScroll({
   // Set when a pan ends so the contextmenu that follows a right-drag is
   // swallowed rather than opening a menu.
   const draggedRef = useRef(false);
-  // Removes the window listener that swallows that contextmenu when the
-  // drag is released off the grabbed element.
-  const disarmMenuRef = useRef<(() => void) | null>(null);
+  // Swallows that contextmenu when the drag is released off the grabbed
+  // element.
+  const armMenuSwallow = useContextMenuSwallow();
   const [isGrabbing, setIsGrabbing] = useState(false);
-
-  useEffect(() => () => disarmMenuRef.current?.(), []);
-
-  // Swallows the next contextmenu anywhere, until the next press, so
-  // neither the browser's menu nor one under the pointer opens.
-  const armMenuSwallow = useCallback(() => {
-    disarmMenuRef.current?.();
-    const swallow = (event: MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      disarm();
-    };
-    const disarm = () => {
-      window.removeEventListener("contextmenu", swallow, true);
-      window.removeEventListener("pointerdown", disarm, true);
-      disarmMenuRef.current = null;
-    };
-    window.addEventListener("contextmenu", swallow, true);
-    window.addEventListener("pointerdown", disarm, true);
-    disarmMenuRef.current = disarm;
-  }, []);
 
   const stopMomentum = useCallback(() => {
     if (momentumFrameRef.current !== null) {
