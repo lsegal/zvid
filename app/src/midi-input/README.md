@@ -24,8 +24,12 @@ the same rules:
 
 Encoders are read as absolute unless their entry says `relative`, naming how they
 write their steps: `twos-complement` (1 is one step up, 127 one step down) or
-`sign-magnitude` (65 is one step down). MIDI Map mappings are of notes, which take no role here, so one made by hand always
-wins. Controls that send CC can't be mapped by hand yet.
+`sign-magnitude` (65 is one step down).
+
+A mapping made by hand always wins. Notes take no role here, and a CC mapped to a
+knob or fader in MIDI Map mode stops doing what its role did. Mapped by hand, a CC
+works on any device, listed or not, and is read as absolute unless its device's
+entry says `relative`. Faders that send pitch bend can't be mapped by hand.
 
 ## Which encoders were checked
 

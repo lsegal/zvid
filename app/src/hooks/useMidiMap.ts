@@ -6,12 +6,10 @@ import type {
   KeyMapButtonProps,
   KeyMapControls,
 } from "../components/fx/key-map-context.ts";
-import type { SessionEffect } from "../fx-stack.ts";
-import {
-  type KeyMapTarget,
-  keyMapTargetId,
-  pressKeyMapTarget,
-} from "../key-map.ts";
+import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
+import { keyMapTargetId, pressKeyMapTarget } from "../key-map.ts";
+import { knobParameter, moveEffectParameter } from "../midi-device-targets.ts";
+import { ccMove } from "../midi-input/device-controls.ts";
 import {
   type MidiInputHub,
   type MidiInputInfo,
@@ -21,20 +19,32 @@ import {
   type MidiKeyEvent,
   midiKeyEvent,
 } from "../midi-input/keyboard-layout.ts";
+import type { MidiMessage } from "../midi-input/messages.ts";
 import { mpeInputFor } from "../midi-input/mpe.ts";
 import {
   assignMidiMapping,
   findMidiMapping,
   learnMidiMappingsMpe,
+  type MidiCcMapping,
+  type MidiKnobTarget,
   type MidiMapKey,
+  type MidiMapping,
+  type MidiMapTarget,
+  midiCcTargets,
   midiMappingMatches,
   removeMidiMapping,
 } from "../midi-map.ts";
 import { pitchName } from "../midi-piano-roll.ts";
+import {
+  type SettledEditEffects,
+  settledEffectEdits,
+} from "./settled-effect-edits.ts";
 import { fireMappedButtons, isKeyForPopup, padId } from "./useKeyMap.ts";
 
 const NO_PADS: ReadonlySet<string> = new Set();
 const NOT_MAPPING: KeyMapButtonProps = {};
+
+type CcMessage = Extract<MidiMessage, { type: "cc" }>;
 
 function heldKeyId(input: MidiInputInfo, { channel, pitch }: MidiKeyEvent) {
   return `${input.id}:${channel}:${pitch}`;
@@ -50,9 +60,19 @@ export type MidiMapInputs = {
     updater: (current: ProjectState) => ProjectState,
   ) => void;
   amendProject: (updater: (current: ProjectState) => ProjectState) => void;
-  editEffects: Parameters<typeof fireMappedButtons>[2];
+  editEffects: SettledEditEffects;
   setStatus: (status: string) => void;
 };
+
+// What a mapped key or control shows on its button or knob while mapping.
+function mappingLabel(mapping: MidiMapping | undefined) {
+  if (!mapping) {
+    return undefined;
+  }
+  return mapping.controller === undefined
+    ? pitchName(mapping.note)
+    : `CC ${mapping.controller}`;
+}
 
 // How the mappings read a key of `input`, from what its device has shown so far.
 function mapKeyOf(
@@ -69,11 +89,13 @@ function mapKeyOf(
   };
 }
 
-// MIDI Map mode and the mapped MIDI keys, and the Key Map's controls with it:
-// the effect buttons belong to whichever is mapping, and turning one on turns
-// the other off, so a click selects a button for one of them. The hub only
-// delivers what the MIDI control and device selection let through. It's only
-// listened to while there's something to hear.
+// MIDI Map mode, the mapped MIDI keys and CC controls, and the Key Map's controls
+// with it: the effect buttons belong to whichever is mapping, and turning one on
+// turns the other off, so a click selects a button for one of them. Knobs and
+// faders are the MIDI Map's alone. A mapped CC is claimed, which keeps it from a
+// device's built-in role (#1615). The hub only delivers what the MIDI control and
+// device selection let through. It's only listened to while there's something to
+// hear.
 export function useMidiMap({
   hub = midiInputHub,
   keyMap,
@@ -88,12 +110,15 @@ export function useMidiMap({
   midiMap: Pick<KeyMapControls, "active" | "toggle">;
 } {
   const [active, setActive] = useState(false);
-  const [selected, setSelected] = useState<KeyMapTarget | null>(null);
+  const [selected, setSelected] = useState<MidiMapTarget | null>(null);
   const [heldPads, setHeldPads] = useState(NO_PADS);
   const selectedTarget =
     selected && effects.some((effect) => effect.id === selected.effectId)
       ? selected
       : null;
+  // The last control assigned, until the assignment has rendered: a control
+  // sends a run of messages, and they make one mapping and one undo step.
+  const assigningRef = useRef<string | null>(null);
   const latestRef = useRef({
     active,
     selected: selectedTarget,
@@ -103,6 +128,9 @@ export function useMidiMap({
     amendProject,
     editEffects,
   });
+  if (latestRef.current.midiMappings !== midiMappings) {
+    assigningRef.current = null;
+  }
   latestRef.current = {
     active,
     selected: selectedTarget,
@@ -124,6 +152,9 @@ export function useMidiMap({
     const mpeOwner = {};
     // The keys down that this claimed, with the pads each holds.
     const heldKeys = new Map<string, readonly string[]>();
+    const { edit: editSettled, flush } = settledEffectEdits((...args) =>
+      latestRef.current.editEffects(...args),
+    );
 
     const releaseKey = (id: string) => {
       const pads = heldKeys.get(id);
@@ -153,13 +184,74 @@ export function useMidiMap({
       );
     };
 
+    // The knobs and faders a CC drives, leaving out any that are gone.
+    const knobsOf = ({ channel, controller }: CcMessage) => {
+      const { effects: current, midiMappings: mappings } = latestRef.current;
+      return midiCcTargets(mappings, channel, controller).flatMap((target) => {
+        const effect = current.find((item) => item.id === target.effectId);
+        return effect && knobParameter(effect, target.parameter)
+          ? [{ target, effect }]
+          : [];
+      });
+    };
+
+    const assignCc = (target: MidiKnobTarget, message: CcMessage) => {
+      const { channel, controller } = message;
+      const latest = latestRef.current;
+      const existing = findMidiMapping(latest.midiMappings, target);
+      const id = `${channel}:${controller}:${keyMapTargetId(target)}`;
+      if (
+        (existing?.channel === channel && existing.controller === controller) ||
+        assigningRef.current === id
+      ) {
+        return;
+      }
+      assigningRef.current = id;
+      const mapping: MidiCcMapping = { controller, channel, target };
+      latest.commitProjectChange("Map MIDI Control", (current) =>
+        patchProjectState(current, {
+          midiMappings: assignMidiMapping(current.midiMappings, mapping),
+        }),
+      );
+    };
+
+    const moveKnobs = (input: MidiInputInfo, message: CcMessage) => {
+      const knobs = knobsOf(message);
+      const [first] = knobs;
+      if (!first) {
+        return;
+      }
+      const move = ccMove(input.mapping, message);
+      editSettled(
+        effectHistoryLabels.parameter(
+          first.effect.effectName,
+          first.target.parameter,
+        ),
+        (effects) =>
+          knobs.reduce(
+            (next, { target }) =>
+              moveEffectParameter(
+                next,
+                target.effectId,
+                target.parameter,
+                move,
+              ),
+            effects,
+          ),
+      );
+    };
+
     const stopListening = hub.listen({
       claims(input, message) {
         const mpe = mpeInputFor(mpeOwner, input.id);
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           mpe.receive(message);
-          return false;
+          return (
+            message.type === "cc" &&
+            (latestRef.current.selected?.kind === "number" ||
+              knobsOf(message).length > 0)
+          );
         }
         if (!key.down) {
           mpe.released(key.channel, key.pitch);
@@ -174,6 +266,14 @@ export function useMidiMap({
       message(input, message) {
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
+          if (message.type === "cc") {
+            const { active: mapping, selected: target } = latestRef.current;
+            if (!mapping) {
+              moveKnobs(input, message);
+            } else if (target?.kind === "number") {
+              assignCc(target, message);
+            }
+          }
           return;
         }
         const id = heldKeyId(input, key);
@@ -186,7 +286,7 @@ export function useMidiMap({
         if (latest.active) {
           heldKeys.set(id, []);
           const { selected: target } = latest;
-          if (target) {
+          if (target && target.kind !== "number") {
             const { note, channel, isMpe } = mapKey;
             latest.commitProjectChange("Map MIDI Key", (current) =>
               patchProjectState(current, {
@@ -234,12 +334,13 @@ export function useMidiMap({
     });
     return () => {
       stopListening();
+      flush();
       setHeldPads(NO_PADS);
     };
   }, [hub, listening]);
 
   // Delete removes the selected button's key and Escape cancels, as in the
-  // Key Map. MIDI keys are what assign.
+  // Key Map. MIDI keys and controls are what assign.
   useEffect(() => {
     if (!active) {
       return undefined;
@@ -281,30 +382,32 @@ export function useMidiMap({
     setSelected(null);
     setStatus(
       next
-        ? "MIDI Map: click an effect button, then press a MIDI key. Delete removes its key, Esc cancels."
+        ? "MIDI Map: click an effect button, knob or fader, then press a MIDI key or move a control. Delete removes its mapping, Esc cancels."
         : "MIDI Map off.",
     );
   }, [setStatus]);
 
   return useMemo(() => {
     const selectedId = selectedTarget && keyMapTargetId(selectedTarget);
-    const midiButtonProps = (target: KeyMapTarget): KeyMapButtonProps => {
+    const midiButtonProps = (target: MidiMapTarget): KeyMapButtonProps => {
       if (!active) {
         return NOT_MAPPING;
       }
-      const note = findMidiMapping(midiMappings, target)?.note;
+      const label = mappingLabel(findMidiMapping(midiMappings, target));
       // Stops the press in the capture phase, so the button neither activates
       // nor starts a drag of its device.
       const swallow = (event: { stopPropagation: () => void }) =>
         event.stopPropagation();
       return {
-        ...(note === undefined ? {} : { "data-key-map-key": pitchName(note) }),
+        ...(label === undefined ? {} : { "data-key-map-key": label }),
         "data-key-map":
           keyMapTargetId(target) === selectedId ? "selected" : "mappable",
         onClickCapture: (event) => {
           swallow(event);
           setSelected(target);
         },
+        // A knob's or fader's double click resets it.
+        onDoubleClickCapture: swallow,
         onPointerDownCapture: swallow,
       };
     };
@@ -320,6 +423,7 @@ export function useMidiMap({
           keyMap.toggle();
         },
         buttonProps: active ? midiButtonProps : keyMap.buttonProps,
+        knobProps: active ? midiButtonProps : keyMap.knobProps,
         isPadHeld: (effectId, pad) =>
           keyMap.isPadHeld(effectId, pad) || heldPads.has(padId(effectId, pad)),
       },
