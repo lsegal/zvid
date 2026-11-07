@@ -6,7 +6,6 @@ import {
 import type { MidiNote } from "../../midi-clip.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import {
-  addNote,
   deleteNote,
   eraseNote,
   noteKey,
@@ -49,9 +48,10 @@ type PianoRollStrokeOptions = {
 };
 
 // The piano roll's strokes: from a left press, every grid cell the pointer
-// crosses gets a note; from a right press (Ctrl-press on macOS), every note it
-// crosses is deleted. The whole stroke is one undo step when it ends. The
-// stroke lives in a ref as well as state, since pointer moves can outrun the
+// crosses gets a note, replacing the notes of its pitch under it; from a right
+// press (Ctrl-press on macOS), every note it crosses is deleted. The whole
+// stroke is one undo step when it ends. The stroke lives in a ref as well as
+// state, since pointer moves can outrun the
 // roll's renders.
 export function usePianoRollStroke({
   spanId,
@@ -72,8 +72,9 @@ export function usePianoRollStroke({
   // `current` with the stroke's edit at a client point.
   function strokeAt(
     current: readonly MidiNote[],
+    base: readonly MidiNote[],
     at: ClientPoint,
-    erase: boolean,
+    erase = false,
   ) {
     const point = gridPoint(at);
     if (!point) {
@@ -83,7 +84,7 @@ export function usePianoRollStroke({
       return eraseNote(current, point.pitch, point.startQ);
     }
     return point.startQ < lengthQ
-      ? paintNote(current, point.pitch, point.startQ)
+      ? paintNote(current, point.pitch, point.startQ, base)
       : current;
   }
 
@@ -109,8 +110,7 @@ export function usePianoRollStroke({
     };
     const point = gridPoint(event);
     if (point) {
-      // The press lands on no note, even in a cell another note reaches into.
-      stroke.notes = addNote(base, point.pitch, point.startQ);
+      stroke.notes = paintNote(base, point.pitch, point.startQ, base);
       stroke.pitch = point.pitch;
       onAudition(point.pitch);
       onPaint(paintedKeys(stroke));
@@ -134,7 +134,7 @@ export function usePianoRollStroke({
       base,
       notes: pressed
         ? deleteNote(base, Number(pressed.dataset.noteIndex))
-        : strokeAt(base, event, true),
+        : strokeAt(base, base, event, true),
       x: event.clientX,
       y: event.clientY,
       pitch: Number.NaN,
@@ -159,6 +159,7 @@ export function usePianoRollStroke({
     for (let step = 1; step <= steps; step += 1) {
       next = strokeAt(
         next,
+        stroke.base,
         {
           clientX: stroke.x + (deltaX * step) / steps,
           clientY: stroke.y + (deltaY * step) / steps,
@@ -202,7 +203,10 @@ export function usePianoRollStroke({
         swallowContextMenu();
       }
     }
-    const count = Math.abs(stroke.notes.length - stroke.base.length);
+    // Not the change in length: a painted note can replace the note under it.
+    const count = stroke.erase
+      ? stroke.base.length - stroke.notes.length
+      : paintedKeys(stroke).length;
     if (!commit || !count) {
       return;
     }

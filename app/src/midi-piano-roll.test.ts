@@ -20,6 +20,7 @@ import {
   placeNote,
   placeNotes,
   resizeNote,
+  resizeOverNotes,
   sameNotes,
   shiftNotes,
   snapQ,
@@ -60,20 +61,42 @@ describe("piano roll edits", () => {
     assert.equal(addNote([], 200, 0)[0].pitch, PIANO_ROLL_HIGH_PITCH);
   });
 
-  it("paints a note into an empty cell of the grid only", () => {
+  it("paints a note into a cell of the grid, replacing the notes under it", () => {
     const start = C4.start + C4.length;
-    assert.deepEqual(paintNote([C4], C4.pitch, start + 0.1), [
+    const painted = (startQ: number) => ({
+      pitch: C4.pitch,
+      start: startQ,
+      length: PIANO_ROLL_SNAP_Q,
+      velocity: 100,
+    });
+    // Touching C4's end, which stays.
+    assert.deepEqual(paintNote([C4], C4.pitch, start + 0.1, [C4]), [
       C4,
-      { pitch: C4.pitch, start, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
+      painted(start),
     ]);
+    // C4 covers the cell's start, and goes however little of it is under.
+    assert.deepEqual(paintNote([C4, E4], C4.pitch, C4.start + 0.1, [C4, E4]), [
+      painted(0),
+      E4,
+    ]);
+    // A note starting partway through a cell is under it too.
+    const partway = { ...C4, start: 0.375 };
+    assert.deepEqual(paintNote([partway], C4.pitch, 0.3, [partway]), [
+      painted(0.25),
+    ]);
+    // Other pitches stay.
+    assert.deepEqual(paintNote([E4], C4.pitch, E4.start, [E4]), [
+      painted(E4.start),
+      E4,
+    ]);
+  });
+
+  it("paints no cell off the grid or already painted by the stroke", () => {
     const notes = [C4];
-    assert.equal(paintNote(notes, C4.pitch, C4.start + 0.1), notes);
-    // A note starting partway through a cell occupies it.
-    const partway = [{ ...C4, start: 0.375 }];
-    assert.equal(paintNote(partway, C4.pitch, 0.3), partway);
-    assert.equal(paintNote(notes, C4.pitch + 1, -0.1), notes);
-    assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0), notes);
-    assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0), notes);
+    assert.equal(paintNote(notes, C4.pitch, C4.start + 0.1, []), notes);
+    assert.equal(paintNote(notes, C4.pitch + 1, -0.1, notes), notes);
+    assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0, notes), notes);
+    assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0, notes), notes);
   });
 
   it("moves a note by snapped quarters and whole semitones from where it was", () => {
@@ -93,6 +116,40 @@ describe("piano roll edits", () => {
     assert.equal(resizeNote([C4], 0, C4, "end", -0.9)[0].length, 0.25);
     assert.equal(resizeNote([C4], 0, C4, "end", -5)[0].length, 0.25);
     assert.equal(resizeNote([E4], 0, E4, "end", -1)[0].start, 2);
+  });
+
+  it("removes the same-pitch notes a resized note grew over", () => {
+    const next = { ...C4, start: 2, length: 1 };
+    const later = { ...C4, start: 4, length: 1 };
+    const other = { ...E4, start: 2, length: 1 };
+    const grown = (from: MidiNote, edit: Partial<MidiNote>) => ({
+      ...from,
+      ...edit,
+    });
+    // Over `next` by the end edge, up to `later` which it only touches.
+    assert.deepEqual(
+      resizeOverNotes([grown(C4, { length: 4 }), next, other, later], 0, C4),
+      [grown(C4, { length: 4 }), other, later],
+    );
+    // Over `next` by the start edge, however little of it is under.
+    assert.deepEqual(
+      resizeOverNotes(
+        [C4, next, grown(later, { start: 2.75, length: 2.25 })],
+        2,
+        later,
+      ),
+      [C4, grown(later, { start: 2.75, length: 2.25 })],
+    );
+    // Growing over nothing, or shrinking, keeps an overlap it already had.
+    const overlapped = { ...C4, start: 0.5, length: 0.25 };
+    assert.deepEqual(
+      resizeOverNotes([grown(C4, { length: 2 }), overlapped], 0, C4),
+      [grown(C4, { length: 2 }), overlapped],
+    );
+    assert.deepEqual(
+      resizeOverNotes([grown(C4, { length: 0.75 }), overlapped], 0, C4),
+      [grown(C4, { length: 0.75 }), overlapped],
+    );
   });
 
   it("resizes a note's start, keeping its end", () => {

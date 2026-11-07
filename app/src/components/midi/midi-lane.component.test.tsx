@@ -455,18 +455,17 @@ test(
 );
 
 test(
-  "a paint stroke steps over existing notes and stops at the clip's Length (#1595)",
+  "a paint stroke replaces the notes under it and stops at the clip's Length (#1595, #1612)",
   async () => {
     const { grid, notes } = await openPianoRoll();
     // Across G3, which sits at quarters 2 to 3 of the row.
     await drag(cell(grid, 1.5, 55), cell(grid, 3.25, 55), { steps: 4 });
     await expect
       .poll(() => notes()?.filter((note) => note.pitch === 55))
-      .toEqual([
-        ...paintedRun(55, 1.5, 2),
-        NOTES[1],
-        ...paintedRun(55, 3, 3.5),
-      ]);
+      .toEqual(paintedRun(55, 1.5, 3.5));
+    expect(notes()?.filter((note) => note.pitch !== 55)).toEqual(
+      NOTES.filter((note) => note.pitch !== 55),
+    );
     await undo();
     await expect.poll(() => notes()).toEqual(NOTES);
 
@@ -521,6 +520,41 @@ test(
 
     await undo();
     await expect.poll(() => notes()).toEqual(NOTES);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "resizing a note over notes of its pitch removes them on commit, as one undo step (#1612)",
+  async () => {
+    const { grid, notes, status } = await openPianoRoll();
+    // Two more notes on G3's row: one G3 grows over, one it stops touching.
+    await drag(cell(grid, 3.5, 55), cell(grid, 3.5, 55));
+    await drag(cell(grid, 5, 55), cell(grid, 5, 55));
+    await expect.poll(() => notes()?.length).toBe(NOTES.length + 2);
+    const painted = notes();
+
+    const note = requireNote("G3");
+    const end = note.querySelector<HTMLElement>("[data-note-edge='end']");
+    if (!end) {
+      throw new Error("missing the G3 note's end edge");
+    }
+    // From quarter 3 to quarter 5, touching the note there.
+    const from = center(end);
+    await drag(from, { x: from.x + 2 * PIANO_ROLL_QUARTER_PX, y: from.y });
+    await expect
+      .poll(() => notes()?.filter((candidate) => candidate.pitch === 55))
+      .toEqual([
+        { ...NOTES[1], length: 3 },
+        { pitch: 55, start: 5, length: 0.25, velocity: 100 },
+      ]);
+    expect(notes()?.filter((candidate) => candidate.pitch !== 55)).toEqual(
+      NOTES.filter((candidate) => candidate.pitch !== 55),
+    );
+
+    await undo();
+    await expect.poll(() => notes()).toEqual(painted);
+    expect(status()).toBe("Undid: Resize Note.");
   },
   EDITOR_TEST_TIMEOUT,
 );
