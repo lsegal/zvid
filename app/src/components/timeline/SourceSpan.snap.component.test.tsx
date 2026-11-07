@@ -6,7 +6,14 @@ import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
 } from "../../component-test/editor.tsx";
-import { center, click, drag } from "../../component-test/input.ts";
+import {
+  center,
+  click,
+  down,
+  drag,
+  move,
+  nextFrames,
+} from "../../component-test/input.ts";
 import type { MediaItem } from "../../media";
 import { addMediaToSourceTrack } from "../../source-track-media.ts";
 import { SourceSpan } from "./SourceSpan";
@@ -57,6 +64,50 @@ async function dragBy(element: HTMLElement, deltaPx: number) {
 }
 
 describe(SourceSpan, { timeout: EDITOR_TEST_TIMEOUT }, () => {
+  test("a release before the last move renders still lands at the pointer (#1602)", async () => {
+    await renderEditor({
+      project: {
+        mediaItems: [testPattern],
+        ...addMediaToSourceTrack(INITIAL_PROJECT_STATE, [testPattern], {
+          kind: "new-track",
+        }),
+      },
+    });
+    await expect.poll(span).not.toBeNull();
+    const element = span() as HTMLElement;
+    const quarterPx = quarterWidth(element);
+    const body = element.querySelector(".source-span__body") as HTMLElement;
+    const from = center(body);
+
+    let pointerId = 0;
+    window.addEventListener(
+      "pointerdown",
+      (event) => {
+        pointerId = event.pointerId;
+      },
+      { capture: true, once: true },
+    );
+    await move(from.x, from.y);
+    await down();
+    await move(from.x + 3 * quarterPx, from.y, { steps: 6 });
+    await nextFrames();
+    expect(startQ(span() as HTMLElement, quarterPx)).toBe(3);
+
+    // The last move and the release arrive in one task, as on a busy main
+    // thread, so React can't render the move between them.
+    const pointer = (type: string) =>
+      window.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId,
+          clientX: from.x + 4 * quarterPx,
+          clientY: from.y,
+        }),
+      );
+    pointer("pointermove");
+    pointer("pointerup");
+    await expect.poll(() => startQ(span() as HTMLElement, quarterPx)).toBe(4);
+  });
+
   test("dragging a clip snaps to the zoom-dependent grid", async () => {
     // One source track holding the test pattern at 0, as dropping it does.
     await renderEditor({
