@@ -31,8 +31,8 @@ import {
   withDrumPad,
 } from "../../../fx/effects/drum-rack/drum-rack.ts";
 import { getDraggedMediaIds, isMediaDrag } from "../../../media-drag.ts";
-import { auditionDrumPad } from "../../../midi-audition.ts";
 import { pitchName } from "../../../midi-piano-roll.ts";
+import { auditionRackPad } from "../../../recording/armed-audition.ts";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -146,7 +146,7 @@ export function DrumRackControl({
   };
   const press = (pad: number) => {
     flash(pad);
-    void auditionDrumPad(pad, params);
+    void auditionRackPad(device.id, pad, params);
   };
   const load = async (pad: number, files?: readonly File[]) => {
     const path = await importDrumSample(files);

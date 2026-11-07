@@ -5,7 +5,8 @@
 // playhead, or else of its first. A track with none, or with its FX switched
 // off, stays silent, as it would in the mix. Either way its notes sound through
 // its clip's and track's effects, as the mix plays them, their LFOs on the audio
-// clock rather than the paused playhead (see audio-mix/audition-chain.ts).
+// clock rather than the paused playhead (see audio-mix/audition-chain.ts). A
+// Drum Rack's pads sound through the stacks of the clip the rack is on.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -13,13 +14,19 @@ import {
   type AuditionStack,
   auditionChainSettings,
 } from "../audio-mix/audition-chain.ts";
+import { getEffectSourceSpanId } from "../fx/stack/clip-stacks.ts";
 import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
 import {
   type AuditionVoice,
+  auditionDrumPad,
   auditionNote,
   updateAuditionChains,
 } from "../midi-audition.ts";
-import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
+import type {
+  DrumRackParams,
+  ExpressionSample,
+  MidiInstrument,
+} from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
 import { signatureById } from "../time-signature.ts";
 import { getArmedTrackIds } from "./record-arm.ts";
@@ -212,6 +219,25 @@ export function auditionClipNote(
     expression,
     hold,
     auditionStackOf(spanId, session, playheadQ()),
+  );
+}
+
+/**
+ * Plays `pad` of the Drum Rack `effectId`, which plays `params`, through the
+ * stack of the clip the rack is on, or dry without a source track owning it.
+ */
+export function auditionRackPad(
+  effectId: string,
+  pad: number,
+  params: DrumRackParams,
+) {
+  const stackId = session.effects.find(({ id }) => id === effectId)?.trackId;
+  const spanId = stackId && getEffectSourceSpanId(stackId);
+  return auditionDrumPad(
+    pad,
+    params,
+    undefined,
+    spanId ? auditionStackOf(spanId, session, playheadQ()) : undefined,
   );
 }
 
