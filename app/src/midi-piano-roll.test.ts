@@ -6,6 +6,7 @@ import {
   copyNotes,
   deleteNote,
   deleteNotes,
+  eraseNote,
   duplicateNotes,
   isBlackKey,
   moveNote,
@@ -342,4 +343,17 @@ describe("a note with expression", () => {
     assert.equal(trimmed?.length, 3);
     assert.equal(trimmed?.expression?.bend?.[0].value, 2);
   });
+});
+
+it("eraseNote deletes the note of the pitch sounding at a quarter", () => {
+  const notes = [
+    { pitch: 60, start: 1, length: 1, velocity: 100 },
+    { pitch: 62, start: 1, length: 1, velocity: 100 },
+  ];
+  assert.deepEqual(eraseNote(notes, 60, 1.5), [notes[1]]);
+  assert.deepEqual(eraseNote(notes, 60, 1), [notes[1]]);
+  // Past its end, before its start and on another pitch, it hits nothing.
+  assert.equal(eraseNote(notes, 60, 2), notes);
+  assert.equal(eraseNote(notes, 60, 0.9), notes);
+  assert.equal(eraseNote(notes, 61, 1.5), notes);
 });

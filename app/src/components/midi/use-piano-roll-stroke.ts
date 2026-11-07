@@ -157,10 +157,14 @@ export function usePianoRollStroke({
     const steps = Math.ceil(Math.max(Math.abs(deltaX), Math.abs(deltaY)));
     let next = stroke.notes;
     for (let step = 1; step <= steps; step += 1) {
-      next = strokeAt(next, {
-        clientX: stroke.x + (deltaX * step) / steps,
-        clientY: stroke.y + (deltaY * step) / steps,
-      }, stroke.erase);
+      next = strokeAt(
+        next,
+        {
+          clientX: stroke.x + (deltaX * step) / steps,
+          clientY: stroke.y + (deltaY * step) / steps,
+        },
+        stroke.erase,
+      );
     }
     stroke.x = event.clientX;
     stroke.y = event.clientY;
@@ -204,9 +208,7 @@ export function usePianoRollStroke({
     }
     if (stroke.erase) {
       onErase(
-        stroke.base
-          .filter((note) => !stroke.notes.includes(note))
-          .map(noteKey),
+        stroke.base.filter((note) => !stroke.notes.includes(note)).map(noteKey),
       );
     }
     const labels = stroke.erase

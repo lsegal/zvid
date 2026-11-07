@@ -1,4 +1,5 @@
 import {
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useLayoutEffect,
@@ -23,8 +24,8 @@ export function usePianoRollPan(scrollRef: RefObject<HTMLElement | null>) {
 type PianoRollRulerPanOptions = {
   scrollRef: RefObject<HTMLElement | null>;
   // Whether a press starts a pan at all, and whether it can zoom as well.
-  canStart: (event: { button: number; ctrlKey: boolean; target: unknown }) => boolean;
-  isZoomPress: (event: { button: number; ctrlKey: boolean }) => boolean;
+  canStart: (event: ReactMouseEvent<HTMLElement>) => boolean;
+  isZoomPress: (event: ReactMouseEvent<HTMLElement>) => boolean;
   viewQ: number;
   quarterPx: number;
   zoom: number;
