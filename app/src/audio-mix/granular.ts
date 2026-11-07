@@ -207,7 +207,9 @@ export function granularGrains(
         level:
           peak *
           envelope *
-          (pressure ? pressureLevel(expressionValueAt(pressure, atQ)) : 1),
+          (pressure
+            ? pressureLevel(expressionValueAt(pressure, atQ), note.velocity)
+            : 1),
       });
     }
     return grains;

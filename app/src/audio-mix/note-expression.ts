@@ -4,9 +4,6 @@
 // note without a curve never comes here.
 import type { ExpressionPoint } from "../midi-clip.ts";
 
-// How quiet a voice gets with no pressure on it: pressing can only swell a
-// note up to the level its velocity sets, which keeps a chord's headroom.
-const PRESSURE_FLOOR = 0.25;
 // The Timbre a device rests at: MIDI's center, 64 of 127.
 export const TIMBRE_CENTER = 64 / 127;
 // How far Timbre moves a filter from its cutoff either way, in octaves.
@@ -15,9 +12,14 @@ const TIMBRE_CUTOFF_OCTAVES = 2;
 const MIN_CUTOFF = 20;
 const MAX_CUTOFF = 20_000;
 
-/** What a voice's level is multiplied by at `pressure`. */
-export function pressureLevel(pressure: number) {
-  return PRESSURE_FLOOR + (1 - PRESSURE_FLOOR) * pressure;
+/**
+ * What the level of a voice struck at `velocity` is multiplied by at `pressure`.
+ * With no pressure it stays at the level its velocity set, as MPE devices start
+ * a note at none (#1648), and pressing swells it up to a full-velocity note's
+ * level, which keeps a chord's headroom.
+ */
+export function pressureLevel(pressure: number, velocity: number) {
+  return 1 + (127 / velocity - 1) * pressure;
 }
 
 /** How fast a read of a sample goes for a bend of `semitones`. */

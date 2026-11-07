@@ -190,8 +190,13 @@ function glide(param: AudioParam, value: number, context: BaseAudioContext) {
   param.setTargetAtTime(value, context.currentTime, EXPRESSION_GLIDE_SECONDS);
 }
 
-function expressionGain(sample: ExpressionSample | undefined) {
-  return sample?.pressure === undefined ? 1 : pressureLevel(sample.pressure);
+function expressionGain(
+  sample: ExpressionSample | undefined,
+  velocity: number,
+) {
+  return sample?.pressure === undefined
+    ? 1
+    : pressureLevel(sample.pressure, velocity);
 }
 
 type EnvelopeParams = Pick<
@@ -332,7 +337,7 @@ function auditionSynth(
       : timbreCutoff(params.cutoff, expression.timbre);
   filter.Q.value = params.resonance;
   const pressure = context.createGain();
-  pressure.gain.value = expressionGain(expression);
+  pressure.gain.value = expressionGain(expression, velocity);
   const gain = context.createGain();
   gain.gain.value = 0;
   oscillator.connect(filter).connect(gain).connect(pressure).connect(output);
@@ -406,7 +411,7 @@ function auditionSynth(
     update(sample) {
       latest = sample;
       applyDetune();
-      glide(pressure.gain, expressionGain(sample), context);
+      glide(pressure.gain, expressionGain(sample, velocity), context);
       if (sample.timbre !== undefined) {
         applyCutoff();
       }
@@ -454,7 +459,7 @@ function auditionGranular(
   filter.frequency.value = params.cutoff;
   filter.Q.value = params.resonance;
   const pressure = context.createGain();
-  pressure.gain.value = expressionGain(expression);
+  pressure.gain.value = expressionGain(expression, velocity);
   filter.connect(pressure).connect(output);
   let sounding = 0;
   let stopFollowing: (() => void) | undefined;
@@ -582,7 +587,7 @@ function auditionGranular(
     },
     update(sample) {
       glide(cloud.source.playbackRate, bendRate(sample.bend), context);
-      glide(pressure.gain, expressionGain(sample), context);
+      glide(pressure.gain, expressionGain(sample, velocity), context);
       if (sample.timbre !== undefined) {
         slid = TIMBRE_CENTER + sample.timbre - pressedTimbre;
         applyCutoff();
@@ -681,11 +686,11 @@ export async function auditionDrumPad(
   source.playbackRate.value = bendRate(expression?.bend ?? 0);
   const level = (DRUM_VOICE_LEVEL * velocity) / FULL_VELOCITY;
   const gain = context.createGain();
-  gain.gain.value = level * expressionGain(expression);
+  gain.gain.value = level * expressionGain(expression, velocity);
   source.connect(gain).connect(output);
   voice?.attach((sample) => {
     glide(source.playbackRate, bendRate(sample.bend), context);
-    glide(gain.gain, level * expressionGain(sample), context);
+    glide(gain.gain, level * expressionGain(sample, velocity), context);
   });
   source.onended = () => {
     source.disconnect();

@@ -275,6 +275,26 @@ test("a device going away clears its keys' highlights", async () => {
   roll.unmount();
 });
 
+test("keys on an MPE device's member channels keep their velocities", async () => {
+  const roll = await renderRoll({ playing: true });
+  roll.signal.set(1);
+  for (const [channel, velocity] of [30, 127].entries()) {
+    roll.send(0xd1 + channel, 0);
+    roll.send(0x91 + channel, 60 + channel, velocity);
+    roll.send(0xd1 + channel, 90);
+  }
+  roll.signal.set(2);
+  roll.send(0xd1, 0);
+  roll.send(0xd2, 0);
+  roll.send(0x81, 60, 40);
+  roll.send(0x82, 61, 40);
+  await expect.poll(() => roll.notes().length).toBe(2);
+  expect(roll.edits.at(-1)?.notes.map((note) => note.velocity)).toEqual([
+    30, 127,
+  ]);
+  roll.unmount();
+});
+
 test("a key auditions at the velocity it was played at", async () => {
   const roll = await renderRoll({ playing: false });
   for (const velocity of [20, 127]) {
@@ -606,7 +626,7 @@ test("a recorded bend, swell and slide are heard, the same each render", async (
     },
   };
   const sampleRate = 44_100;
-  const render = (expression?: MidiNote["expression"]) =>
+  const render = (expression?: MidiNote["expression"], velocity = 127) =>
     renderSynthClip(
       {
         notes: [
@@ -614,7 +634,7 @@ test("a recorded bend, swell and slide are heard, the same each render", async (
             pitch: 69,
             start: 0,
             length: 2,
-            velocity: 127,
+            velocity,
             ...(expression ? { expression } : {}),
           },
         ],
@@ -637,8 +657,15 @@ test("a recorded bend, swell and slide are heard, the same each render", async (
   expect(frequencyOf(bent, sampleRate)).toBeCloseTo(880, 0);
   expect(slice(await render({ bend }))).toEqual(bent);
 
-  const unpressed = slice(await render({ pressure: [{ at: 0, value: 0 }] }));
-  expect(peak(unpressed)).toBeLessThan(peak(plain) / 2);
+  // A soft note sounds at its velocity with no pressure, and swells when pressed.
+  const soft = peak(slice(await render(undefined, 32)));
+  const pressed = (value: number) =>
+    render({ pressure: [{ at: 0, value }] }, 32).then((audio) =>
+      peak(slice(audio)),
+    );
+  expect(soft).toBeLessThan(peak(plain) / 2);
+  expect(await pressed(0)).toBeCloseTo(soft, 4);
+  expect(await pressed(1)).toBeCloseTo(peak(plain), 4);
 
   // A sawtooth's harmonics through the filter a slide closes.
   const saw = {

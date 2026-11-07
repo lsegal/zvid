@@ -111,8 +111,8 @@ describe("mixDrumHits, with expression", () => {
   const SAMPLE_RATE = 1000;
   const ramp = Float32Array.from({ length: 1000 }, (_, index) => index / 1000);
   // A kick, on the first pad; at 60 bpm a quarter note lasts a second.
-  const hit = (expression: MidiNote["expression"]) => {
-    const [only] = drumHits([{ ...note(36, 0), expression }], 60);
+  const hit = (expression: MidiNote["expression"], velocity = 127) => {
+    const [only] = drumHits([{ ...note(36, 0), expression, velocity }], 60);
     return mixDrumHits([only], [ramp], SAMPLE_RATE, 1000);
   };
 
@@ -124,12 +124,13 @@ describe("mixDrumHits, with expression", () => {
     assert.equal(bent[600], 0);
   });
 
-  it("follows pressure", () => {
-    const plain = hit(undefined);
-    const full = hit({ pressure: [{ at: 0, value: 1 }] });
-    const none = hit({ pressure: [{ at: 0, value: 0 }] });
-    assert.ok(Math.abs(full[500] - plain[500]) < 1e-6);
-    assert.ok(none[500] < plain[500] / 2);
+  it("swells from its velocity's level by pressure", () => {
+    const full = hit(undefined);
+    const soft = hit(undefined, 32);
+    const none = hit({ pressure: [{ at: 0, value: 0 }] }, 32);
+    const pressed = hit({ pressure: [{ at: 0, value: 1 }] }, 32);
+    assert.ok(Math.abs(none[500] - soft[500]) < 1e-6);
+    assert.ok(Math.abs(pressed[500] - full[500]) < 1e-6);
   });
 
   it("does not use timbre on a one-shot", () => {

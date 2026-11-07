@@ -1,12 +1,12 @@
 import { beforeAll, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
-import { drumBankPadUrl, DRUM_BANKS } from "./fx/effects/drum-rack/banks.ts";
-import { auditionDrumPad, auditionNote } from "./midi-audition.ts";
+import { drumBankPadUrl, DRUM_BANKS } from "../../fx/effects/drum-rack/banks.ts";
+import { auditionDrumPad, auditionNote } from "../../midi-audition.ts";
 import {
   DEFAULT_GRANULAR_PARAMS,
   DEFAULT_SYNTH_PARAMS,
   type MidiInstrument,
-} from "./midi-clip.ts";
+} from "../../midi-clip.ts";
 
 // An audition sounds as hard as its note's velocity (#1648), for every
 // instrument: its level at a soft velocity is that much under its full one.
