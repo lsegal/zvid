@@ -40,7 +40,9 @@ export function usePianoRollPan({
       const note =
         rightPress &&
         (event.target as Element).closest<HTMLElement>("[data-note-index]");
-      pressedNoteRef.current = note ? Number(note.dataset.noteIndex) : undefined;
+      pressedNoteRef.current = note
+        ? Number(note.dataset.noteIndex)
+        : undefined;
     },
     onEnd({ dragged, released }: DragScrollEnd) {
       if (dragged || !released) {

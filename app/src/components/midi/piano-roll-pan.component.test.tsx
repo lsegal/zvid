@@ -108,7 +108,7 @@ async function settledDrag(
 ) {
   await move(from.x, from.y);
   await down({ button });
-  await move(to.x, to.y, { button, steps: 8 });
+  await move(to.x, to.y, { steps: 8 });
   await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
   await up({ button });
   await nextFrames();
@@ -161,10 +161,14 @@ test("a right-drag starting on a note pans and keeps the note", async () => {
 test("a fast right-drag carries on with momentum after release", async () => {
   const { scroller } = await renderRoll();
   const from = emptyGridPoint(scroller);
-  await drag(from, { x: from.x - 120, y: from.y }, {
-    button: "right",
-    steps: 4,
-  });
+  await drag(
+    from,
+    { x: from.x - 120, y: from.y },
+    {
+      button: "right",
+      steps: 4,
+    },
+  );
   const released = scroller.scrollLeft;
   await expect.poll(() => scroller.scrollLeft).toBeGreaterThan(released);
 });
