@@ -14584,7 +14584,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": true
       },
       {
         "name": "Touch strip",
@@ -14679,7 +14680,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 71
+        "number": 71,
+        "relative": true
       },
       {
         "name": "Track1 Encoder touch",
@@ -14693,7 +14695,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 72
+        "number": 72,
+        "relative": true
       },
       {
         "name": "Track2 Encoder touch",
@@ -14707,7 +14710,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 73
+        "number": 73,
+        "relative": true
       },
       {
         "name": "Track3 Encoder touch",
@@ -14721,7 +14725,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 74
+        "number": 74,
+        "relative": true
       },
       {
         "name": "Track4 Encoder touch",
@@ -14735,7 +14740,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 75
+        "number": 75,
+        "relative": true
       },
       {
         "name": "Track5 Encoder touch",
@@ -14749,7 +14755,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 76
+        "number": 76,
+        "relative": true
       },
       {
         "name": "Track6 Encoder touch",
@@ -14763,7 +14770,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 77
+        "number": 77,
+        "relative": true
       },
       {
         "name": "Track7 Encoder touch",
@@ -14777,7 +14785,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 78
+        "number": 78,
+        "relative": true
       },
       {
         "name": "Track8 Encoder touch",
@@ -14791,7 +14800,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": true
       },
       {
         "name": "Master Encoder touch",
@@ -15346,7 +15356,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 71
+        "number": 71,
+        "relative": true
       },
       {
         "name": "Track1 Encoder touch",
@@ -15360,7 +15371,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 72
+        "number": 72,
+        "relative": true
       },
       {
         "name": "Track2 Encoder touch",
@@ -15374,7 +15386,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 73
+        "number": 73,
+        "relative": true
       },
       {
         "name": "Track3 Encoder touch",
@@ -15388,7 +15401,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 74
+        "number": 74,
+        "relative": true
       },
       {
         "name": "Track4 Encoder touch",
@@ -15402,7 +15416,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 75
+        "number": 75,
+        "relative": true
       },
       {
         "name": "Track5 Encoder touch",
@@ -15416,7 +15431,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 76
+        "number": 76,
+        "relative": true
       },
       {
         "name": "Track6 Encoder touch",
@@ -15430,7 +15446,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 77
+        "number": 77,
+        "relative": true
       },
       {
         "name": "Track7 Encoder touch",
@@ -15444,7 +15461,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 78
+        "number": 78,
+        "relative": true
       },
       {
         "name": "Track8 Encoder touch",
@@ -15458,7 +15476,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": true
       },
       {
         "name": "Master Encoder touch",

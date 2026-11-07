@@ -43,6 +43,8 @@ export type MidiControlEntry = {
   channel: number;
   number?: number;
   count?: number;
+  // An encoder sending how far it turned, not where it is.
+  relative?: true;
 };
 
 export type MidiControl = Omit<MidiControlEntry, "count">;
@@ -194,6 +196,9 @@ export function mappingProblems(mapping: MidiDeviceMapping): string[] {
     }
     if (count > 1 && !entry.name.includes("{n}")) {
       problem(`${entry.name}: a run needs {n} in its name`);
+    }
+    if (entry.relative && entry.type !== "cc") {
+      problem(`${entry.name}: only a cc control can be relative`);
     }
     const numbered = entry.type === "note" || entry.type === "cc";
     if (numbered !== (entry.number !== undefined)) {
