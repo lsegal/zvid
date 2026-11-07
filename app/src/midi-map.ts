@@ -1,8 +1,8 @@
 // The MIDI Map: MIDI keys mapped to buttons in effect devices, as the Key Map
-// (key-map.ts) maps computer keys, and to the same targets, and CC controls
-// mapped to their knobs and faders. A mapping matches a note or controller and
-// a channel on whichever device sends it. One key or control can drive several
-// targets; each target has one.
+// (key-map.ts) maps computer keys, and to the same targets, and CC controls and
+// pitch bend faders mapped to their knobs and faders. A mapping matches a note,
+// controller or pitch bend and a channel on whichever device sends it. One key or
+// control can drive several targets; each target has one.
 import type { SessionEffect } from "./fx-stack.ts";
 import {
   type KeyMapTarget,
@@ -26,6 +26,7 @@ export type MidiNoteMapping = {
   // of a zone: it matches the note anywhere in `channel`'s zone.
   mpe?: true;
   controller?: undefined;
+  pitchBend?: undefined;
   target: KeyMapTarget;
 };
 
@@ -34,10 +35,24 @@ export type MidiCcMapping = {
   channel: number;
   note?: undefined;
   mpe?: undefined;
+  pitchBend?: undefined;
   target: MidiKnobTarget;
 };
 
-export type MidiMapping = MidiNoteMapping | MidiCcMapping;
+/** A channel's pitch bend, as a fader in Mackie mode sends it. */
+export type MidiPitchBendMapping = {
+  pitchBend: true;
+  channel: number;
+  note?: undefined;
+  controller?: undefined;
+  mpe?: undefined;
+  target: MidiKnobTarget;
+};
+
+export type MidiMapping =
+  | MidiNoteMapping
+  | MidiCcMapping
+  | MidiPitchBendMapping;
 
 /** A key as a device plays it. */
 export type MidiMapKey = {
@@ -97,6 +112,24 @@ export function midiCcTargets(
       ? [mapping.target]
       : [],
   );
+}
+
+/** The knobs and faders mapped to the pitch bend of `channel`. */
+export function midiPitchBendTargets(
+  mappings: readonly MidiMapping[] | undefined,
+  channel: number,
+) {
+  return (mappings ?? []).flatMap((mapping) =>
+    mapping.pitchBend && mapping.channel === channel ? [mapping.target] : [],
+  );
+}
+
+/**
+ * The note that touching the fader on `channel` holds down, in Mackie Control:
+ * note 104 on the first channel for the first fader, and on up from there.
+ */
+export function faderTouchNote(channel: number) {
+  return { channel: 1, pitch: 103 + channel };
 }
 
 export function findMidiMapping(
@@ -178,8 +211,14 @@ export function readMidiMappings(
   for (const entry of raw) {
     const target = readKeyMapTarget(entry?.target);
     const knob = readKnobTarget(entry?.target);
-    const { note, controller, channel, mpe } = entry ?? {};
-    if (knob && inRange(controller, 0, 127) && inRange(channel, 1, 16)) {
+    const { note, controller, pitchBend, channel, mpe } = entry ?? {};
+    if (knob && pitchBend === true && inRange(channel, 1, 16)) {
+      mappings = assignMidiMapping(mappings, {
+        pitchBend,
+        channel,
+        target: knob,
+      });
+    } else if (knob && inRange(controller, 0, 127) && inRange(channel, 1, 16)) {
       mappings = assignMidiMapping(mappings, {
         controller,
         channel,

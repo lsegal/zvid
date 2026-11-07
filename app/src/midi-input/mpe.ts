@@ -25,7 +25,8 @@ const CC_RPN_LSB = 100;
 const CC_RPN_MSB = 101;
 const RPN_BEND_RANGE = 0;
 const RPN_MPE_CONFIGURATION = 6;
-const BEND_CENTER = 8192;
+/** Where a pitch bend rests: a wheel springs back to it. */
+export const BEND_CENTER = 8192;
 
 // What a manager channel or member channel has said. `bend` is from -1 to 1.
 // Pressure and timbre are unset until something sets them.

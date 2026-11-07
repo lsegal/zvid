@@ -26,10 +26,21 @@ Encoders are read as absolute unless their entry says `relative`, naming how the
 write their steps: `twos-complement` (1 is one step up, 127 one step down) or
 `sign-magnitude` (65 is one step down).
 
-A mapping made by hand always wins. Notes take no role here, and a CC mapped to a
-knob or fader in MIDI Map mode stops doing what its role did. Mapped by hand, a CC
-works on any device, listed or not, and is read as absolute unless its device's
-entry says `relative`. Faders that send pitch bend can't be mapped by hand.
+A mapping made by hand always wins. Notes take no role here, and a CC or pitch
+bend mapped to a knob or fader in MIDI Map mode stops doing what its role did.
+Mapped by hand, a CC works on any device, listed or not, and is read as absolute
+unless its device's entry says `relative`. A pitch bend fader is mapped by its
+channel, and shows as `PB 3` for channel 3.
+
+A pitch wheel sends what such a fader sends, so while assigning, a bend is taken
+as a fader only when nothing says it's a wheel. It doesn't assign while a key of
+the same device is down, while the device plays MPE, or at center, where a wheel
+rests. A bend begun with a key down stays ignored until it returns to center or
+rests for a second, so a wheel springing back after the key comes up maps nothing.
+The note a Mackie fader holds while touched (`faderTouchNote`) doesn't count as a
+key for that fader, because a device in Mackie mode that isn't listed plays it as
+one. Moving a wheel on purpose with no key down does map it: nothing tells it from
+a fader then, and the badge shows what happened.
 
 ## Which encoders were checked
 
