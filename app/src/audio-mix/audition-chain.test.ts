@@ -8,7 +8,10 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { createEffect } from "../fx/stack/ops.ts";
-import { createDefaultModulation } from "../fx-modulation-defaults.ts";
+import {
+  createDefaultModulation,
+  type EffectModulation,
+} from "../fx-modulation-defaults.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { createSynthEffect } from "../midi-effects.ts";
 import { auditionChainSettings } from "./audition-chain.ts";
@@ -145,7 +148,9 @@ describe("auditionChainSettings", () => {
 
     it("runs only the source stacks' LFOs on the source track's time", () => {
       const withLfo = (trackId: string) => {
-        const modulation = createDefaultModulation(GAIN_EFFECT_NAME);
+        const modulation = createDefaultModulation(
+          GAIN_EFFECT_NAME,
+        ) as EffectModulation;
         return {
           ...effect(trackId, GAIN_EFFECT_NAME),
           modulation: { ...modulation, enabled: true, mode: "lfo" as const },
@@ -159,7 +164,11 @@ describe("auditionChainSettings", () => {
         layerClip,
       );
       assert.deepEqual(
-        stages.map((stage) => stage.modulation?.timeOffsetSeconds),
+        stages.map((stage) =>
+          stage.modulation?.mode === "lfo"
+            ? stage.modulation.timeOffsetSeconds
+            : undefined,
+        ),
         [2, 2, undefined],
       );
     });

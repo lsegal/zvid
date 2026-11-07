@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { GAIN_EFFECT_NAME } from "../fx/effects/gain/gain.ts";
+import { GRANULAR_EFFECT_NAME } from "../fx/effects/granular/granular.ts";
 import {
   clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,

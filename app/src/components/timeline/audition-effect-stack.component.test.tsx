@@ -236,6 +236,8 @@ test("a paused key sounds through its layer's stack when the mix plays through i
   hearThroughLayer([gain(0), onStack(LANE, gain(0))]);
   const voice = auditionTracks(new Set([TRACK]), 69, undefined);
   await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.01);
+  // Past the moment the note reached the speakers, so this is its full level.
+  await wait(300);
   const unity = level();
 
   hearThroughLayer([gain(0), onStack(LANE, gain(-24))]);

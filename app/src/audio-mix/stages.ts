@@ -29,7 +29,10 @@ function storedNumber(stored: AudioStageEffect["parameters"][number]) {
 
 // `stage` with its LFO, if any, running `seconds` ahead of the song, on the source
 // track time of a layer clip that inherits it (see resolve.ts).
-export function withLfoTimeOffset(stage: AudioStage, seconds: number): AudioStage {
+export function withLfoTimeOffset(
+  stage: AudioStage,
+  seconds: number,
+): AudioStage {
   return stage.modulation?.mode === "lfo" && seconds
     ? {
         ...stage,
