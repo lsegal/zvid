@@ -7,8 +7,9 @@ import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { createSynthEffect } from "../midi-effects.ts";
 import {
   type ArmedAuditionSession,
-  armedInstruments,
   combineVoices,
+  keyTrackIds,
+  trackInstruments,
 } from "./armed-audition.ts";
 
 const synth = (spanId: string, cutoff: number) =>
@@ -42,13 +43,24 @@ function cutoffs(
   playheadQ = 0,
   exceptSpanId?: string,
 ) {
-  return armedInstruments(new Set(armed), session, playheadQ, exceptSpanId).map(
+  return trackInstruments(new Set(armed), session, playheadQ, exceptSpanId).map(
     (instrument) =>
       instrument.kind === "synth" ? instrument.params.cutoff : instrument.kind,
   );
 }
 
-describe("armedInstruments", () => {
+describe("keyTrackIds", () => {
+  it("is the armed tracks, leaving the selected track out", () => {
+    assert.deepEqual([...keyTrackIds(new Set(["a"]), "b")], ["a"]);
+  });
+
+  it("falls back to the selected track with none armed", () => {
+    assert.deepEqual([...keyTrackIds(new Set(), "b")], ["b"]);
+    assert.deepEqual([...keyTrackIds(new Set(), undefined)], []);
+  });
+});
+
+describe("trackInstruments", () => {
   it("gives every armed track's instrument, and only theirs", () => {
     const session = sessionOf(
       [{ id: "a" }, { id: "b" }, { id: "c" }],

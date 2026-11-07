@@ -6,9 +6,10 @@ import { midiInputHub } from "../../midi-input/input-hub.ts";
 import type { PlayheadSignal } from "../../playhead-signal.ts";
 import {
   type ArmedAuditionSession,
-  armedInstruments,
-  auditionArmedTracks,
+  auditionTracks,
+  keyTrackIds,
   setArmedAuditionSource,
+  trackInstruments,
   useRollKeysClaimed,
 } from "../../recording/armed-audition.ts";
 import { useArmedTrackIds } from "../../recording/record-arm.ts";
@@ -25,32 +26,36 @@ const NO_CLIP = {
 };
 const ignoreCapture = (_note: MidiNote) => {};
 
-// Plays keys through the armed tracks while no piano roll or MIDI pass has
-// them, which then do it themselves. The typing keyboard only takes its keys
-// from the shortcuts when an armed track has something to play.
+// Plays keys through the armed tracks, or with none armed the selected track,
+// while no piano roll or MIDI pass has them, which then do it themselves. The
+// typing keyboard only takes its keys from the shortcuts when one of those
+// tracks has something to play.
 export function ArmedTrackAudition({
   session,
   playheadSignal,
+  selectedTrackId,
 }: {
   session: ArmedAuditionSession;
   playheadSignal: PlayheadSignal;
+  selectedTrackId?: string;
 }) {
   useEffect(() => {
     setArmedAuditionSource(session, () => playheadSignal.get());
   }, [session, playheadSignal]);
-  const armedTrackIds = useArmedTrackIds();
+  const trackIds = keyTrackIds(useArmedTrackIds(), selectedTrackId);
   const midiPassActive = useMidiPassActive();
   const rollKeysClaimed = useRollKeysClaimed();
   const enabled =
     !midiPassActive &&
     !rollKeysClaimed &&
-    armedInstruments(armedTrackIds, session, 0).length > 0;
+    trackInstruments(trackIds, session, 0).length > 0;
   const { playKey, releaseKey } = useMidiNoteCapture({
     enabled,
     hub: midiInputHub,
     clip: NO_CLIP,
     clock: null,
-    onAudition: (pitch, expression) => auditionArmedTracks(pitch, expression),
+    onAudition: (pitch, expression) =>
+      auditionTracks(trackIds, pitch, expression),
     onCapture: ignoreCapture,
   });
   useComputerKeyboardEntry({

@@ -1,8 +1,9 @@
 // Keys played on a MIDI device or the typing keyboard sound through every track
-// armed for recording, whatever is selected (#1599). A track's instruments sit
-// on its MIDI clips' stacks, so it plays the instrument of its MIDI clip at or
-// last before the playhead, or else of its first. A track with none, or with
-// its FX switched off, stays silent, as it would in the mix.
+// armed for recording, whatever is selected (#1599), or with none armed, through
+// the selected track (#1618). A track's instruments sit on its MIDI clips'
+// stacks, so it plays the instrument of its MIDI clip at or last before the
+// playhead, or else of its first. A track with none, or with its FX switched
+// off, stays silent, as it would in the mix.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { ProjectState } from "../app/types.ts";
 import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
@@ -16,12 +17,22 @@ export type ArmedAuditionSession = Pick<
   "sourceTracks" | "sourceSpans" | "effects"
 >;
 
-/**
- * The instruments of the tracks in `armedTrackIds`, leaving out the track that
- * owns the clip `exceptSpanId`.
- */
-export function armedInstruments(
+/** The tracks idle keys sound through: the armed ones, or else the selected. */
+export function keyTrackIds(
   armedTrackIds: ReadonlySet<string>,
+  selectedTrackId: string | undefined,
+): ReadonlySet<string> {
+  return armedTrackIds.size > 0 || selectedTrackId === undefined
+    ? armedTrackIds
+    : new Set([selectedTrackId]);
+}
+
+/**
+ * The instruments of the tracks in `trackIds`, leaving out the track that owns
+ * the clip `exceptSpanId`.
+ */
+export function trackInstruments(
+  trackIds: ReadonlySet<string>,
   { sourceTracks, sourceSpans, effects }: ArmedAuditionSession,
   playheadQ: number,
   exceptSpanId?: string,
@@ -31,7 +42,7 @@ export function armedInstruments(
   )?.sourceTrackId;
   return sourceTracks.flatMap((track) => {
     if (
-      !armedTrackIds.has(track.id) ||
+      !trackIds.has(track.id) ||
       track.id === exceptTrackId ||
       !isLayerFxEnabled(track)
     ) {
@@ -97,22 +108,29 @@ export function setArmedAuditionSource(
 }
 
 /**
- * Plays `pitch` on every armed track but the one owning `exceptSpanId`, held
- * until the voice is released, which a Drum Rack's one-shot pads don't wait for.
+ * Plays `pitch` on every track in `trackIds` but the one owning `exceptSpanId`,
+ * held until the voice is released, which a Drum Rack's one-shot pads don't wait
+ * for.
  */
-export function auditionArmedTracks(
+export function auditionTracks(
+  trackIds: ReadonlySet<string>,
   pitch: number,
   expression: ExpressionSample | undefined,
   exceptSpanId?: string,
 ) {
   return combineVoices(
-    armedInstruments(
-      getArmedTrackIds(),
-      session,
-      playheadQ(),
-      exceptSpanId,
-    ).map((instrument) => auditionNote(pitch, instrument, expression, true)),
+    trackInstruments(trackIds, session, playheadQ(), exceptSpanId).map(
+      (instrument) => auditionNote(pitch, instrument, expression, true),
+    ),
   );
+}
+
+export function auditionArmedTracks(
+  pitch: number,
+  expression: ExpressionSample | undefined,
+  exceptSpanId?: string,
+) {
+  return auditionTracks(getArmedTrackIds(), pitch, expression, exceptSpanId);
 }
 
 // How many open piano rolls take the keys, passing them on to the armed tracks.

@@ -67,6 +67,8 @@ type TransportBarProps = {
   // The take a MIDI pass is playing notes into.
   midiTake?: MidiTake | null;
   armedAuditionSession?: ArmedAuditionSession;
+  // The track keys sound through with none armed.
+  selectedSourceTrackId?: string;
   toggleRecording: () => void;
 };
 
@@ -129,6 +131,7 @@ export function TransportBar({
   isRecording,
   midiTake,
   armedAuditionSession,
+  selectedSourceTrackId,
   toggleRecording,
   skipToEdge,
   playheadSignal,
@@ -267,6 +270,7 @@ export function TransportBar({
         {armedAuditionSession ? (
           <ArmedTrackAudition
             playheadSignal={playheadSignal}
+            selectedTrackId={selectedSourceTrackId}
             session={armedAuditionSession}
           />
         ) : null}

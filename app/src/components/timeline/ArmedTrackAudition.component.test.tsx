@@ -87,13 +87,17 @@ afterEach(() => {
   port.onmidimessage = null;
 });
 
-async function renderAudition() {
-  await render(
-    <ArmedTrackAudition
-      playheadSignal={createPlayheadSignal(0)}
-      session={session}
-    />,
-  );
+const playheadSignal = createPlayheadSignal(0);
+const audition = (selectedTrackId?: string) => (
+  <ArmedTrackAudition
+    playheadSignal={playheadSignal}
+    selectedTrackId={selectedTrackId}
+    session={session}
+  />
+);
+
+async function renderAudition(selectedTrackId?: string) {
+  return render(audition(selectedTrackId));
 }
 
 function fire(type: "keydown" | "keyup", code: string) {
@@ -173,6 +177,83 @@ test("a piano roll taking the keys takes over from it", async () => {
   await expect.poll(() => fire("keydown", "KeyD")).toBe(true);
   fire("keyup", "KeyD");
   expect(sounding()).toEqual(["square"]);
+});
+
+// With nothing armed, keys fall back to the selected track (#1618).
+test("with none armed, keys hold the selected track's instrument, from either input", async () => {
+  await renderAudition("square");
+  send(NOTE_ON, 60);
+  expect(sounding()).toEqual(["square"]);
+  expect(oscillators[0].stop).not.toHaveBeenCalled();
+  send(NOTE_OFF, 60);
+  expect(oscillators[0].stop).toHaveBeenCalledOnce();
+
+  oscillators = [];
+  await expect.poll(() => fire("keydown", "KeyA")).toBe(true);
+  expect(sounding()).toEqual(["square"]);
+  expect(oscillators[0].stop).not.toHaveBeenCalled();
+  fire("keyup", "KeyA");
+  expect(oscillators[0].stop).toHaveBeenCalledOnce();
+});
+
+test("selecting another track retargets the keys", async () => {
+  const { rerender } = await renderAudition("square");
+  send(NOTE_ON, 60);
+  send(NOTE_OFF, 60);
+  expect(sounding()).toEqual(["square"]);
+
+  oscillators = [];
+  await rerender(audition("saw"));
+  send(NOTE_ON, 60);
+  send(NOTE_OFF, 60);
+  expect(sounding()).toEqual(["sawtooth"]);
+});
+
+test("arming a track takes the keys off the selected track, and disarming hands them back", async () => {
+  await renderAudition("square");
+  setTrackArmed("saw", true);
+  await expect.poll(() => fire("keydown", "KeyA")).toBe(true);
+  fire("keyup", "KeyA");
+  expect(sounding()).toEqual(["sawtooth"]);
+
+  oscillators = [];
+  setTrackArmed("saw", false);
+  await expect.poll(() => {
+    send(NOTE_ON, 60);
+    send(NOTE_OFF, 60);
+    return sounding().at(-1);
+  }).toBe("square");
+  expect(sounding()).not.toContain("sawtooth");
+});
+
+test("an armed track with no instrument stays silent over a selected one with", async () => {
+  await renderAudition("square");
+  setTrackArmed("empty", true);
+  await expect.poll(() => fire("keydown", "KeyA")).toBe(false);
+  fire("keyup", "KeyA");
+  send(NOTE_ON, 60);
+  send(NOTE_OFF, 60);
+  expect(sounding()).toEqual([]);
+});
+
+test("a selected track with no instrument sounds nothing and leaves typed keys free", async () => {
+  await renderAudition("empty");
+  send(NOTE_ON, 60);
+  send(NOTE_OFF, 60);
+  expect(fire("keydown", "KeyA")).toBe(false);
+  fire("keyup", "KeyA");
+  expect(sounding()).toEqual([]);
+});
+
+test("a piano roll taking the keys leaves the selected track silent", async () => {
+  await renderAudition("square");
+  const unclaim = claimRollKeys();
+  await expect.poll(() => fire("keydown", "KeyA")).toBe(false);
+  fire("keyup", "KeyA");
+  send(NOTE_ON, 60);
+  send(NOTE_OFF, 60);
+  expect(sounding()).toEqual([]);
+  unclaim();
 });
 
 test("a MIDI take auditions through the armed tracks, not a default Synth", async () => {

@@ -712,6 +712,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               onTransportToggle={playback.handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
               {...recording}
+              selectedSourceTrackId={selection.sourceSelection?.sourceTrackId}
             />
           </section>
 
