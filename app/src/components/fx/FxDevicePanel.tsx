@@ -29,6 +29,7 @@ import { useKeyMapControls } from "./key-map-context";
 import { MoveDeviceBody } from "./MoveDeviceBody";
 import { useDeviceFit } from "./use-device-fit";
 import "./fx-device-audio.css";
+import "./fx-device-layouts.css";
 import "./fx-device-pinned.css";
 
 type FxDevicePanelProps = {
