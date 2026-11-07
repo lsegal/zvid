@@ -1,6 +1,7 @@
 import { getParameterFormat } from "../../../fx-chain";
 import { Fader } from "../../ui/Fader";
 import { Knob } from "../../ui/Knob";
+import { useKeyMapControls } from "../key-map-context";
 import type { FxParameterControlProps } from "../types";
 import { useLiveKnob } from "../use-live-knob";
 import { ColorWheelControl } from "./ColorWheelControl";
@@ -24,6 +25,7 @@ function LiveNumberControl({
   onSetParameter,
 }: FxParameterControlProps) {
   const live = useLiveKnob(device, parameter.key);
+  const keyMap = useKeyMapControls();
   const defaultValue =
     typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
   const shared = {
@@ -32,6 +34,11 @@ function LiveNumberControl({
     format: getParameterFormat(device.effectName, parameter.key),
     label: parameter.label,
     live,
+    mapProps: keyMap.knobProps({
+      kind: "number",
+      effectId: device.id,
+      parameter: parameter.key,
+    }),
     max: parameter.max,
     min: parameter.min,
     onChange: (value: number) =>

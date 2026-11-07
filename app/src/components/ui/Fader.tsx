@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { KeyMapButtonProps } from "../fx/key-map-context.ts";
 import { automationAccent } from "./automation-accent.ts";
 import "./fader.css";
 
@@ -36,6 +37,8 @@ export type FaderProps = {
    * set value and read out in its place; undefined while nothing moves it.
    */
   live?: number;
+  /** What MIDI Map mode adds to the control to select it for mapping. */
+  mapProps?: KeyMapButtonProps;
 };
 
 const TRACK_HEIGHT = 112;
@@ -87,6 +90,7 @@ export function Fader({
   onCommit,
   disabled = false,
   live,
+  mapProps,
 }: FaderProps) {
   const labelId = useId();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -310,6 +314,7 @@ export function Fader({
 
   return (
     <div
+      {...mapProps}
       className={[
         "fader",
         dragging ? "fader--dragging" : "",
