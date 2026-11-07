@@ -291,7 +291,7 @@ function midiProject(): ProjectState {
         accent: "#7ca1ff",
       },
     ],
-    effects: addDefaultSynth(base.effects, "source-bassline", "bass-synth"),
+    effects: addDefaultSynth(base.effects, "bass", "bass-synth"),
   };
 }
 

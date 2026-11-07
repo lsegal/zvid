@@ -36,6 +36,7 @@ const CLIP = "clip";
 const clipStack = sourceClipEffectTrackId(CLIP);
 const trackStack = sourceTrackEffectTrackId(TRACK);
 const rack = createEffect(clipStack, DRUM_RACK_EFFECT_NAME, "rack");
+const trackRack = createEffect(trackStack, DRUM_RACK_EFFECT_NAME, "rack");
 
 const gain = (stackId: string, db: number, mute = false): SessionEffect => {
   const effect = createEffect(stackId, GAIN_EFFECT_NAME);
@@ -53,15 +54,16 @@ const gain = (stackId: string, db: number, mute = false): SessionEffect => {
 };
 
 // What the audition plays from: `effects` beside the rack, on the clip `CLIP`
-// of the track `TRACK`, unless `owned` is false and the rack's clip is gone.
-const session = (effects: SessionEffect[], owned = true) => {
+// of the track `TRACK`, unless `owned` is false and the rack's clip is gone. The
+// rack is on the clip's stack, or on `onStack`.
+const session = (effects: SessionEffect[], owned = true, onStack = rack) => {
   setArmedAuditionSource(
     {
       sourceTracks: [{ id: TRACK }],
       sourceSpans: owned
         ? [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }]
         : [],
-      effects: [rack, ...effects],
+      effects: [onStack, ...effects],
       bpm: 120,
       signatureId: "4/4",
     } as unknown as ArmedAuditionSession,
@@ -192,6 +194,25 @@ test("a pad fired from a key map sounds through its track's stack", {
 
   session([gain(trackStack, 0, true)]);
   expect(await peakOf(pressMappedKey)).toBeLessThan(0.001);
+});
+
+test("a pad on a track's Drum Rack sounds through the track's and Global stacks", {
+  timeout: 60_000,
+}, async () => {
+  const press = await panelPad();
+  session([gain(trackStack, 0)], true, trackRack);
+  const unity = await peakOf(press);
+  expect(unity).toBeGreaterThan(0.01);
+
+  session([gain(trackStack, -24)], true, trackRack);
+  expect(await peakOf(press)).toBeLessThan(unity / 4);
+
+  session(
+    [gain(trackStack, 0), gain(GLOBAL_EFFECT_TRACK_ID, 0, true)],
+    true,
+    trackRack,
+  );
+  expect(await peakOf(press)).toBeLessThan(0.001);
 });
 
 test("a Drum Rack no source track owns still plays, dry", {

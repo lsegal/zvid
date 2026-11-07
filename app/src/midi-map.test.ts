@@ -6,8 +6,10 @@ import {
   assignMidiMapping,
   findMidiMapping,
   learnMidiMappingsMpe,
+  type MidiCcMapping,
   type MidiMapKey,
-  type MidiMapping,
+  type MidiNoteMapping,
+  midiCcTargets,
   midiMappingMatches,
   pruneMidiMappings,
   readMidiMappings,
@@ -25,7 +27,7 @@ const mapping = (
   note: number,
   channel = 1,
   target: KeyMapTarget = POWER,
-): MidiMapping => ({
+): MidiNoteMapping => ({
   note,
   channel,
   target,
@@ -155,5 +157,63 @@ describe("readMidiMappings", () => {
       ),
       undefined,
     );
+  });
+});
+
+const CUTOFF = { kind: "number", effectId: "a", parameter: "cutoff" } as const;
+const ccMapping = (
+  controller: number,
+  channel = 1,
+  target: MidiCcMapping["target"] = CUTOFF,
+): MidiCcMapping => ({ controller, channel, target });
+
+describe("CC mappings", () => {
+  it("are found by channel and controller, several knobs to one control", () => {
+    const other = { ...CUTOFF, parameter: "drive" };
+    const mappings = [ccMapping(74), ccMapping(74, 1, other), ccMapping(75)];
+    assert.deepEqual(midiCcTargets(mappings, 1, 74), [CUTOFF, other]);
+    assert.deepEqual(midiCcTargets(mappings, 2, 74), []);
+    assert.deepEqual(midiCcTargets(undefined, 1, 74), []);
+  });
+
+  it("replace what their knob had, and keep apart from notes", () => {
+    const note = mapping(74);
+    const assigned = assignMidiMapping([note, ccMapping(74)], ccMapping(10));
+    assert.deepEqual(assigned, [note, ccMapping(10)]);
+    assert.equal(midiMappingMatches(ccMapping(74), key(74, 1)), false);
+    assert.deepEqual(midiCcTargets([note], 1, 74), []);
+    assert.equal(removeMidiMapping([ccMapping(74)], CUTOFF), undefined);
+  });
+
+  it("go away with their effect", () => {
+    assert.equal(pruneMidiMappings([ccMapping(74)], []), undefined);
+  });
+
+  it("survive being read back from a session", () => {
+    const effect = createEffect(GLOBAL_EFFECT_TRACK_ID, "Delay");
+    const saved = ccMapping(74, 3, { ...CUTOFF, effectId: effect.id });
+    assert.deepEqual(
+      readMidiMappings(JSON.parse(JSON.stringify([saved])), [effect]),
+      [saved],
+    );
+  });
+
+  it("are dropped from a session when unusable", () => {
+    const effect = createEffect(GLOBAL_EFFECT_TRACK_ID, "Delay");
+    const target = { ...CUTOFF, effectId: effect.id };
+    for (const raw of [
+      { controller: 128, channel: 1, target },
+      { controller: 74, channel: 0, target },
+      { controller: 74.5, channel: 1, target },
+      { note: 60, channel: 1, target },
+      {
+        controller: 74,
+        channel: 1,
+        target: { kind: "power", effectId: effect.id },
+      },
+      { controller: 74, channel: 1, target: { ...target, parameter: 1 } },
+    ]) {
+      assert.equal(readMidiMappings([raw], [effect]), undefined);
+    }
   });
 });

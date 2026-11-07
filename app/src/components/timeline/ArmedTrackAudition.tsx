@@ -51,7 +51,7 @@ export function ArmedTrackAudition({
   const enabled =
     !midiPassActive &&
     !rollKeysClaimed &&
-    trackInstruments(trackIds, session, 0).length > 0;
+    trackInstruments(trackIds, session).length > 0;
   const { playKey, releaseKey } = useMidiNoteCapture({
     enabled,
     hub: midiInputHub,

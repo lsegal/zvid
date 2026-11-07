@@ -81,8 +81,9 @@ export function getFxClipName(label: string, textPreview = "") {
 // stack, except on a layer those every layer is already given (Layout), and
 // a Layout once the stack (`stack`) has one. An FX clip's stack is the
 // "fxClip" scope. An audio clip's menus offer only audio effects, and a
-// MIDI clip's (`kind` "midi") audio and, on its own stack, MIDI effects,
-// which no other stack offers.
+// MIDI clip's (`kind` "midi") audio and, on its own stack and its track's,
+// MIDI effects. A source track without media shown on its own (`kind`
+// "midiTrack") offers MIDI effects on its stack, as no other stack does.
 export function addableEffectsFor(
   group: FxEffectScope,
   kind: string | undefined = undefined,
@@ -104,7 +105,10 @@ function isOfferedFor(
   kind: string | undefined,
 ) {
   if (domain === "midi") {
-    return kind === "midi" && group === "clip";
+    return (
+      (kind === "midi" && (group === "clip" || group === "layer")) ||
+      (kind === "midiTrack" && group === "layer")
+    );
   }
   return (kind !== "audio" && kind !== "midi") || domain === "audio";
 }

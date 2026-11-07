@@ -40,6 +40,7 @@ import {
   setSourceSpanMidiTimeline,
   setSourceSpanNotes,
 } from "../midi-editing.ts";
+import { addInstrumentTrackGain } from "../midi-effects.ts";
 import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
 import {
@@ -268,7 +269,11 @@ export function useFxEditing({
       beforeId: string | undefined,
     ) =>
       editEffects(effectHistoryLabels.move(device.effectName), (current) =>
-        moveEffectToStack(current, device.id, trackId, beforeId, scope),
+        addInstrumentTrackGain(
+          moveEffectToStack(current, device.id, trackId, beforeId, scope),
+          trackId,
+          `${device.id}:gain`,
+        ),
       ),
     [editEffects],
   );
@@ -304,7 +309,7 @@ export function useFxEditing({
               { width: project.canvasWidth, height: project.canvasHeight },
               transformId,
             )
-          : added;
+          : addInstrumentTrackGain(added, trackId, `${id}:gain`);
       });
     },
     [editEffects, timelineClipsRef],
@@ -377,7 +382,11 @@ export function useFxEditing({
 
       const copy = copyEffect(fxClipboard, trackId, id);
       editEffects(effectHistoryLabels.paste(copy.effectName), (current) =>
-        placeEffect(current, copy, scope),
+        addInstrumentTrackGain(
+          placeEffect(current, copy, scope),
+          trackId,
+          `${id}:gain`,
+        ),
       );
     },
     [editEffects, fxClipboard],

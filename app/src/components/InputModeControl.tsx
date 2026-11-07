@@ -156,7 +156,7 @@ export function MidiInputControl({
   return (
     <InputModeSegments
       glyph={MIDI_GLYPH}
-      mapTitle="MIDI map: click an effect button, then press a MIDI key. Click to stop mapping."
+      mapTitle="MIDI map: click an effect button, knob or fader, then press a MIDI key or move a control. Click to stop mapping."
       mode={map.active ? "map" : enabled ? "on" : "off"}
       name="MIDI"
       onOff={() => {

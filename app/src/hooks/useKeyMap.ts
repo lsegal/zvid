@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import { isEditableEventTarget } from "../app/util.ts";
-import type {
-  KeyMapButtonProps,
-  KeyMapControls,
+import {
+  INACTIVE_KEY_MAP,
+  type KeyMapButtonProps,
+  type KeyMapControls,
 } from "../components/fx/key-map-context.ts";
 import { drumRackParams } from "../fx/effects/drum-rack/drum-media.ts";
 import { parseDrumRack } from "../fx/effects/drum-rack/drum-rack.ts";
@@ -299,6 +300,7 @@ export function useKeyMap({
           onPointerDownCapture: swallow,
         };
       },
+      knobProps: INACTIVE_KEY_MAP.knobProps,
       isPadHeld: (effectId, pad) => heldPads.has(padId(effectId, pad)),
     };
   }, [active, heldPads, keyMappings, selectedTarget, toggle]);
