@@ -73,12 +73,11 @@ type PendingPan = {
 export function chainHandlers<A extends object, B extends object>(
   first: A,
   second: B,
-): A & B {
-  const chained: Record<string, unknown> = { ...first, ...second };
-  for (const name of Object.keys(first)) {
-    const a = (first as Record<string, unknown>)[name];
+) {
+  const chained = { ...first, ...second } as Record<string, unknown>;
+  for (const [name, a] of Object.entries(first)) {
     const b = (second as Record<string, unknown>)[name];
-    if (typeof a === "function" && typeof b === "function") {
+    if (typeof b === "function") {
       chained[name] = (...args: unknown[]) => {
         a(...args);
         b(...args);

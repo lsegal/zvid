@@ -521,12 +521,24 @@ const clickNote = async (pitch: string, modifiers?: ["Shift"]) => {
   await click(point.x, point.y, modifiers ? { modifiers } : undefined);
 };
 
+// The contextmenu of a long press or the menu key, with no mouse press first.
+function openNoteMenu(target: Element, point = center(target)) {
+  target.dispatchEvent(
+    new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: point.x,
+      clientY: point.y,
+    }),
+  );
+}
+
 test(
-  "right-clicking a note opens its action menu, with inapplicable items disabled (#1397)",
+  "a long press or the menu key opens a note's action menu, with inapplicable items disabled (#1397)",
   async () => {
     setNoteClipboard(undefined);
     const { grid, notes, status } = await openPianoRoll();
-    await rightClick(requireNote("C3"));
+    openNoteMenu(requireNote("C3"));
     await expect.element(page.getByRole("menu")).toBeVisible();
     // It selects the note instead of deleting it.
     expect(notes()).toEqual(NOTES);
@@ -572,13 +584,13 @@ test(
     await expect.poll(() => notes()).toEqual(NOTES);
     expect(status()).toBe("Undid: Transpose Notes.");
 
-    // Copy, then right-click empty grid with nothing selected: only Paste.
-    await rightClick(requireNote("G3"));
+    // Copy, then open the menu on empty grid with nothing selected: only Paste.
+    openNoteMenu(requireNote("G3"));
     await noteMenuItem("Copy").click();
     await userEvent.keyboard("{Escape}");
     await expect.poll(selectedNotes).toEqual([]);
     const empty = cell(grid, 6, 52);
-    await click(empty.x, empty.y, { button: "right" });
+    openNoteMenu(grid, empty);
     await expect.element(page.getByRole("menu")).toBeVisible();
     expect(disabled()).toHaveLength(10);
     await expect
@@ -588,7 +600,7 @@ test(
     await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
     expect(notes()).toEqual(NOTES);
 
-    await rightClick(requireNote("C4"));
+    openNoteMenu(requireNote("C4"));
     await noteMenuItem("Delete").click();
     await expect.poll(() => notes()).toEqual(NOTES.slice(0, 2));
     await undo();
