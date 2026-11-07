@@ -100,6 +100,11 @@ async function readWaveform(page: Page) {
 test("Scopes draws a live waveform of the picture above it and leaves the preview unchanged", async ({
   page,
 }) => {
+  // A resized panel keeps its height as the device is added, so the preview,
+  // which is compared pixel by pixel, keeps its size.
+  await page.addInitScript(() => {
+    localStorage.setItem("zvid-fx-panel-height", "300");
+  });
   await page.goto("/");
   await insertFillAtStart(page, "1");
   await page.mouse.move(0, 0);
