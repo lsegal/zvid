@@ -7,7 +7,10 @@ import {
   MUTE_KEY,
 } from "../../fx/effects/gain/gain.ts";
 import { MUTE_ON } from "../../fx/effects/gain/processor.ts";
-import { sourceTrackEffectTrackId } from "../../fx/stack/clip-stacks.ts";
+import {
+  clipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../../fx/stack/clip-stacks.ts";
 import { createEffect } from "../../fx/stack/ops.ts";
 import {
   createDefaultModulation,
@@ -76,6 +79,9 @@ const synth = createSynthEffect(trackStack, {
 const hear = (effects: unknown[]) => {
   setArmedAuditionSource(
     {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
       sourceTracks: [{ id: TRACK }],
       sourceSpans: [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }],
       effects: [synth, ...effects],
@@ -173,4 +179,78 @@ test("without an LFO the same held key stays level", async () => {
   const levels = await levelsOverASecond();
   voice?.release();
   expect(Math.max(...levels)).toBeLessThan(Math.min(...levels) * 1.1);
+});
+
+// A session whose audio comes from a layer clip playing the MIDI clip (#1635).
+const LANE = "lane";
+const LAYER_CLIP = "layer-clip";
+const hearThroughLayer = (effects: unknown[]) => {
+  setArmedAuditionSource(
+    {
+      clips: [
+        {
+          id: LAYER_CLIP,
+          laneId: LANE,
+          sourceSpanId: CLIP,
+          sourceTrackId: TRACK,
+          mediaPath: "",
+          startQ: 0,
+          durationSeconds: 2,
+          trimStartSeconds: 0,
+          sourceOffsetSeconds: 0,
+          sourceSpanOffsetSeconds: 0,
+          sourceWindowStartSeconds: 0,
+          sourceWindowEndSeconds: 2,
+        },
+      ],
+      lanes: [{ id: LANE }],
+      mediaItems: [],
+      sourceTracks: [{ id: TRACK }],
+      sourceSpans: [
+        {
+          id: CLIP,
+          sourceTrackId: TRACK,
+          mediaPath: "",
+          startQ: 0,
+          durationSeconds: 2,
+          trimStartSeconds: 0,
+          notes: [{ pitch: 60, start: 0, length: 1, velocity: 100 }],
+        },
+      ],
+      effects: [synth, ...effects],
+      bpm: 120,
+      signatureId: "4/4",
+    } as unknown as ArmedAuditionSession,
+    () => 0,
+  );
+};
+
+const onStack = (stackId: string, effect: ReturnType<typeof gain>) => ({
+  ...effect,
+  trackId: stackId,
+});
+
+test("a paused key sounds through its layer's stack when the mix plays through it", async () => {
+  hearThroughLayer([gain(0), onStack(LANE, gain(0))]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.01);
+  // Past the moment the note reached the speakers, so this is its full level.
+  await wait(300);
+  const unity = level();
+
+  hearThroughLayer([gain(0), onStack(LANE, gain(-24))]);
+  await expect.poll(() => level()).toBeLessThan(unity / 4);
+  expect(level()).toBeGreaterThan(0);
+  voice?.release();
+});
+
+test("a paused key sounds through its layer clip's stack when the mix plays through it", async () => {
+  const stack = clipEffectTrackId(LAYER_CLIP);
+  hearThroughLayer([gain(0), onStack(stack, gain(0))]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.01);
+
+  hearThroughLayer([gain(0), onStack(stack, gain(0, false, true))]);
+  await expect.poll(() => level()).toBeLessThan(0.001);
+  voice?.release();
 });

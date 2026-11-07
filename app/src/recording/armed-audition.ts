@@ -4,15 +4,18 @@
 // track with none, or with its FX switched off, stays silent, as it would in
 // the mix. Its notes sound through its effects, as the mix plays them, their
 // LFOs on the audio clock rather than the paused playhead (see
-// audio-mix/audition-chain.ts). A Drum Rack's pads sound through the stacks of
+// audio-mix/audition-chain.ts), and where the mix plays the track through a layer
+// clip, through that one's too. A Drum Rack's pads sound through the stacks of
 // the clip or track the rack is on.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
+  type AuditionLayerClip,
   type AuditionStack,
   auditionChainSettings,
 } from "../audio-mix/audition-chain.ts";
+import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
   getEffectSourceSpanId,
   getEffectSourceTrackId,
@@ -31,12 +34,23 @@ import type {
   MidiInstrument,
 } from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
+import {
+  getClipPieceClips,
+  getClipTrackOffsetSeconds,
+} from "../source-track-content.ts";
 import { signatureById } from "../time-signature.ts";
 import { getArmedTrackIds } from "./record-arm.ts";
 
 export type ArmedAuditionSession = Pick<
   ProjectState,
-  "sourceTracks" | "sourceSpans" | "effects" | "bpm" | "signatureId"
+  | "clips"
+  | "lanes"
+  | "mediaItems"
+  | "sourceTracks"
+  | "sourceSpans"
+  | "effects"
+  | "bpm"
+  | "signatureId"
 >;
 
 /** The tracks idle keys sound through: the armed ones, or else the selected. */
@@ -91,6 +105,65 @@ export function trackInstruments(
   );
 }
 
+// Whether the mix plays `session`'s layers rather than its source tracks, which
+// a key can ask of a session many times over.
+const playsLayers = new WeakMap<ArmedAuditionSession, boolean>();
+
+function mixPlaysLayers(session: ArmedAuditionSession) {
+  let result = playsLayers.get(session);
+  if (result === undefined) {
+    const { clips, lanes, sourceTracks, sourceSpans, mediaItems } = session;
+    result = !resolveAudioClips({
+      clips,
+      lanes,
+      sourceTracks,
+      sourceSpans,
+      mediaById: new Map(mediaItems.map((item) => [item.id, item])),
+      effects: session.effects,
+      bpm: session.bpm,
+    }).fromSourceTracks;
+    playsLayers.set(session, result);
+  }
+  return result;
+}
+
+/**
+ * The layer clip the mix plays the clip `spanId` through, or for a note with no
+ * clip the track `trackId`, if it does: the one at or last before the playhead,
+ * or else the first. What several layer clips play auditions through just that
+ * one.
+ */
+function auditionLayerClipOf(
+  trackId: string,
+  spanId: string | undefined,
+  session: ArmedAuditionSession,
+  playheadQ: number,
+): AuditionLayerClip | undefined {
+  const { clips, lanes, sourceSpans, bpm } = session;
+  const pieces = clips
+    .filter((clip) => !clip.kind)
+    .flatMap((clip) => getClipPieceClips(clip, sourceSpans, bpm))
+    .filter((piece) =>
+      spanId === undefined
+        ? piece.sourceTrackId === trackId
+        : piece.sourceSpanId === spanId,
+    )
+    .sort((a, b) => a.startQ - b.startQ);
+  if (!pieces.length || !mixPlaysLayers(session)) {
+    return undefined;
+  }
+  const piece =
+    pieces.findLast(({ startQ }) => startQ <= playheadQ) ?? pieces[0];
+  return {
+    clipId: piece.id,
+    laneId: piece.laneId,
+    laneFxEnabled: isLayerFxEnabled(
+      lanes.find((lane) => lane.id === piece.laneId),
+    ),
+    timeOffsetSeconds: getClipTrackOffsetSeconds(piece, [], bpm),
+  };
+}
+
 /**
  * What a note on the track `trackId` plays through, at `playheadQ`: the clip
  * `spanId`'s stack as well for a note on that clip, and otherwise its own.
@@ -98,14 +171,17 @@ export function trackInstruments(
 export function auditionStackOf(
   trackId: string,
   spanId: string | undefined,
-  { sourceTracks, effects, bpm, signatureId }: ArmedAuditionSession,
+  session: ArmedAuditionSession,
   playheadQ: number,
 ): AuditionStack | undefined {
+  const { sourceTracks, effects, bpm, signatureId } = session;
   const track = sourceTracks.find((candidate) => candidate.id === trackId);
   if (!track) {
     return undefined;
   }
   const { numerator, denominator } = signatureById(signatureId);
+  // The mix doesn't play a MIDI clip on a track with its FX switched off at all.
+  const fxEnabled = isLayerFxEnabled(track);
   return {
     trackId: track.id,
     spanId,
@@ -113,7 +189,10 @@ export function auditionStackOf(
       effects,
       track.id,
       spanId,
-      isLayerFxEnabled(track),
+      fxEnabled,
+      fxEnabled
+        ? auditionLayerClipOf(track.id, spanId, session, playheadQ)
+        : undefined,
     ),
     tempo: { bpm, signature: { numerator, denominator } },
     playheadSeconds: quartersToSeconds(playheadQ, bpm),
@@ -149,6 +228,9 @@ export function combineVoices(
 
 // What the armed tracks play right now, which the app keeps up to date.
 let session: ArmedAuditionSession = {
+  clips: [],
+  lanes: [],
+  mediaItems: [],
   sourceTracks: [],
   sourceSpans: [],
   effects: [],
