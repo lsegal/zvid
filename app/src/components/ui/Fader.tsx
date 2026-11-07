@@ -322,7 +322,7 @@ export function Fader({
         {
           "--fader-accent": accent,
           "--fader-automation": automationAccent(accent),
-          "--fader-height": `${TRACK_HEIGHT}px`,
+          "--fader-height": `var(--fx-fader-height, ${TRACK_HEIGHT}px)`,
           "--fader-position": position(value),
           "--fader-live": livePosition,
           "--fader-live-low": Math.min(livePosition, position(value)),

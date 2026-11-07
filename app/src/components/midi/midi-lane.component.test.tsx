@@ -19,6 +19,7 @@ import {
   rightClick,
   undo,
 } from "../../component-test/input.ts";
+import { setViewport } from "../../component-test/viewport.ts";
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
 import {
@@ -90,6 +91,9 @@ function midiProject(): ProjectState {
 }
 
 async function open(initial = midiProject()) {
+  // Tall enough for the Synth's usual layout, and so for a roll that shows the
+  // cells these tests click without scrolling.
+  await setViewport({ width: 1280, height: 1100 });
   let state: ProjectState | undefined;
   let status = "";
   await renderEditor({

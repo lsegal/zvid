@@ -1,7 +1,8 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import type { ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useRef } from "react";
 import { FX_PANEL_MIN_HEIGHT } from "../app/constants.ts";
 import { SOURCE_CLIP_COLLAPSE_KEY } from "../fx-chain.ts";
+import { useFxDeviceMaxHeight } from "../hooks/useFxDeviceMaxHeight.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { FxPanelResize } from "../hooks/useFxPanelResize.ts";
@@ -14,6 +15,7 @@ import {
   type KeyMapControls,
   MidiMapContext,
 } from "./fx/key-map-context";
+import { FxDeviceMaxHeightContext } from "./fx/use-device-fit";
 import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";
 import { TrackRecordDevice } from "./TrackRecordDevice";
@@ -130,6 +132,13 @@ export function FxPanel({
   toggleInspectorCollapsed,
 }: FxPanelProps) {
   const { height: fxPanelHeight, ...resizeHandlers } = fxPanelResize ?? {};
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const deviceMaxHeight = useFxDeviceMaxHeight(
+    bodyRef,
+    fxPanelResize !== undefined,
+    fxPanelHeight ?? null,
+    isInspectorCollapsed,
+  );
   return (
     <>
       {fxPanelResize && !isInspectorCollapsed ? (
@@ -162,86 +171,96 @@ export function FxPanel({
           className="fx-panel__body"
           hidden={isInspectorCollapsed}
           id="fx-panel-body"
+          ref={bodyRef}
+          style={
+            deviceMaxHeight === null
+              ? undefined
+              : ({
+                  "--fx-device-max-height": `${deviceMaxHeight}px`,
+                } as CSSProperties)
+          }
         >
-          <KeyMapContext.Provider value={keyMap}>
-            <MidiMapContext.Provider value={midiMap}>
-              <FxChain
-                leading={(collapse) => (
-                  <>
-                    {fxRecordTrack ? (
-                      <TrackRecordDevice
-                        key={fxRecordTrack.trackId}
-                        trackId={fxRecordTrack.trackId}
-                        trackName={fxRecordTrack.trackName}
+          <FxDeviceMaxHeightContext.Provider value={deviceMaxHeight}>
+            <KeyMapContext.Provider value={keyMap}>
+              <MidiMapContext.Provider value={midiMap}>
+                <FxChain
+                  leading={(collapse) => (
+                    <>
+                      {fxRecordTrack ? (
+                        <TrackRecordDevice
+                          key={fxRecordTrack.trackId}
+                          trackId={fxRecordTrack.trackId}
+                          trackName={fxRecordTrack.trackName}
+                        />
+                      ) : null}
+                      {sourceClip ? (
+                        <SourceClipProperties
+                          collapsed={collapse.collapsed.has(
+                            SOURCE_CLIP_COLLAPSE_KEY,
+                          )}
+                          midiClip={
+                            fxMidiClip?.spanId === sourceClip.spanId
+                              ? fxMidiClip
+                              : undefined
+                          }
+                          model={sourceClip}
+                          onSetMidiTimeline={setMidiClipTimeline}
+                          onToggleCollapsed={() =>
+                            collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                          }
+                        />
+                      ) : null}
+                      <MidiDevices
+                        {...collapse}
+                        midiClip={fxMidiClip}
+                        setNotes={setMidiClipNotes}
+                        setTimeline={setMidiClipTimeline}
                       />
-                    ) : null}
-                    {sourceClip ? (
-                      <SourceClipProperties
-                        collapsed={collapse.collapsed.has(
-                          SOURCE_CLIP_COLLAPSE_KEY,
-                        )}
-                        midiClip={
-                          fxMidiClip?.spanId === sourceClip.spanId
-                            ? fxMidiClip
-                            : undefined
-                        }
-                        model={sourceClip}
-                        onSetMidiTimeline={setMidiClipTimeline}
-                        onToggleCollapsed={() =>
-                          collapse.toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
-                        }
-                      />
-                    ) : null}
-                    <MidiDevices
-                      {...collapse}
-                      midiClip={fxMidiClip}
-                      setNotes={setMidiClipNotes}
-                      setTimeline={setMidiClipTimeline}
-                    />
-                  </>
-                )}
-                devices={fxDevices}
-                kind={fxKind}
-                layerFxEnabled={fxLayerFxEnabled}
-                layers={orderLayerOptions}
-                clipLayers={fxClipLayerOptions}
-                layerLabel={fxLayerLabel}
-                layerName={fxLayerName}
-                layerTrackId={fxLayerTrackId}
-                clipTrackId={fxClipTrackId}
-                clipScope={fxClipScope}
-                clipLeading={
-                  fxInheritedSource ? (
-                    <InheritedSourceFx stacks={fxInheritedSource} />
-                  ) : null
-                }
-                onAdd={addFxDevice}
-                clipboardEffectName={fxClipboard?.effectName}
-                onClearAll={clearFxDevices}
-                onCopy={copyFxDevice}
-                onCut={cutFxDevice}
-                onDuplicate={duplicateFxDevice}
-                onMove={moveFxDevice}
-                onMoveToStack={moveFxDeviceToStack}
-                onPaste={pasteFxDevice}
-                onRemove={removeFxDevice}
-                onReset={resetFxDevice}
-                onSetLayerFxEnabled={(enabled) => {
-                  if (fxSourceTrackId) {
-                    setSourceTrackFxEnabled(fxSourceTrackId, enabled);
-                  } else if (fxLaneId) {
-                    setLayerFxEnabled(fxLaneId, enabled);
+                    </>
+                  )}
+                  devices={fxDevices}
+                  kind={fxKind}
+                  layerFxEnabled={fxLayerFxEnabled}
+                  layers={orderLayerOptions}
+                  clipLayers={fxClipLayerOptions}
+                  layerLabel={fxLayerLabel}
+                  layerName={fxLayerName}
+                  layerTrackId={fxLayerTrackId}
+                  clipTrackId={fxClipTrackId}
+                  clipScope={fxClipScope}
+                  clipLeading={
+                    fxInheritedSource ? (
+                      <InheritedSourceFx stacks={fxInheritedSource} />
+                    ) : null
                   }
-                }}
-                onSetEnabled={setFxDeviceEnabled}
-                onSetAnimationEnabled={setFxDeviceAnimationEnabled}
-                onSetAnimation={setFxDeviceAnimation}
-                onSetModulationEnabled={setFxDeviceModulationEnabled}
-                onSetModulation={setFxDeviceModulation}
-                onSetParameter={setFxDeviceParameter}
-              />
-            </MidiMapContext.Provider>
-          </KeyMapContext.Provider>
+                  onAdd={addFxDevice}
+                  clipboardEffectName={fxClipboard?.effectName}
+                  onClearAll={clearFxDevices}
+                  onCopy={copyFxDevice}
+                  onCut={cutFxDevice}
+                  onDuplicate={duplicateFxDevice}
+                  onMove={moveFxDevice}
+                  onMoveToStack={moveFxDeviceToStack}
+                  onPaste={pasteFxDevice}
+                  onRemove={removeFxDevice}
+                  onReset={resetFxDevice}
+                  onSetLayerFxEnabled={(enabled) => {
+                    if (fxSourceTrackId) {
+                      setSourceTrackFxEnabled(fxSourceTrackId, enabled);
+                    } else if (fxLaneId) {
+                      setLayerFxEnabled(fxLaneId, enabled);
+                    }
+                  }}
+                  onSetEnabled={setFxDeviceEnabled}
+                  onSetAnimationEnabled={setFxDeviceAnimationEnabled}
+                  onSetAnimation={setFxDeviceAnimation}
+                  onSetModulationEnabled={setFxDeviceModulationEnabled}
+                  onSetModulation={setFxDeviceModulation}
+                  onSetParameter={setFxDeviceParameter}
+                />
+              </MidiMapContext.Provider>
+            </KeyMapContext.Provider>
+          </FxDeviceMaxHeightContext.Provider>
         </div>
       </section>
     </>

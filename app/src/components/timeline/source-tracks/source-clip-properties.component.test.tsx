@@ -17,6 +17,7 @@ import {
   queryAll,
   renderApp,
 } from "../../../component-test/app.tsx";
+import { setViewport } from "../../../component-test/viewport.ts";
 import { installHarness } from "../../../harness";
 import { getCachedMediaBlob } from "../../../media-cache.ts";
 
@@ -440,6 +441,8 @@ test("the Clip widget collapses like an FX device and remembers it", async () =>
 // and is only as wide as one field. The Media offline warning wraps inside it
 // rather than widening it.
 test("the Clip widget stacks its fields vertically", async () => {
+  // Tall enough that it keeps its usual layout rather than reflowing.
+  await setViewport({ width: 1280, height: 1000 });
   await renderApp();
   await dropVideos(1);
   await expectCount(".source-span", 1);

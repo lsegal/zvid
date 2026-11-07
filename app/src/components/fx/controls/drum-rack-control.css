@@ -37,6 +37,23 @@
   gap: 4px;
 }
 
+/* On a short panel (useDeviceFit) the pads take two rows, then the bank menu
+   moves beside them. */
+.fx-device-panel[data-fx-layout] .fx-drum-rack__pads {
+  grid-template-columns: repeat(8, 72px);
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-drum-rack,
+.fx-device-panel[data-fx-layout='3'] .fx-drum-rack {
+  flex-direction: row;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-drum-rack__header,
+.fx-device-panel[data-fx-layout='3'] .fx-drum-rack__header {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .fx-drum-pad {
   position: relative;
   height: 52px;

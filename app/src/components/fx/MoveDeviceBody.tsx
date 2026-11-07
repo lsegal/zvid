@@ -29,12 +29,15 @@ const CHIPS: MovePoint[] = [
 // the next waypoint. The selected point is the one picked on the preview's
 // motion path too.
 export function MoveDeviceBody({
+  beside = false,
   device,
   controls,
   knobRows,
   layers,
   onSetParameter,
 }: {
+  // On a short panel: the controls go beside the chips and the placement row.
+  beside?: boolean;
   device: FxDevice;
   controls: FxDeviceParameter[];
   // The placement rows: Start, each waypoint, then End.
@@ -90,22 +93,19 @@ export function MoveDeviceBody({
     }
   };
 
-  return (
-    <div
-      className="fx-device-panel__body"
-      style={{
-        gridTemplateColumns: `auto repeat(${row?.knobs.length ?? 1}, auto)`,
-      }}
-    >
-      {controls.map((parameter) => (
-        <FxParameterControl
-          key={parameter.key}
-          device={device}
-          layers={layers}
-          onSetParameter={onSetParameter}
-          parameter={parameter}
-        />
-      ))}
+  const columns = `auto repeat(${row?.knobs.length ?? 1}, auto)`;
+  const renderControls = () =>
+    controls.map((parameter) => (
+      <FxParameterControl
+        key={parameter.key}
+        device={device}
+        layers={layers}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    ));
+  const placement = (
+    <>
       <fieldset className="fx-move-points" aria-label={`${device.name} points`}>
         {CHIPS.map((point) => {
           const isSet = typeof point !== "number" || point <= waypointCount;
@@ -158,6 +158,26 @@ export function MoveDeviceBody({
           ))}
         </fieldset>
       ) : null}
+    </>
+  );
+
+  return beside ? (
+    <div className="fx-device-panel__body fx-device-panel__body--columns">
+      <div className="fx-device-panel__controls">{renderControls()}</div>
+      <div
+        className="fx-device-panel__rows"
+        style={{ gridTemplateColumns: columns }}
+      >
+        {placement}
+      </div>
+    </div>
+  ) : (
+    <div
+      className="fx-device-panel__body"
+      style={{ gridTemplateColumns: columns }}
+    >
+      {renderControls()}
+      {placement}
     </div>
   );
 }

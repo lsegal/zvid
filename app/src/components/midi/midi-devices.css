@@ -7,7 +7,7 @@
 /* The piano roll: keys down the left, the clip's window across, scrolling
    both ways inside the device. */
 .piano-roll {
-  --piano-roll-min-grid: 96px;
+  --piano-roll-min-grid: 88px;
   max-width: min(640px, 70vw);
 }
 
@@ -34,6 +34,15 @@
    back first when the panel gets shorter. On a phone's sheet and in the stacked
    layouts, where the page or the sheet scrolls, it keeps the height above. */
 @media (min-width: 901px) and (min-height: 560px) {
+  /* Fitting its content, the panel stays as tall as the devices may be while
+     the roll can use it: without this the roll alone would shrink the row. */
+  .fx-chain .piano-roll {
+    min-height: min(
+      calc(58px + 180px + var(--piano-roll-velocity)),
+      var(--fx-device-max-height, 0px)
+    );
+  }
+
   .fx-chain .piano-roll__scroll {
     flex: 1 1 0;
     height: auto;
