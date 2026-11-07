@@ -234,7 +234,7 @@ test("a left press on the grid still paints and doesn't pan", async () => {
   const from = emptyGridPoint(scroller);
   const { scrollLeft, scrollTop } = scroller;
   await settledDrag(from, { x: from.x - 40, y: from.y }, "left");
-  expect(edits[0]?.label).toBe(midiHistoryLabels.addNote);
+  expect(edits[0]?.label).toBe(midiHistoryLabels.addNotes);
   expect(scroller.scrollLeft).toBe(scrollLeft);
   expect(scroller.scrollTop).toBe(scrollTop);
 });

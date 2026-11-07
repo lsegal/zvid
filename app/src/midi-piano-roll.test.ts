@@ -12,6 +12,8 @@ import {
   noteKey,
   PIANO_ROLL_HIGH_PITCH,
   PIANO_ROLL_LOW_PITCH,
+  PIANO_ROLL_SNAP_Q,
+  paintNote,
   pasteNotes,
   pitchName,
   placeNote,
@@ -45,16 +47,32 @@ describe("piano roll edits", () => {
     assert.equal(snapQ(0.25), 0.25);
   });
 
-  it("adds a quarter note on the grid, in start order", () => {
+  it("adds a note one grid cell long, in start order", () => {
     assert.deepEqual(addNote([C4, E4], 67, 1.6), [
       C4,
-      { pitch: 67, start: 1.5, length: 1, velocity: 100 },
+      { pitch: 67, start: 1.5, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
       E4,
     ]);
   });
 
   it("keeps added notes inside the roll's keys", () => {
     assert.equal(addNote([], 200, 0)[0].pitch, PIANO_ROLL_HIGH_PITCH);
+  });
+
+  it("paints a note into an empty cell of the grid only", () => {
+    const start = C4.start + C4.length;
+    assert.deepEqual(paintNote([C4], C4.pitch, start + 0.1), [
+      C4,
+      { pitch: C4.pitch, start, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
+    ]);
+    const notes = [C4];
+    assert.equal(paintNote(notes, C4.pitch, C4.start + 0.1), notes);
+    // A note starting partway through a cell occupies it.
+    const partway = [{ ...C4, start: 0.375 }];
+    assert.equal(paintNote(partway, C4.pitch, 0.3), partway);
+    assert.equal(paintNote(notes, C4.pitch + 1, -0.1), notes);
+    assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0), notes);
+    assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0), notes);
   });
 
   it("moves a note by snapped quarters and whole semitones from where it was", () => {

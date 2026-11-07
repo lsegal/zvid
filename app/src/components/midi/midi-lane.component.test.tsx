@@ -32,7 +32,10 @@ import {
   type MidiClipTimeline,
 } from "../../midi-clip-timeline.ts";
 import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
-import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
+import {
+  PIANO_ROLL_HIGH_PITCH,
+  PIANO_ROLL_SNAP_Q,
+} from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { setNoteClipboard } from "../../piano-roll-actions.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
@@ -394,7 +397,7 @@ test(
     expect(notes()?.[3]).toEqual({
       pitch: 52,
       start: 6,
-      length: 1,
+      length: PIANO_ROLL_SNAP_Q,
       velocity: 100,
     });
     // The lane's thumbnail follows.
@@ -406,6 +409,88 @@ test(
 
     await undo();
     await expect.poll(() => notes()).toEqual(NOTES);
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+// What a stroke across empty grid at `pitch` paints: a note per cell from
+// `fromQ` up to `toQ`.
+function paintedRun(pitch: number, fromQ: number, toQ: number) {
+  return Array.from(
+    { length: (toQ - fromQ) / PIANO_ROLL_SNAP_Q },
+    (_, index) => ({
+      pitch,
+      start: fromQ + index * PIANO_ROLL_SNAP_Q,
+      length: PIANO_ROLL_SNAP_Q,
+      velocity: 100,
+    }),
+  );
+}
+
+test(
+  "left-dragging empty grid paints a note per cell as one undo step, even in one jump (#1595)",
+  async () => {
+    const { grid, notes, status } = await openPianoRoll();
+    const from = cell(grid, 4, 52);
+    const to = cell(grid, 5, 52);
+    // A single move across the cells, as a fast drag sends.
+    await drag(from, to, { steps: 1 });
+    const run = paintedRun(52, 4, 5.25);
+    await expect
+      .poll(() => notes()?.filter((note) => note.pitch === 52))
+      .toEqual(run);
+    expect(notes()).toHaveLength(NOTES.length + run.length);
+    expect(selectedNotes()).toHaveLength(run.length);
+
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Add Notes.");
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "a paint stroke steps over existing notes and stops at the clip's Length (#1595)",
+  async () => {
+    const { grid, notes } = await openPianoRoll();
+    // Across G3, which sits at quarters 2 to 3 of the row.
+    await drag(cell(grid, 1.5, 55), cell(grid, 3.25, 55), { steps: 4 });
+    await expect
+      .poll(() => notes()?.filter((note) => note.pitch === 55))
+      .toEqual([
+        ...paintedRun(55, 1.5, 2),
+        NOTES[1],
+        ...paintedRun(55, 3, 3.5),
+      ]);
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+
+    // Past the clip's eight quarters.
+    await drag(cell(grid, 7.5, 52), cell(grid, 9, 52), { steps: 4 });
+    await expect
+      .poll(() => notes()?.filter((note) => note.pitch === 52))
+      .toEqual(paintedRun(52, 7.5, 8));
+  },
+  EDITOR_TEST_TIMEOUT,
+);
+
+test(
+  "right-clicking a note deletes it without opening a menu, and right-clicking empty grid does nothing (#1595)",
+  async () => {
+    const { grid, notes, status } = await openPianoRoll();
+    const empty = cell(grid, 6, 52);
+    await click(empty.x, empty.y, { button: "right" });
+    expect(notes()).toEqual(NOTES);
+
+    await rightClick(requireNote("G3"));
+    await expect
+      .poll(() => notes())
+      .toEqual(NOTES.filter((note) => note !== NOTES[1]));
+    expect(document.querySelector("[role='menu']")).toBeNull();
+
+    await undo();
+    await expect.poll(() => notes()).toEqual(NOTES);
+    expect(status()).toBe("Undid: Delete Note.");
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -508,6 +593,14 @@ function requireNote(pitch: string) {
   return note;
 }
 
+// Opens the note menu as a long press or the menu key does, with a
+// contextmenu no right-click press came before.
+function openNoteMenu(target: Element, { x, y } = center(target)) {
+  target.dispatchEvent(
+    new MouseEvent("contextmenu", { bubbles: true, clientX: x, clientY: y }),
+  );
+}
+
 // An item of the open note menu, whose name ends with its shortcut; the
 // app's own menus have items of the same names.
 const noteMenuItem = (name: string) =>
@@ -520,20 +613,8 @@ const clickNote = async (pitch: string, modifiers?: ["Shift"]) => {
   await click(point.x, point.y, modifiers ? { modifiers } : undefined);
 };
 
-// The contextmenu of a long press or the menu key, with no mouse press first.
-function openNoteMenu(target: Element, point = center(target)) {
-  target.dispatchEvent(
-    new MouseEvent("contextmenu", {
-      bubbles: true,
-      cancelable: true,
-      clientX: point.x,
-      clientY: point.y,
-    }),
-  );
-}
-
 test(
-  "a long press or the menu key opens a note's action menu, with inapplicable items disabled (#1397)",
+  "a long press on a note opens its action menu, with inapplicable items disabled (#1397)",
   async () => {
     setNoteClipboard(undefined);
     const { grid, notes, status } = await openPianoRoll();
@@ -583,7 +664,7 @@ test(
     await expect.poll(() => notes()).toEqual(NOTES);
     expect(status()).toBe("Undid: Transpose Notes.");
 
-    // Copy, then open the menu on empty grid with nothing selected: only Paste.
+    // Copy, then open it on empty grid with nothing selected: only Paste.
     openNoteMenu(requireNote("G3"));
     await noteMenuItem("Copy").click();
     await userEvent.keyboard("{Escape}");
@@ -1019,7 +1100,9 @@ test(
     await click(point.x, point.y);
     await expect
       .poll(() => bassSpans().find((item) => item.id === clip.id)?.notes)
-      .toEqual([{ pitch: 60, start: 1, length: 1, velocity: 100 }]);
+      .toEqual([
+        { pitch: 60, start: 1, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
+      ]);
     await expect
       .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
       .toBe(1);
