@@ -57,6 +57,11 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
+import {
+  auditionArmedTracks,
+  claimRollKeys,
+  combineVoices,
+} from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { ContextMenu } from "../ContextMenu";
 import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
@@ -249,14 +254,20 @@ export function PianoRoll({
   capturedNotes.current = notes;
   // A MIDI recording pass takes the keys for the clip it records.
   const midiPassActive = useMidiPassActive();
+  const takesKeys = !collapsed && !midiPassActive;
+  useEffect(() => (takesKeys ? claimRollKeys() : undefined), [takesKeys]);
   const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
-    enabled: !collapsed && !midiPassActive,
+    enabled: takesKeys,
     hub: midiHub,
     clip: model,
     clock,
     onAudition(pitch, expression, hold) {
       revealPitch(pitch);
-      return audition(pitch, expression, hold);
+      // The clip's own instrument speaks for its track.
+      return combineVoices([
+        audition(pitch, expression, hold),
+        auditionArmedTracks(pitch, expression, spanId),
+      ]);
     },
     onCapture(note) {
       const next = placeNote(
@@ -270,7 +281,7 @@ export function PianoRoll({
     },
   });
   const keyboardEntryState = useComputerKeyboardEntry({
-    active: !collapsed && !midiPassActive,
+    active: takesKeys,
     entry: keyboardEntry,
     press: playKey,
     release: releaseKey,

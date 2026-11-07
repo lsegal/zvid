@@ -70,6 +70,8 @@ export function useMidiNoteCapture({
   const isPlaying = Boolean(clock?.isPlaying);
   const held = useRef(new Map<string, HeldNote>());
   const pressed = useRef(new Map<string, PressedKey>());
+  // What each key played through `playKey` is sounding.
+  const playedVoices = useRef(new Map<string, AuditionVoice | undefined>());
   // Where the playhead last was, which is where held notes end if it jumps.
   const lastQ = useRef(signal?.get() ?? 0);
 
@@ -119,7 +121,11 @@ export function useMidiNoteCapture({
   const playKey = useCallback(
     (heldKey: string, pitch: number, velocity: number) => {
       const playheadQ = latest.current.clock?.signal.get() ?? lastQ.current;
-      latest.current.onAudition(pitch, undefined, false);
+      playedVoices.current.get(heldKey)?.release();
+      playedVoices.current.set(
+        heldKey,
+        latest.current.onAudition(pitch, undefined, false),
+      );
       finish(heldKey, playheadQ);
       holdNote(heldKey, pitch, velocity, playheadQ);
     },
@@ -127,6 +133,8 @@ export function useMidiNoteCapture({
   );
   const releaseKey = useCallback(
     (heldKey: string) => {
+      playedVoices.current.get(heldKey)?.release();
+      playedVoices.current.delete(heldKey);
       finish(heldKey, latest.current.clock?.signal.get() ?? lastQ.current);
     },
     [finish],
