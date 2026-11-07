@@ -59,6 +59,7 @@ import {
 import { useArmedRollKeys } from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
+import { ZOOM_DEFAULT } from "../../zoom";
 import { ContextMenu } from "../ContextMenu";
 import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
@@ -162,9 +163,10 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // there and dragging on paints one in each cell crossed (see
 // use-piano-roll-stroke.ts), dragging a note moves it in time and pitch,
 // Ctrl/Cmd-dragging drops a copy instead, dragging either of its edges resizes
-// it, and right-clicking a note deletes it; each edit is one undo step.
-// Right-dragging the grid pans the roll (see use-piano-roll-pan.ts), as does
-// dragging the ruler, left and right. A long press or the menu key opens the
+// it, and right-clicking a note deletes it while right-dragging deletes every
+// note crossed; each edit is one undo step. Middle-dragging the grid pans the
+// roll (see use-piano-roll-pan.ts), and dragging the ruler pans it left and
+// right, zooming too when right-dragged up or down. A long press or the menu key opens the
 // menu of note actions. A moved or copied note trims the notes of its pitch it
 // lands on, the way clips do.
 // Clicking a note selects it (Shift-click adds to the selection) and Escape
@@ -209,24 +211,16 @@ export function PianoRoll({
   const select = (keys: Iterable<string>) =>
     setSelection({ spanId, keys: new Set(keys) });
   const { mac } = getShortcutLabels();
-  const pan = usePianoRollPan({
-    scrollRef,
-    mac,
-    onRightClickNote(index) {
-      const note = notes[index];
-      if (note) {
-        select([...selectedKeys].filter((key) => key !== noteKey(note)));
-        removeNote(index);
-      }
-    },
-  });
+  const pan = usePianoRollPan(scrollRef);
+  const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+  const quarterPx = PIANO_ROLL_QUARTER_PX * zoom;
   const viewQ = rollViewQ(notes, timeline);
-  const gridWidth = viewQ * PIANO_ROLL_QUARTER_PX;
+  const gridWidth = viewQ * quarterPx;
   const gridHeight = PITCHES.length * PIANO_ROLL_ROW_PX;
   const style = {
     "--fx-accent": accent,
     "--piano-roll-row": `${PIANO_ROLL_ROW_PX}px`,
-    "--piano-roll-quarter": `${PIANO_ROLL_QUARTER_PX}px`,
+    "--piano-roll-quarter": `${quarterPx}px`,
     "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
     "--piano-roll-velocity": `${velocityLane.height}px`,
   } as CSSProperties;
@@ -266,6 +260,8 @@ export function PianoRoll({
     gridPoint,
     onAudition: (pitch) => audition(pitch),
     onPaint: select,
+    onErase: (keys) =>
+      select([...selectedKeys].filter((key) => !keys.includes(key))),
     onSetNotes,
   });
   const shownNotes = drag?.notes ?? stroke.notes ?? notes;
@@ -334,24 +330,24 @@ export function PianoRoll({
     const row = Math.floor((event.clientY - bounds.top) / PIANO_ROLL_ROW_PX);
     return {
       pitch: PIANO_ROLL_HIGH_PITCH - row,
-      startQ: (event.clientX - bounds.left) / PIANO_ROLL_QUARTER_PX,
+      startQ: (event.clientX - bounds.left) / quarterPx,
     };
   }
 
   function handleGridPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    // Right-clicks, and Ctrl-clicks, which macOS treats as right-clicks,
-    // belong to the pan and its click.
-    if (
-      event.button !== 0 ||
-      isContextMenuPress(event, mac) ||
-      stroke.isBusy(event.pointerId)
-    ) {
+    // Right-clicks, and Ctrl-clicks, which macOS treats as right-clicks, erase.
+    const erase = isContextMenuPress(event, mac);
+    if ((event.button !== 0 && !erase) || stroke.isBusy(event.pointerId)) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     // The grid takes the focus so the panel hears Delete and Escape.
     gridRef.current?.focus({ preventScroll: true });
+    if (erase) {
+      stroke.startErase(event, notes);
+      return;
+    }
     const noteElement = (event.target as Element).closest<HTMLElement>(
       "[data-note-index]",
     );
@@ -404,7 +400,7 @@ export function PianoRoll({
     if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
-    const deltaQ = (event.clientX - drag.startX) / PIANO_ROLL_QUARTER_PX;
+    const deltaQ = (event.clientX - drag.startX) / quarterPx;
     const moved = drag.edge
       ? resizeNote(drag.base, drag.index, drag.from, drag.edge, deltaQ)
       : moveNote(
@@ -563,7 +559,7 @@ export function PianoRoll({
   function handleGridContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (pan.claimContextMenu() || drag) {
+    if (stroke.claimContextMenu() || drag) {
       return;
     }
     stroke.cancel();
@@ -646,10 +642,12 @@ export function PianoRoll({
           onChange={(next, historyLabel, mode) =>
             onSetTimeline(spanId, next, historyLabel, mode)
           }
-          quarterPx={PIANO_ROLL_QUARTER_PX}
+          quarterPx={quarterPx}
+          onZoom={setZoom}
           scrollRef={scrollRef}
           timeline={timeline}
           viewQ={viewQ}
+          zoom={zoom}
         />
         <div className="piano-roll__keys" style={{ height: gridHeight }}>
           {PITCHES.map((pitch) => (
@@ -694,11 +692,11 @@ export function PianoRoll({
         >
           <span
             className="piano-roll__beyond-end"
-            style={{ left: timeline.length * PIANO_ROLL_QUARTER_PX }}
+            style={{ left: timeline.length * quarterPx }}
           />
           {shownNotes.map((note, index) => {
-            const left = note.start * PIANO_ROLL_QUARTER_PX;
-            const width = note.length * PIANO_ROLL_QUARTER_PX;
+            const left = note.start * quarterPx;
+            const width = note.length * quarterPx;
             const selected = drag
               ? drag.index === index
               : selectedKeys.has(noteKey(note));
@@ -747,11 +745,11 @@ export function PianoRoll({
               clip={model}
               key={`${note.pitch}:${note.startQ}`}
               note={note}
-              quarterPx={PIANO_ROLL_QUARTER_PX}
+              quarterPx={quarterPx}
               top={rowOf(note.pitch) * PIANO_ROLL_ROW_PX}
             />
           ))}
-          <PianoRollPlayhead model={model} quarterPx={PIANO_ROLL_QUARTER_PX} />
+          <PianoRollPlayhead model={model} quarterPx={quarterPx} />
         </div>
         <PianoRollVelocity
           lane={velocityLane}
@@ -759,7 +757,7 @@ export function PianoRoll({
           onSetVelocities={(next) =>
             onSetNotes(spanId, next, midiHistoryLabels.setVelocity)
           }
-          quarterPx={PIANO_ROLL_QUARTER_PX}
+          quarterPx={quarterPx}
           selectedKeys={selectedKeys}
           width={gridWidth}
         />

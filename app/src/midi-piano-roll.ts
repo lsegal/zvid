@@ -185,6 +185,22 @@ export function noteKey(note: MidiNote) {
   return `${note.pitch}:${note.start}:${note.length}`;
 }
 
+/**
+ * `notes` without the note of `pitch` sounding at `q`, or `notes` itself when
+ * there is none.
+ */
+export function eraseNote(
+  notes: readonly MidiNote[],
+  pitch: number,
+  q: number,
+): readonly MidiNote[] {
+  const index = notes.findIndex(
+    (note) =>
+      note.pitch === pitch && note.start <= q && q < note.start + note.length,
+  );
+  return index < 0 ? notes : deleteNote(notes, index);
+}
+
 /** `notes` without those whose `noteKey` is in `keys`. */
 export function deleteNotes(
   notes: readonly MidiNote[],
