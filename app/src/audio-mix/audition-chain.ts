@@ -1,7 +1,7 @@
 // The effect chains MIDI auditions play through (see midi-audition.ts): one
 // per source track, the same DSP the mix runs (see chain.ts), holding the
 // clip's stack, its track's and the Global one, then the mix's limiter, so a
-// key sounds as the track does in playback. Where the mix plays the clip through
+// key sounds as the track does in playback. Where the mix plays the track through
 // a layer clip, it holds that clip's and its layer's stacks too. A track's chain
 // outlives its notes, so they share its tails and its LFOs carry on from one to
 // the next.
@@ -37,13 +37,14 @@ import {
 // What a note auditioned on a source track plays through.
 export type AuditionStack = {
   trackId: string;
-  spanId: string;
+  // The clip the note is on, which a note played into the track has none of.
+  spanId?: string;
   settings: AudioChainSettings;
   tempo: AudioTempo;
   playheadSeconds: number;
 };
 
-// The layer clip the mix plays a source clip through.
+// The layer clip the mix plays a source track through.
 export type AuditionLayerClip = {
   clipId: string;
   laneId: string;
@@ -54,8 +55,9 @@ export type AuditionLayerClip = {
 };
 
 /**
- * The chain a note on the clip `spanId` of the track `trackId` plays through:
- * the clip's audio effects, its track's, then Global's, in the mix's order. As
+ * The chain a note on the clip `spanId` of the track `trackId`, or on the track
+ * itself without one, plays through: the clip's audio effects, if any, its
+ * track's, then Global's, in the mix's order. As
  * in the mix (see resolve.ts) a track without an enabled Gain is silent, and
  * one with its FX switched off bypasses all but Global.
  *
@@ -66,7 +68,7 @@ export type AuditionLayerClip = {
 export function auditionChainSettings(
   effects: readonly AudioStageEffect[],
   trackId: string,
-  spanId: string,
+  spanId: string | undefined,
   fxEnabled: boolean,
   layerClip?: AuditionLayerClip,
 ): AudioChainSettings {
@@ -79,7 +81,8 @@ export function auditionChainSettings(
     stackOf(stackId).map((effect, index) =>
       audioStageOf(effect, `${stackId}:${index}`, enabled),
     );
-  const clipStackId = sourceClipEffectTrackId(spanId);
+  const clipStackIds =
+    spanId === undefined ? [] : [sourceClipEffectTrackId(spanId)];
   const trackStackId = sourceTrackEffectTrackId(trackId);
   const gainIn = (stackIds: readonly string[]) =>
     stackIds
@@ -90,30 +93,27 @@ export function auditionChainSettings(
       );
   if (layerClip) {
     const { clipId, laneId, laneFxEnabled, timeOffsetSeconds } = layerClip;
-    const layerClipStackId = clipEffectTrackId(clipId);
+    const sourceStackIds = [trackStackId, ...clipStackIds];
+    const layerStackIds = [clipEffectTrackId(clipId), laneId];
     return {
       stages: [
-        ...[trackStackId, clipStackId].flatMap((stackId) =>
+        ...sourceStackIds.flatMap((stackId) =>
           stagesOf(stackId, laneFxEnabled).map((stage) =>
             withLfoTimeOffset(stage, timeOffsetSeconds),
           ),
         ),
-        ...stagesOf(layerClipStackId, laneFxEnabled),
-        ...stagesOf(laneId, laneFxEnabled),
+        ...layerStackIds.flatMap((stackId) => stagesOf(stackId, laneFxEnabled)),
         ...stagesOf(GLOBAL_EFFECT_TRACK_ID),
       ],
       inputGain:
-        laneFxEnabled &&
-        gainIn([trackStackId, clipStackId, layerClipStackId, laneId])
-          ? 1
-          : 0,
+        laneFxEnabled && gainIn([...sourceStackIds, ...layerStackIds]) ? 1 : 0,
       delayFrames: 0,
     };
   }
-  const hasGain = gainIn([clipStackId, trackStackId]);
+  const hasGain = gainIn([...clipStackIds, trackStackId]);
   return {
     stages: [
-      ...stagesOf(clipStackId, fxEnabled),
+      ...clipStackIds.flatMap((stackId) => stagesOf(stackId, fxEnabled)),
       ...stagesOf(trackStackId, fxEnabled),
       ...stagesOf(GLOBAL_EFFECT_TRACK_ID),
     ],
@@ -192,10 +192,12 @@ export class AuditionChains {
     return chain.input;
   }
 
-  /** Has the open chains follow an edit: `resolve` gives each clip's stack now. */
-  update(resolve: (spanId: string) => AuditionStack | undefined) {
+  /** Has the open chains follow an edit: `resolve` gives each stack now. */
+  update(
+    resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
+  ) {
     for (const [trackId, chain] of this.chains) {
-      const stack = resolve(chain.stack.spanId);
+      const stack = resolve(trackId, chain.stack.spanId);
       if (stack) {
         this.configure(chain, {
           ...stack,

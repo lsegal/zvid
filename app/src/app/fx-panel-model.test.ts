@@ -164,7 +164,7 @@ describe("getFxClipScope", () => {
 
 describe("getSourceFxStacks", () => {
   const tracks = [{ id: "t1", name: "Camera A" }];
-  const spans = [{ id: "s1", label: "  ", mediaId: "m1" }];
+  const spans = [{ id: "s1", label: "  ", mediaId: "m1", sourceTrackId: "t1" }];
 
   it("is undefined without a source selection", () => {
     assert.equal(getSourceFxStacks(undefined, tracks, spans), undefined);
@@ -182,6 +182,7 @@ describe("getSourceFxStacks", () => {
         clipName: undefined,
         mediaId: undefined,
         midi: false,
+        midiTrack: false,
       },
     );
   });
@@ -202,12 +203,13 @@ describe("getSourceFxStacks", () => {
         clipName: "Untitled",
         mediaId: "m1",
         midi: false,
+        midiTrack: false,
       },
     );
   });
 
-  it("marks a selected MIDI clip's stack, the only one offering MIDI effects", () => {
-    const midi = [{ id: "s1", label: "", notes: [] }];
+  it("marks a selected MIDI clip's stacks as offering MIDI effects", () => {
+    const midi = [{ id: "s1", label: "", notes: [], sourceTrackId: "t1" }];
     assert.equal(
       getSourceFxStacks(
         { sourceTrackId: "t1", sourceSpanId: "s1" },
@@ -218,6 +220,24 @@ describe("getSourceFxStacks", () => {
     );
     assert.equal(
       getSourceFxStacks({ sourceTrackId: "t1" }, tracks, midi)?.midi,
+      false,
+    );
+  });
+
+  it("offers MIDI effects on a track shown on its own without media clips", () => {
+    const midi = [{ id: "s1", label: "", notes: [], sourceTrackId: "t1" }];
+    const midiTrack = (
+      selection: {
+        sourceTrackId: string;
+        sourceSpanId?: string;
+      },
+      sourceSpans: Parameters<typeof getSourceFxStacks>[2],
+    ) => getSourceFxStacks(selection, tracks, sourceSpans)?.midiTrack;
+    assert.equal(midiTrack({ sourceTrackId: "t1" }, []), true);
+    assert.equal(midiTrack({ sourceTrackId: "t1" }, midi), true);
+    assert.equal(midiTrack({ sourceTrackId: "t1" }, spans), false);
+    assert.equal(
+      midiTrack({ sourceTrackId: "t1", sourceSpanId: "s1" }, midi),
       false,
     );
   });

@@ -75,6 +75,27 @@ describe("auditionChainSettings", () => {
     assert.equal(inputGain, 1);
   });
 
+  it("takes only the track's stack for a note with no clip (#1626)", () => {
+    const track = sourceTrackEffectTrackId("track");
+    const onClip = createEffect(sourceClipEffectTrackId("clip"), "Gain");
+    const onTrack = createEffect(track, "Delay");
+    assert.deepEqual(
+      auditionChainSettings(
+        [onClip, onTrack],
+        "track",
+        undefined,
+        true,
+      ).stages.map((stage) => stage.effectName),
+      ["Delay"],
+    );
+    // The clip's Gain doesn't make a note played into the track sound.
+    assert.equal(
+      auditionChainSettings([onClip, onTrack], "track", undefined, true)
+        .inputGain,
+      0,
+    );
+  });
+
   describe("through a layer clip", () => {
     const layerClipStack = clipEffectTrackId("layer-clip");
     const layerClip = {

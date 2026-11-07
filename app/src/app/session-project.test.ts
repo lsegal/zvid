@@ -9,6 +9,7 @@ import {
   type SessionEffect,
   setEffectParameter,
   sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
 } from "../fx-stack.ts";
 import type { KeyMapping } from "../key-map.ts";
 import type { MediaItem } from "../media.ts";
@@ -1064,11 +1065,11 @@ describe("a session with a MIDI clip", () => {
       },
     ],
   };
-  // The MIDI effects on the source clip `clipId`'s own stack, by name.
-  const midiStack = (project: { effects: SessionEffect[] }, clipId: string) =>
+  // The MIDI effects on the source track `trackId`'s stack, by name.
+  const midiStack = (project: { effects: SessionEffect[] }, trackId: string) =>
     project.effects.filter(
       (effect) =>
-        effect.trackId === sourceClipEffectTrackId(`source-${clipId}`) &&
+        effect.trackId === sourceTrackEffectTrackId(trackId) &&
         effect.effectName !== "Gain",
     );
 
@@ -1082,13 +1083,13 @@ describe("a session with a MIDI clip", () => {
     assert.equal("notes" in placeholder, false);
   });
 
-  it("moves its tracks' synths and arpeggiators onto their MIDI clips", () => {
+  it("keeps its tracks' synths and arpeggiators on their stacks", () => {
     const project = sessionToProject(withPad, []);
     for (const track of project.sourceTracks) {
       assert.equal("synth" in track, false);
       assert.equal("noteGenerators" in track, false);
     }
-    const keys = midiStack(project, "1");
+    const keys = midiStack(project, "keys");
     assert.deepEqual(
       keys.map((effect) => effect.effectName),
       ["Arpeggiator", "Synth"],
@@ -1101,12 +1102,12 @@ describe("a session with a MIDI clip", () => {
       },
     });
     // A track that never set its synth played the default one.
-    assert.deepEqual(midiChainOf(midiStack(project, "3")), {
+    assert.deepEqual(midiChainOf(midiStack(project, "pad")), {
       generators: [],
       instrument: { kind: "synth", params: DEFAULT_SYNTH_PARAMS },
     });
     // A placeholder has no notes to play.
-    assert.deepEqual(midiStack(project, "2"), []);
+    assert.deepEqual(midiStack(project, "bass"), []);
   });
 
   it("keeps a note's expression through a save and reload", () => {
@@ -1167,12 +1168,12 @@ describe("a session with a MIDI clip", () => {
     const names = (stack: SessionEffect[]) =>
       stack.map((effect) => [effect.id, effect.effectName]);
     assert.deepEqual(
-      names(midiStack(reopened, "1")),
-      names(midiStack(project, "1")),
+      names(midiStack(reopened, "keys")),
+      names(midiStack(project, "keys")),
     );
     assert.deepEqual(
-      midiChainOf(midiStack(reopened, "1")),
-      midiChainOf(midiStack(project, "1")),
+      midiChainOf(midiStack(reopened, "keys")),
+      midiChainOf(midiStack(project, "keys")),
     );
   });
 
@@ -1190,10 +1191,10 @@ describe("a session with a MIDI clip", () => {
     );
     const reopened = sessionToProject(saved, []);
     assert.deepEqual(
-      midiStack(reopened, "1").map((effect) => effect.effectName),
+      midiStack(reopened, "keys").map((effect) => effect.effectName),
       ["Arpeggiator"],
     );
-    assert.deepEqual(midiStack(reopened, "3"), []);
+    assert.deepEqual(midiStack(reopened, "pad"), []);
   });
 
   it("saves and reopens a clip's Length, loop and Start marker", () => {

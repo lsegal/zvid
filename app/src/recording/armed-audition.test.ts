@@ -20,8 +20,8 @@ import {
   trackInstruments,
 } from "./armed-audition.ts";
 
-const synth = (spanId: string, cutoff: number) =>
-  createSynthEffect(sourceClipEffectTrackId(spanId), {
+const synth = (trackId: string, cutoff: number) =>
+  createSynthEffect(sourceTrackEffectTrackId(trackId), {
     ...DEFAULT_SYNTH_PARAMS,
     cutoff,
   });
@@ -55,10 +55,9 @@ function sessionOf(
 function cutoffs(
   armed: string[],
   session: ArmedAuditionSession,
-  playheadQ = 0,
   exceptSpanId?: string,
 ) {
-  return trackInstruments(new Set(armed), session, playheadQ, exceptSpanId).map(
+  return trackInstruments(new Set(armed), session, exceptSpanId).map(
     (instrument) =>
       instrument.kind === "synth" ? instrument.params.cutoff : instrument.kind,
   );
@@ -80,7 +79,7 @@ describe("trackInstruments", () => {
     const session = sessionOf(
       [{ id: "a" }, { id: "b" }, { id: "c" }],
       [span("m1", "a", 0), span("m2", "b", 0), span("m3", "c", 0)],
-      [synth("m1", 100), synth("m2", 200), synth("m3", 300)],
+      [synth("a", 100), synth("b", 200), synth("c", 300)],
     );
     assert.deepEqual(cutoffs(["a", "c"], session), [100, 300]);
     assert.deepEqual(cutoffs([], session), []);
@@ -90,48 +89,68 @@ describe("trackInstruments", () => {
     const session = sessionOf(
       [{ id: "a" }],
       [span("m", "a", 0)],
-      [createEffect(sourceClipEffectTrackId("m"), GRANULAR_EFFECT_NAME)],
+      [createEffect(sourceTrackEffectTrackId("a"), GRANULAR_EFFECT_NAME)],
     );
     assert.deepEqual(cutoffs(["a"], session), ["granular"]);
   });
 
-  it("leaves out a track with no instrument, on no MIDI clip", () => {
-    const session = sessionOf(
-      [{ id: "empty" }, { id: "plain" }, { id: "media" }],
-      [span("m", "plain", 0), span("v", "media", 0, false)],
-      [synth("v", 100)],
+  it("plays a track's instrument with no clips at all", () => {
+    assert.deepEqual(
+      cutoffs(["a"], sessionOf([{ id: "a" }], [], [synth("a", 100)])),
+      [100],
     );
-    assert.deepEqual(cutoffs(["empty", "plain", "media"], session), []);
+  });
+
+  it("leaves out a track with no instrument", () => {
+    const session = sessionOf(
+      [{ id: "empty" }, { id: "plain" }],
+      [span("m", "plain", 0)],
+      [],
+    );
+    assert.deepEqual(cutoffs(["empty", "plain"], session), []);
   });
 
   it("leaves out a track with its FX switched off", () => {
     const session = sessionOf(
       [{ id: "a", fxEnabled: false }],
       [span("m", "a", 0)],
-      [synth("m", 100)],
+      [synth("a", 100)],
     );
     assert.deepEqual(cutoffs(["a"], session), []);
   });
 
-  it("plays the clip at or last before the playhead, else the first", () => {
-    const session = sessionOf(
-      [{ id: "a" }],
-      [span("late", "a", 8), span("early", "a", 4), span("bare", "a", 6)],
-      [synth("late", 800), synth("early", 400)],
+  it("takes the track's instrument, not a clip's (#1626)", () => {
+    const clipSynth = createSynthEffect(sourceClipEffectTrackId("m"), {
+      ...DEFAULT_SYNTH_PARAMS,
+      cutoff: 800,
+    });
+    assert.deepEqual(
+      cutoffs(
+        ["a"],
+        sessionOf([{ id: "a" }], [span("m", "a", 0)], [clipSynth]),
+      ),
+      [],
     );
-    assert.deepEqual(cutoffs(["a"], session, 0), [400]);
-    assert.deepEqual(cutoffs(["a"], session, 4), [400]);
-    assert.deepEqual(cutoffs(["a"], session, 7), [400]);
-    assert.deepEqual(cutoffs(["a"], session, 8), [800]);
+    assert.deepEqual(
+      cutoffs(
+        ["a"],
+        sessionOf(
+          [{ id: "a" }],
+          [span("m", "a", 0)],
+          [clipSynth, synth("a", 100)],
+        ),
+      ),
+      [100],
+    );
   });
 
   it("leaves out the track owning the excepted clip", () => {
     const session = sessionOf(
       [{ id: "a" }, { id: "b" }],
       [span("m1", "a", 0), span("m2", "b", 0)],
-      [synth("m1", 100), synth("m2", 200)],
+      [synth("a", 100), synth("b", 200)],
     );
-    assert.deepEqual(cutoffs(["a", "b"], session, 0, "m1"), [200]);
+    assert.deepEqual(cutoffs(["a", "b"], session, "m1"), [200]);
   });
 });
 
@@ -203,7 +222,7 @@ describe("auditionStackOf", () => {
     createEffect("other-lane", "Chorus"),
     createEffect(clipEffectTrackId("layer"), "Reverb"),
     createEffect(clipEffectTrackId("later"), "Phaser"),
-    synth("span", 100),
+    synth("track", 100),
     createEffect(sourceClipEffectTrackId("span"), GAIN_EFFECT_NAME),
     createEffect(sourceTrackEffectTrackId("track"), "Compressor"),
   ];
@@ -219,8 +238,12 @@ describe("auditionStackOf", () => {
       signatureId: "4/4",
       ...overrides,
     }) as unknown as ArmedAuditionSession;
-  const stageNames = (from: ArmedAuditionSession, playheadQ = 0, id = "span") =>
-    auditionStackOf(id, from, playheadQ)?.settings.stages.map(
+  const stageNames = (
+    from: ArmedAuditionSession,
+    playheadQ = 0,
+    spanId: string | undefined = "span",
+  ) =>
+    auditionStackOf("track", spanId, from, playheadQ)?.settings.stages.map(
       (stage) => stage.effectName,
     );
 
@@ -242,7 +265,7 @@ describe("auditionStackOf", () => {
       expected.map((stage) => stage.effectName),
     );
     assert.deepEqual(
-      auditionStackOf("span", played, 0)?.settings.stages,
+      auditionStackOf("track", "span", played, 0)?.settings.stages,
       expected,
     );
     assert.deepEqual(stageNames(played), [
@@ -252,6 +275,15 @@ describe("auditionStackOf", () => {
       "Delay",
       "Limiter",
     ]);
+  });
+
+  it("runs the layer's stacks for a key on the track, with no clip's", () => {
+    assert.deepEqual(
+      auditionStackOf("track", undefined, session(), 0)?.settings.stages.map(
+        (stage) => stage.effectName,
+      ),
+      ["Compressor", "Reverb", "Delay", "Limiter"],
+    );
   });
 
   it("keeps a session playing its source tracks on the source clip's path", () => {
@@ -279,7 +311,7 @@ describe("auditionStackOf", () => {
     const stack = session({
       sourceSpans: [midiSpan("span", "track", 0), other],
       clips: [layerClip("layer", "lane", other.id, other.sourceTrackId, 0)],
-      effects: [...effects, synth(other.id, 200)],
+      effects: [...effects, synth(other.sourceTrackId, 200)],
     });
     assert.deepEqual(stageNames(stack), [
       GAIN_EFFECT_NAME,
@@ -320,19 +352,26 @@ describe("auditionStackOf", () => {
     const off = session({
       lanes: [{ id: "lane", fxEnabled: false }, { id: "other-lane" }],
     });
-    assert.equal(auditionStackOf("span", off, 0)?.settings.inputGain, 0);
+    assert.equal(
+      auditionStackOf("track", "span", off, 0)?.settings.inputGain,
+      0,
+    );
   });
 
   it("stays on the source path on a track with its FX off, which the mix doesn't play", () => {
     const off = session({
       sourceTracks: [{ id: "track", fxEnabled: false }, { id: "elsewhere" }],
     });
-    const stages = auditionStackOf("span", off, 0)?.settings.stages ?? [];
+    const stages =
+      auditionStackOf("track", "span", off, 0)?.settings.stages ?? [];
     assert.deepEqual(
       stages.map((stage) => stage.effectName),
       [GAIN_EFFECT_NAME, "Compressor", "Limiter"],
     );
-    assert.equal(auditionStackOf("span", off, 0)?.settings.inputGain, 1);
+    assert.equal(
+      auditionStackOf("track", "span", off, 0)?.settings.inputGain,
+      1,
+    );
   });
 
   it("re-reads the mix for a session it has not seen", () => {

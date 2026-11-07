@@ -25,9 +25,9 @@ export const definition: FxEffectDefinition = {
   category: "midi",
   domain: "midi",
   known: true,
-  // Only a MIDI clip's own stack, which the add menus tell apart from other
-  // clips' (see addableEffectsFor).
-  scopes: ["clip"],
+  // Only a source track's and a MIDI clip's stacks, which the add menus tell
+  // apart from other layers' and clips' (see addableEffectsFor).
+  scopes: ["layer", "clip"],
   parameters: [
     {
       kind: "enum",

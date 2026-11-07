@@ -14,7 +14,7 @@ import { addDefaultGain } from "./default-gain.ts";
 import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import type { MidiNote } from "./midi-clip.ts";
 import { newMidiTimeline } from "./midi-clip-timeline.ts";
-import { addDefaultSynth } from "./midi-effects.ts";
+import { addDefaultSynth, carryTrackInstrument } from "./midi-effects.ts";
 import {
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
@@ -121,6 +121,13 @@ export function pasteIntoSourceTrack(
   const newPaths = [...new Set(spans.map((span) => span.mediaPath))].filter(
     (path) => !track.recordingPaths.includes(path),
   );
+  const placed = placeSourceSpans(
+    current,
+    current.sourceSpans,
+    spans,
+    copies,
+    clipboard.effects ?? current.effects,
+  );
   return {
     ...(newPaths.length
       ? {
@@ -134,13 +141,16 @@ export function pasteIntoSourceTrack(
           ),
         }
       : {}),
-    ...placeSourceSpans(
-      current,
-      current.sourceSpans,
-      spans,
-      copies,
-      clipboard.effects ?? current.effects,
-    ),
+    ...placed,
+    ...(clipboard.sourceSpan?.notes
+      ? {
+          effects: carryTrackInstrument(
+            placed.effects ?? current.effects,
+            clipboard.sourceSpan.sourceTrackId,
+            trackId,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -159,12 +169,22 @@ export function duplicateSourceSpan(
     return undefined;
   }
 
-  return placeSourceSpans(
+  const placed = placeSourceSpans(
     current,
     current.sourceSpans,
     [{ ...span, id, startQ: getClipEndQ(span, current.bpm), ...placement }],
     [[sourceClipEffectTrackId(spanId), sourceClipEffectTrackId(id)]],
   );
+  return span.notes && placement
+    ? {
+        ...placed,
+        effects: carryTrackInstrument(
+          placed.effects ?? current.effects,
+          span.sourceTrackId,
+          placement.sourceTrackId,
+        ),
+      }
+    : placed;
 }
 
 /**
@@ -350,7 +370,7 @@ function placeMidiClip(
         },
         [],
       ),
-      id,
+      track.id,
     ),
   };
 }

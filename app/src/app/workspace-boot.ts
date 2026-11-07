@@ -1,7 +1,10 @@
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { migrateDefaultGain } from "../default-gain.ts";
 import { type MediaItem, toShareableMediaItem } from "../media.ts";
-import { migrateMidiClipEffects } from "../midi-effects.ts";
+import {
+  migrateMidiClipEffects,
+  migrateMidiTrackEffects,
+} from "../midi-effects.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
@@ -108,18 +111,24 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     saved.audioGainDefaulted,
   );
   // An older workspace's source tracks carried their synth and note
-  // generators, which move onto their MIDI clips' stacks.
-  state.effects = migrateMidiClipEffects(
-    state.effects,
-    state.sourceTracks,
+  // generators, which move onto their MIDI clips' stacks, and a newer one's
+  // MIDI clips' stacks then move onto their tracks.
+  state.effects = migrateMidiTrackEffects(
+    migrateMidiClipEffects(
+      state.effects,
+      state.sourceTracks,
+      state.sourceSpans,
+      saved.midiClipEffects,
+    ),
     state.sourceSpans,
-    saved.midiClipEffects,
+    saved.midiTrackEffects,
   );
   state.sourceTracks = state.sourceTracks.map(withoutLegacyMidi);
   state.orderDefaulted = true;
   state.clipContentEffects = true;
   state.audioGainDefaulted = true;
   state.midiClipEffects = true;
+  state.midiTrackEffects = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {

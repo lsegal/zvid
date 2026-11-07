@@ -9,7 +9,6 @@ import {
 import { MUTE_ON } from "../../fx/effects/gain/processor.ts";
 import {
   clipEffectTrackId,
-  sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../../fx/stack/clip-stacks.ts";
 import { createEffect } from "../../fx/stack/ops.ts";
@@ -30,7 +29,6 @@ import {
 // moving on the audio clock with the playhead standing still (#1627).
 const TRACK = "track";
 const CLIP = "clip";
-const clipStack = sourceClipEffectTrackId(CLIP);
 const trackStack = sourceTrackEffectTrackId(TRACK);
 
 const gain = (db: number, lfo = false, mute = false) => {
@@ -70,7 +68,7 @@ const gain = (db: number, lfo = false, mute = false) => {
 };
 
 // Keeps the key's attack and sustain out of what the level shows.
-const synth = createSynthEffect(clipStack, {
+const synth = createSynthEffect(trackStack, {
   ...DEFAULT_SYNTH_PARAMS,
   attack: 0,
   decay: 0,

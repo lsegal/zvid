@@ -140,7 +140,7 @@ describe("groupChainDevices", () => {
     );
   });
 
-  it("offers the MIDI effects only on a MIDI clip's own stack", () => {
+  it("offers the MIDI effects only on a MIDI clip's stacks and a media-less track's", () => {
     const names = (group: FxEffectScope, kind?: string) =>
       addableEffectsFor(group, kind).map((definition) => definition.effectName);
     const midi = names("clip", "midi");
@@ -157,11 +157,25 @@ describe("groupChainDevices", () => {
     );
     assert.ok(midi.includes("Gain"));
     for (const [group, kind] of [
+      ["layer", "midi"],
+      ["layer", "midiTrack"],
+    ] as const) {
+      const offered = names(group, kind);
+      assert.ok(offered.includes("Synth"), `${group} ${kind}`);
+      assert.ok(offered.includes("Arpeggiator"), `${group} ${kind}`);
+    }
+    // A media-less track may yet hold anything, so it still offers the rest.
+    assert.ok(names("layer", "midiTrack").includes("Colorize"));
+    for (const [group, kind] of [
       ["clip", undefined],
       ["clip", "audio"],
       ["clip", "video"],
-      ["layer", "midi"],
+      ["clip", "midiTrack"],
+      ["layer", undefined],
+      ["layer", "audio"],
+      ["layer", "video"],
       ["global", "midi"],
+      ["global", "midiTrack"],
       ["fxClip", undefined],
     ] as const) {
       const offered = names(group, kind);

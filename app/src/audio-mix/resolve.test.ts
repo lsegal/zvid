@@ -468,11 +468,55 @@ describe("resolveAudioClips with MIDI clips", () => {
     assert.equal(mixOf([synthOn("m")]).length, 1);
     assert.deepEqual(mixOf([]), []);
     assert.deepEqual(mixOf([{ ...synthOn("m"), enabled: false }]), []);
-    // Another clip's or the track's Synth does not play it.
+    // Another clip's Synth does not play it.
     assert.deepEqual(mixOf([synthOn("other")]), []);
+  });
+
+  it("plays every clip on a track through the track's stack (#1626)", () => {
+    const trackStack = sourceTrackEffectTrackId("keys");
+    const synthsOf = (effects: AudioMixInputs["effects"]) =>
+      resolveAudioClips(
+        inputs({
+          sourceTracks: [{ id: "keys" }],
+          sourceSpans: [midiSpan("a", "keys"), midiSpan("b", "keys")],
+          effects,
+        }),
+      ).clips.map((clip) => clip.synth);
+    const square = { ...DEFAULT_SYNTH_PARAMS, wave: "square" as const };
+    const saw = { ...DEFAULT_SYNTH_PARAMS, wave: "sawtooth" as const };
+    const wavesOf = (effects: AudioMixInputs["effects"]) =>
+      synthsOf(effects).map((synth) =>
+        synth?.instrument.kind === "synth" ? synth.instrument.params.wave : "",
+      );
+    assert.deepEqual(wavesOf([createSynthEffect(trackStack, square)]), [
+      "square",
+      "square",
+    ]);
+    // Changing the track's instrument changes both, with no clip stacks.
+    assert.deepEqual(wavesOf([createSynthEffect(trackStack, saw)]), [
+      "sawtooth",
+      "sawtooth",
+    ]);
+    // A clip's own instrument plays that clip alone.
     assert.deepEqual(
-      mixOf([{ ...synthOn("m"), trackId: sourceTrackEffectTrackId("keys") }]),
-      [],
+      wavesOf([createSynthEffect(trackStack, square), synthOn("b", saw)]),
+      ["square", "sawtooth"],
+    );
+    // A bypassed instrument of its own silences it, whatever the track plays.
+    assert.equal(
+      synthsOf([
+        createSynthEffect(trackStack, square),
+        { ...synthOn("b", saw), enabled: false },
+      ]).length,
+      1,
+    );
+    // A track's Arpeggiator runs on all its clips.
+    assert.deepEqual(
+      synthsOf([
+        createArpeggiatorEffect(trackStack, DEFAULT_ARPEGGIATOR),
+        createSynthEffect(trackStack, square),
+      ]).map((synth) => (synth?.notes.length ?? 0) > 1),
+      [true, true],
     );
   });
 
