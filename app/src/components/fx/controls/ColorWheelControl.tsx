@@ -13,9 +13,7 @@ import type { FxDeviceParameter } from "../../../fx-stack";
 import type { FxParameterControlProps } from "../types";
 import "./color-wheel-control.css";
 
-// Pixels of puck drag across the wheel's radius, and of jog drag across the
-// master's whole range.
-const WHEEL_RADIUS = 44;
+// Pixels of jog drag across the master's whole range.
 const JOG_PIXELS = 240;
 const FINE_FACTOR = 10;
 // A keyboard nudge of the puck, as a share of the radius.
@@ -106,6 +104,9 @@ export function ColorWheelControl({
     pointerId: number;
     x: number;
     y: number;
+    // The disc's radius in pixels, which a short panel makes smaller: a drag
+    // across it moves the puck across it.
+    radius: number;
     start: [number, number];
     mean: number;
     moved: boolean;
@@ -167,6 +168,7 @@ export function ColorWheelControl({
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
+      radius: event.currentTarget.getBoundingClientRect().width / 2,
       start: [puckX, puckY],
       mean: meanOf(),
       moved: false,
@@ -180,8 +182,8 @@ export function ColorWheelControl({
     }
     const factor = event.shiftKey ? 1 / FINE_FACTOR : 1;
     return [
-      state.start[0] + ((event.clientX - state.x) / WHEEL_RADIUS) * factor,
-      state.start[1] + ((event.clientY - state.y) / WHEEL_RADIUS) * factor,
+      state.start[0] + ((event.clientX - state.x) / state.radius) * factor,
+      state.start[1] + ((event.clientY - state.y) / state.radius) * factor,
     ] as [number, number];
   };
 

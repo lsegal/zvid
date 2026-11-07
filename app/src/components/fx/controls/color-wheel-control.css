@@ -73,6 +73,21 @@
   touch-action: none;
 }
 
+/* On a short panel (useDeviceFit) the discs give up height. */
+.fx-device-panel[data-fx-layout='1'] .fx-wheel__disc {
+  width: 64px;
+  height: 64px;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-wheel__disc {
+  width: 44px;
+  height: 44px;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-wheel__header {
+  margin-bottom: 0;
+}
+
 .fx-wheel__disc:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--fx-accent) 60%, transparent);

@@ -32,7 +32,8 @@ import type { FxParameterControlProps } from "../types";
 import "./curve-control.css";
 
 const WIDTH = 280;
-const HEIGHT = 140;
+// The plot's height by the device's layout.
+const HEIGHTS = [140, 116, 92];
 // How near, in pixels, a press must be to a point to grab it.
 const GRAB_RADIUS = 8;
 // Samples drawn along the curve.
@@ -86,7 +87,7 @@ function useCurveHistogram(
 
 // The histogram's bins as a filled area, tallest bin at the top, on a
 // square-root scale so a few dominant levels don't flatten the rest.
-function histogramPath(bins: Float32Array) {
+function histogramPath(bins: Float32Array, height: number) {
   let peak = 0;
   for (const value of bins) {
     peak = Math.max(peak, Math.sqrt(value));
@@ -95,20 +96,20 @@ function histogramPath(bins: Float32Array) {
     return "";
   }
   const width = WIDTH / HISTOGRAM_BINS;
-  let path = `M0 ${HEIGHT}`;
+  let path = `M0 ${height}`;
   for (let bin = 0; bin < HISTOGRAM_BINS; bin++) {
-    const y = HEIGHT - (Math.sqrt(bins[bin]) / peak) * HEIGHT * 0.9;
+    const y = height - (Math.sqrt(bins[bin]) / peak) * height * 0.9;
     path += ` L${bin * width} ${y} L${(bin + 1) * width} ${y}`;
   }
-  return `${path} L${WIDTH} ${HEIGHT} Z`;
+  return `${path} L${WIDTH} ${height} Z`;
 }
 
-function curvePath(points: readonly CurvePoint[]) {
+function curvePath(points: readonly CurvePoint[], height: number) {
   let path = "";
   for (let index = 0; index <= CURVE_SAMPLES; index++) {
     const x = index / CURVE_SAMPLES;
     const y = evaluateCurve(points, x);
-    path += `${index ? " L" : "M"}${x * WIDTH} ${(1 - y) * HEIGHT}`;
+    path += `${index ? " L" : "M"}${x * WIDTH} ${(1 - y) * height}`;
   }
   return path;
 }
@@ -143,7 +144,9 @@ export function CurveControl({
   device,
   parameter,
   onSetParameter,
+  layout = 0,
 }: FxParameterControlProps) {
+  const height = HEIGHTS[layout] ?? HEIGHTS[0];
   const [channel, setChannel] = useState<CurveChannel>("master");
   const curves = parseCurves(parameter.stringValue);
   const points = curves[channel];
@@ -173,7 +176,7 @@ export function CurveControl({
   const nearestPoint = (x: number, y: number) => {
     const bounds = svg.current?.getBoundingClientRect();
     const scaleX = bounds?.width ?? WIDTH;
-    const scaleY = bounds?.height ?? HEIGHT;
+    const scaleY = bounds?.height ?? height;
     let best = -1;
     let bestDistance = GRAB_RADIUS;
     for (const [index, [px, py]] of points.entries()) {
@@ -312,7 +315,7 @@ export function CurveControl({
         aria-label={`${CHANNEL_LABELS[channel]} curve plot`}
         className="fx-curve__plot"
         data-fx-curve={channel}
-        height={HEIGHT}
+        height={height}
         onLostPointerCapture={() => {
           drag.current = null;
           setDragPoints(null);
@@ -322,20 +325,20 @@ export function CurveControl({
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         ref={svg}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        viewBox={`0 0 ${WIDTH} ${height}`}
         width={WIDTH}
       >
         <title>{`${CHANNEL_LABELS[channel]} curve`}</title>
         {[0.25, 0.5, 0.75].map((line) => (
           <g className="fx-curve__grid" key={line}>
-            <line x1={line * WIDTH} x2={line * WIDTH} y1={0} y2={HEIGHT} />
-            <line x1={0} x2={WIDTH} y1={line * HEIGHT} y2={line * HEIGHT} />
+            <line x1={line * WIDTH} x2={line * WIDTH} y1={0} y2={height} />
+            <line x1={0} x2={WIDTH} y1={line * height} y2={line * height} />
           </g>
         ))}
         {bins ? (
           <path
             className="fx-curve__histogram"
-            d={histogramPath(bins)}
+            d={histogramPath(bins, height)}
             data-fx-histogram
           />
         ) : null}
@@ -343,10 +346,10 @@ export function CurveControl({
           className="fx-curve__diagonal"
           x1={0}
           x2={WIDTH}
-          y1={HEIGHT}
+          y1={height}
           y2={0}
         />
-        <path className="fx-curve__line" d={curvePath(shownPoints)} />
+        <path className="fx-curve__line" d={curvePath(shownPoints, height)} />
         {shownPoints.map(([x, y], index) => (
           <circle
             aria-label={`${CHANNEL_LABELS[channel]} curve point ${index + 1}`}
@@ -356,7 +359,7 @@ export function CurveControl({
             aria-valuetext={`in ${x.toFixed(2)}, out ${y.toFixed(2)}`}
             className="fx-curve__point"
             cx={x * WIDTH}
-            cy={(1 - y) * HEIGHT}
+            cy={(1 - y) * height}
             data-curve-point={index}
             // biome-ignore lint/suspicious/noArrayIndexKey: points are identified by their order
             key={index}

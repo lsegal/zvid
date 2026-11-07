@@ -16,4 +16,6 @@ export type FxParameterControlProps = {
   parameter: FxDeviceParameter;
   layers: readonly FxLayerOption[];
   onSetParameter: FxSetParameter;
+  // The device's layout for a short panel (useDeviceFit), 0 for its usual one.
+  layout?: number;
 };

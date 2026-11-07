@@ -75,12 +75,23 @@ function getTitleShortcuts(device: FxDevice) {
   return [...move, ...(device.layerDefault ? [] : ["Delete"])].join(" ");
 }
 
+// Levels and Scopes keep their arrangement on a short panel, and their own
+// controls get shorter: the curve keeps its tab, and the scope its canvas.
+function shrinksInPlace(device: FxDevice) {
+  return device.parameters.some(
+    ({ kind }) => kind === "curve" || kind === "waveform",
+  );
+}
+
 // How many layouts a device has for a short panel, its usual one first. Most
 // put the controls beside the knobs, then the knobs in one row, then the
 // controls in fewer rows too; labeled knob rows go side by side instead.
 function getLayoutCount(device: FxDevice, labeledRows: boolean) {
   if (!device.parameters.length) {
     return 1;
+  }
+  if (shrinksInPlace(device)) {
+    return 3;
   }
   if (!labeledRows) {
     return 4;
@@ -250,6 +261,7 @@ export function FxDevicePanel({
       key={parameter.key}
       device={device}
       layers={layers}
+      layout={layout}
       onSetParameter={onSetParameter}
       parameter={parameter}
     />
@@ -328,7 +340,8 @@ export function FxDevicePanel({
           {device.warning}
         </p>
       ) : null}
-      {usesColumnLayout(controls.length) || (layout > 0 && !knobRows) ? (
+      {usesColumnLayout(controls.length) ||
+      (layout > 0 && !knobRows && !shrinksInPlace(device)) ? (
         // Too many controls for a row each, or too short a panel: they fill
         // columns instead, with the knobs beside them.
         <div className="fx-device-panel__body fx-device-panel__body--columns">
