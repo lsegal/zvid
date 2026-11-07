@@ -4,16 +4,16 @@
 // track with none, or with its FX switched off, stays silent, as it would in
 // the mix. Its notes sound through its effects, as the mix plays them, their
 // LFOs on the audio clock rather than the paused playhead (see
-// audio-mix/audition-chain.ts), and where the mix plays the track through a layer
-// clip, through that one's too. A Drum Rack's pads sound through the stacks of
-// the clip or track the rack is on.
+// audio-mix/audition-chain.ts), and where the mix plays the track through layer
+// clips, through those at the playhead too, summed. A Drum Rack's pads sound
+// through the stacks of the clip or track the rack is on.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { quartersToSeconds } from "../app/timeline-math.ts";
+import { quartersToSeconds, secondsToQuarters } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import {
   type AuditionLayerClip,
   type AuditionStack,
-  auditionChainSettings,
+  auditionChainGraph,
 } from "../audio-mix/audition-chain.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
@@ -128,17 +128,16 @@ function mixPlaysLayers(session: ArmedAuditionSession) {
 }
 
 /**
- * The layer clip the mix plays the clip `spanId` through, or for a note with no
- * clip the track `trackId`, if it does: the one at or last before the playhead,
- * or else the first. What several layer clips play auditions through just that
- * one.
+ * The layer clips the mix plays the clip `spanId` through, or for a note with no
+ * clip the track `trackId`, if it does: those overlapping at the playhead, which
+ * the mix sums, or with none there the one last before it, or else the first.
  */
-function auditionLayerClipOf(
+function auditionLayerClipsOf(
   trackId: string,
   spanId: string | undefined,
   session: ArmedAuditionSession,
   playheadQ: number,
-): AuditionLayerClip | undefined {
+): AuditionLayerClip[] {
   const { clips, lanes, sourceSpans, bpm } = session;
   const pieces = clips
     .filter((clip) => !clip.kind)
@@ -150,18 +149,24 @@ function auditionLayerClipOf(
     )
     .sort((a, b) => a.startQ - b.startQ);
   if (!pieces.length || !mixPlaysLayers(session)) {
-    return undefined;
+    return [];
   }
-  const piece =
-    pieces.findLast(({ startQ }) => startQ <= playheadQ) ?? pieces[0];
-  return {
+  const overlapping = pieces.filter(
+    ({ startQ, durationSeconds }) =>
+      startQ <= playheadQ &&
+      playheadQ < startQ + secondsToQuarters(durationSeconds, bpm),
+  );
+  const playing = overlapping.length
+    ? overlapping
+    : [pieces.findLast(({ startQ }) => startQ <= playheadQ) ?? pieces[0]];
+  return playing.map((piece) => ({
     clipId: piece.id,
     laneId: piece.laneId,
     laneFxEnabled: isLayerFxEnabled(
       lanes.find((lane) => lane.id === piece.laneId),
     ),
     timeOffsetSeconds: getClipTrackOffsetSeconds(piece, [], bpm),
-  };
+  }));
 }
 
 /**
@@ -185,14 +190,14 @@ export function auditionStackOf(
   return {
     trackId: track.id,
     spanId,
-    settings: auditionChainSettings(
+    ...auditionChainGraph(
       effects,
       track.id,
       spanId,
       fxEnabled,
       fxEnabled
-        ? auditionLayerClipOf(track.id, spanId, session, playheadQ)
-        : undefined,
+        ? auditionLayerClipsOf(track.id, spanId, session, playheadQ)
+        : [],
     ),
     tempo: { bpm, signature: { numerator, denominator } },
     playheadSeconds: quartersToSeconds(playheadQ, bpm),
