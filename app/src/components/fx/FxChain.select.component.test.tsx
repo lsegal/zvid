@@ -17,7 +17,7 @@ import { centerOf, mouse } from "../../component-test/mouse.ts";
 import {
   type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
-  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
 } from "../../fx-stack";
 import { addDefaultSynth } from "../../midi-effects.ts";
 
@@ -48,9 +48,9 @@ function midiProject(): ProjectState {
         accent: "#7ca1ff",
       },
     ],
-    effects: addDefaultSynth(INITIAL_PROJECT_STATE.effects, SPAN_ID, "synth"),
+    effects: addDefaultSynth(INITIAL_PROJECT_STATE.effects, "bass", "synth"),
   };
-  return withEffect(base, sourceClipEffectTrackId(SPAN_ID), "Arpeggiator")
+  return withEffect(base, sourceTrackEffectTrackId("bass"), "Arpeggiator")
     .project;
 }
 
@@ -98,13 +98,13 @@ test("clicking a device selects it instead of the one before", async () => {
   await name("Arpeggiator").click();
   await expect.poll(() => selected.current?.name).toBe("Arpeggiator");
   expect(selectedNames()).toEqual(["Arpeggiator"]);
-  const arpeggiator = stackDevice("clip", "Arpeggiator");
+  const arpeggiator = stackDevice("layer", "Arpeggiator");
   expect(getComputedStyle(arpeggiator).outlineStyle).toBe("solid");
   expect(getComputedStyle(arpeggiator).outlineWidth).toBe("2px");
   await expect.element(name("Arpeggiator")).toHaveAttribute("aria-current");
 
   // The device's body, here its padding, selects it just as the title does.
-  const body = stackDevice("clip", "Synth").querySelector<HTMLElement>(
+  const body = stackDevice("layer", "Synth").querySelector<HTMLElement>(
     ".fx-device-panel__body",
   );
   if (!body) {
@@ -115,6 +115,18 @@ test("clicking a device selects it instead of the one before", async () => {
   await expect.poll(() => selected.current?.name).toBe("Synth");
   expect(selectedNames()).toEqual(["Synth"]);
   expect(getComputedStyle(arpeggiator).outlineStyle).toBe("none");
+});
+
+test("a track shown on its own offers the MIDI effects (#1626)", async () => {
+  await open({
+    project: midiProject(),
+    selection: { source: { sourceTrackId: "bass" } },
+  });
+  await expect.element(name("Synth")).toBeVisible();
+  await page.getByRole("button", { name: "Add device to this track" }).click();
+  await expect
+    .element(page.getByRole("menu").getByRole("group", { name: "MIDI" }))
+    .toBeVisible();
 });
 
 test("the device's name selects it from the keyboard", async () => {
