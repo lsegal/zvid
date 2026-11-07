@@ -179,7 +179,7 @@ test("reads how far a sign-and-magnitude encoder turned", () => {
   }
 });
 
-test("an encoder charted as absolute still reads as a place", () => {
+test("an encoder with no format still reads as a place", () => {
   assert.deepEqual(turn("behringer-x-touch-mini", "Encoder 1", 65), {
     to: 65 / 127,
   });
@@ -188,13 +188,7 @@ test("an encoder charted as absolute still reads as a place", () => {
 test("the data records each relative encoder's format", () => {
   const formats = (id: string) =>
     new Set(device(id).controls.flatMap(({ relative }) => relative ?? []));
-  assert.deepEqual(
-    [...formats("behringer-x-touch")],
-    ["sign-magnitude"],
-  );
-  assert.deepEqual(
-    [...formats("presonus-faderport-2018")],
-    ["sign-magnitude"],
-  );
+  assert.deepEqual([...formats("behringer-x-touch")], ["sign-magnitude"]);
+  assert.deepEqual([...formats("presonus-faderport-2018")], ["sign-magnitude"]);
   assert.deepEqual([...formats("ableton-push-2")], ["twos-complement"]);
 });

@@ -46,13 +46,15 @@ Relative:
 | Keith McMillen QuNeo | Rotary direction | Two's complement | Its manual |
 
 Absolute, or relative only when set so, in the charts or manuals that cover them:
-Behringer X-Touch Mini, BCR2000 and BCF2000; Arturia MiniLab and MiniLab mkII,
+Behringer BCR2000 and BCF2000; Arturia MiniLab and MiniLab mkII,
 BeatStep, BeatStep Pro, KeyLab Essential and KeyLab; Nektar Panorama T4 and T6;
-Novation Launchkey MK4 and SL MkIII; M-Audio Oxygen Pro and Hammer 88 Pro; Korg
+Novation Launchkey MK4; M-Audio Oxygen Pro and Hammer 88 Pro; Korg
 nanoKONTROL Studio.
 
-Not stated anywhere found, so read as absolute: Arturia MiniLab 3 and KeyStep Pro,
-Native Instruments Maschine and Komplete Kontrol.
+Not stated anywhere found, so read as absolute: Behringer X-Touch Mini, whose chart
+gives only its numbers; Arturia MiniLab 3 and KeyStep Pro; Native Instruments
+Maschine and Komplete Kontrol; and Novation SL MkIII, whose chart covers only its
+InControl mode, where the knobs send two's complement on channel 16.
 
 ## How far to trust the data
 
