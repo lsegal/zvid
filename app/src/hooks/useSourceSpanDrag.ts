@@ -10,6 +10,7 @@ import type {
   SourceSpanDragState,
 } from "../app/types.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
+import { carryMovedClipInstruments } from "../midi-effects.ts";
 import { duplicateSourceSpan } from "../source-clip-edits.ts";
 import {
   dragSourceSpan,
@@ -272,6 +273,11 @@ export function useSourceSpanDrag({
               spans,
               bpm,
             ),
+            effects: carryMovedClipInstruments(
+              current.effects,
+              current.sourceSpans,
+              spans,
+            ),
           }),
         );
         // The group stays selected.
@@ -290,6 +296,11 @@ export function useSourceSpanDrag({
                 current.sourceSpans,
                 spans,
                 bpm,
+              ),
+              effects: carryMovedClipInstruments(
+                current.effects,
+                current.sourceSpans,
+                spans,
               ),
             }),
         );

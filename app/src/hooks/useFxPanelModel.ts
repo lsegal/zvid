@@ -74,14 +74,17 @@ export function useFxPanelModel({
     [effects, sourceStacks, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
-  // A MIDI clip's stack is "midi": it offers MIDI effects and, having no
-  // picture, no video ones.
+  // A MIDI clip's stacks are "midi": they offer MIDI effects and, having no
+  // picture, no video ones. A track without media may be either, so "midiTrack"
+  // offers MIDI effects alongside the rest.
   const fxKind = sourceStacks
     ? sourceStacks.midi
       ? "midi"
-      : sourceStacks.mediaId
-        ? mediaItemsById.get(sourceStacks.mediaId)?.kind
-        : undefined
+      : sourceStacks.midiTrack
+        ? "midiTrack"
+        : sourceStacks.mediaId
+          ? mediaItemsById.get(sourceStacks.mediaId)?.kind
+          : undefined
     : getFxKind(selectedClip, mediaItemsById);
   const playheadVisualLaneIds = useMemo(
     () =>

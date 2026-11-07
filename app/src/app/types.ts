@@ -306,6 +306,9 @@ export type ProjectState = {
   // has its source tracks' synths and arpeggiators moved onto their MIDI
   // clips.
   midiClipEffects?: boolean;
+  // Set once the state's MIDI clips' MIDI effects are on their tracks. A
+  // workspace saved without it has them moved there on boot.
+  midiTrackEffects?: boolean;
 };
 
 export type LocalMediaOverride = {

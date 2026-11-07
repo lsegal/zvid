@@ -2919,7 +2919,7 @@
   "effects": [
     {
       "id": "midi-fx-001",
-      "trackId": "source-clip:source-drums",
+      "trackId": "source-track:source-drums",
       "effectName": "Drum Rack",
       "parameters": {
         "Pads": {
@@ -2929,7 +2929,7 @@
     },
     {
       "id": "midi-fx-002",
-      "trackId": "source-clip:source-drums",
+      "trackId": "source-track:source-drums",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -2942,7 +2942,7 @@
     },
     {
       "id": "midi-fx-003",
-      "trackId": "source-clip:source-drums",
+      "trackId": "source-track:source-drums",
       "effectName": "Compressor",
       "parameters": {
         "Threshold": {
@@ -2970,7 +2970,7 @@
     },
     {
       "id": "midi-fx-004",
-      "trackId": "source-clip:source-drums",
+      "trackId": "source-track:source-drums",
       "effectName": "Saturation",
       "parameters": {
         "Drive": {
@@ -2992,7 +2992,7 @@
     },
     {
       "id": "midi-fx-005",
-      "trackId": "source-clip:source-bass",
+      "trackId": "source-track:source-bass",
       "effectName": "Synth",
       "parameters": {
         "Wave": {
@@ -3026,7 +3026,7 @@
     },
     {
       "id": "midi-fx-006",
-      "trackId": "source-clip:source-bass",
+      "trackId": "source-track:source-bass",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -3039,7 +3039,7 @@
     },
     {
       "id": "midi-fx-007",
-      "trackId": "source-clip:source-bass",
+      "trackId": "source-track:source-bass",
       "effectName": "Saturation",
       "parameters": {
         "Drive": {
@@ -3061,7 +3061,7 @@
     },
     {
       "id": "midi-fx-008",
-      "trackId": "source-clip:source-bass",
+      "trackId": "source-track:source-bass",
       "effectName": "Low Cut",
       "parameters": {
         "Frequency": {
@@ -3077,7 +3077,7 @@
     },
     {
       "id": "midi-fx-009",
-      "trackId": "source-clip:source-arp",
+      "trackId": "source-track:source-arp",
       "effectName": "Arpeggiator",
       "parameters": {
         "Rate": {
@@ -3093,7 +3093,7 @@
     },
     {
       "id": "midi-fx-010",
-      "trackId": "source-clip:source-arp",
+      "trackId": "source-track:source-arp",
       "effectName": "Synth",
       "parameters": {
         "Wave": {
@@ -3127,7 +3127,7 @@
     },
     {
       "id": "midi-fx-011",
-      "trackId": "source-clip:source-arp",
+      "trackId": "source-track:source-arp",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -3140,7 +3140,7 @@
     },
     {
       "id": "midi-fx-012",
-      "trackId": "source-clip:source-arp",
+      "trackId": "source-track:source-arp",
       "effectName": "Delay",
       "parameters": {
         "Sync": {
@@ -3165,7 +3165,7 @@
     },
     {
       "id": "midi-fx-013",
-      "trackId": "source-clip:source-arp",
+      "trackId": "source-track:source-arp",
       "effectName": "Auto Pan",
       "parameters": {
         "Sync": {
@@ -3184,7 +3184,7 @@
     },
     {
       "id": "midi-fx-014",
-      "trackId": "source-clip:source-pad",
+      "trackId": "source-track:source-pad",
       "effectName": "Granular",
       "parameters": {
         "Grain Size": {
@@ -3218,7 +3218,7 @@
     },
     {
       "id": "midi-fx-015",
-      "trackId": "source-clip:source-pad",
+      "trackId": "source-track:source-pad",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -3231,7 +3231,7 @@
     },
     {
       "id": "midi-fx-016",
-      "trackId": "source-clip:source-pad",
+      "trackId": "source-track:source-pad",
       "effectName": "Chorus",
       "parameters": {
         "Rate": {
@@ -3256,7 +3256,7 @@
     },
     {
       "id": "midi-fx-017",
-      "trackId": "source-clip:source-pad",
+      "trackId": "source-track:source-pad",
       "effectName": "Phaser",
       "parameters": {
         "Rate": {
@@ -3281,7 +3281,7 @@
     },
     {
       "id": "midi-fx-018",
-      "trackId": "source-clip:source-pad",
+      "trackId": "source-track:source-pad",
       "effectName": "Reverb",
       "parameters": {
         "Decay": {
@@ -3303,7 +3303,7 @@
     },
     {
       "id": "midi-fx-019",
-      "trackId": "source-clip:source-lead",
+      "trackId": "source-track:source-lead",
       "effectName": "Synth",
       "parameters": {
         "Wave": {
@@ -3337,7 +3337,7 @@
     },
     {
       "id": "midi-fx-020",
-      "trackId": "source-clip:source-lead",
+      "trackId": "source-track:source-lead",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -3350,7 +3350,7 @@
     },
     {
       "id": "midi-fx-021",
-      "trackId": "source-clip:source-lead",
+      "trackId": "source-track:source-lead",
       "effectName": "Tremolo",
       "parameters": {
         "Sync": {
@@ -3369,7 +3369,7 @@
     },
     {
       "id": "midi-fx-022",
-      "trackId": "source-clip:source-lead",
+      "trackId": "source-track:source-lead",
       "effectName": "Delay",
       "parameters": {
         "Sync": {
@@ -3394,7 +3394,7 @@
     },
     {
       "id": "midi-fx-023",
-      "trackId": "source-clip:source-lead",
+      "trackId": "source-track:source-lead",
       "effectName": "Reverb",
       "parameters": {
         "Decay": {
@@ -5619,5 +5619,6 @@
   "clipContentEffects": true,
   "audioGainDefaulted": true,
   "midiClipEffects": true,
-  "playStartPosition": 0
+  "playStartPosition": 0,
+  "midiTrackEffects": true
 }
