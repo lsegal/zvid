@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { GAIN_EFFECT_NAME } from "../fx/effects/gain/gain.ts";
 import {
+  clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { createEffect } from "../fx/stack/ops.ts";
+import { createDefaultModulation } from "../fx-modulation-defaults.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { createSynthEffect } from "../midi-effects.ts";
 import { auditionChainSettings } from "./audition-chain.ts";
@@ -68,5 +70,98 @@ describe("auditionChainSettings", () => {
       [false, false, true],
     );
     assert.equal(inputGain, 1);
+  });
+
+  describe("through a layer clip", () => {
+    const layerClipStack = clipEffectTrackId("layer-clip");
+    const layerClip = {
+      clipId: "layer-clip",
+      laneId: "lane",
+      laneFxEnabled: true,
+      timeOffsetSeconds: 2,
+    };
+
+    it("runs the source stacks, the layer clip's, its layer's, then Global's", () => {
+      const { stages, inputGain } = auditionChainSettings(
+        [
+          effect(GLOBAL_EFFECT_TRACK_ID, "Limiter"),
+          effect("lane", "Delay"),
+          effect(layerClipStack, "Reverb"),
+          synth,
+          effect(clipStack, GAIN_EFFECT_NAME),
+          effect(trackStack, "Compressor"),
+          effect("other-lane", "Chorus"),
+        ],
+        "track",
+        "clip",
+        true,
+        layerClip,
+      );
+      assert.deepEqual(
+        stages.map((stage) => stage.effectName),
+        ["Compressor", GAIN_EFFECT_NAME, "Reverb", "Delay", "Limiter"],
+      );
+      assert.equal(inputGain, 1);
+    });
+
+    it("counts a Gain on the layer clip's or layer's stack, as the mix does", () => {
+      for (const stackId of [layerClipStack, "lane"]) {
+        assert.equal(
+          auditionChainSettings(
+            [synth, effect(stackId, GAIN_EFFECT_NAME)],
+            "track",
+            "clip",
+            true,
+            layerClip,
+          ).inputGain,
+          1,
+        );
+      }
+      assert.equal(
+        auditionChainSettings([synth], "track", "clip", true, layerClip)
+          .inputGain,
+        0,
+      );
+    });
+
+    it("is silent on a layer with its FX off, whatever Gains there are", () => {
+      const { stages, inputGain } = auditionChainSettings(
+        [
+          effect(trackStack, GAIN_EFFECT_NAME),
+          effect("lane", GAIN_EFFECT_NAME),
+          effect(GLOBAL_EFFECT_TRACK_ID, "Limiter"),
+        ],
+        "track",
+        "clip",
+        true,
+        { ...layerClip, laneFxEnabled: false },
+      );
+      assert.deepEqual(
+        stages.map((stage) => stage.enabled),
+        [false, false, true],
+      );
+      assert.equal(inputGain, 0);
+    });
+
+    it("runs only the source stacks' LFOs on the source track's time", () => {
+      const withLfo = (trackId: string) => {
+        const modulation = createDefaultModulation(GAIN_EFFECT_NAME);
+        return {
+          ...effect(trackId, GAIN_EFFECT_NAME),
+          modulation: { ...modulation, enabled: true, mode: "lfo" as const },
+        };
+      };
+      const { stages } = auditionChainSettings(
+        [withLfo(trackStack), withLfo(clipStack), withLfo("lane")],
+        "track",
+        "clip",
+        true,
+        layerClip,
+      );
+      assert.deepEqual(
+        stages.map((stage) => stage.modulation?.timeOffsetSeconds),
+        [2, 2, undefined],
+      );
+    });
   });
 });
