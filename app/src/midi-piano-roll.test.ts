@@ -7,11 +7,14 @@ import {
   deleteNote,
   deleteNotes,
   duplicateNotes,
+  eraseNotesAt,
   isBlackKey,
   moveNote,
   noteKey,
   PIANO_ROLL_HIGH_PITCH,
   PIANO_ROLL_LOW_PITCH,
+  PIANO_ROLL_SNAP_Q,
+  paintNote,
   pasteNotes,
   pitchName,
   placeNote,
@@ -65,8 +68,9 @@ describe("piano roll edits", () => {
     ]);
     const notes = [C4];
     assert.equal(paintNote(notes, C4.pitch, C4.start + 0.1), notes);
-    // A note starting partway through the cell occupies it.
-    assert.equal(paintNote(notes, C4.pitch, C4.start - 0.1), notes);
+    // A note starting partway through a cell occupies it.
+    const partway = [{ ...C4, start: 0.375 }];
+    assert.equal(paintNote(partway, C4.pitch, 0.3), partway);
     assert.equal(paintNote(notes, C4.pitch + 1, -0.1), notes);
     assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0), notes);
     assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0), notes);

@@ -1,4 +1,8 @@
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from "react";
 import type { MidiNote } from "../../midi-clip.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import {
@@ -60,7 +64,11 @@ export function usePianoRollStroke({
   const [notes, setNotes] = useState<readonly MidiNote[] | null>(null);
 
   // `current` with the stroke's edit at a client point.
-  function strokeAt(stroke: Stroke, current: readonly MidiNote[], at: ClientPoint) {
+  function strokeAt(
+    stroke: Stroke,
+    current: readonly MidiNote[],
+    at: ClientPoint,
+  ) {
     const point = gridPoint(at);
     if (!point) {
       return current;
@@ -167,16 +175,11 @@ export function usePianoRollStroke({
         ),
       );
     }
-    const { addNote, addNotes, deleteNote, deleteNotes } = midiHistoryLabels;
-    const label =
+    const labels =
       stroke.mode === "paint"
-        ? count > 1
-          ? addNotes
-          : addNote
-        : count > 1
-          ? deleteNotes
-          : deleteNote;
-    onSetNotes(stroke.spanId, stroke.notes, label);
+        ? [midiHistoryLabels.addNote, midiHistoryLabels.addNotes]
+        : [midiHistoryLabels.deleteNote, midiHistoryLabels.deleteNotes];
+    onSetNotes(stroke.spanId, stroke.notes, labels[count > 1 ? 1 : 0]);
   }
 
   return {
