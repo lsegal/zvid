@@ -8,6 +8,7 @@ import {
   FxAnimationTimelineContext,
   FxModulationClockContext,
 } from "../components/fx/modulation-clock.ts";
+import type { FxDevice } from "../fx-stack";
 import { useFxContexts } from "../hooks/useFxContexts.ts";
 import { useFxEditing } from "../hooks/useFxEditing.ts";
 import { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
@@ -42,6 +43,8 @@ export type FxEditorProps = {
   selection?: FxEditorSelection;
   playheadQ?: number;
   onChange?: (history: ProjectHistoryState<ProjectState>) => void;
+  // Reads the selected effect, as a feature that targets it would.
+  onSelectedFxDevice?: (device: FxDevice | undefined) => void;
 };
 
 // The FX chain keeps folded devices and sections in localStorage. Each
@@ -58,6 +61,7 @@ export function FxEditor({
   selection = {},
   playheadQ = 0,
   onChange,
+  onSelectedFxDevice,
 }: FxEditorProps) {
   const [history, dispatchProject] = useReducer(
     projectHistoryReducer<ProjectState>,
@@ -127,6 +131,8 @@ export function FxEditor({
     playheadQ,
     bpm: present.bpm,
   });
+
+  onSelectedFxDevice?.(fxPanel.selectedFxDevice);
 
   const [playheadSignal] = useState(() => createPlayheadSignal(playheadQ));
   const { modulationClock, animationTimeline } = useFxContexts({
