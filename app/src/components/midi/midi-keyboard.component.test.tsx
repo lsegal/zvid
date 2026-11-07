@@ -197,18 +197,78 @@ test("a chord released together keeps all of its notes", async () => {
   roll.unmount();
 });
 
-test("a key played out of view scrolls the roll to its pitch", async () => {
+function playedPitches() {
+  const pitches = (selector: string, attribute: string) =>
+    [...document.querySelectorAll(selector)].map(
+      (element) => element.getAttribute(attribute) ?? "",
+    );
+  return {
+    rows: pitches("[data-piano-roll-played-row]", "data-piano-roll-played-row"),
+    keys: pitches(".piano-roll__key--played", "aria-label"),
+  };
+}
+
+test("keys played across the octaves leave the roll where it was", async () => {
   const roll = await renderRoll({ playing: false });
   const scroller = document.querySelector(".piano-roll__scroll");
-  const row = () => scroller?.scrollTop;
-  const before = row();
-  roll.send(0x90, 106, 90);
-  roll.send(0x80, 106, 0);
-  expect(row()).not.toBe(before);
-  const afterHigh = row();
-  // Already in view: stays put.
-  roll.send(0x90, 105, 90);
-  expect(row()).toBe(afterHigh);
+  if (!scroller) {
+    throw new Error("no piano roll scroller");
+  }
+  const before = scroller.scrollTop;
+  const left = scroller.scrollLeft;
+  // Both ends of the range start out of view; so does a pitch above it.
+  for (const pitch of [24, 60, 108, 120]) {
+    roll.send(0x90, pitch, 90);
+    await expect.poll(() => roll.auditions.at(-1)).toBe(pitch);
+    roll.send(0x80, pitch, 0);
+  }
+  await expect.poll(() => playedPitches().rows).toEqual([]);
+  expect(scroller.scrollTop).toBe(before);
+  expect(scroller.scrollLeft).toBe(left);
+  roll.unmount();
+});
+
+test("a chord highlights each pitch until its key comes up", async () => {
+  const roll = await renderRoll({ playing: false });
+  roll.send(0x90, 60, 90);
+  roll.send(0x90, 64, 90);
+  await expect.poll(() => playedPitches().rows).toEqual(["64", "60"]);
+  expect(playedPitches().keys).toEqual(["Play E4", "Play C4"]);
+  const row = document.querySelector("[data-piano-roll-played-row='60']");
+  const key = page.getByRole("button", { name: "Play C4", exact: true });
+  await expect
+    .element(key)
+    .toHaveStyle({ backgroundColor: "rgb(124, 161, 255)" });
+  expect(row?.getBoundingClientRect().height).toBeGreaterThan(0);
+  roll.send(0x80, 60, 0);
+  await expect.poll(() => playedPitches().rows).toEqual(["64"]);
+  roll.send(0x90, 64, 0);
+  await expect.poll(() => playedPitches().rows).toEqual([]);
+  expect(playedPitches().keys).toEqual([]);
+  roll.unmount();
+});
+
+test("a key stays highlighted when the transport stops under it", async () => {
+  const roll = await renderRoll({ playing: true });
+  roll.send(0x90, 60, 90);
+  await expect.poll(() => playedPitches().rows).toEqual(["60"]);
+  roll.setPlaying(false);
+  await expect.poll(() => roll.notes().length).toBe(1);
+  // The note ended with the transport, but the key is still down.
+  expect(playedPitches().rows).toEqual(["60"]);
+  roll.send(0x80, 60, 0);
+  await expect.poll(() => playedPitches().rows).toEqual([]);
+  roll.unmount();
+});
+
+test("a device going away clears its keys' highlights", async () => {
+  const roll = await renderRoll({ playing: false });
+  roll.send(0x90, 60, 90);
+  await expect.poll(() => playedPitches().rows).toEqual(["60"]);
+  roll.access.inputs.delete(roll.port.id);
+  roll.port.state = "disconnected";
+  roll.access.onstatechange?.();
+  await expect.poll(() => playedPitches().rows).toEqual([]);
   roll.unmount();
 });
 
