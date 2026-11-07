@@ -5,7 +5,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -57,11 +56,7 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
-import {
-  auditionArmedTracks,
-  claimRollKeys,
-  combineVoices,
-} from "../../recording/armed-audition.ts";
+import { useArmedRollKeys } from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
@@ -282,7 +277,7 @@ export function PianoRoll({
   // A MIDI recording pass takes the keys for the clip it records.
   const midiPassActive = useMidiPassActive();
   const takesKeys = !collapsed && !midiPassActive;
-  useEffect(() => (takesKeys ? claimRollKeys() : undefined), [takesKeys]);
+  const withArmedTracks = useArmedRollKeys(takesKeys, spanId);
   const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
     enabled: takesKeys,
     hub: midiHub,
@@ -290,11 +285,8 @@ export function PianoRoll({
     clock,
     onAudition(pitch, expression, hold) {
       revealPitch(pitch);
-      // The clip's own instrument speaks for its track.
-      return combineVoices([
-        audition(pitch, expression, hold),
-        auditionArmedTracks(pitch, expression, spanId),
-      ]);
+      const voice = audition(pitch, expression, hold);
+      return withArmedTracks(voice, pitch, expression);
     },
     onCapture(note) {
       const next = placeNote(

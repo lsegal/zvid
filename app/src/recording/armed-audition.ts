@@ -3,7 +3,7 @@
 // on its MIDI clips' stacks, so it plays the instrument of its MIDI clip at or
 // last before the playhead, or else of its first. A track with none, or with
 // its FX switched off, stays silent, as it would in the mix.
-import { useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { ProjectState } from "../app/types.ts";
 import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
 import { type AuditionVoice, auditionNote } from "../midi-audition.ts";
@@ -141,4 +141,21 @@ function subscribeRollClaims(listener: () => void) {
 
 export function useRollKeysClaimed() {
   return useSyncExternalStore(subscribeRollClaims, () => rollClaims > 0);
+}
+
+/**
+ * Has a piano roll on the clip `spanId` take the keys while `takesKeys`.
+ * Returns what adds the other armed tracks to the voice a key plays there, the
+ * clip's own instrument speaking for its track.
+ */
+export function useArmedRollKeys(takesKeys: boolean, spanId: string) {
+  useEffect(() => (takesKeys ? claimRollKeys() : undefined), [takesKeys]);
+  return useCallback(
+    (
+      voice: AuditionVoice | undefined,
+      pitch: number,
+      expression: ExpressionSample | undefined,
+    ) => combineVoices([voice, auditionArmedTracks(pitch, expression, spanId)]),
+    [spanId],
+  );
 }
