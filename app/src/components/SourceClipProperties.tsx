@@ -2,13 +2,18 @@ import {
   ChevronLeftIcon,
   InformationCircleIcon,
 } from "@heroicons/react/24/solid";
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  useRef,
+} from "react";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import type { MidiClipModel } from "../midi-panel-model.ts";
 import {
   SOURCE_CLIP_FIELD_LABELS,
   SOURCE_CLIP_FIELDS,
 } from "../source-clip-properties.ts";
+import { useDeviceFit } from "./fx/use-device-fit";
 import { MidiClipTimelineFields } from "./MidiClipTimelineFields";
 import type { SetMidiClipTimeline } from "./midi/PianoRoll";
 import { TimeValueControl } from "./ui/TimeValueControl";
@@ -41,6 +46,14 @@ export function SourceClipProperties({
   const { accent, clipName, format, limits, mediaOffline, setField, values } =
     model;
   const label = `${clipName} properties`;
+  const sectionRef = useRef<HTMLElement>(null);
+  // On a short panel, the fields take two rows.
+  const layout = useDeviceFit(
+    sectionRef,
+    `${Boolean(midiClip)}|${mediaOffline}`,
+    2,
+    !collapsed,
+  );
   const style = { "--fx-accent": accent } as CSSProperties;
   const info = (
     <span className="source-clip-properties__info">
@@ -81,6 +94,8 @@ export function SourceClipProperties({
     <section
       aria-label={label}
       className="fx-device-panel source-clip-properties source-clip-properties__device"
+      data-fx-layout={layout || undefined}
+      ref={sectionRef}
       style={style}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the collapse button is its keyboard equivalent */}

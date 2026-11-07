@@ -41,6 +41,13 @@
   padding: 10px 12px 12px;
 }
 
+/* On a short panel (useDeviceFit) they take two rows. */
+.source-clip-properties__device[data-fx-layout] .source-clip-properties__fields {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+}
+
 /* The fields stack one per row, so the widget is only as wide as one field.
    The Media offline warning wraps to that width instead of widening it:
    inline-size containment keeps its text out of the panel's fitted width. */

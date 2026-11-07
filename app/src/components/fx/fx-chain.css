@@ -388,6 +388,37 @@ body.fx-chain-dragging * {
   gap: 8px 4px;
 }
 
+/* A short panel's layouts of a device (useDeviceFit), from the first to the
+   shortest: the controls beside the knobs, then the knobs in one row with the
+   controls in two, then the controls in one too. */
+.fx-device-panel[data-fx-layout] {
+  --fx-fader-height: 72px;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-device-panel__controls {
+  grid-template-rows: repeat(2, auto);
+}
+
+.fx-device-panel[data-fx-layout='3'] .fx-device-panel__controls {
+  grid-template-rows: auto;
+}
+
+.fx-device-panel[data-fx-layout='3'] .fx-device-panel__controls > .fx-text {
+  grid-row: auto;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-device-panel__knobs,
+.fx-device-panel[data-fx-layout='3'] .fx-device-panel__knobs {
+  grid-template-rows: auto;
+}
+
+/* Labeled knob rows beside the controls. */
+.fx-device-panel__rows {
+  display: grid;
+  align-content: start;
+  gap: 8px 4px;
+}
+
 .fx-device-panel__warning {
   align-self: start;
   margin: 8px 8px 0;

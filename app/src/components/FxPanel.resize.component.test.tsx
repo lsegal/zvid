@@ -172,4 +172,91 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
     expect(height(".piano-roll__scroll")).toBeCloseTo(tallRoll - 32, 0);
     expect(body.scrollHeight).toBe(body.clientHeight);
   });
+
+  describe("on a short panel", () => {
+    const body = () => query(".fx-panel__body");
+    const clips = () =>
+      [
+        ...document.querySelectorAll<HTMLElement>("[data-source-span-id]"),
+      ].filter((span) => span.textContent?.includes("MIDI"));
+    const device = (name: string) => query(`[aria-label="${name}"]`);
+
+    test("the MIDI sample's clips fit the fitted panel without scrolling", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await openMidiClip();
+      expect(clips().length).toBeGreaterThan(0);
+
+      for (const clip of clips()) {
+        await userEvent.click(clip);
+        await nextFrames();
+        expect(body().scrollHeight, clip.textContent ?? "").toBe(
+          body().clientHeight,
+        );
+      }
+    });
+
+    test("tall devices reflow only when they need to, with their controls packed at the top", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await openMidiClip();
+      const synth = device("Synth");
+      const short = synth.getBoundingClientRect().height;
+      expect(synth.dataset.fxLayout).toBeDefined();
+      const knobs = () =>
+        [...synth.querySelectorAll<HTMLElement>(".knob")].map(
+          (knob) => knob.getBoundingClientRect().top,
+        );
+      expect(new Set(knobs()).size).toBe(1);
+      expect(knobs()[0] - synth.getBoundingClientRect().top).toBeLessThan(60);
+
+      // With height to spare, the usual layout comes back.
+      handle().focus();
+      await userEvent.keyboard("{End}");
+      await nextFrames();
+      expect(device("Synth").dataset.fxLayout).toBeUndefined();
+      expect(new Set(knobs()).size).toBe(2);
+      expect(device("Synth").getBoundingClientRect().height).toBeGreaterThan(
+        short,
+      );
+    });
+
+    test("resizing and fitting settle on one layout", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await openMidiClip();
+
+      const layouts = () =>
+        [...document.querySelectorAll<HTMLElement>("[data-fx-layout]")].map(
+          (element) => element.dataset.fxLayout,
+        );
+      // Holds still for a while, seen frame by frame.
+      const expectSettled = async () => {
+        const panel = height(".fx-panel");
+        const shown = layouts();
+        for (let frame = 0; frame < 10; frame += 1) {
+          await nextFrames();
+          expect(height(".fx-panel")).toBe(panel);
+          expect(layouts()).toEqual(shown);
+        }
+      };
+      const fitted = height(".fx-panel");
+      const fittedLayouts = layouts();
+      await expectSettled();
+
+      handle().focus();
+      for (let step = 0; step < 16; step += 1) {
+        await userEvent.keyboard("{ArrowUp}");
+        await nextFrames();
+        await expectSettled();
+      }
+
+      const { x, y } = center(handle());
+      await dblclick(x, y);
+      await nextFrames();
+      await expectSettled();
+      expect(height(".fx-panel")).toBe(fitted);
+      expect(layouts()).toEqual(fittedLayouts);
+    });
+  });
 });

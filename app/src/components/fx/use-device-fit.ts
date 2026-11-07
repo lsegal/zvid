@@ -17,7 +17,7 @@ const NO_HEIGHTS: readonly number[] = [];
 function naturalHeight(element: HTMLElement) {
   const { alignSelf } = element.style;
   element.style.alignSelf = "flex-start";
-  const height = element.offsetHeight;
+  const { height } = element.getBoundingClientRect();
   element.style.alignSelf = alignSelf;
   return height;
 }

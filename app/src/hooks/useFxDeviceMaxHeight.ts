@@ -27,7 +27,10 @@ function measureMaxHeight(body: HTMLElement, resizedHeight: number | null) {
   if (!panel || !workspace || !chain || matchMedia(STACKED_LAYOUT).matches) {
     return null;
   }
-  const workspaceHeight = workspace.clientHeight;
+  // Exact sizes: a rounded one would change with the panel's own height.
+  const heightOf = (element: HTMLElement) =>
+    element.getBoundingClientRect().height;
+  const workspaceHeight = heightOf(workspace);
   const { paddingTop, paddingBottom } = getComputedStyle(chain);
   return getDeviceMaxHeight({
     resizedRow:
@@ -35,7 +38,7 @@ function measureMaxHeight(body: HTMLElement, resizedHeight: number | null) {
         ? null
         : Math.min(resizedHeight, workspaceHeight - FX_PANEL_RESERVED_HEIGHT),
     fitCap: Math.floor(workspaceHeight * FIT_ROW_SHARE),
-    panelChrome: panel.offsetHeight - body.offsetHeight,
+    panelChrome: heightOf(panel) - heightOf(body),
     chainChrome:
       Number.parseFloat(paddingTop) +
       Number.parseFloat(paddingBottom) +

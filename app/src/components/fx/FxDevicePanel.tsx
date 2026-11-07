@@ -11,6 +11,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
+import { useRef } from "react";
 import { isMoveEffectName } from "../../fx/effects/move/move.ts";
 import {
   type FxLayerOption,
@@ -20,12 +21,13 @@ import {
   splitKnobRows,
   usesColumnLayout,
 } from "../../fx-chain";
-import type { FxDevice } from "../../fx-stack";
+import type { FxDevice, FxDeviceParameter } from "../../fx-stack";
 import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
 import { useKeyMapControls } from "./key-map-context";
 import { MoveDeviceBody } from "./MoveDeviceBody";
+import { useDeviceFit } from "./use-device-fit";
 import "./fx-device-audio.css";
 import "./fx-device-pinned.css";
 
@@ -72,6 +74,19 @@ function getTitleShortcuts(device: FxDevice) {
   return [...move, ...(device.layerDefault ? [] : ["Delete"])].join(" ");
 }
 
+// How many layouts a device has for a short panel, its usual one first. Most
+// put the controls beside the knobs, then the knobs in one row, then the
+// controls in fewer rows too; labeled knob rows go side by side instead.
+function getLayoutCount(device: FxDevice, labeledRows: boolean) {
+  if (!device.parameters.length) {
+    return 1;
+  }
+  if (!labeledRows) {
+    return 4;
+  }
+  return isMoveEffectName(device.effectName) ? 2 : 3;
+}
+
 function getTitleLabel(device: FxDevice) {
   return isPinnedDevice(device)
     ? device.name
@@ -97,6 +112,15 @@ export function FxDevicePanel({
   layers,
 }: FxDevicePanelProps) {
   const keyMap = useKeyMapControls();
+  const sectionRef = useRef<HTMLElement>(null);
+  const { controls, knobs } = splitDeviceParameters(device.parameters);
+  const knobRows = splitKnobRows(knobs, device.knobRows);
+  const layout = useDeviceFit(
+    sectionRef,
+    `${device.parameters.map((parameter) => parameter.key).join()}|${Boolean(device.warning)}`,
+    getLayoutCount(device, knobRows !== undefined),
+    !collapsed,
+  );
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const powerLabel = `${device.enabled ? "Bypass" : "Enable"} ${device.name}`;
   const className = [
@@ -220,13 +244,28 @@ export function FxDevicePanel({
     }
   }
 
-  const { controls, knobs } = splitDeviceParameters(device.parameters);
-  const knobRows = splitKnobRows(knobs, device.knobRows);
+  const renderControl = (parameter: FxDeviceParameter) => (
+    <FxParameterControl
+      key={parameter.key}
+      device={device}
+      layers={layers}
+      onSetParameter={onSetParameter}
+      parameter={parameter}
+    />
+  );
+  const knobRowsGrid = knobRows?.map((row) => (
+    <fieldset className="fx-device-panel__knob-row" key={row.label}>
+      <legend className="fx-device-panel__row-label">{row.label}</legend>
+      {row.knobs.map(renderControl)}
+    </fieldset>
+  ));
 
   return (
     <section
       aria-label={device.name}
       className={className}
+      data-fx-layout={layout || undefined}
+      ref={sectionRef}
       {...groupAttribute}
       style={style}
     >
@@ -288,43 +327,52 @@ export function FxDevicePanel({
           {device.warning}
         </p>
       ) : null}
-      {usesColumnLayout(controls.length) ? (
-        // Too many controls for a row each: they fill columns instead,
-        // with the knobs beside them.
+      {usesColumnLayout(controls.length) || (layout > 0 && !knobRows) ? (
+        // Too many controls for a row each, or too short a panel: they fill
+        // columns instead, with the knobs beside them.
         <div className="fx-device-panel__body fx-device-panel__body--columns">
-          <div className="fx-device-panel__controls">
-            {controls.map((parameter) => (
-              <FxParameterControl
-                key={parameter.key}
-                device={device}
-                layers={layers}
-                onSetParameter={onSetParameter}
-                parameter={parameter}
-              />
-            ))}
-          </div>
+          {controls.length ? (
+            <div className="fx-device-panel__controls">
+              {controls.map(renderControl)}
+            </div>
+          ) : null}
           {knobs.length ? (
             <div className="fx-device-panel__knobs">
-              {knobs.map((parameter) => (
-                <FxParameterControl
-                  key={parameter.key}
-                  device={device}
-                  layers={layers}
-                  onSetParameter={onSetParameter}
-                  parameter={parameter}
-                />
-              ))}
+              {knobs.map(renderControl)}
             </div>
           ) : null}
         </div>
       ) : knobRows && isMoveEffectName(device.effectName) ? (
         <MoveDeviceBody
+          beside={layout > 0}
           device={device}
           controls={controls}
           knobRows={knobRows}
           layers={layers}
           onSetParameter={onSetParameter}
         />
+      ) : knobRows && layout > 0 ? (
+        // The controls beside the labeled rows, which then sit side by side.
+        <div className="fx-device-panel__body fx-device-panel__body--columns">
+          {controls.length ? (
+            <div className="fx-device-panel__controls">
+              {controls.map(renderControl)}
+            </div>
+          ) : null}
+          <div
+            className="fx-device-panel__rows"
+            style={{
+              gridTemplateColumns: (layout > 1
+                ? knobRows
+                : knobRows.slice(0, 1)
+              )
+                .map((row) => `auto repeat(${row.knobs.length}, auto)`)
+                .join(" "),
+            }}
+          >
+            {knobRowsGrid}
+          </div>
+        </div>
       ) : knobRows ? (
         // Labeled knob rows, each led by its label.
         <div
@@ -333,31 +381,8 @@ export function FxDevicePanel({
             gridTemplateColumns: `auto repeat(${knobRows[0].knobs.length}, auto)`,
           }}
         >
-          {controls.map((parameter) => (
-            <FxParameterControl
-              key={parameter.key}
-              device={device}
-              layers={layers}
-              onSetParameter={onSetParameter}
-              parameter={parameter}
-            />
-          ))}
-          {knobRows.map((row) => (
-            <fieldset className="fx-device-panel__knob-row" key={row.label}>
-              <legend className="fx-device-panel__row-label">
-                {row.label}
-              </legend>
-              {row.knobs.map((parameter) => (
-                <FxParameterControl
-                  key={parameter.key}
-                  device={device}
-                  layers={layers}
-                  onSetParameter={onSetParameter}
-                  parameter={parameter}
-                />
-              ))}
-            </fieldset>
-          ))}
+          {controls.map(renderControl)}
+          {knobRowsGrid}
         </div>
       ) : (
         <div
@@ -367,15 +392,7 @@ export function FxDevicePanel({
           }}
         >
           {device.parameters.length ? (
-            [...controls, ...knobs].map((parameter) => (
-              <FxParameterControl
-                key={parameter.key}
-                device={device}
-                layers={layers}
-                onSetParameter={onSetParameter}
-                parameter={parameter}
-              />
-            ))
+            [...controls, ...knobs].map(renderControl)
           ) : (
             <p className="fx-device-panel__empty">No settings</p>
           )}
