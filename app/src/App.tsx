@@ -256,14 +256,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
   const recording = useRecording({
-    sourceTracks,
+    project,
     bpm,
     isPlaying,
     playheadQRef,
     startPlayback: playback.startPlayback,
     refuseReadOnlyEdit,
     commitProjectChange,
-    mediaItemCount: project.mediaItems.length,
     seedLocalMediaItems: media.seedLocalMediaItems,
     cacheLocalMediaItems: media.cacheLocalMediaItems,
     setSourceTracksCollapsed: layout.setSourceTracksCollapsed,

@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 import {
   nextFrame,
@@ -182,6 +189,36 @@ test(
     const beat = Number(label?.match(/at beat (.+)$/)?.[1]);
     expect(Number.isInteger(beat)).toBe(true);
     expect(getUserMedia).not.toHaveBeenCalled();
+  },
+  TEST_TIMEOUT,
+);
+
+test(
+  "a take on a track with no instrument is silent, and its clip's Synth then sounds with nothing selected",
+  async () => {
+    const createOscillator = vi.spyOn(
+      AudioContext.prototype,
+      "createOscillator",
+    );
+    onTestFinished(() => createOscillator.mockRestore());
+    await openEditor();
+    await chooseMidiTab();
+    await page.getByRole("radio", { name: "Computer keyboard" }).click();
+    await armButton().click();
+    await recordButton().click();
+    await expect.element(stopButton()).toBeVisible();
+    await userEvent.keyboard("{a>}");
+    await expect.poll(() => queryAll(LIVE_NOTES).length).toBe(1);
+    await userEvent.keyboard("{/a}");
+    expect(createOscillator).not.toHaveBeenCalled();
+    await stopButton().click();
+    await expect.poll(() => queryAll(CLIP_NOTES).length).toBe(1);
+    expect(queryAll(".piano-roll__note")).toHaveLength(0);
+
+    await userEvent.keyboard("{a>}");
+    await expect.poll(() => createOscillator.mock.calls.length).toBe(1);
+    await userEvent.keyboard("{/a}");
+    expect(queryAll(CLIP_NOTES)).toHaveLength(1);
   },
   TEST_TIMEOUT,
 );

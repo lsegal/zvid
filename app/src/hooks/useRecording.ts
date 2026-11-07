@@ -77,7 +77,7 @@ export type LiveMidiTake = Omit<
 export type LiveTake = LiveMediaTake | LiveMidiTake;
 
 export type RecordingInputs = {
-  sourceTracks: ProjectState["sourceTracks"];
+  project: ProjectState;
   bpm: number;
   isPlaying: boolean;
   playheadQRef: { current: number };
@@ -87,7 +87,6 @@ export type RecordingInputs = {
     label: string,
     updater: (current: ProjectState) => ProjectState,
   ) => void;
-  mediaItemCount: number;
   seedLocalMediaItems: (items: MediaItem[]) => void;
   cacheLocalMediaItems: (items: MediaItem[]) => Promise<void>;
   setSourceTracksCollapsed: (collapsed: boolean) => void;
@@ -117,14 +116,13 @@ type ActivePass = RecordedPass & {
 // Pressing Record again, or stopping playback, ends the pass and saves each
 // take into the session's media like an import.
 export function useRecording({
-  sourceTracks,
+  project,
   bpm,
   isPlaying,
   playheadQRef,
   startPlayback,
   refuseReadOnlyEdit,
   commitProjectChange,
-  mediaItemCount,
   seedLocalMediaItems,
   cacheLocalMediaItems,
   setSourceTracksCollapsed,
@@ -133,6 +131,8 @@ export function useRecording({
   barQuarters,
   deps,
 }: RecordingInputs) {
+  const { sourceTracks } = project;
+  const mediaItemCount = project.mediaItems.length;
   const armedTrackIds = useArmedTrackIds();
   const [phase, setPhase] = useState<RecordPhase>("idle");
   const [liveTakes, setLiveTakes] = useState<ReadonlyMap<string, LiveTake>>(
@@ -514,6 +514,7 @@ export function useRecording({
   }, [armedTrackIds, isPlaying, phase, startRecording, stopRecording]);
 
   return {
+    armedAuditionSession: project,
     armedTrackIds,
     canRecord: canPressRecord(phase, armedTrackIds.size),
     dismissFailureNotice: () => setFailureNotice(null),

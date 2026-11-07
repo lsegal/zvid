@@ -11,10 +11,16 @@ import {
 } from "../../component-test/editor.tsx";
 import { redo, undo } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
-import { DEFAULT_INSTRUMENT, type MidiNote } from "../../midi-clip.ts";
+import { sourceClipEffectTrackId } from "../../fx-stack.ts";
+import {
+  DEFAULT_INSTRUMENT,
+  DEFAULT_SYNTH_PARAMS,
+  type MidiNote,
+  type SynthParams,
+} from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
-import { addDefaultSynth } from "../../midi-effects.ts";
+import { addDefaultSynth, createSynthEffect } from "../../midi-effects.ts";
 import {
   COMPUTER_KEYBOARD_STORAGE_KEY,
   computerKeyboardEntry,
@@ -23,6 +29,11 @@ import {
 import { createMidiInputHub } from "../../midi-input/input-hub.ts";
 import { NEW_NOTE_VELOCITY } from "../../midi-piano-roll.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
+import {
+  type ArmedAuditionSession,
+  setArmedAuditionSource,
+} from "../../recording/armed-audition.ts";
+import { disarmAllTracks, setTrackArmed } from "../../recording/record-arm.ts";
 import { INACTIVE_KEY_MAP } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import { KeyInputControl } from "../InputModeControl";
@@ -401,3 +412,42 @@ test(
   },
   EDITOR_TEST_TIMEOUT,
 );
+
+test("an open roll's keys also sound the other armed tracks", async () => {
+  const types: OscillatorType[] = [];
+  const createOscillator = AudioContext.prototype.createOscillator;
+  const spy = vi
+    .spyOn(AudioContext.prototype, "createOscillator")
+    .mockImplementation(function (this: AudioContext) {
+      const oscillator = createOscillator.call(this);
+      queueMicrotask(() => types.push(oscillator.type));
+      return oscillator;
+    });
+  const wave = (wave: SynthParams["wave"], spanId: string) =>
+    createSynthEffect(sourceClipEffectTrackId(spanId), {
+      ...DEFAULT_SYNTH_PARAMS,
+      wave,
+    });
+  setArmedAuditionSource(
+    {
+      sourceTracks: [{ id: "own" }, { id: "other" }],
+      sourceSpans: [
+        { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
+        { id: "theirs", sourceTrackId: "other", startQ: 0, notes: [] },
+      ],
+      effects: [wave("square", "clip"), wave("sawtooth", "theirs")],
+    } as unknown as ArmedAuditionSession,
+    () => 0,
+  );
+  setTrackArmed("own", true);
+  setTrackArmed("other", true);
+  onTestFinished(() => {
+    spy.mockRestore();
+    disarmAllTracks();
+  });
+  const roll = await renderRoll({ playing: false });
+  fire("keydown", "KeyA");
+  fire("keyup", "KeyA");
+  expect(roll.auditions).toEqual([60]);
+  await expect.poll(() => types).toEqual(["sawtooth"]);
+});

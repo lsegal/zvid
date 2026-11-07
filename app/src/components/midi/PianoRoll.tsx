@@ -56,6 +56,7 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
+import { useArmedRollKeys } from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
@@ -275,14 +276,17 @@ export function PianoRoll({
   capturedNotes.current = notes;
   // A MIDI recording pass takes the keys for the clip it records.
   const midiPassActive = useMidiPassActive();
+  const takesKeys = !collapsed && !midiPassActive;
+  const withArmedTracks = useArmedRollKeys(takesKeys, spanId);
   const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
-    enabled: !collapsed && !midiPassActive,
+    enabled: takesKeys,
     hub: midiHub,
     clip: model,
     clock,
     onAudition(pitch, expression, hold) {
       revealPitch(pitch);
-      return audition(pitch, expression, hold);
+      const voice = audition(pitch, expression, hold);
+      return withArmedTracks(voice, pitch, expression);
     },
     onCapture(note) {
       const next = placeNote(
@@ -298,7 +302,7 @@ export function PianoRoll({
     },
   });
   const keyboardEntryState = useComputerKeyboardEntry({
-    active: !collapsed && !midiPassActive,
+    active: takesKeys,
     entry: keyboardEntry,
     press: playKey,
     release: releaseKey,
