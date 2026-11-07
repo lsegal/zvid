@@ -8,9 +8,12 @@ import {
   gainChainAmplitude,
 } from "./fx/effects/gain/gain.ts";
 import type { SessionEffect } from "./fx-stack.ts";
-import { sourceClipEffectTrackId } from "./fx-stack.ts";
+import {
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "./fx-stack.ts";
 import { DEFAULT_SYNTH_PARAMS } from "./midi-clip.ts";
-import { midiChainOf } from "./midi-effects.ts";
+import { createSynthEffect, midiChainOf } from "./midi-effects.ts";
 import {
   canPasteIntoSourceTrack,
   createMidiClip,
@@ -219,6 +222,51 @@ describe("duplicateSourceSpan", () => {
       "other@t2:0+2q from 10s",
       "copy@t2:2+4q from 10s",
     ]);
+  });
+
+  it("takes a MIDI clip's instrument along to a track with none (#1626)", () => {
+    const synth = createSynthEffect(sourceTrackEffectTrackId("t1"), undefined);
+    const midi = { ...span("a", 0, 4), notes: [] };
+    const instrumentsOn = (effects: readonly SessionEffect[] = []) =>
+      effects
+        .filter((item) => item.trackId === sourceTrackEffectTrackId("t2"))
+        .map((item) => item.effectName);
+    const placement = { startQ: 8, sourceTrackId: "t2" };
+    assert.deepEqual(
+      instrumentsOn(
+        duplicateSourceSpan(
+          project([midi], { effects: [synth] }),
+          "a",
+          "copy",
+          placement,
+        )?.effects,
+      ),
+      ["Synth"],
+    );
+    // A clip without notes brings nothing.
+    assert.deepEqual(
+      instrumentsOn(
+        duplicateSourceSpan(
+          project([span("a", 0, 4)], { effects: [synth] }),
+          "a",
+          "copy",
+          placement,
+        )?.effects,
+      ),
+      [],
+    );
+    assert.deepEqual(
+      instrumentsOn(
+        pasteIntoSourceTrack(
+          project([midi], { effects: [synth] }),
+          { fragments: [], durationQ: 4, sourceSpan: midi, effects: [] },
+          "t2",
+          8,
+          ids("pasted"),
+        )?.effects,
+      ),
+      ["Synth"],
+    );
   });
 });
 
@@ -436,7 +484,7 @@ describe("createMidiClip", () => {
     ]);
   });
 
-  it("leads the clip's stack with a Synth and a 0 dB Gain, keeping other stacks", () => {
+  it("gives its track a Synth and itself a 0 dB Gain, keeping other stacks", () => {
     const other = effect("fx", sourceClipEffectTrackId("a"));
     const patch = createMidiClip(
       project([], { effects: [other] }),
@@ -445,21 +493,38 @@ describe("createMidiClip", () => {
       16,
       "midi",
     );
-    const stack =
-      patch?.effects?.filter(
-        (effect) => effect.trackId === sourceClipEffectTrackId("midi"),
-      ) ?? [];
-    // It sounds through a default Synth, with no Arpeggiator.
-    assert.deepEqual(
-      stack.map((effect) => effect.effectName),
-      ["Synth", GAIN_EFFECT_NAME],
-    );
-    assert.deepEqual(midiChainOf(stack), {
+    const stackOf = (stackId: string) =>
+      patch?.effects?.filter((effect) => effect.trackId === stackId) ?? [];
+    // It sounds through a default Synth on its track, with no Arpeggiator.
+    assert.deepEqual(midiChainOf(stackOf(sourceTrackEffectTrackId("t2"))), {
       generators: [],
       instrument: { kind: "synth", params: DEFAULT_SYNTH_PARAMS },
     });
-    assert.equal(gainChainAmplitude(stack), 1);
+    const own = stackOf(sourceClipEffectTrackId("midi"));
+    assert.deepEqual(
+      own.map((effect) => effect.effectName),
+      [GAIN_EFFECT_NAME],
+    );
+    assert.equal(gainChainAmplitude(own), 1);
     assert.equal(patch?.effects?.[0], other);
+  });
+
+  it("keeps the instrument its track already has", () => {
+    const granular = effect("granular", sourceTrackEffectTrackId("t2"));
+    granular.effectName = "Granular";
+    const patch = createMidiClip(
+      project([], { effects: [granular] }),
+      "t2",
+      4,
+      16,
+      "midi",
+    );
+    assert.deepEqual(
+      patch?.effects
+        ?.filter((effect) => effect.trackId === sourceTrackEffectTrackId("t2"))
+        .map((effect) => effect.id),
+      ["granular"],
+    );
   });
 
   it("ends where the next clip in its own track begins", () => {

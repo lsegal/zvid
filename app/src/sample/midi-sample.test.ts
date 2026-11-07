@@ -6,7 +6,10 @@ import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { FIRST_PAD_NOTE } from "../fx/effects/drum-rack/banks.ts";
 import { formatHueDegrees } from "../fx/params.ts";
-import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
+import {
+  getEffectSourceSpanId,
+  sourceTrackEffectTrackId,
+} from "../fx/stack/clip-stacks.ts";
 import { normalizeEffectAnimation } from "../fx-animation-defaults.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
@@ -42,9 +45,9 @@ function openSample() {
 const midiClips = () =>
   (session.clips ?? []).filter((clip) => Array.isArray(clip.notes));
 
-function stackOf(clipId: string) {
+function stackOf(trackId: string) {
   return (session.effects ?? []).filter(
-    (effect) => effect.trackId === sourceClipEffectTrackId(`source-${clipId}`),
+    (effect) => effect.trackId === sourceTrackEffectTrackId(trackId),
   );
 }
 
@@ -108,10 +111,27 @@ describe("MIDI sample", () => {
     assert.deepEqual([...kinds].sort(), ["drums", "granular", "synth"]);
   });
 
+  it("keeps its sound on the tracks, with none on the clips (#1626)", () => {
+    assert.deepEqual(
+      (session.effects ?? []).filter(
+        (effect) => getEffectSourceSpanId(effect.trackId) !== undefined,
+      ),
+      [],
+    );
+    const { project } = openSample();
+    const tracks = midiClips().map((clip) => clip.trackId);
+    assert.deepEqual(
+      project.sourceTracks
+        .filter((track) => tracks.includes(track.id))
+        .map((track) => track.name),
+      ["Drums", "Bass", "Arp", "Granular pad", "Lead"],
+    );
+  });
+
   it("stacks audio effects after each instrument", () => {
     const instruments = ["Synth", "Granular", "Drum Rack"];
     for (const clip of midiClips()) {
-      const names = stackOf(clip.id).map((effect) => effect.effectName);
+      const names = stackOf(clip.trackId).map((effect) => effect.effectName);
       const instrument = names.findIndex((name) => instruments.includes(name));
       assert.ok(instrument >= 0, `${clip.id} has no instrument`);
       const after = names
@@ -123,7 +143,7 @@ describe("MIDI sample", () => {
 
   it("keeps every pitched note in D major and every drum on a pad", () => {
     for (const clip of midiClips()) {
-      const drums = stackOf(clip.id).some(
+      const drums = stackOf(clip.trackId).some(
         (effect) => effect.effectName === "Drum Rack",
       );
       for (const note of clip.notes ?? []) {

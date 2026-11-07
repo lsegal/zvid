@@ -8,7 +8,10 @@ import {
   formatDrumRack,
 } from "./fx/effects/drum-rack/drum-rack.ts";
 import { GRANULAR_EFFECT_NAME } from "./fx/effects/granular/granular.ts";
-import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
+import {
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "./fx/stack/clip-stacks.ts";
 import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
 import {
@@ -20,14 +23,19 @@ import {
 import {
   addDefaultSynth,
   auditionInstrumentOf,
+  carryMovedClipInstruments,
+  carryTrackInstrument,
+  clipMidiStack,
   createArpeggiatorEffect,
   createSynthEffect,
   midiChainOf,
   migrateMidiClipEffects,
+  migrateMidiTrackEffects,
 } from "./midi-effects.ts";
 import { DEFAULT_ARPEGGIATOR } from "./note-generators.ts";
 
 const STACK = sourceClipEffectTrackId("m");
+const TRACK = sourceTrackEffectTrackId("t");
 
 const SQUARE: SynthParams = {
   ...DEFAULT_SYNTH_PARAMS,
@@ -218,21 +226,28 @@ describe("auditionInstrumentOf", () => {
 });
 
 describe("addDefaultSynth", () => {
-  it("leads the clip's stack with a default Synth", () => {
-    const effects = [gain("other"), gain(STACK, "own")];
-    const next = addDefaultSynth(effects, "m", "synth");
+  it("leads the track's stack with a default Synth", () => {
+    const effects = [gain("other"), gain(TRACK, "own")];
+    const next = addDefaultSynth(effects, "t", "synth");
     assert.deepEqual(
       next.map((effect) => [effect.id, effect.trackId]),
       [
         ["gain", "other"],
-        ["synth", STACK],
-        ["own", STACK],
+        ["synth", TRACK],
+        ["own", TRACK],
       ],
     );
     assert.deepEqual(
       midiChainOf(next.slice(1))?.instrument,
       asSynth(DEFAULT_SYNTH_PARAMS),
     );
+  });
+
+  it("leaves a track that has an instrument as it is, even a bypassed one", () => {
+    const effects = [
+      { ...createSynthEffect(TRACK, SQUARE, "bypassed"), enabled: false },
+    ];
+    assert.equal(addDefaultSynth(effects, "t", "synth"), effects);
   });
 });
 
@@ -296,5 +311,155 @@ describe("migrateMidiClipEffects", () => {
       createId,
     );
     assert.deepEqual(next, [own]);
+  });
+});
+
+describe("clipMidiStack", () => {
+  const trackSynth = createSynthEffect(TRACK, SQUARE, "track-synth");
+  const trackArp = createArpeggiatorEffect(
+    TRACK,
+    DEFAULT_ARPEGGIATOR,
+    "track-arp",
+  );
+  const ids = (stack: readonly { id: string }[]) =>
+    stack.map((effect) => effect.id);
+
+  it("is the track's stack for a clip with none", () => {
+    assert.deepEqual(ids(clipMidiStack([], [trackArp, trackSynth])), [
+      "track-arp",
+      "track-synth",
+    ]);
+  });
+
+  it("runs a clip's lone Arpeggiator ahead of the track's chain", () => {
+    const own = createArpeggiatorEffect(STACK, DEFAULT_ARPEGGIATOR, "own");
+    assert.deepEqual(ids(clipMidiStack([own], [trackArp, trackSynth])), [
+      "own",
+      "track-arp",
+      "track-synth",
+    ]);
+  });
+
+  it("is the clip's stack alone when it has an instrument, even a bypassed one", () => {
+    const own = { ...createSynthEffect(STACK, SQUARE, "own"), enabled: false };
+    assert.deepEqual(ids(clipMidiStack([own], [trackArp, trackSynth])), [
+      "own",
+    ]);
+  });
+});
+
+describe("carryTrackInstrument", () => {
+  const OTHER = sourceTrackEffectTrackId("to");
+  const arp = createArpeggiatorEffect(TRACK, DEFAULT_ARPEGGIATOR, "arp");
+  const synth = createSynthEffect(TRACK, SQUARE, "synth");
+
+  it("copies the MIDI effects to a track with no instrument", () => {
+    const own = gain(OTHER, "own");
+    const next = carryTrackInstrument(
+      [arp, synth, gain(TRACK, "audio"), own],
+      "t",
+      "to",
+      () => "copy",
+    );
+    assert.deepEqual(
+      next
+        .filter((effect) => effect.trackId === OTHER)
+        .map((effect) => [effect.id, effect.effectName]),
+      [
+        ["copy", arp.effectName],
+        ["copy", synth.effectName],
+        ["own", own.effectName],
+      ],
+    );
+    assert.deepEqual(
+      midiChainOf(next.filter((effect) => effect.trackId === OTHER))
+        ?.instrument,
+      asSynth(SQUARE),
+    );
+  });
+
+  it("leaves a track that has an instrument, and an unchanged track, alone", () => {
+    const effects = [synth, createSynthEffect(OTHER, DEFAULT_SYNTH_PARAMS)];
+    assert.equal(carryTrackInstrument(effects, "t", "to"), effects);
+    assert.equal(carryTrackInstrument(effects, "t", "t"), effects);
+  });
+
+  it("carries a moved MIDI clip's, and not a moved media clip's", () => {
+    const effects = [synth];
+    const before = [
+      { id: "m", sourceTrackId: "t", notes: [] },
+      { id: "v", sourceTrackId: "t" },
+    ];
+    const media = [before[0], { id: "v", sourceTrackId: "to" }];
+    assert.equal(carryMovedClipInstruments(effects, before, media), effects);
+    const moved = carryMovedClipInstruments(effects, before, [
+      { id: "m", sourceTrackId: "to", notes: [] },
+      before[1],
+    ]);
+    assert.equal(moved.filter((effect) => effect.trackId === OTHER).length, 1);
+  });
+});
+
+describe("migrateMidiTrackEffects", () => {
+  const clip = (id: string) => sourceClipEffectTrackId(id);
+  const span = (id: string, startQ: number, sourceTrackId = "t") => ({
+    id,
+    startQ,
+    sourceTrackId,
+    notes: [],
+  });
+  const stacks = (effects: readonly SessionEffect[]) =>
+    effects.map((effect) => [effect.id, effect.trackId]);
+
+  it("leaves a session already saved with track effects as it is", () => {
+    const effects = [createSynthEffect(clip("a"), SQUARE, "s")];
+    assert.equal(
+      migrateMidiTrackEffects(effects, [span("a", 0)], true),
+      effects,
+    );
+  });
+
+  it("moves a clip's MIDI effects to the track, its audio ones staying", () => {
+    const next = migrateMidiTrackEffects(
+      [
+        gain(TRACK, "track-gain"),
+        createSynthEffect(clip("a"), SQUARE, "s"),
+        gain(clip("a"), "clip-gain"),
+      ],
+      [span("a", 0)],
+      undefined,
+    );
+    assert.deepEqual(stacks(next), [
+      ["s", TRACK],
+      ["track-gain", TRACK],
+      ["clip-gain", clip("a")],
+    ]);
+  });
+
+  it("drops the same instrument from the track's other clips", () => {
+    const next = migrateMidiTrackEffects(
+      [
+        createSynthEffect(clip("late"), SQUARE, "late"),
+        createSynthEffect(clip("early"), SQUARE, "early"),
+      ],
+      [span("late", 8), span("early", 0)],
+      undefined,
+    );
+    assert.deepEqual(stacks(next), [["early", TRACK]]);
+  });
+
+  it("leaves a clip playing something else its own, so it sounds as it did", () => {
+    const next = migrateMidiTrackEffects(
+      [
+        createSynthEffect(clip("a"), SQUARE, "a"),
+        createSynthEffect(clip("b"), DEFAULT_SYNTH_PARAMS, "b"),
+      ],
+      [span("a", 0), span("b", 8)],
+      undefined,
+    );
+    assert.deepEqual(stacks(next), [
+      ["b", clip("b")],
+      ["a", TRACK],
+    ]);
   });
 });

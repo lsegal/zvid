@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { sourceClipEffectTrackId } from "../../fx-stack.ts";
+import { sourceTrackEffectTrackId } from "../../fx-stack.ts";
 import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "../../midi-clip.ts";
 import { createSynthEffect } from "../../midi-effects.ts";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
@@ -25,8 +25,8 @@ import { MidiTakeCapture } from "./MidiTakeCapture";
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 
-const wave = (spanId: string, type: SynthParams["wave"]) =>
-  createSynthEffect(sourceClipEffectTrackId(spanId), {
+const wave = (trackId: string, type: SynthParams["wave"]) =>
+  createSynthEffect(sourceTrackEffectTrackId(trackId), {
     ...DEFAULT_SYNTH_PARAMS,
     wave: type,
   });
@@ -36,7 +36,7 @@ const session = {
     { id: "m1", sourceTrackId: "square", startQ: 0, notes: [] },
     { id: "m2", sourceTrackId: "saw", startQ: 0, notes: [] },
   ],
-  effects: [wave("m1", "square"), wave("m2", "sawtooth")],
+  effects: [wave("square", "square"), wave("saw", "sawtooth")],
 } as unknown as ArmedAuditionSession;
 
 const port: MidiInputPort = {
@@ -87,13 +87,8 @@ afterEach(() => {
   port.onmidimessage = null;
 });
 
-const playheadSignal = createPlayheadSignal(0);
 const audition = (selectedTrackId?: string) => (
-  <ArmedTrackAudition
-    playheadSignal={playheadSignal}
-    selectedTrackId={selectedTrackId}
-    session={session}
-  />
+  <ArmedTrackAudition selectedTrackId={selectedTrackId} session={session} />
 );
 
 async function renderAudition(selectedTrackId?: string) {
@@ -261,7 +256,7 @@ test("a piano roll taking the keys leaves the selected track silent", async () =
 test("a MIDI take auditions through the armed tracks, not a default Synth", async () => {
   setTrackArmed("saw", true);
   setTrackArmed("empty", true);
-  setArmedAuditionSource(session, () => 0);
+  setArmedAuditionSource(session);
   const take = new MidiTake({
     startQ: 0,
     input: "device",

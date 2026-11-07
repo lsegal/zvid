@@ -11,7 +11,7 @@ import {
 } from "../../component-test/editor.tsx";
 import { redo, undo } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
-import { sourceClipEffectTrackId } from "../../fx-stack.ts";
+import { sourceTrackEffectTrackId } from "../../fx-stack.ts";
 import {
   DEFAULT_INSTRUMENT,
   DEFAULT_SYNTH_PARAMS,
@@ -423,22 +423,19 @@ test("an open roll's keys also sound the other armed tracks", async () => {
       queueMicrotask(() => types.push(oscillator.type));
       return oscillator;
     });
-  const wave = (wave: SynthParams["wave"], spanId: string) =>
-    createSynthEffect(sourceClipEffectTrackId(spanId), {
+  const wave = (wave: SynthParams["wave"], trackId: string) =>
+    createSynthEffect(sourceTrackEffectTrackId(trackId), {
       ...DEFAULT_SYNTH_PARAMS,
       wave,
     });
-  setArmedAuditionSource(
-    {
-      sourceTracks: [{ id: "own" }, { id: "other" }],
-      sourceSpans: [
-        { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
-        { id: "theirs", sourceTrackId: "other", startQ: 0, notes: [] },
-      ],
-      effects: [wave("square", "clip"), wave("sawtooth", "theirs")],
-    } as unknown as ArmedAuditionSession,
-    () => 0,
-  );
+  setArmedAuditionSource({
+    sourceTracks: [{ id: "own" }, { id: "other" }],
+    sourceSpans: [
+      { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
+      { id: "theirs", sourceTrackId: "other", startQ: 0, notes: [] },
+    ],
+    effects: [wave("square", "own"), wave("sawtooth", "other")],
+  } as unknown as ArmedAuditionSession);
   setTrackArmed("own", true);
   setTrackArmed("other", true);
   onTestFinished(() => {

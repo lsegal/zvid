@@ -413,36 +413,36 @@ export function sessionToProject(
   // that could not be loaded are dropped with them.
   const effects = migrateMidiTrackEffects(
     migrateMidiClipEffects(
-    migrateDefaultGain(
-      migrateClipContentEffects(
-        pruneSourceEffects(
-          pruneClipEffects(
-            migrateDefaultOrder(
-              ensureLayerLayouts(
-                migrateOrderOuterMargin(
-                  migrateColorizeReactivity(
-                    migrateRenamedEffects(mapEffects(session.effects)),
+      migrateDefaultGain(
+        migrateClipContentEffects(
+          pruneSourceEffects(
+            pruneClipEffects(
+              migrateDefaultOrder(
+                ensureLayerLayouts(
+                  migrateOrderOuterMargin(
+                    migrateColorizeReactivity(
+                      migrateRenamedEffects(mapEffects(session.effects)),
+                    ),
                   ),
+                  (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
                 ),
-                (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+                session.orderDefaulted,
               ),
-              session.orderDefaulted,
+              arrangementClips,
             ),
-            arrangementClips,
+            sourceTracks,
+            sourceSpans,
           ),
-          sourceTracks,
-          sourceSpans,
+          arrangementClips,
+          session.clipContentEffects,
         ),
-        arrangementClips,
-        session.clipContentEffects,
+        { clips: arrangementClips, sourceSpans },
+        mediaItems,
+        session.audioGainDefaulted,
       ),
-      { clips: arrangementClips, sourceSpans },
-      mediaItems,
-      session.audioGainDefaulted,
-    ),
-    session.tracks ?? [],
-    sourceSpans,
-    session.midiClipEffects,
+      session.tracks ?? [],
+      sourceSpans,
+      session.midiClipEffects,
     ),
     sourceSpans,
     session.midiTrackEffects,
