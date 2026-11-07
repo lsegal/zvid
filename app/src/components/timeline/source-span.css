@@ -276,7 +276,11 @@
   min-width: 2px;
   min-height: 2px;
   border-radius: 1px;
-  background: color-mix(in srgb, var(--clip-accent) 70%, white);
+  /* Deepened on the light theme's pale clips, where a tint would vanish. */
+  background: light-dark(
+    color-mix(in srgb, var(--clip-accent) 70%, black),
+    color-mix(in srgb, var(--clip-accent) 70%, white)
+  );
 }
 
 .source-span--midi {

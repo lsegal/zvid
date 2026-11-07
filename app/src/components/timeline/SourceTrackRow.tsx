@@ -230,7 +230,6 @@ export const SourceTrackRow = memo(function SourceTrackRow({
       <section
         aria-label={`Drop media into ${track.name}`}
         className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
-        data-theme="dark"
         onClick={(event) => {
           // Empty space clears the source clip selection, keeping its track
           // selected.
