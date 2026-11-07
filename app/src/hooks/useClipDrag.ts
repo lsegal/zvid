@@ -311,11 +311,12 @@ export function useClipDrag({
           // their own, and stay on their source tracks (#1483).
           const movedSpans =
             moved && dragState.spanGroup
-              ? moveSourceSpanGroup(
-                  sourceSpans,
-                  new Set(dragState.spanGroup),
-                  { deltaQ, trackShift: 0, trackIds: [], bpm },
-                )
+              ? moveSourceSpanGroup(sourceSpans, new Set(dragState.spanGroup), {
+                  deltaQ,
+                  trackShift: 0,
+                  trackIds: [],
+                  bpm,
+                })
               : null;
           showPreview(
             moved

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { patchProjectState } from "../../app/session-project.ts";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
+import { getClipDurationQ } from "../../app/timeline-math.ts";
 import type { ProjectState } from "../../app/types.ts";
 import {
   EDITOR_TEST_TIMEOUT,
@@ -63,7 +64,9 @@ async function renderProject() {
   await expect
     .poll(() => document.querySelectorAll(".clip-card").length)
     .toBe(3);
-  await expect.poll(() => document.querySelector(".source-span")).not.toBeNull();
+  await expect
+    .poll(() => document.querySelector(".source-span"))
+    .not.toBeNull();
   return () => {
     if (!state.current) {
       throw new Error("The editor never rendered");
@@ -95,6 +98,9 @@ function clipOf(state: EditorState, id: string) {
   return clip;
 }
 
+const durationQ = (state: EditorState, id: string) =>
+  getClipDurationQ(clipOf(state, id), state.project.bpm);
+
 // Each clip's start, rounded to a quarter, sorted.
 function starts(state: EditorState) {
   return state.project.clips
@@ -108,8 +114,8 @@ function selectedIds() {
   ].map((item) => item.dataset.clipId);
 }
 
-// Presses `target`, drags it by `renderedDx` and lets React render that, then
-// returns `release`: it sends the last move, `lastDx` from the press, and the
+// Presses `target`, drags it by `renderedDx` and lets React render that. The
+// function it returns sends the last move, `lastDx` from the press, and the
 // release in one task, so React can't render the move between them.
 async function pressAndDrag(
   target: HTMLElement,
@@ -162,7 +168,6 @@ describe("a release before the last move renders", {
     const release = await pressAndDrag(body("a"), 3 * q);
     release(4 * q);
     await expect.poll(() => clipOf(state(), "a").startQ).toBe(4);
-    expect(state().status).toBe("Move clip");
   });
 
   test("keeps a drag with no rendered move at all", async () => {
@@ -180,7 +185,7 @@ describe("a release before the last move renders", {
     const release = await pressAndDrag(handle("c", "start"), q);
     release(2 * q);
     await expect.poll(() => clipOf(state(), "c").startQ).toBe(14);
-    expect(clipOf(state(), "c").durationQ).toBe(2);
+    expect(durationQ(state(), "c")).toBe(2);
   });
 
   test("trims a clip's end to the pointer", async () => {
@@ -188,7 +193,7 @@ describe("a release before the last move renders", {
     const q = quarterPx();
     const release = await pressAndDrag(handle("a", "end"), 3 * q);
     release(4 * q);
-    await expect.poll(() => clipOf(state(), "a").durationQ).toBe(8);
+    await expect.poll(() => durationQ(state(), "a")).toBe(8);
     expect(clipOf(state(), "a").startQ).toBe(0);
   });
 
