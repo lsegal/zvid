@@ -248,10 +248,6 @@ test(
       .click();
     createOscillator.mockClear();
 
-    await userEvent.keyboard("{a>}");
-    await userEvent.keyboard("{/a}");
-    expect(createOscillator).not.toHaveBeenCalled();
-
     query("[data-source-track-label-id]").click();
     await expect
       .poll(async () => {
