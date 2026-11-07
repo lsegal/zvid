@@ -1,6 +1,9 @@
 import { beforeAll, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
-import { drumBankPadUrl, DRUM_BANKS } from "../../fx/effects/drum-rack/banks.ts";
+import {
+  DRUM_BANKS,
+  drumBankPadUrl,
+} from "../../fx/effects/drum-rack/banks.ts";
 import { auditionDrumPad, auditionNote } from "../../midi-audition.ts";
 import {
   DEFAULT_GRANULAR_PARAMS,
@@ -66,16 +69,15 @@ const INSTRUMENTS: [string, MidiInstrument][] = [
   ["Granular", { kind: "granular", params: DEFAULT_GRANULAR_PARAMS }],
 ];
 
-test.each(INSTRUMENTS)(
-  "%s sounds softer at a soft velocity",
-  async (_, instrument) => {
-    const play = (velocity: number) =>
-      auditionNote(60, instrument, undefined, false, undefined, velocity);
-    const full = await peakOf(() => play(FULL));
-    const soft = await peakOf(() => play(SOFT));
-    expectSofter(full, soft);
-  },
-);
+test.each(
+  INSTRUMENTS,
+)("%s sounds softer at a soft velocity", async (_, instrument) => {
+  const play = (velocity: number) =>
+    auditionNote(60, instrument, undefined, false, undefined, velocity);
+  const full = await peakOf(() => play(FULL));
+  const soft = await peakOf(() => play(SOFT));
+  expectSofter(full, soft);
+});
 
 test("a Drum Rack's pad sounds softer at a soft velocity", async () => {
   const params = {

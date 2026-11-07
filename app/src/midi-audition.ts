@@ -380,13 +380,7 @@ function auditionSynth(
   oscillator.start(start);
   let release = () => {};
   const holdFrom = (from: number) => {
-    const releaseGain = holdEnvelope(
-      gain.gain,
-      params,
-      start,
-      level,
-      from,
-    );
+    const releaseGain = holdEnvelope(gain.gain, params, start, level, from);
     release = () => oscillator.stop(releaseGain(context.currentTime));
   };
   let fixedUntil = 0;
