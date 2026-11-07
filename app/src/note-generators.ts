@@ -210,7 +210,12 @@ export function arpeggiate(
     played.push({
       pitch,
       start: time,
-      length: Math.min(step, note.start + note.length - time),
+      // A step ends where the next one starts, which a Rate moved finer lands
+      // on sooner than this step's own grid would.
+      length: Math.min(
+        modulator ? advance(step) - time : step,
+        note.start + note.length - time,
+      ),
       velocity: note.velocity,
       ...(note.expression
         ? { expression: shiftedExpression(note.expression, time - note.start) }

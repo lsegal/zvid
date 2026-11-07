@@ -178,3 +178,71 @@ test("without an LFO the same held key stays level", async () => {
   voice?.release();
   expect(Math.max(...levels)).toBeLessThan(Math.min(...levels) * 1.1);
 });
+
+// A sawtooth through a low Cutoff, with its LFO moving the filter, so the level
+// at the speakers follows the sweep (#1642).
+const sweptSynth = (lfo: boolean) => {
+  const effect = createSynthEffect(clipStack, {
+    ...DEFAULT_SYNTH_PARAMS,
+    wave: "sawtooth",
+    cutoff: 200,
+    attack: 0,
+    decay: 0,
+    sustain: 1,
+    release: 0,
+  });
+  const modulation = createDefaultModulation(
+    effect.effectName,
+  ) as EffectModulation;
+  return {
+    ...effect,
+    modulation: {
+      ...modulation,
+      enabled: lfo,
+      mode: "lfo" as const,
+      lfo: {
+        ...modulation.lfo,
+        shape: "Sine" as const,
+        sync: false,
+        rate: 2,
+        depth: 2,
+        parameters: ["Cutoff"],
+      },
+    },
+  };
+};
+
+const hearOnly = (effects: unknown[]) => {
+  setArmedAuditionSource(
+    {
+      sourceTracks: [{ id: TRACK }],
+      sourceSpans: [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }],
+      effects,
+      bpm: 120,
+      signatureId: "4/4",
+    } as unknown as ArmedAuditionSession,
+    () => 8,
+  );
+};
+
+test("a Synth's LFO sweeps its Cutoff under a key held with the playhead paused", async () => {
+  await userEvent.click(document.body);
+  const swept = sweptSynth(true);
+  hearOnly([swept, gain(0)]);
+  const voice = auditionTracks(new Set([TRACK]), 36, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  const levels = await levelsOverASecond();
+  voice?.release();
+  expect(Math.max(...levels)).toBeGreaterThan(Math.min(...levels) * 1.3);
+});
+
+test("with its Modulation off the same Synth holds its Cutoff", async () => {
+  await userEvent.click(document.body);
+  hearOnly([sweptSynth(false), gain(0)]);
+  const voice = auditionTracks(new Set([TRACK]), 36, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  await wait(100);
+  const levels = await levelsOverASecond();
+  voice?.release();
+  expect(Math.max(...levels)).toBeLessThan(Math.min(...levels) * 1.25);
+});

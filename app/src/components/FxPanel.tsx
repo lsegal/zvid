@@ -9,6 +9,7 @@ import type { FxPanelResize } from "../hooks/useFxPanelResize.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
 import { InheritedSourceFx } from "./fx/InheritedSourceFx";
+import { FxMidiOnsetsContext } from "./fx/modulation-clock";
 import {
   INACTIVE_KEY_MAP,
   KeyMapContext,
@@ -144,7 +145,7 @@ export function FxPanel({
     isInspectorCollapsed,
   );
   return (
-    <>
+    <FxMidiOnsetsContext.Provider value={fxMidiClip?.reactiveOnsets}>
       {fxPanelResize && !isInspectorCollapsed ? (
         <hr
           className="fx-panel-resize-handle"
@@ -269,6 +270,6 @@ export function FxPanel({
           </FxDeviceMaxHeightContext.Provider>
         </div>
       </section>
-    </>
+    </FxMidiOnsetsContext.Provider>
   );
 }

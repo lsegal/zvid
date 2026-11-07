@@ -612,7 +612,11 @@ function mixGranularAudition(
       value: (key, base, seconds) => modulator.value(key, base, start + seconds),
     },
   );
-  const seconds = AUDITION_HOLD_SECONDS + params.release + params.grainSize;
+  // A modulated Release or Grain Size can outlast the knobs as they are set.
+  const seconds = grains.reduce(
+    (end, grain) => Math.max(end, grain.startSeconds + grain.durationSeconds),
+    AUDITION_HOLD_SECONDS + params.release + params.grainSize,
+  );
   return mixGrains(grains, sampleRate, Math.ceil(seconds * sampleRate));
 }
 

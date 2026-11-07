@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { reactiveLevelAt } from "../../audio-mix/midi-modulation";
 import {
   transientHit,
   transientLevel,
@@ -17,6 +18,7 @@ import {
 import type { FxDevice } from "../../fx-stack";
 import {
   FxAnimationTimelineContext,
+  FxMidiOnsetsContext,
   FxModulationClockContext,
 } from "./modulation-clock";
 
@@ -26,6 +28,7 @@ import {
 export function useLiveKnob(device: FxDevice, key: string) {
   const clock = useContext(FxModulationClockContext);
   const timeline = useContext(FxAnimationTimelineContext);
+  const midiOnsets = useContext(FxMidiOnsetsContext);
   const driver = useMemo(() => liveDriver(device), [device]);
   const driven = drivesKnob(driver, key);
   // Transient follows the level its stage reports; Reactive the hits the
@@ -38,8 +41,8 @@ export function useLiveKnob(device: FxDevice, key: string) {
         : undefined;
   const [live, setLive] = useState<number | undefined>(undefined);
   // Read each frame, so a new setting or a drag doesn't restart the loop.
-  const current = useRef({ device, driver });
-  current.current = { device, driver };
+  const current = useRef({ device, driver, midiOnsets });
+  current.current = { device, driver, midiOnsets };
   const readRef = useRef<(() => void) | null>(null);
 
   const { id, group } = device;
@@ -64,7 +67,11 @@ export function useLiveKnob(device: FxDevice, key: string) {
         signature: clock.signature,
         fps,
       };
-      const { device: latest, driver: latestDriver } = current.current;
+      const {
+        device: latest,
+        driver: latestDriver,
+        midiOnsets: latestOnsets,
+      } = current.current;
       if (latestDriver?.kind === "clip" && timeline) {
         at.clipSpan = findAnimationClipSpan(
           timeline.clips,
@@ -78,7 +85,17 @@ export function useLiveKnob(device: FxDevice, key: string) {
       } else if (listen === "reactive") {
         at.onsets = reactiveOnsets();
       } else if (listen === "transient") {
-        at.transient = { level: transientLevel(id), hit: transientHit(id) };
+        at.transient =
+          latest.domain === "midi" &&
+          latestDriver?.kind === "modulation" &&
+          latestDriver.modulation.mode === "transient"
+            ? reactiveLevelAt(
+                latestDriver.modulation,
+                latestDriver.modulation.lengthFrames,
+                latestOnsets?.get(id) ?? [],
+                time,
+              )
+            : { level: transientLevel(id), hit: transientHit(id) };
       }
       setLive(liveKnobValue(latest as LiveDevice, latestDriver, key, at));
     };

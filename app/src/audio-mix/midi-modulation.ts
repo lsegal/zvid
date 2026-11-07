@@ -6,8 +6,13 @@
 // session's bars. Reactive has no audio to listen to before the clip has
 // rendered: its hits are the notes reaching the effect, as loud as their
 // velocity.
+import type { ReactiveAnimation } from "../fx-animation-defaults.ts";
+import {
+  REACTIVE_FRAME_RATE,
+  type ReactiveOnset,
+  reactiveSwingAt,
+} from "../fx-animation-impulse.ts";
 import type { MidiNote } from "../midi-clip.ts";
-import type { ReactiveOnset } from "../fx-animation-impulse.ts";
 import {
   type AudioStageModulation,
   lfoSwing,
@@ -75,6 +80,27 @@ export function modulationSwing(
   return modulation.mode === "lfo"
     ? lfoSwing(modulation, modulation.seed, key, time, tempo)
     : transientSwing(modulation, modulation.seed, key, onsets, time);
+}
+
+/**
+ * What Reactive `transient` settings make of `onsets` at session second `time`:
+ * the level and hit moving the knobs, as a chain would report them for an audio
+ * effect (see transient-monitor.ts), for the Modulation section to show.
+ */
+export function reactiveLevelAt(
+  transient: Pick<ReactiveAnimation, "motion" | "reactivity" | "amplitude">,
+  lengthFrames: number,
+  onsets: readonly ReactiveOnset[],
+  time: number,
+) {
+  const hit = reactiveSwingAt(
+    transient,
+    onsets,
+    time,
+    lengthFrames,
+    REACTIVE_FRAME_RATE,
+  );
+  return { level: hit?.amount ?? 0, hit: hit?.seed ?? 0 };
 }
 
 /**
