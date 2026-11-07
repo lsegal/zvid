@@ -951,12 +951,17 @@ test("clicking a note or a key auditions it through the track's synth", async ()
     />,
   );
   await userEvent.click(page.getByRole("button", { name: "Play C4" }));
-  expect(onAudition).toHaveBeenLastCalledWith(60, synth);
+  expect(onAudition.mock.lastCall?.slice(0, 2)).toEqual([60, synth]);
+  // A key has no velocity to play at; a note plays at its own.
+  expect(onAudition.mock.lastCall?.[4]).toBeUndefined();
 
   const note = noteButton("G3") as HTMLElement;
   const point = center(note);
   await click(point.x, point.y);
-  expect(onAudition).toHaveBeenLastCalledWith(55, synth);
+  expect(onAudition.mock.lastCall?.slice(0, 2)).toEqual([55, synth]);
+  expect(onAudition.mock.lastCall?.[4]).toBe(
+    NOTES.find((played) => played.pitch === 55)?.velocity,
+  );
   // A click that doesn't move the note edits nothing.
   await nextFrames();
   expect(onSetNotes).not.toHaveBeenCalled();

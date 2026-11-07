@@ -15,10 +15,26 @@ describe("note expression", () => {
     assert.equal(bendRate(-12), 0.5);
   });
 
-  it("swells to the note's own level at full pressure", () => {
-    assert.equal(pressureLevel(1), 1);
-    assert.ok(pressureLevel(0) > 0);
-    assert.ok(pressureLevel(0) < pressureLevel(0.5));
+  it("stays at the velocity's level with no pressure", () => {
+    for (const velocity of [1, 32, 100, 127]) {
+      assert.equal(pressureLevel(0, velocity), 1);
+    }
+  });
+
+  it("swells to a full-velocity note's level at full pressure", () => {
+    for (const velocity of [1, 32, 100, 127]) {
+      const level = (velocity / 127) * pressureLevel(1, velocity);
+      assert.ok(Math.abs(level - 1) < 1e-12);
+    }
+    assert.ok(pressureLevel(0.5, 32) > pressureLevel(0, 32));
+    assert.ok(pressureLevel(0.5, 32) < pressureLevel(1, 32));
+  });
+
+  it("keeps a harder strike louder at the same pressure", () => {
+    const level = (velocity: number) =>
+      (velocity / 127) * pressureLevel(0.25, velocity);
+    assert.ok(level(30) < level(80));
+    assert.ok(level(80) < level(127));
   });
 
   it("leaves the cutoff at the timbre's center and moves it either way", () => {

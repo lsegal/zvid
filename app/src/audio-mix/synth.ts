@@ -195,7 +195,13 @@ export function synthVoices(
         ...(bend
           ? { detune: curve(bend, (value) => params.detune + value * 100) }
           : {}),
-        ...(pressure ? { level: curve(pressure, pressureLevel) } : {}),
+        ...(pressure
+          ? {
+              level: curve(pressure, (value) =>
+                pressureLevel(value, note.velocity),
+              ),
+            }
+          : {}),
         ...(timbre
           ? {
               cutoff: curve(timbre, (value) =>

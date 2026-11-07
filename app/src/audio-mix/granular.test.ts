@@ -231,18 +231,13 @@ describe("granularGrains, with expression", () => {
     assert.ok((bent.at(-1)?.rate ?? 0) > 1.8);
   });
 
-  it("scales each grain's level by pressure", () => {
-    const pressed = grains({
-      ...plain,
-      expression: { pressure: [{ at: 0, value: 0 }] },
-    });
-    const full = grains(plain);
-    assert.ok(pressed[5].level < full[5].level);
-    assert.equal(
-      grains({ ...plain, expression: { pressure: [{ at: 0, value: 1 }] } })[5]
-        .level,
-      full[5].level,
-    );
+  it("swells each grain from its velocity's level by pressure", () => {
+    const soft = { ...plain, velocity: 32 };
+    const at = (value: number) =>
+      grains({ ...soft, expression: { pressure: [{ at: 0, value }] } })[5]
+        .level;
+    assert.equal(at(0), grains(soft)[5].level);
+    assert.ok(Math.abs(at(1) - grains(plain)[5].level) < 1e-12);
   });
 
   it("reads further along the source for more timbre", () => {
