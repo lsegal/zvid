@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useState,
@@ -196,8 +197,9 @@ export function PianoRollRuler({
     <div
       className={`piano-roll__ruler${pan.isGrabbing ? " piano-roll__ruler--panning" : ""}`}
       data-piano-roll-ruler
-      onContextMenu={(event) => event.preventDefault()}
       {...chainHandlers(pan.handlers, {
+        onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) =>
+          event.preventDefault(),
         onLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) =>
           endDrag(event, true),
         onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) =>
