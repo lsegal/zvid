@@ -8,10 +8,8 @@ import {
 } from "../midi-device-targets.ts";
 import { deviceControlAction } from "../midi-input/device-controls.ts";
 import { type MidiInputHub, midiInputHub } from "../midi-input/input-hub.ts";
+import { settledEffectEdits } from "./settled-effect-edits.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
-
-// How long a control rests before its moves become one undo step.
-const SETTLE_MS = 400;
 
 export type MidiDeviceControlInputs = {
   hub?: MidiInputHub;
@@ -34,21 +32,9 @@ export function useMidiDeviceControls({
   latestRef.current = inputs;
 
   useEffect(() => {
-    let settling: ReturnType<typeof setTimeout> | undefined;
-    let settle: (() => void) | undefined;
-    const editSettled = (
-      label: string,
-      updater: (effects: SessionEffect[]) => SessionEffect[],
-    ) => {
-      const { editEffects } = latestRef.current;
-      editEffects(label, updater, "transient");
-      clearTimeout(settling);
-      settle = () => {
-        settle = undefined;
-        latestRef.current.editEffects(label, (effects) => effects);
-      };
-      settling = setTimeout(settle, SETTLE_MS);
-    };
+    const { edit: editSettled, flush } = settledEffectEdits(
+      (...args) => latestRef.current.editEffects(...args),
+    );
 
     const stopListening = hub.listen({
       message(input, message) {
@@ -85,8 +71,7 @@ export function useMidiDeviceControls({
     });
     return () => {
       stopListening();
-      clearTimeout(settling);
-      settle?.();
+      flush();
     };
   }, [hub]);
 }

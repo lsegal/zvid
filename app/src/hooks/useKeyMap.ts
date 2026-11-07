@@ -6,6 +6,7 @@ import type {
   KeyMapButtonProps,
   KeyMapControls,
 } from "../components/fx/key-map-context.ts";
+import { INACTIVE_KEY_MAP } from "../components/fx/key-map-context.ts";
 import { drumRackParams } from "../fx/effects/drum-rack/drum-media.ts";
 import { parseDrumRack } from "../fx/effects/drum-rack/drum-rack.ts";
 import type { SessionEffect } from "../fx-stack.ts";
@@ -298,6 +299,7 @@ export function useKeyMap({
           onPointerDownCapture: swallow,
         };
       },
+      knobProps: INACTIVE_KEY_MAP.knobProps,
       isPadHeld: (effectId, pad) => heldPads.has(padId(effectId, pad)),
     };
   }, [active, heldPads, keyMappings, selectedTarget, toggle]);

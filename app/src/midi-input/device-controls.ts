@@ -5,8 +5,9 @@
 // master, lone or ninth fader, or any control named for volume, is the app's volume;
 // and numbered faders are the source tracks' volumes, in track order.
 //
-// Only CC messages, and the pitch bend some faders send, take a role. MIDI Map
-// mappings are of notes, so a key mapped by hand is never one of these.
+// Only CC messages, and the pitch bend some faders send, take a role. A CC
+// mapped by hand in the MIDI Map (#1631) claims its messages before they get
+// here, so a mapping always beats the role.
 import {
   expandControls,
   type MidiControl,
@@ -117,6 +118,34 @@ function relativeMove(value: number): DeviceControlMove {
   return { by: (value < 64 ? value : value - 128) / 127 };
 }
 
+const relativeByMapping = new WeakMap<MidiDeviceMapping, Set<string>>();
+
+function relativeCcsOf(mapping: MidiDeviceMapping) {
+  let relative = relativeByMapping.get(mapping);
+  if (!relative) {
+    relative = new Set(
+      expandControls(mapping.controls)
+        .filter((control) => control.type === "cc" && control.relative)
+        .map((control) =>
+          messageId(control.type, control.channel, control.number),
+        ),
+    );
+    relativeByMapping.set(mapping, relative);
+  }
+  return relative;
+}
+
+/** Where a CC moves its target, on a device `mapping` may describe. */
+export function ccMove(
+  mapping: MidiDeviceMapping | undefined,
+  { channel, controller, value }: Extract<MidiMessage, { type: "cc" }>,
+): DeviceControlMove {
+  return mapping &&
+    relativeCcsOf(mapping).has(messageId("cc", channel, controller))
+    ? relativeMove(value)
+    : { to: value / 127 };
+}
+
 /** What `message` from a device mapped by `mapping` does, if anything. */
 export function deviceControlAction(
   mapping: MidiDeviceMapping,
@@ -126,14 +155,7 @@ export function deviceControlAction(
     const entry = rolesOf(mapping).get(
       messageId("cc", message.channel, message.controller),
     );
-    return (
-      entry && {
-        role: entry.role,
-        move: entry.control.relative
-          ? relativeMove(message.value)
-          : { to: message.value / 127 },
-      }
-    );
+    return entry && { role: entry.role, move: ccMove(mapping, message) };
   }
   if (message.type === "pitchbend") {
     const entry = rolesOf(mapping).get(messageId("pitchbend", message.channel));
