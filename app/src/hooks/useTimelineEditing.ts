@@ -123,11 +123,13 @@ export type TimelineEditingInputs = {
   >;
   // Re-resolves the audio mix, from the Audio row's menu.
   refreshAudio: () => void;
-  fxPanel: Pick<
-    ReturnType<typeof useFxPanelModel>,
-    "fxLaneId" | "selectedFxDevice"
-  >;
-  previewVolume: ReturnType<typeof usePreviewVolume>;
+  panels: {
+    fxPanel: Pick<
+      ReturnType<typeof useFxPanelModel>,
+      "fxLaneId" | "selectedFxDevice"
+    >;
+    previewVolume: ReturnType<typeof usePreviewVolume>;
+  };
   mediaItemsById: Map<string, MediaItem>;
   laneStatusById: Map<string, LaneStatus>;
   playbackOriginRef: RefObject<number>;
@@ -156,8 +158,7 @@ export function useTimelineEditing({
   historyCommands,
   fxEditing,
   refreshAudio,
-  fxPanel,
-  previewVolume,
+  panels: { fxPanel, previewVolume },
   mediaItemsById,
   laneStatusById,
   playbackOriginRef,
