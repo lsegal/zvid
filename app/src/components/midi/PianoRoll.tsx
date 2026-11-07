@@ -43,10 +43,10 @@ import {
   pitchName,
   placeNote,
   resizeNote,
+  resizeOverNotes,
   sameNotes,
   shiftNotes,
   snapQ,
-  sortNotes,
 } from "../../midi-piano-roll.ts";
 import {
   getNoteClipboard,
@@ -166,7 +166,7 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // Right-dragging the grid pans the roll (see use-piano-roll-pan.ts), as does
 // dragging the ruler, left and right. A long press or the menu key opens the
 // menu of note actions. A moved or copied note trims the notes of its pitch it
-// lands on, the way clips do.
+// lands on, the way clips do; painting or resizing over them removes them.
 // Clicking a note selects it (Shift-click adds to the selection) and Escape
 // clears the selection. The keys act on the selected notes (see
 // piano-roll-actions.ts): the arrows nudge them a snap (Shift for half) or a
@@ -437,16 +437,16 @@ export function PianoRoll({
       return;
     }
     select([noteKey(drag.notes[drag.index])]);
-    if (drag.edge) {
-      onSetNotes(spanId, sortNotes(drag.notes), midiHistoryLabels.resizeNote);
-      return;
-    }
     onSetNotes(
       spanId,
-      placeNote(drag.notes, drag.index),
-      drag.duplicate
-        ? midiHistoryLabels.duplicateNote
-        : midiHistoryLabels.moveNote,
+      drag.edge
+        ? resizeOverNotes(drag.notes, drag.index, drag.from)
+        : placeNote(drag.notes, drag.index),
+      drag.edge
+        ? midiHistoryLabels.resizeNote
+        : drag.duplicate
+          ? midiHistoryLabels.duplicateNote
+          : midiHistoryLabels.moveNote,
     );
   }
 
