@@ -52,7 +52,7 @@ function movedValue(parameter: FxDeviceParameter, move: DeviceControlMove) {
 /** `effects` with the selected effect's parameter `index` moved. */
 export function moveEffectKnob(
   effects: SessionEffect[],
-  effectId: string | null | undefined,
+  effectId: string | undefined,
   index: number,
   move: DeviceControlMove,
 ) {

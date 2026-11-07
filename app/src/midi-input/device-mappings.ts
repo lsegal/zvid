@@ -1,8 +1,9 @@
 // What MIDI devices send, as data: a mapping per device (see
 // midi-devices.json and its README) records the port names that recognize it
 // and the message each of its keys and controls sends at its factory
-// defaults. Only keys and pads act on the piano roll; the others are known
-// so their messages are recognized and ignored.
+// defaults. Keys and pads act on the piano roll, and knobs and faders through
+// device-controls.ts; the others are known so their messages are recognized
+// and ignored.
 import type { MidiMessage } from "./messages.ts";
 
 export const MIDI_CONTROL_KINDS = [

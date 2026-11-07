@@ -22,14 +22,17 @@ import { useClipActions } from "./useClipActions.ts";
 import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
+import type { useFxPanelModel } from "./useFxPanelModel.ts";
 import { useKeyMap } from "./useKeyMap.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useLoopRegion } from "./useLoopRegion.ts";
 import { useMarqueeSelection } from "./useMarqueeSelection.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
+import { useMidiDeviceControls } from "./useMidiDeviceControls.ts";
 import { useMidiMap } from "./useMidiMap.ts";
 import { useMultiSelectionActions } from "./useMultiSelectionActions.ts";
 import type { usePlayback } from "./usePlayback.ts";
+import type { usePreviewVolume } from "./usePreviewVolume.ts";
 import type {
   ProjectStore,
   useProjectHistoryCommands,
@@ -120,7 +123,11 @@ export type TimelineEditingInputs = {
   >;
   // Re-resolves the audio mix, from the Audio row's menu.
   refreshAudio: () => void;
-  fxLaneId: string | undefined;
+  fxPanel: Pick<
+    ReturnType<typeof useFxPanelModel>,
+    "fxLaneId" | "selectedFxDevice"
+  >;
+  previewVolume: ReturnType<typeof usePreviewVolume>;
   mediaItemsById: Map<string, MediaItem>;
   laneStatusById: Map<string, LaneStatus>;
   playbackOriginRef: RefObject<number>;
@@ -149,7 +156,8 @@ export function useTimelineEditing({
   historyCommands,
   fxEditing,
   refreshAudio,
-  fxLaneId,
+  fxPanel,
+  previewVolume,
   mediaItemsById,
   laneStatusById,
   playbackOriginRef,
@@ -444,7 +452,7 @@ export function useTimelineEditing({
     duplicateArrangementClip,
     duplicateLayer,
     duplicateSourceTrack,
-    fxLaneId,
+    fxLaneId: fxPanel.fxLaneId,
     handleRedo,
     handleUndo,
     insertFillClip,
@@ -500,7 +508,7 @@ export function useTimelineEditing({
     dragState,
     duplicateSourceTrack,
     fps,
-    fxLaneId,
+    fxLaneId: fxPanel.fxLaneId,
     handleRedo,
     handleUndo,
     lanes,
@@ -523,6 +531,18 @@ export function useTimelineEditing({
     timelineDragState,
     timelineScrollRef,
     totalQuarters,
+  });
+
+  useMidiDeviceControls({
+    effects: project.effects,
+    selectedEffectId: fxPanel.selectedFxDevice?.id,
+    sourceTrackIds: useMemo(
+      () => sourceTracks.map((track) => track.id),
+      [sourceTracks],
+    ),
+    editEffects: fxEditing.editEffects,
+    previewVolume: previewVolume.previewVolume.volume,
+    setPreviewVolume: previewVolume.setPreviewVolume,
   });
 
   const { keyMap, midiMap } = useMidiMap({

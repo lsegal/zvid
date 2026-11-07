@@ -16,7 +16,7 @@ const SETTLE_MS = 400;
 export type MidiDeviceControlInputs = {
   hub?: MidiInputHub;
   effects: SessionEffect[];
-  selectedEffectId: string | null;
+  selectedEffectId: string | undefined;
   sourceTrackIds: readonly string[];
   editEffects: ReturnType<typeof useFxEditing>["editEffects"];
   previewVolume: number;
