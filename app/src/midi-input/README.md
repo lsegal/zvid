@@ -55,6 +55,13 @@ Relative:
 | Akai APC Key 25 mkII | Knobs | Two's complement, assumed from the APC40 | Akai's protocol says only relative |
 | Keith McMillen QuNeo | Rotary direction | Two's complement | Its manual |
 
+A Push's encoders only step on a port recognized as a Push: on any other, built-in
+roles do nothing and a CC mapped by hand reads as absolute, so 1 and 127 slam its
+target between the ends of its range (#1644). Its ports go by different names by
+platform, which Ableton gives as `Ableton Push (Port 2)` on Windows and
+`Ableton Push (User Port)` on macOS, with no generation, so a bare `Ableton Push`
+is read as the 1st generation, whose encoders send the same messages.
+
 Absolute, or relative only when set so, in the charts or manuals that cover them:
 Behringer BCR2000 and BCF2000; Arturia MiniLab and MiniLab mkII,
 BeatStep, BeatStep Pro, KeyLab Essential and KeyLab; Nektar Panorama T4 and T6;

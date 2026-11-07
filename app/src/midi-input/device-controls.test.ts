@@ -6,7 +6,10 @@ import {
   deviceControlAction,
   deviceControlRoles,
 } from "./device-controls.ts";
-import type { MidiDeviceMapping } from "./device-mappings.ts";
+import {
+  type MidiDeviceMapping,
+  matchDeviceMapping,
+} from "./device-mappings.ts";
 
 const DEVICES = JSON.parse(
   readFileSync(new URL("./midi-devices.json", import.meta.url), "utf8"),
@@ -214,4 +217,48 @@ test("a CC mapped by hand is relative only where its device says so", () => {
     ccMove(device("novation-launchkey-49-mk3"), { ...message, controller: 21 }),
     { to: 1 },
   );
+});
+
+test("a Push steps under any name its ports go by (#1644)", () => {
+  for (const [port, id] of [
+    ["Ableton Push Live Port", "ableton-push-1"],
+    ["Ableton Push User Port", "ableton-push-1"],
+    // Ableton's names for the ports on Windows and macOS, with no generation.
+    ["Ableton Push (Port 2)", "ableton-push-1"],
+    ["Ableton Push (User Port)", "ableton-push-1"],
+    ["Ableton Push", "ableton-push-1"],
+    ["MIDIIN2 (Ableton Push)", "ableton-push-1"],
+    ["Ableton Push:Ableton Push MIDI 1 20:0", "ableton-push-1"],
+    ["Ableton Push 2 Live Port", "ableton-push-2"],
+    ["Ableton Push 2 User Port", "ableton-push-2"],
+    ["Ableton Push 2", "ableton-push-2"],
+    ["MIDIIN2 Push 2", "ableton-push-2"],
+    ["Push2 Live Port", "ableton-push-2"],
+    ["Ableton Push 3 Live Port", "ableton-push-3"],
+    ["Push 3", "ableton-push-3"],
+    ["Push3 User Port", "ableton-push-3"],
+  ]) {
+    const mapping = matchDeviceMapping(port as string, DEVICES);
+    assert.equal(mapping?.id, id, port);
+    for (const controller of [71, 78, 79]) {
+      for (const [value, by] of [
+        [1, 1 / 127],
+        [127, -1 / 127],
+      ] as const) {
+        const message = {
+          type: "cc" as const,
+          channel: 1,
+          controller,
+          value,
+        };
+        // Mapped by hand, and by its role.
+        assert.deepEqual(ccMove(mapping, message), { by }, port);
+        assert.deepEqual(
+          mapping && deviceControlAction(mapping, message)?.move,
+          { by },
+          port,
+        );
+      }
+    }
+  }
 });
