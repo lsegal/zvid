@@ -34,7 +34,14 @@ function sessionOf(
   sourceSpans: ReturnType<typeof span>[],
   effects: ArmedAuditionSession["effects"],
 ) {
-  return { sourceTracks, sourceSpans, effects } as ArmedAuditionSession;
+  return {
+    clips: [],
+    lanes: [],
+    mediaItems: [],
+    sourceTracks,
+    sourceSpans,
+    effects,
+  } as unknown as ArmedAuditionSession;
 }
 
 function cutoffs(

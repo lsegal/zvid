@@ -80,6 +80,9 @@ const synth = createSynthEffect(clipStack, {
 const hear = (effects: unknown[]) => {
   setArmedAuditionSource(
     {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
       sourceTracks: [{ id: TRACK }],
       sourceSpans: [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }],
       effects: [synth, ...effects],

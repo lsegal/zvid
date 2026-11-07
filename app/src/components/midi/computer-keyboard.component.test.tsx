@@ -454,6 +454,9 @@ test("an open roll's keys also sound the other armed tracks", async () => {
     });
   setArmedAuditionSource(
     {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
       sourceTracks: [{ id: "own" }, { id: "other" }],
       sourceSpans: [
         { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
