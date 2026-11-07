@@ -497,31 +497,6 @@ test(
 );
 
 test(
-  "right-dragging erases every note crossed as one undo step, even in one jump (#1595)",
-  async () => {
-    const { grid, notes, status } = await openPianoRoll();
-    // A run to erase some of.
-    await drag(cell(grid, 4, 52), cell(grid, 5.75, 52), { steps: 8 });
-    await expect.poll(() => notes()?.length).toBe(NOTES.length + 8);
-    const painted = notes();
-
-    await drag(cell(grid, 4.25, 52), cell(grid, 5.25, 52), {
-      button: "right",
-      steps: 1,
-    });
-    await expect
-      .poll(() => notes()?.filter((note) => note.pitch === 52))
-      .toEqual([...paintedRun(52, 4, 4.25), ...paintedRun(52, 5.5, 6)]);
-    expect(document.querySelector("[role='menu']")).toBeNull();
-
-    await undo();
-    await expect.poll(() => notes()).toEqual(painted);
-    expect(status()).toBe("Undid: Delete Notes.");
-  },
-  EDITOR_TEST_TIMEOUT,
-);
-
-test(
   "dragging a note moves it in time and pitch as one undo step",
   async () => {
     const { notes } = await openPianoRoll();

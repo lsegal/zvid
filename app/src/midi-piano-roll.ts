@@ -102,24 +102,6 @@ export function paintNote(
 }
 
 /**
- * `notes` without those under the point at `pitch` and `atQ`, or `notes`
- * itself when none is.
- */
-export function eraseNotesAt(
-  notes: readonly MidiNote[],
-  pitch: number,
-  atQ: number,
-): readonly MidiNote[] {
-  const kept = notes.filter(
-    (note) =>
-      note.pitch !== pitch ||
-      atQ < note.start ||
-      atQ >= note.start + note.length,
-  );
-  return kept.length === notes.length ? notes : kept;
-}
-
-/**
  * `notes` with the note at `index` moved by `deltaQ` quarters and
  * `deltaPitch` semitones from `from`, its place before the move: snapped to
  * the grid, kept at or after the content start and inside the roll's keys.

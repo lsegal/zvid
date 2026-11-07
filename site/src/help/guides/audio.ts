@@ -209,9 +209,10 @@ export const audio: Guide = {
         {
           type: "list",
           items: [
-            "Click empty grid to add a note one cell long, or keep dragging to paint a run of them. Right-click a note to delete it, or right-drag to erase every note you cross. Drag a note to move it, or hold [[⌘/Ctrl]] while dragging to drop a copy. Drag an edge to change its length.",
+            "Click empty grid to add a note one cell long, or keep dragging to paint a run of them. Right-click a note to delete it. Drag a note to move it, or hold [[⌘/Ctrl]] while dragging to drop a copy. Drag an edge to change its length.",
             "Arrow keys nudge the selection, [[Delete]] removes it, and [[⌘/Ctrl]] + [[D]], [[X]], [[C]] and [[V]] duplicate, cut, copy and paste. Paste lands at the playhead.",
             "Click a note or a piano key to hear it through the clip's instrument.",
+            "Right-drag the grid to pan in any direction, or drag the ruler above it to pan left and right.",
             "Drag the stems in the velocity lane along the bottom to set how hard each note hits.",
           ],
         },

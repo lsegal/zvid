@@ -1,8 +1,11 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useState,
 } from "react";
+import { getShortcutLabels } from "../../app/shortcut-labels.ts";
+import { isContextMenuPress } from "../../context-menu.ts";
 import {
   dragMidiTimeline,
   MIDI_TIMELINE_MIN_Q,
@@ -12,7 +15,9 @@ import {
 } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
 import { formatMusicalPosition } from "../../timeline-format.ts";
+import { chainHandlers, useDragScroll } from "../../use-drag-scroll";
 import type { FxEditMode } from "../fx/types";
+import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
 
 // The piano roll counts bars of four quarters, like its grid.
 const ROLL_SIGNATURE = { numerator: 4, denominator: 4 };
@@ -22,6 +27,8 @@ type PianoRollRulerProps = {
   // How many quarters the roll shows, and a quarter's width.
   viewQ: number;
   quarterPx: number;
+  // The roll's scroller, which a drag on the ruler pans.
+  scrollRef: RefObject<HTMLElement | null>;
   onChange: (
     timeline: MidiClipTimeline,
     label: string,
@@ -59,14 +66,28 @@ function historyLabel(handle: MidiTimelineHandle) {
 // brace across the top, which drags as a whole or by either edge, and the
 // Start marker and the clip's end below it. Each marker is a slider whose
 // arrow keys step it a sixteenth (a beat with Shift); every drag or step is
-// one undo step.
+// one undo step. Dragging anywhere else, or with the middle button, pans the
+// roll left and right.
 export function PianoRollRuler({
   timeline,
   viewQ,
   quarterPx,
+  scrollRef,
   onChange,
 }: PianoRollRulerProps) {
   const [drag, setDrag] = useState<RulerDrag | null>(null);
+  const { mac } = getShortcutLabels();
+  const reducedMotion = usePrefersReducedMotion();
+  const pan = useDragScroll({
+    scrollRef,
+    canStart: (event) =>
+      event.button === 1 ||
+      (event.button === 0 &&
+        !isContextMenuPress(event, mac) &&
+        !(event.target as Element).closest("[data-ruler-handle]")),
+    axis: "x",
+    momentum: !reducedMotion,
+  });
   const shown = drag?.timeline ?? timeline;
   const at = (valueQ: number) => valueQ * quarterPx;
 
@@ -165,13 +186,18 @@ export function PianoRollRuler({
 
   return (
     <div
-      className="piano-roll__ruler"
+      className={`piano-roll__ruler${pan.isGrabbing ? " piano-roll__ruler--panning" : ""}`}
       data-piano-roll-ruler
-      onLostPointerCapture={(event) => endDrag(event, true)}
-      onPointerCancel={(event) => endDrag(event, false)}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={(event) => endDrag(event, true)}
+      {...chainHandlers(pan.handlers, {
+        onLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) =>
+          endDrag(event, true),
+        onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) =>
+          endDrag(event, false),
+        onPointerDown: handlePointerDown,
+        onPointerMove: handlePointerMove,
+        onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) =>
+          endDrag(event, true),
+      })}
       style={{ width: at(viewQ) }}
     >
       {barStarts(viewQ).map((barQ) => (

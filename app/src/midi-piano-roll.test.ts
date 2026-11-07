@@ -7,7 +7,6 @@ import {
   deleteNote,
   deleteNotes,
   duplicateNotes,
-  eraseNotesAt,
   isBlackKey,
   moveNote,
   noteKey,
@@ -74,13 +73,6 @@ describe("piano roll edits", () => {
     assert.equal(paintNote(notes, C4.pitch + 1, -0.1), notes);
     assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0), notes);
     assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0), notes);
-  });
-
-  it("erases only the notes under a point", () => {
-    const notes = [C4, E4];
-    assert.deepEqual(eraseNotesAt(notes, C4.pitch, C4.start), [E4]);
-    assert.equal(eraseNotesAt(notes, C4.pitch, C4.start + C4.length), notes);
-    assert.equal(eraseNotesAt(notes, C4.pitch + 1, C4.start), notes);
   });
 
   it("moves a note by snapped quarters and whole semitones from where it was", () => {
