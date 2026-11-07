@@ -66,9 +66,10 @@ export function audioStageOf(
 }
 
 // `effect`'s Modulation as its stage runs it, or undefined while it is off
-// or would move nothing.
-function audioStageModulation(
-  effect: AudioStageEffect,
+// or would move nothing. A choice it can step through moves as a knob over
+// its options' indices.
+export function audioStageModulation(
+  effect: Pick<AudioStageEffect, "effectName" | "modulation">,
 ): AudioStageModulation | undefined {
   const modulation = effect.modulation;
   if (!modulation?.enabled) {
@@ -84,11 +85,16 @@ function audioStageModulation(
   );
   const parameters: ModulatedParameter[] = [];
   for (const parameter of getEffectDefinition(effect.effectName).parameters) {
-    if (
-      parameter.kind === "number" &&
-      selected.has(parameter.key) &&
-      modulatable.has(parameter.key)
-    ) {
+    if (!selected.has(parameter.key) || !modulatable.has(parameter.key)) {
+      continue;
+    }
+    if (parameter.kind === "enum") {
+      parameters.push({
+        key: parameter.key,
+        min: 0,
+        max: parameter.options.length - 1,
+      });
+    } else if (parameter.kind === "number") {
       parameters.push({
         key: parameter.key,
         min: parameter.min,

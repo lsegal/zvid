@@ -3,11 +3,18 @@
 // clip's notes through them before rendering it (see audio-mix/resolve.ts
 // and midi-effects.ts), so preview and export hear the same performance. A
 // disabled generator passes its notes through unchanged.
+import {
+  clipModulator,
+  type MidiModulation,
+  type MidiModulationClock,
+} from "./audio-mix/midi-modulation.ts";
 import { type MidiNote, shiftedExpression } from "./midi-clip.ts";
 
 export const ARP_RATES = [1, 0.5, 0.25, 0.125] as const;
 export const ARP_PATTERNS = ["up", "down", "up-down", "random"] as const;
 export const ARP_MAX_OCTAVES = 4;
+export const ARP_RATE_KEY = "Rate";
+export const ARP_OCTAVES_KEY = "Octaves";
 
 // A step's length in quarter notes: a quarter, an eighth, a sixteenth or a
 // thirty-second.
@@ -25,6 +32,8 @@ export type Arpeggiator = {
   rate: ArpRate;
   pattern: ArpPattern;
   octaves: number;
+  // Moves its Rate and Octaves from step to step.
+  modulation?: MidiModulation;
 };
 
 export type NoteGenerator = Arpeggiator;
@@ -40,6 +49,9 @@ export const DEFAULT_ARPEGGIATOR: Arpeggiator = {
 // How far before a grid line a time still counts as on it, absorbing the
 // rounding of quarters converted from seconds.
 const GRID_EPSILON = 1e-6;
+
+/** The session's clock and tempo, which a generator's modulation follows. */
+export type NoteGeneratorClock = MidiModulationClock & { bpm: number };
 
 /**
  * The note generators of an older session track's `noteGenerators`, read
@@ -113,29 +125,64 @@ export function arpIndex(pattern: ArpPattern, index: number, count: number) {
  * wherever the clip starts. Each step plays the note its pattern picks from
  * those held at the step, at that note's velocity, for the step or until
  * the note is let go if sooner. The pattern restarts whenever the held
- * chord changes.
+ * chord changes. With `clock`, its modulation picks each step's Rate and
+ * Octaves as the step lands, so a faster Rate carries on from the next line of
+ * its own finer grid.
  */
 export function arpeggiate(
   notes: readonly MidiNote[],
   arp: Arpeggiator,
   gridOffsetQ = 0,
+  clock?: NoteGeneratorClock,
 ): MidiNote[] {
   if (!notes.length) {
     return [];
   }
-  const step = arp.rate;
+  const modulator =
+    clock && clipModulator(arp.modulation, notes, clock.bpm, clock);
+  const secondsPerQuarter = clock ? 60 / clock.bpm : 0;
+  const rateAt = (quarters: number): number =>
+    modulator
+      ? ARP_RATES[
+          Math.round(
+            modulator.value(
+              ARP_RATE_KEY,
+              ARP_RATES.indexOf(arp.rate),
+              quarters * secondsPerQuarter,
+            ),
+          )
+        ]
+      : arp.rate;
+  const octavesAt = (quarters: number) =>
+    modulator
+      ? Math.round(
+          modulator.value(
+            ARP_OCTAVES_KEY,
+            arp.octaves,
+            quarters * secondsPerQuarter,
+          ),
+        )
+      : arp.octaves;
   const first = Math.min(...notes.map((note) => note.start));
   const last = Math.max(...notes.map((note) => note.start + note.length));
+  const firstStep = rateAt(first);
   // The first grid line at or after the first note, in clip quarters. The
   // ceiling of a tiny negative is -0, which `+ 0` makes 0.
   let time =
-    Math.ceil((first + gridOffsetQ) / step - GRID_EPSILON) * step -
+    Math.ceil((first + gridOffsetQ) / firstStep - GRID_EPSILON) * firstStep -
     gridOffsetQ +
     0;
+  // The step's own length, and the time of the step after it.
+  const advance = (step: number) =>
+    modulator
+      ? (Math.floor((time + gridOffsetQ) / step + GRID_EPSILON) + 1) * step -
+        gridOffsetQ
+      : time + step;
   const played: MidiNote[] = [];
   let chordKey = "";
   let index = 0;
-  for (; time < last - GRID_EPSILON; time += step) {
+  while (time < last - GRID_EPSILON) {
+    const step = rateAt(time);
     const held = notes
       .filter(
         (note) =>
@@ -145,6 +192,7 @@ export function arpeggiate(
       .sort((left, right) => left.pitch - right.pitch);
     if (!held.length) {
       chordKey = "";
+      time = advance(step);
       continue;
     }
     const key = held.map((note) => note.pitch).join(",");
@@ -152,7 +200,7 @@ export function arpeggiate(
       chordKey = key;
       index = 0;
     }
-    const ladder = Array.from({ length: arp.octaves }, (_, octave) =>
+    const ladder = Array.from({ length: octavesAt(time) }, (_, octave) =>
       held.map((note) => ({ note, pitch: note.pitch + 12 * octave })),
     )
       .flat()
@@ -168,22 +216,27 @@ export function arpeggiate(
         ? { expression: shiftedExpression(note.expression, time - note.start) }
         : {}),
     });
+    time = advance(step);
   }
   return played;
 }
 
 /**
  * The notes a track whose chain is `generators` plays for a clip's `notes`,
- * each enabled generator transforming the previous one's output in order.
+ * each enabled generator transforming the previous one's output in order, and
+ * their modulation following `clock`.
  */
 export function applyNoteGenerators(
   notes: readonly MidiNote[],
   generators: readonly NoteGenerator[] | undefined,
   gridOffsetQ = 0,
+  clock?: NoteGeneratorClock,
 ): readonly MidiNote[] {
   return (generators ?? []).reduce<readonly MidiNote[]>(
     (current, generator) =>
-      generator.enabled ? arpeggiate(current, generator, gridOffsetQ) : current,
+      generator.enabled
+        ? arpeggiate(current, generator, gridOffsetQ, clock)
+        : current,
     notes,
   );
 }

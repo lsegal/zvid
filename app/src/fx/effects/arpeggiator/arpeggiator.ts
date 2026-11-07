@@ -3,7 +3,9 @@
 // note-generators.ts), ahead of the clip's Synth.
 import {
   ARP_MAX_OCTAVES,
+  ARP_OCTAVES_KEY,
   ARP_PATTERNS,
+  ARP_RATE_KEY,
   ARP_RATES,
   type Arpeggiator,
   type ArpPattern,
@@ -13,9 +15,9 @@ import {
 
 export const ARPEGGIATOR_EFFECT_NAME = "Arpeggiator";
 
-export const RATE_KEY = "Rate";
+export const RATE_KEY = ARP_RATE_KEY;
 export const PATTERN_KEY = "Pattern";
-export const OCTAVES_KEY = "Octaves";
+export const OCTAVES_KEY = ARP_OCTAVES_KEY;
 
 const RATE_LABELS: Record<ArpRate, string> = {
   1: "1/4",

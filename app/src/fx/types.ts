@@ -64,6 +64,8 @@ export type FxEnumParameterDefinition = {
   key: string;
   label: string;
   options: readonly string[];
+  // Modulation can step through its options, in order, as if it were a knob.
+  modulatable?: boolean;
   // The options available for the effect's current values, a subset of
   // `options` in the same order. A stored value outside them shows as the
   // nearest one.

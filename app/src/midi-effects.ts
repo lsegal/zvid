@@ -7,6 +7,8 @@
 // Arpeggiator. Sessions from before MIDI effects kept one synth and
 // arpeggiator per source track; opening one moves them onto each of the
 // track's MIDI clips.
+import type { MidiModulation } from "./audio-mix/midi-modulation.ts";
+import { audioStageModulation } from "./audio-mix/stages.ts";
 import {
   ARPEGGIATOR_EFFECT_NAME,
   isArpeggiatorEffectName,
@@ -37,6 +39,7 @@ import {
 import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import { createEffect, setEffectParameter } from "./fx/stack/ops.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
+import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import { isMidiEffectName } from "./fx-registry.ts";
 import {
   type MidiInstrument,
@@ -50,9 +53,11 @@ import {
 } from "./note-generators.ts";
 
 type MidiChainEffect = {
+  id?: string;
   effectName: string;
   enabled?: boolean;
   parameters: readonly { key: string; value: string; numericValue?: number }[];
+  modulation?: EffectModulation;
 };
 
 /** What a MIDI clip plays: its notes through `generators`, then `instrument`. */
@@ -69,10 +74,27 @@ function isInstrumentEffectName(effectName: string) {
   );
 }
 
+// `effect`'s Modulation, while it is on and moves something, as a field to
+// spread into what it plays.
+function modulationOf(
+  effect: MidiChainEffect,
+): { modulation: MidiModulation } | Record<never, never> {
+  const modulation = audioStageModulation(effect);
+  return modulation
+    ? {
+        modulation: { ...modulation, seed: effect.id ?? effect.effectName },
+      }
+    : {};
+}
+
 // The instrument a Synth, Granular or Drum Rack `effect` plays.
 function readInstrument(effect: MidiChainEffect): MidiInstrument {
   if (isGranularEffectName(effect.effectName)) {
-    return { kind: "granular", params: readGranularEffect(effect.parameters) };
+    return {
+      kind: "granular",
+      params: readGranularEffect(effect.parameters),
+      ...modulationOf(effect),
+    };
   }
   if (isDrumRackEffectName(effect.effectName)) {
     return {
@@ -80,7 +102,11 @@ function readInstrument(effect: MidiChainEffect): MidiInstrument {
       params: drumRackParams(readDrumRackEffect(effect.parameters)),
     };
   }
-  return { kind: "synth", params: readSynthEffect(effect.parameters) };
+  return {
+    kind: "synth",
+    params: readSynthEffect(effect.parameters),
+    ...modulationOf(effect),
+  };
 }
 
 /**
@@ -102,9 +128,10 @@ export function midiChainOf(
   return {
     generators: stack
       .filter((effect) => isArpeggiatorEffectName(effect.effectName))
-      .map((effect) =>
-        readArpeggiatorEffect(effect.parameters, effect.enabled !== false),
-      ),
+      .map((effect) => ({
+        ...readArpeggiatorEffect(effect.parameters, effect.enabled !== false),
+        ...modulationOf(effect),
+      })),
     instrument: readInstrument(instrument),
   };
 }
