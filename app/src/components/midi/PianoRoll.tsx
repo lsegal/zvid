@@ -11,7 +11,7 @@ import {
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
-import { type AuditionVoice, auditionNote } from "../../midi-audition.ts";
+import type { AuditionVoice } from "../../midi-audition.ts";
 import {
   type ExpressionSample,
   expressionSampleAtStart,
@@ -56,7 +56,10 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
-import { useArmedRollKeys } from "../../recording/armed-audition.ts";
+import {
+  auditionClipNote,
+  useArmedRollKeys,
+} from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
 import { ZOOM_DEFAULT } from "../../zoom";
@@ -188,7 +191,7 @@ export function PianoRoll({
   onToggleCollapsed,
   onSetNotes,
   onSetTimeline,
-  onAudition = auditionNote,
+  onAudition,
   midiHub = midiInputHub,
   keyboardEntry = computerKeyboardEntry,
 }: PianoRollProps) {
@@ -246,10 +249,14 @@ export function PianoRoll({
     pitch: number,
     expression?: ExpressionSample,
     hold = false,
-  ) =>
-    expression || hold
+  ) => {
+    if (!onAudition) {
+      return auditionClipNote(spanId, pitch, instrument, expression, hold);
+    }
+    return expression || hold
       ? onAudition(pitch, instrument, expression, hold)
       : onAudition(pitch, instrument);
+  };
   // A note clicked on sounds as it starts.
   const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
     audition(pitch, expression && expressionSampleAtStart(expression));
@@ -274,51 +281,35 @@ export function PianoRoll({
   const midiPassActive = useMidiPassActive();
   const takesKeys = !collapsed && !midiPassActive;
   const withArmedTracks = useArmedRollKeys(takesKeys, spanId);
-  const { heldNotes, midi, playKey, releaseKey } = useMidiNoteCapture({
-    enabled: takesKeys,
-    hub: midiHub,
-    clip: model,
-    clock,
-    onAudition(pitch, expression, hold) {
-      revealPitch(pitch);
-      const voice = audition(pitch, expression, hold);
-      return withArmedTracks(voice, pitch, expression);
-    },
-    onCapture(note) {
-      const next = placeNote(
-        [...capturedNotes.current, note],
-        capturedNotes.current.length,
-      );
-      capturedNotes.current = next;
-      // A drag's or a stroke's snapshot of the clip would overwrite the new
-      // note.
-      setDrag(null);
-      stroke.cancel();
-      onSetNotes(spanId, next, midiHistoryLabels.recordNote);
-    },
-  });
+  const { heldNotes, playedPitches, midi, playKey, releaseKey } =
+    useMidiNoteCapture({
+      enabled: takesKeys,
+      hub: midiHub,
+      clip: model,
+      clock,
+      onAudition(pitch, expression, hold) {
+        const voice = audition(pitch, expression, hold);
+        return withArmedTracks(voice, pitch, expression);
+      },
+      onCapture(note) {
+        const next = placeNote(
+          [...capturedNotes.current, note],
+          capturedNotes.current.length,
+        );
+        capturedNotes.current = next;
+        // A drag's or a stroke's snapshot of the clip would overwrite the new
+        // note.
+        setDrag(null);
+        stroke.cancel();
+        onSetNotes(spanId, next, midiHistoryLabels.recordNote);
+      },
+    });
   const keyboardEntryState = useComputerKeyboardEntry({
     active: takesKeys,
     entry: keyboardEntry,
     press: playKey,
     release: releaseKey,
   });
-
-  // Scrolls a pitch played from a key into view, centered, if it isn't.
-  function revealPitch(pitch: number) {
-    const scroller = scrollRef.current;
-    if (!scroller) {
-      return;
-    }
-    const y = PIANO_ROLL_RULER_PX + (rowOf(pitch) + 0.5) * PIANO_ROLL_ROW_PX;
-    const top = scroller.scrollTop + PIANO_ROLL_RULER_PX;
-    const bottom =
-      scroller.scrollTop + scroller.clientHeight - velocityLane.height;
-    if (y < top || y > bottom) {
-      scroller.scrollTop =
-        y - (scroller.clientHeight - velocityLane.height) / 2;
-    }
-  }
 
   // The pitch and quarter (from the clip's content start) under a point of
   // the grid.
@@ -653,7 +644,7 @@ export function PianoRoll({
           {PITCHES.map((pitch) => (
             <button
               aria-label={`Play ${pitchName(pitch)}`}
-              className={`piano-roll__key${isBlackKey(pitch) ? " piano-roll__key--black" : ""}`}
+              className={`piano-roll__key${isBlackKey(pitch) ? " piano-roll__key--black" : ""}${playedPitches.has(pitch) ? " piano-roll__key--played" : ""}`}
               key={pitch}
               onClick={() => audition(pitch)}
               tabIndex={-1}
@@ -694,6 +685,14 @@ export function PianoRoll({
             className="piano-roll__beyond-end"
             style={{ left: timeline.length * quarterPx }}
           />
+          {PITCHES.filter((pitch) => playedPitches.has(pitch)).map((pitch) => (
+            <span
+              className="piano-roll__played-row"
+              data-piano-roll-played-row={pitch}
+              key={pitch}
+              style={{ top: rowOf(pitch) * PIANO_ROLL_ROW_PX }}
+            />
+          ))}
           {shownNotes.map((note, index) => {
             const left = note.start * quarterPx;
             const width = note.length * quarterPx;

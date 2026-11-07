@@ -116,6 +116,14 @@ test("the validator catches bad mappings", () => {
       { name: "B", kind: "knob", type: "cc", channel: 1, number: 1, count: 2 },
       { name: "C", kind: "knob", type: "cc", channel: 1, number: 2 },
       { name: "D", kind: "wheel", type: "pitchbend", channel: 1, number: 2 },
+      {
+        name: "E",
+        kind: "encoder",
+        type: "cc",
+        channel: 1,
+        number: 9,
+        relative: "sideways",
+      },
     ],
   } as unknown as MidiDeviceMapping;
   const problems = mappingProblems(device).join("\n");
@@ -132,6 +140,7 @@ test("the validator catches bad mappings", () => {
     "needs {n}",
     "another control sends",
     "only note and cc",
+    "unknown relative format",
   ]) {
     assert.match(problems, new RegExp(expected.replace(/[{}]/g, "\\$&")));
   }

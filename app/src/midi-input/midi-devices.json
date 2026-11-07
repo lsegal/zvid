@@ -1745,7 +1745,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 47
+        "number": 47,
+        "relative": "twos-complement"
       },
       {
         "name": "Footswitch",
@@ -2437,7 +2438,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 47
+        "number": 47,
+        "relative": "twos-complement"
       },
       {
         "name": "Footswitch",
@@ -2451,7 +2453,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 13
+        "number": 13,
+        "relative": "twos-complement"
       },
       {
         "name": "Track 1 Crossfader A/B",
@@ -2606,7 +2609,7 @@
       "url": "https://cdn.inmusicbrands.com/akai/attachments/APC%20Key%2025%20mk2%20-%20Communication%20Protocol%20-%20v1.1.pdf",
       "title": "APC Key 25 mk2 Communications Protocol v1.1",
       "verification": "documented",
-      "note": "The keys' starting note is an estimate: the protocol gives only the keybed's full range, 0x00 to 0x7F on channel 0, port 0. The clip pads' inbound channel isn't stated, as the channel selects LED behavior when sending to the device. The 8 track buttons (notes 0x40 to 0x47) are omitted: they share the keys' notes on channel 1, on the other port."
+      "note": "The keys' starting note is an estimate: the protocol gives only the keybed's full range, 0x00 to 0x7F on channel 0, port 0. The clip pads' inbound channel isn't stated, as the channel selects LED behavior when sending to the device. The 8 track buttons (notes 0x40 to 0x47) are omitted: they share the keys' notes on channel 1, on the other port. The protocol calls the knobs relative without giving the format, so two's complement is assumed from the APC40's protocol."
     },
     "controls": [
       {
@@ -2667,7 +2670,8 @@
         "type": "cc",
         "channel": 1,
         "number": 48,
-        "count": 8
+        "count": 8,
+        "relative": "twos-complement"
       },
       {
         "name": "Sustain pedal",
@@ -2865,35 +2869,40 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 16
+        "number": 16,
+        "relative": "twos-complement"
       },
       {
         "name": "Pan",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 17
+        "number": 17,
+        "relative": "twos-complement"
       },
       {
         "name": "Filter",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 18
+        "number": 18,
+        "relative": "twos-complement"
       },
       {
         "name": "Resonance",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 19
+        "number": 19,
+        "relative": "twos-complement"
       },
       {
         "name": "Select",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 118
+        "number": 118,
+        "relative": "twos-complement"
       },
       {
         "name": "Volume touch",
@@ -13151,7 +13160,7 @@
       "url": "https://cdn-media.empowertribe.com/3df8446fdc7e4fe6a4d225f44fc6d9b1/QSG_BE_0808-AAG_X-TOUCH%20ONE_WW.pdf",
       "title": "X-TOUCH ONE Quick Start Guide",
       "verification": "inventory",
-      "note": "No published MIDI chart found for the factory Mackie Control mode: the Quick Start Guide says the unit ships in standard Mackie Control mode but gives no numbers for it. Behringer publishes numbers only for the non-default MIDI mode (X-TOUCH ONE MIDI Mode Implementation: buttons note or CC 0-34, fader CC 70, fader touch note 110, encoder CC 80, jog CC 88, foot switch CC 64), without saying which note is which button. The numbers here are Mackie Control estimates. Missing: navigation, marker and other buttons."
+      "note": "No published MIDI chart found for the factory Mackie Control mode: the Quick Start Guide says the unit ships in standard Mackie Control mode but gives no numbers for it. Behringer publishes numbers only for the non-default MIDI mode (X-TOUCH ONE MIDI Mode Implementation: buttons note or CC 0-34, fader CC 70, fader touch note 110, encoder CC 80, jog CC 88, foot switch CC 64), without saying which note is which button. The numbers here are Mackie Control estimates. Missing: navigation, marker and other buttons. Encoders and the jog wheel are relative, 1 up and 65 down, per a third party's Mackie Control MIDI map: https://www.rncbc.org/drupal/files/Mackie%20Control%20MIDI%20Map.pdf"
     },
     "controls": [
       {
@@ -13200,7 +13209,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 16
+        "number": 16,
+        "relative": "sign-magnitude"
       },
       {
         "name": "Encoder Push",
@@ -13249,7 +13259,8 @@
         "kind": "wheel",
         "type": "cc",
         "channel": 1,
-        "number": 60
+        "number": 60,
+        "relative": "sign-magnitude"
       }
     ]
   },
@@ -13264,7 +13275,7 @@
       "url": "https://cdn-media.empowertribe.com/5f4ebaa5746d48b39c2bc317641de448/QSG_BE_0808-AAD_X-TOUCH_WW.pdf",
       "title": "X-TOUCH Quick Start Guide",
       "verification": "inventory",
-      "note": "No published MIDI chart found for Mackie Control mode: the Quick Start Guide lists the HUI and MC modes without numbers. Behringer publishes numbers only for its separate MIDI mode (X-TOUCH/X-TOUCH EXTENDER MIDI Mode Implementation: buttons note 0-103, faders CC 70-78, fader touch note 110-118, encoders CC 80-87, jog CC 88), without saying which note is which button. The numbers here are Mackie Control estimates. Missing: most of the 92 buttons."
+      "note": "No published MIDI chart found for Mackie Control mode: the Quick Start Guide lists the HUI and MC modes without numbers. Behringer publishes numbers only for its separate MIDI mode (X-TOUCH/X-TOUCH EXTENDER MIDI Mode Implementation: buttons note 0-103, faders CC 70-78, fader touch note 110-118, encoders CC 80-87, jog CC 88), without saying which note is which button. The numbers here are Mackie Control estimates. Missing: most of the 92 buttons. Encoders and the jog wheel are relative, 1 up and 65 down, per a third party's Mackie Control MIDI map: https://www.rncbc.org/drupal/files/Mackie%20Control%20MIDI%20Map.pdf"
     },
     "controls": [
       {
@@ -13367,7 +13378,8 @@
         "type": "cc",
         "channel": 1,
         "number": 16,
-        "count": 8
+        "count": 8,
+        "relative": "sign-magnitude"
       },
       {
         "name": "Encoder {n} Push",
@@ -13417,7 +13429,8 @@
         "kind": "wheel",
         "type": "cc",
         "channel": 1,
-        "number": 60
+        "number": 60,
+        "relative": "sign-magnitude"
       }
     ]
   },
@@ -14546,7 +14559,7 @@
       "url": "https://www.ableton.com/en/manual/using-push-1/",
       "title": "Using Push 1 (Ableton Reference Manual)",
       "verification": "inventory",
-      "note": "No published MIDI chart found: Ableton's Push 1 manual gives no numbers, its User Mode help page refused automated reads (403) and its search excerpts show none, and its published MIDI chart (the push-interface repository) covers only Push 2. All numbers here are estimates. Missing: most buttons."
+      "note": "No published MIDI chart found: Ableton's Push 1 manual gives no numbers, its User Mode help page refused automated reads (403) and its search excerpts show none, and its published MIDI chart (the push-interface repository) covers only Push 2. All numbers here are estimates. Missing: most buttons. Its encoders are assumed relative as on Push 2, which is documented."
     },
     "controls": [
       {
@@ -14563,28 +14576,32 @@
         "type": "cc",
         "channel": 1,
         "number": 71,
-        "count": 8
+        "count": 8,
+        "relative": "twos-complement"
       },
       {
         "name": "Tempo encoder",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 14
+        "number": 14,
+        "relative": "twos-complement"
       },
       {
         "name": "Swing encoder",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 15
+        "number": 15,
+        "relative": "twos-complement"
       },
       {
         "name": "Master encoder",
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": "twos-complement"
       },
       {
         "name": "Touch strip",
@@ -14651,7 +14668,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 14
+        "number": 14,
+        "relative": "twos-complement"
       },
       {
         "name": "Tempo Encoder touch",
@@ -14665,7 +14683,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 15
+        "number": 15,
+        "relative": "twos-complement"
       },
       {
         "name": "Swing Encoder touch",
@@ -14679,7 +14698,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 71
+        "number": 71,
+        "relative": "twos-complement"
       },
       {
         "name": "Track1 Encoder touch",
@@ -14693,7 +14713,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 72
+        "number": 72,
+        "relative": "twos-complement"
       },
       {
         "name": "Track2 Encoder touch",
@@ -14707,7 +14728,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 73
+        "number": 73,
+        "relative": "twos-complement"
       },
       {
         "name": "Track3 Encoder touch",
@@ -14721,7 +14743,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 74
+        "number": 74,
+        "relative": "twos-complement"
       },
       {
         "name": "Track4 Encoder touch",
@@ -14735,7 +14758,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 75
+        "number": 75,
+        "relative": "twos-complement"
       },
       {
         "name": "Track5 Encoder touch",
@@ -14749,7 +14773,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 76
+        "number": 76,
+        "relative": "twos-complement"
       },
       {
         "name": "Track6 Encoder touch",
@@ -14763,7 +14788,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 77
+        "number": 77,
+        "relative": "twos-complement"
       },
       {
         "name": "Track7 Encoder touch",
@@ -14777,7 +14803,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 78
+        "number": 78,
+        "relative": "twos-complement"
       },
       {
         "name": "Track8 Encoder touch",
@@ -14791,7 +14818,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": "twos-complement"
       },
       {
         "name": "Master Encoder touch",
@@ -15302,7 +15330,7 @@
       "url": "https://www.ableton.com/en/push/manual/",
       "title": "Ableton Push 3 Manual",
       "verification": "inventory",
-      "note": "No published MIDI chart found: Ableton's Push 3 manual and help pages found give no numbers, and its published MIDI chart (the push-interface repository) covers only Push 2. All numbers here are estimates. The Push 3 MIDI FAQ refused automated reads (403), so only search excerpts of it were seen."
+      "note": "No published MIDI chart found: Ableton's Push 3 manual and help pages found give no numbers, and its published MIDI chart (the push-interface repository) covers only Push 2. All numbers here are estimates. The Push 3 MIDI FAQ refused automated reads (403), so only search excerpts of it were seen. Its encoders are assumed relative as on Push 2, which is documented."
     },
     "controls": [
       {
@@ -15318,7 +15346,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 14
+        "number": 14,
+        "relative": "twos-complement"
       },
       {
         "name": "Tempo Encoder touch",
@@ -15332,7 +15361,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 15
+        "number": 15,
+        "relative": "twos-complement"
       },
       {
         "name": "Swing Encoder touch",
@@ -15346,7 +15376,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 71
+        "number": 71,
+        "relative": "twos-complement"
       },
       {
         "name": "Track1 Encoder touch",
@@ -15360,7 +15391,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 72
+        "number": 72,
+        "relative": "twos-complement"
       },
       {
         "name": "Track2 Encoder touch",
@@ -15374,7 +15406,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 73
+        "number": 73,
+        "relative": "twos-complement"
       },
       {
         "name": "Track3 Encoder touch",
@@ -15388,7 +15421,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 74
+        "number": 74,
+        "relative": "twos-complement"
       },
       {
         "name": "Track4 Encoder touch",
@@ -15402,7 +15436,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 75
+        "number": 75,
+        "relative": "twos-complement"
       },
       {
         "name": "Track5 Encoder touch",
@@ -15416,7 +15451,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 76
+        "number": 76,
+        "relative": "twos-complement"
       },
       {
         "name": "Track6 Encoder touch",
@@ -15430,7 +15466,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 77
+        "number": 77,
+        "relative": "twos-complement"
       },
       {
         "name": "Track7 Encoder touch",
@@ -15444,7 +15481,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 78
+        "number": 78,
+        "relative": "twos-complement"
       },
       {
         "name": "Track8 Encoder touch",
@@ -15458,7 +15496,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 79
+        "number": 79,
+        "relative": "twos-complement"
       },
       {
         "name": "Master Encoder touch",
@@ -16224,7 +16263,8 @@
         "kind": "encoder",
         "type": "cc",
         "channel": 1,
-        "number": 60
+        "number": 60,
+        "relative": "sign-magnitude"
       },
       {
         "name": "Arm",
@@ -19282,7 +19322,8 @@
         "type": "cc",
         "channel": 1,
         "number": 4,
-        "count": 2
+        "count": 2,
+        "relative": "twos-complement"
       },
       {
         "name": "Rotary {n} pressure",

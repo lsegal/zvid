@@ -241,7 +241,7 @@ describe("duplicateSourceSpan", () => {
           placement,
         )?.effects,
       ),
-      ["Synth"],
+      ["Synth", GAIN_EFFECT_NAME],
     );
     // A clip without notes brings nothing.
     assert.deepEqual(
@@ -265,7 +265,7 @@ describe("duplicateSourceSpan", () => {
           ids("pasted"),
         )?.effects,
       ),
-      ["Synth"],
+      ["Synth", GAIN_EFFECT_NAME],
     );
   });
 });

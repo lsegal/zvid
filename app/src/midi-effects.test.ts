@@ -7,6 +7,7 @@ import {
   DRUM_RACK_KEY,
   formatDrumRack,
 } from "./fx/effects/drum-rack/drum-rack.ts";
+import { GAIN_EFFECT_NAME } from "./fx/effects/gain/gain.ts";
 import { GRANULAR_EFFECT_NAME } from "./fx/effects/granular/granular.ts";
 import {
   sourceClipEffectTrackId,
@@ -22,6 +23,7 @@ import {
 } from "./midi-clip.ts";
 import {
   addDefaultSynth,
+  addInstrumentTrackGain,
   auditionInstrumentOf,
   carryMovedClipInstruments,
   carryTrackInstrument,
@@ -314,6 +316,32 @@ describe("migrateMidiClipEffects", () => {
   });
 });
 
+describe("addInstrumentTrackGain", () => {
+  const synth = createSynthEffect(TRACK, SQUARE, "synth");
+
+  it("gives a track with an instrument and no Gain one at its end", () => {
+    assert.deepEqual(
+      addInstrumentTrackGain([synth], TRACK, "added").map((effect) => [
+        effect.id,
+        effect.effectName,
+      ]),
+      [
+        ["synth", synth.effectName],
+        ["added", GAIN_EFFECT_NAME],
+      ],
+    );
+  });
+
+  it("leaves other stacks, and a track with a Gain or no instrument, alone", () => {
+    const clip = [createSynthEffect(STACK, SQUARE, "own")];
+    assert.equal(addInstrumentTrackGain(clip, STACK), clip);
+    const noInstrument = [gain(TRACK, "own")];
+    assert.equal(addInstrumentTrackGain(noInstrument, TRACK), noInstrument);
+    const bypassed = [synth, { ...gain(TRACK, "own"), enabled: false }];
+    assert.equal(addInstrumentTrackGain(bypassed, TRACK), bypassed);
+  });
+});
+
 describe("clipMidiStack", () => {
   const trackSynth = createSynthEffect(TRACK, SQUARE, "track-synth");
   const trackArp = createArpeggiatorEffect(
@@ -396,7 +424,12 @@ describe("carryTrackInstrument", () => {
       { id: "m", sourceTrackId: "to", notes: [] },
       before[1],
     ]);
-    assert.equal(moved.filter((effect) => effect.trackId === OTHER).length, 1);
+    assert.deepEqual(
+      moved
+        .filter((effect) => effect.trackId === OTHER)
+        .map((effect) => effect.effectName),
+      [synth.effectName, GAIN_EFFECT_NAME],
+    );
   });
 });
 
@@ -461,5 +494,34 @@ describe("migrateMidiTrackEffects", () => {
       ["b", clip("b")],
       ["a", TRACK],
     ]);
+  });
+
+  it("gives the track a Gain only when all its MIDI clips have one", () => {
+    const names = (effects: readonly SessionEffect[]) =>
+      effects
+        .filter((effect) => effect.trackId === TRACK)
+        .map((effect) => effect.effectName);
+    const synth = createSynthEffect(clip("a"), SQUARE, "s");
+    assert.deepEqual(
+      names(
+        migrateMidiTrackEffects(
+          [synth, gain(clip("a"), "ga")],
+          [span("a", 0)],
+          undefined,
+        ),
+      ),
+      [synth.effectName, GAIN_EFFECT_NAME],
+    );
+    // A clip that was silent for want of a Gain stays so.
+    assert.deepEqual(
+      names(
+        migrateMidiTrackEffects(
+          [synth, gain(clip("a"), "ga")],
+          [span("a", 0), span("b", 8)],
+          undefined,
+        ),
+      ),
+      [synth.effectName],
+    );
   });
 });

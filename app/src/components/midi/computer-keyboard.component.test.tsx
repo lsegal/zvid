@@ -179,6 +179,30 @@ test("with the transport stopped a key auditions and writes nothing", async () =
   expect(roll.edits).toEqual([]);
 });
 
+test("held keys highlight their pitches and leave the roll's scroll alone", async () => {
+  await renderRoll({ playing: false });
+  const scroller = document.querySelector(".piano-roll__scroll");
+  if (!scroller) {
+    throw new Error("no piano roll scroller");
+  }
+  const before = { top: scroller.scrollTop, left: scroller.scrollLeft };
+  const rows = () =>
+    [...document.querySelectorAll("[data-piano-roll-played-row]")].map((row) =>
+      row.getAttribute("data-piano-roll-played-row"),
+    );
+  fire("keydown", "KeyA");
+  fire("keydown", "KeyD");
+  await expect.poll(rows).toEqual(["64", "60"]);
+  expect(document.querySelectorAll(".piano-roll__key--played").length).toBe(2);
+  fire("keyup", "KeyA");
+  await expect.poll(rows).toEqual(["64"]);
+  fire("keyup", "KeyD");
+  await expect.poll(rows).toEqual([]);
+  expect({ top: scroller.scrollTop, left: scroller.scrollLeft }).toEqual(
+    before,
+  );
+});
+
 test("Z and X shift the octave up to the roll's limits", async () => {
   const roll = await renderRoll({ playing: false });
   expect(roll.octave()?.textContent).toBe("C4");
@@ -428,14 +452,17 @@ test("an open roll's keys also sound the other armed tracks", async () => {
       ...DEFAULT_SYNTH_PARAMS,
       wave,
     });
-  setArmedAuditionSource({
-    sourceTracks: [{ id: "own" }, { id: "other" }],
-    sourceSpans: [
-      { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
-      { id: "theirs", sourceTrackId: "other", startQ: 0, notes: [] },
-    ],
-    effects: [wave("square", "own"), wave("sawtooth", "other")],
-  } as unknown as ArmedAuditionSession);
+  setArmedAuditionSource(
+    {
+      sourceTracks: [{ id: "own" }, { id: "other" }],
+      sourceSpans: [
+        { id: "clip", sourceTrackId: "own", startQ: 0, notes: [] },
+        { id: "theirs", sourceTrackId: "other", startQ: 0, notes: [] },
+      ],
+      effects: [wave("square", "own"), wave("sawtooth", "other")],
+    } as unknown as ArmedAuditionSession,
+    () => 0,
+  );
   setTrackArmed("own", true);
   setTrackArmed("other", true);
   onTestFinished(() => {

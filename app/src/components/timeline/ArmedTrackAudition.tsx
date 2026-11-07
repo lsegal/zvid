@@ -1,8 +1,11 @@
 import { useEffect } from "react";
+import { CHAIN_WORKLET_URL } from "../../audio-mix/chain-worklet-url.ts";
+import { setAuditionWorkletUrl } from "../../midi-audition.ts";
 import type { MidiNote } from "../../midi-clip.ts";
 import { newMidiTimeline } from "../../midi-clip-timeline.ts";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
 import { midiInputHub } from "../../midi-input/input-hub.ts";
+import type { PlayheadSignal } from "../../playhead-signal.ts";
 import {
   type ArmedAuditionSession,
   auditionTracks,
@@ -31,14 +34,17 @@ const ignoreCapture = (_note: MidiNote) => {};
 // tracks has something to play.
 export function ArmedTrackAudition({
   session,
+  playheadSignal,
   selectedTrackId,
 }: {
   session: ArmedAuditionSession;
+  playheadSignal: PlayheadSignal;
   selectedTrackId?: string;
 }) {
   useEffect(() => {
-    setArmedAuditionSource(session);
-  }, [session]);
+    setAuditionWorkletUrl(CHAIN_WORKLET_URL);
+    setArmedAuditionSource(session, () => playheadSignal.get());
+  }, [session, playheadSignal]);
   const trackIds = keyTrackIds(useArmedTrackIds(), selectedTrackId);
   const midiPassActive = useMidiPassActive();
   const rollKeysClaimed = useRollKeysClaimed();

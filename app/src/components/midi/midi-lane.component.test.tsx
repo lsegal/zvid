@@ -256,7 +256,7 @@ test(
       "MIDI",
     );
     await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
-    expect(stackNames()).toEqual(["Synth", "Arpeggiator"]);
+    expect(stackNames()).toEqual(["Synth", "Gain", "Arpeggiator"]);
 
     const arp = page.getByRole("region", { name: "Arpeggiator", exact: true });
     await userEvent.click(
@@ -277,7 +277,7 @@ test(
     await undo();
     await expect.poll(() => chain()?.generators).toEqual([DEFAULT_ARPEGGIATOR]);
     await undo();
-    await expect.poll(() => stackNames()).toEqual(["Synth"]);
+    await expect.poll(() => stackNames()).toEqual(["Synth", "Gain"]);
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -288,7 +288,9 @@ test(
     const { chain, stackNames } = await open();
     await selectBassline();
     await addFromMenu("Add device to this track", "MIDI", /^Granular/, "MIDI");
-    await expect.poll(() => stackNames()).toEqual(["Synth", "Granular"]);
+    await expect
+      .poll(() => stackNames())
+      .toEqual(["Synth", "Gain", "Granular"]);
     const granular = page.getByRole("region", {
       name: "Granular",
       exact: true,
@@ -1108,7 +1110,7 @@ test(
     // It plays through a default Synth, with no Arpeggiator, and its Gain.
     // It plays the track's Synth, with a Gain of its own.
     expect(stackNames(sourceClipEffectTrackId(clip.id))).toEqual(["Gain"]);
-    expect(stackNames()).toEqual(["Synth"]);
+    expect(stackNames()).toEqual(["Synth", "Gain"]);
 
     // It shows as a MIDI clip, selected with its piano roll open.
     const span = () =>

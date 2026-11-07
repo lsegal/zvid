@@ -1,8 +1,9 @@
 // What MIDI devices send, as data: a mapping per device (see
 // midi-devices.json and its README) records the port names that recognize it
 // and the message each of its keys and controls sends at its factory
-// defaults. Only keys and pads act on the piano roll; the others are known
-// so their messages are recognized and ignored.
+// defaults. Keys and pads act on the piano roll, and knobs and faders through
+// device-controls.ts; the others are known so their messages are recognized
+// and ignored.
 import type { MidiMessage } from "./messages.ts";
 
 export const MIDI_CONTROL_KINDS = [
@@ -31,6 +32,16 @@ export const MIDI_CONTROL_TYPES = [
 
 export type MidiControlType = (typeof MIDI_CONTROL_TYPES)[number];
 
+// How a relative encoder writes how far it turned, in seven bits: 1 is one
+// step up in both, and one step down is 127 in two's complement and 65 in sign
+// and magnitude, which Mackie Control style encoders use.
+export const MIDI_RELATIVE_FORMATS = [
+  "twos-complement",
+  "sign-magnitude",
+] as const;
+
+export type MidiRelativeFormat = (typeof MIDI_RELATIVE_FORMATS)[number];
+
 /**
  * A control, or with `count` a run of them: its message's note or CC
  * `number` rising by one per control, and `{n}` in its name counting from 1.
@@ -43,6 +54,8 @@ export type MidiControlEntry = {
   channel: number;
   number?: number;
   count?: number;
+  // An encoder sending how far it turned, not where it is.
+  relative?: MidiRelativeFormat;
 };
 
 export type MidiControl = Omit<MidiControlEntry, "count">;
@@ -194,6 +207,12 @@ export function mappingProblems(mapping: MidiDeviceMapping): string[] {
     }
     if (count > 1 && !entry.name.includes("{n}")) {
       problem(`${entry.name}: a run needs {n} in its name`);
+    }
+    if (entry.relative && entry.type !== "cc") {
+      problem(`${entry.name}: only a cc control can be relative`);
+    }
+    if (entry.relative && !MIDI_RELATIVE_FORMATS.includes(entry.relative)) {
+      problem(`${entry.name}: unknown relative format ${entry.relative}`);
     }
     const numbered = entry.type === "note" || entry.type === "cc";
     if (numbered !== (entry.number !== undefined)) {

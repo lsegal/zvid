@@ -25,6 +25,7 @@ import {
   isDrumRackEffectName,
   readDrumRackEffect,
 } from "./fx/effects/drum-rack/drum-rack.ts";
+import { GAIN_EFFECT_NAME, isGainEffectName } from "./fx/effects/gain/gain.ts";
 import {
   isGranularEffectName,
   readGranularEffect,
@@ -38,6 +39,7 @@ import {
   waveOption,
 } from "./fx/effects/synth/synth.ts";
 import {
+  getEffectSourceTrackId,
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "./fx/stack/clip-stacks.ts";
@@ -211,8 +213,30 @@ function hasInstrument(effects: readonly SessionEffect[], stackId: string) {
 }
 
 /**
+ * `effects` with a Gain at 0 dB ending the stack `stackId` if that is a source
+ * track's with an instrument and no Gain. Keys played into a track sound through
+ * its stack alone, which like any stack makes sound only through Gain. Returns
+ * `effects` itself otherwise.
+ */
+export function addInstrumentTrackGain(
+  effects: SessionEffect[],
+  stackId: string,
+  id?: string,
+) {
+  return getEffectSourceTrackId(stackId) === undefined ||
+    !hasInstrument(effects, stackId) ||
+    effects.some(
+      (effect) =>
+        effect.trackId === stackId && isGainEffectName(effect.effectName),
+    )
+    ? effects
+    : [...effects, createEffect(stackId, GAIN_EFFECT_NAME, id)];
+}
+
+/**
  * `effects` with a default Synth leading the stack of source track
- * `sourceTrackId`, for a new MIDI clip there, unless it has an instrument.
+ * `sourceTrackId`, and a Gain ending it, for a new MIDI clip there, unless it
+ * has an instrument.
  */
 export function addDefaultSynth(
   effects: SessionEffect[],
@@ -222,15 +246,19 @@ export function addDefaultSynth(
   const trackId = sourceTrackEffectTrackId(sourceTrackId);
   return hasInstrument(effects, trackId)
     ? effects
-    : prependToStack(effects, trackId, [
-        createSynthEffect(trackId, undefined, id),
-      ]);
+    : addInstrumentTrackGain(
+        prependToStack(effects, trackId, [
+          createSynthEffect(trackId, undefined, id),
+        ]),
+        trackId,
+      );
 }
 
 /**
  * `effects` once a MIDI clip came to source track `toTrackId` from
  * `fromTrackId`: a track with no instrument takes a copy of the other's MIDI
- * effects, so the clip sounds as it did. Returns `effects` itself otherwise.
+ * effects, and a Gain if it needs one, so the clip sounds as it did. Returns
+ * `effects` itself otherwise.
  */
 export function carryTrackInstrument(
   effects: SessionEffect[],
@@ -254,7 +282,13 @@ export function carryTrackInstrument(
       trackId: to,
       parameters: effect.parameters.map((parameter) => ({ ...parameter })),
     }));
-  return copies.length ? prependToStack(effects, to, copies) : effects;
+  return copies.length
+    ? addInstrumentTrackGain(
+        prependToStack(effects, to, copies),
+        to,
+        createId(),
+      )
+    : effects;
 }
 
 /** `effects` once MIDI clips moved between source tracks, from `before` to `after`. */
@@ -338,9 +372,10 @@ function midiEffectSound({ effectName, enabled, parameters }: SessionEffect) {
  * stacks. Opening one moves those of each track's first clip with an instrument
  * onto the track, ahead of its stack, and drops the same effects from the
  * track's other clips, so their sound follows the track from then on. A clip
- * playing something else keeps its own, and plays as it did. A session saved
- * since carries `midiTrackEffects` and opens with its stacks as saved. Returns
- * `effects` itself when nothing moves.
+ * playing something else keeps its own, and plays as it did. The track also gets
+ * a Gain at 0 dB if all its MIDI clips have one, so keys played into it sound and
+ * none of them changes. A session saved since carries `midiTrackEffects` and
+ * opens with its stacks as saved. Returns `effects` itself when nothing moves.
  */
 export function migrateMidiTrackEffects(
   effects: SessionEffect[],
@@ -375,11 +410,22 @@ export function migrateMidiTrackEffects(
       stacks.filter((stack) => soundOf(stack) === soundOf(moved)).flat(),
     );
     const stackId = sourceTrackEffectTrackId(trackId);
-    next = prependToStack(
+    const placed = prependToStack(
       next.filter((effect) => !dropped.has(effect)),
       stackId,
       moved.map((effect) => ({ ...effect, trackId: stackId })),
     );
+    const allGained = spans
+      .filter((span) => span.sourceTrackId === trackId)
+      .every((span) =>
+        effects.some(
+          (effect) =>
+            effect.trackId === sourceClipEffectTrackId(span.id) &&
+            effect.enabled !== false &&
+            isGainEffectName(effect.effectName),
+        ),
+      );
+    next = allGained ? addInstrumentTrackGain(placed, stackId) : placed;
   }
   return next;
 }

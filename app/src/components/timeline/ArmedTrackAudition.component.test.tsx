@@ -87,8 +87,13 @@ afterEach(() => {
   port.onmidimessage = null;
 });
 
+const playheadSignal = createPlayheadSignal(0);
 const audition = (selectedTrackId?: string) => (
-  <ArmedTrackAudition selectedTrackId={selectedTrackId} session={session} />
+  <ArmedTrackAudition
+    playheadSignal={playheadSignal}
+    selectedTrackId={selectedTrackId}
+    session={session}
+  />
 );
 
 async function renderAudition(selectedTrackId?: string) {
@@ -256,7 +261,7 @@ test("a piano roll taking the keys leaves the selected track silent", async () =
 test("a MIDI take auditions through the armed tracks, not a default Synth", async () => {
   setTrackArmed("saw", true);
   setTrackArmed("empty", true);
-  setArmedAuditionSource(session);
+  setArmedAuditionSource(session, () => 0);
   const take = new MidiTake({
     startQ: 0,
     input: "device",
