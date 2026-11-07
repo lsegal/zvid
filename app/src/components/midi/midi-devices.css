@@ -96,7 +96,15 @@
   overflow: hidden;
   background: light-dark(rgb(251, 251, 253), #1b1e27);
   border-bottom: 1px solid rgb(var(--tint) / 0.16);
+  cursor: grab;
   touch-action: none;
+}
+
+.piano-roll__ruler--panning,
+.piano-roll__ruler--panning *,
+.piano-roll__grid--panning,
+.piano-roll__grid--panning * {
+  cursor: grabbing;
 }
 
 .piano-roll__bar-number {

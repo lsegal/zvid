@@ -38,7 +38,14 @@ type DragScrollOptions = {
   // pointer 1:1, such as to zoom as well as pan.
   onDrag?: (drag: DragScrollMove) => ScrollPosition;
   // Called once a claimed press ends, whether or not it became a drag.
-  onEnd?: () => void;
+  onEnd?: (end: DragScrollEnd) => void;
+};
+
+export type DragScrollEnd = {
+  // Whether the press became a drag, and whether the pointer was let go
+  // rather than the press being canceled.
+  dragged: boolean;
+  released: boolean;
 };
 
 export type DragScrollMove = {
@@ -60,6 +67,26 @@ type PendingPan = {
   dragging: boolean;
   samples: DragScrollSample[];
 };
+
+// Calls both elements' handlers for the events they share, `first`'s before
+// `second`'s, to spread `useDragScroll`'s handlers on an element with its own.
+export function chainHandlers<A extends object, B extends object>(
+  first: A,
+  second: B,
+): A & B {
+  const chained: Record<string, unknown> = { ...first, ...second };
+  for (const name of Object.keys(first)) {
+    const a = (first as Record<string, unknown>)[name];
+    const b = (second as Record<string, unknown>)[name];
+    if (typeof a === "function" && typeof b === "function") {
+      chained[name] = (...args: unknown[]) => {
+        a(...args);
+        b(...args);
+      };
+    }
+  }
+  return chained as A & B;
+}
 
 // Hand-grab panning: pressing where `canStart` allows and dragging past a
 // small threshold scrolls `scrollRef` with the pointer, with momentum on
@@ -222,7 +249,7 @@ export function useDragScroll({
       if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      onEnd?.();
+      onEnd?.({ dragged: pan.dragging, released: event.type === "pointerup" });
       if (!pan.dragging) {
         return;
       }

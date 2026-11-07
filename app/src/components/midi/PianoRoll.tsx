@@ -58,6 +58,7 @@ import {
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
+import { chainHandlers } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
 import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
@@ -74,6 +75,7 @@ import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
 import { useComputerKeyboardEntry } from "./use-computer-keyboard-entry";
 import { useMidiNoteCapture } from "./use-midi-note-capture";
+import { usePianoRollPan } from "./use-piano-roll-pan";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -158,7 +160,9 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // PianoRollRuler). Clicking empty grid inside the clip's Length adds a note
 // there, dragging a note moves it in time and pitch, Ctrl/Cmd-dragging drops
 // a copy instead, dragging either of its edges resizes it, and right-clicking
-// a note opens its menu of note actions; each edit is one undo step. A moved
+// a note deletes it; each edit is one undo step. Right-dragging the grid pans
+// the roll (see use-piano-roll-pan.ts), as does dragging the ruler, left and
+// right. A long press or the menu key opens the menu of note actions. A moved
 // or copied note trims the notes of its pitch it lands on, the way clips do.
 // Clicking a note selects it (Shift-click adds to the selection) and Escape
 // clears the selection. The keys act on the selected notes (see
@@ -202,6 +206,17 @@ export function PianoRoll({
   const select = (keys: Iterable<string>) =>
     setSelection({ spanId, keys: new Set(keys) });
   const { mac } = getShortcutLabels();
+  const pan = usePianoRollPan({
+    scrollRef,
+    mac,
+    onRightClickNote(index) {
+      const note = notes[index];
+      if (note) {
+        select([...selectedKeys].filter((key) => key !== noteKey(note)));
+        removeNote(index);
+      }
+    },
+  });
   const shownNotes = drag?.notes ?? notes;
   const viewQ = rollViewQ(notes, timeline);
   const gridWidth = viewQ * PIANO_ROLL_QUARTER_PX;
@@ -308,7 +323,7 @@ export function PianoRoll({
 
   function handleGridPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // Right-clicks, and Ctrl-clicks, which macOS treats as right-clicks,
-    // open the note menu.
+    // belong to the pan and its click.
     if (event.button !== 0 || isContextMenuPress(event, mac)) {
       return;
     }
@@ -520,12 +535,12 @@ export function PianoRoll({
     }
   }
 
-  // Right-clicking a note outside the selection selects it, then the menu
-  // opens on the selection; right-clicking empty grid keeps the selection.
+  // A long press or the menu key on a note outside the selection selects it,
+  // then the menu opens on the selection; on empty grid the selection stays.
   function handleGridContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (drag) {
+    if (pan.claimContextMenu() || drag) {
       return;
     }
     const noteElement = (event.target as Element).closest<HTMLElement>(
@@ -608,6 +623,7 @@ export function PianoRoll({
             onSetTimeline(spanId, next, historyLabel, mode)
           }
           quarterPx={PIANO_ROLL_QUARTER_PX}
+          scrollRef={scrollRef}
           timeline={timeline}
           viewQ={viewQ}
         />
@@ -627,14 +643,19 @@ export function PianoRoll({
         </div>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: adding and dragging notes are pointer gestures; each note's button deletes it from the keyboard */}
         <div
-          className={`piano-roll__grid${drag?.edge ? " piano-roll__grid--resizing" : ""}`}
+          className={`piano-roll__grid${drag?.edge ? " piano-roll__grid--resizing" : ""}${pan.isGrabbing ? " piano-roll__grid--panning" : ""}`}
           data-piano-roll-grid
           onContextMenu={handleGridContextMenu}
-          onLostPointerCapture={(event) => endDrag(event, true)}
-          onPointerCancel={(event) => endDrag(event, false)}
-          onPointerDown={handleGridPointerDown}
-          onPointerMove={handleGridPointerMove}
-          onPointerUp={(event) => endDrag(event, true)}
+          {...chainHandlers(pan.handlers, {
+            onLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) =>
+              endDrag(event, true),
+            onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) =>
+              endDrag(event, false),
+            onPointerDown: handleGridPointerDown,
+            onPointerMove: handleGridPointerMove,
+            onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) =>
+              endDrag(event, true),
+          })}
           ref={gridRef}
           style={{ width: gridWidth, height: gridHeight }}
           tabIndex={-1}
@@ -675,7 +696,7 @@ export function PianoRoll({
                   width,
                   top: rowOf(note.pitch) * PIANO_ROLL_ROW_PX,
                 }}
-                title={`${pitchName(note.pitch)}: Delete to remove, right-click for actions`}
+                title={`${pitchName(note.pitch)}: Delete or right-click to remove`}
                 type="button"
               >
                 <span
