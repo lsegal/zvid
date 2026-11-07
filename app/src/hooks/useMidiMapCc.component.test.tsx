@@ -8,6 +8,7 @@ import {
   vi,
 } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { sessionToProject } from "../app/session-project.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   type EditorState,
@@ -160,7 +161,10 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     expect(get().project.midiMappings).toEqual([
       { controller: 74, channel: 3, target },
     ]);
-    expect(projectToSession(get().project).midiMappings).toEqual([
+    const saved = JSON.parse(
+      JSON.stringify(projectToSession(get().project, { playheadQ: 0 })),
+    );
+    expect(sessionToProject(saved, []).midiMappings).toEqual([
       { controller: 74, channel: 3, target },
     ]);
 
@@ -276,7 +280,9 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     const port = plugIn("Homemade Box");
     const { delay } = await open(port);
     await page.getByRole("button", { name: /^Key (on|map)$/ }).click();
-    const { key, label } = firstKnob(delay);
-    expect(markOf(dialOf(delay.id, label))).toBeNull();
+    await expect
+      .element(page.getByRole("button", { name: /(Bypass|Enable) Order/ }))
+      .toHaveAttribute("data-key-map", "mappable");
+    expect(markOf(dialOf(delay.id, firstKnob(delay).label))).toBeNull();
   });
 });

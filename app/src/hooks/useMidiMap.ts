@@ -116,6 +116,9 @@ export function useMidiMap({
     selected && effects.some((effect) => effect.id === selected.effectId)
       ? selected
       : null;
+  // The last control assigned, until the assignment has rendered: a control
+  // sends a run of messages, and they make one mapping and one undo step.
+  const assigningRef = useRef<string | null>(null);
   const latestRef = useRef({
     active,
     selected: selectedTarget,
@@ -125,6 +128,9 @@ export function useMidiMap({
     amendProject,
     editEffects,
   });
+  if (latestRef.current.midiMappings !== midiMappings) {
+    assigningRef.current = null;
+  }
   latestRef.current = {
     active,
     selected: selectedTarget,
@@ -149,9 +155,6 @@ export function useMidiMap({
     const { edit: editSettled, flush } = settledEffectEdits((...args) =>
       latestRef.current.editEffects(...args),
     );
-    // The last control assigned, until the assignment has rendered: a control
-    // sends a run of messages, and they make one mapping and one undo step.
-    let assigning: { mappings: unknown; id: string } | undefined;
 
     const releaseKey = (id: string) => {
       const pads = heldKeys.get(id);
@@ -199,11 +202,11 @@ export function useMidiMap({
       const id = `${channel}:${controller}:${keyMapTargetId(target)}`;
       if (
         (existing?.channel === channel && existing.controller === controller) ||
-        (assigning?.id === id && assigning.mappings === latest.midiMappings)
+        assigningRef.current === id
       ) {
         return;
       }
-      assigning = { mappings: latest.midiMappings, id };
+      assigningRef.current = id;
       const mapping: MidiCcMapping = { controller, channel, target };
       latest.commitProjectChange("Map MIDI Control", (current) =>
         patchProjectState(current, {
