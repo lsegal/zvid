@@ -19,6 +19,7 @@ import {
   auditionChainGraph,
   auditionChainSettings,
   auditionTailSeconds,
+  graphChains,
 } from "./audition-chain.ts";
 
 const clipStack = sourceClipEffectTrackId("clip");
@@ -262,6 +263,26 @@ describe("auditionChainGraph", () => {
       clips?.map(({ settings }) => settings.inputGain),
       [1, 0],
     );
+  });
+
+  it("delays each clip to the slowest path, as the mix does", () => {
+    const delays = graphChains(
+      auditionChainGraph(
+        [effect("lane", "Limiter"), effect("other-lane", "Delay")],
+        "track",
+        "clip",
+        true,
+        [layerClip("a", "lane"), layerClip("c", "other-lane")],
+      ),
+      48000,
+    ).map(({ key, settings }) => [key, settings.delayFrames]);
+    const delayOf = (key: string) =>
+      delays.find(([chain]) => chain === key)?.[1];
+    assert.equal(delayOf("/lane/a"), 0);
+    assert.equal((delayOf("/other-lane/c") as number) > 0, true);
+    assert.equal(delayOf("/lane"), 0);
+    assert.equal(delayOf("/other-lane"), 0);
+    assert.equal(delayOf(""), 0);
   });
 
   it("lasts as long as the longest path's tail", () => {

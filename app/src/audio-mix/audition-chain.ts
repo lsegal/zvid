@@ -228,7 +228,7 @@ type GraphChain = {
   takesNote: boolean;
 };
 
-function graphChains(graph: AuditionChainGraph, sampleRate: number) {
+export function graphChains(graph: AuditionChainGraph, sampleRate: number) {
   const chains: (GraphChain & { pathLatency: number })[] = [];
   const visit = (
     { settings, inputs = [] }: AuditionChainGraph,
