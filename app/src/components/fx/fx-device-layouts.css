@@ -39,3 +39,7 @@
 .fx-animation-panel[data-fx-layout] .fx-animation-panel__knob {
   grid-row: auto;
 }
+
+.fx-animation-panel[data-fx-layout] .fx-animation-panel__parameters {
+  align-self: center;
+}
