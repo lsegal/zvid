@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { CHAIN_WORKLET_URL } from "../../audio-mix/chain-worklet-url.ts";
+import { setAuditionWorkletUrl } from "../../midi-audition.ts";
 import type { MidiNote } from "../../midi-clip.ts";
 import { newMidiTimeline } from "../../midi-clip-timeline.ts";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
@@ -40,6 +42,7 @@ export function ArmedTrackAudition({
   selectedTrackId?: string;
 }) {
   useEffect(() => {
+    setAuditionWorkletUrl(CHAIN_WORKLET_URL);
     setArmedAuditionSource(session, () => playheadSignal.get());
   }, [session, playheadSignal]);
   const trackIds = keyTrackIds(useArmedTrackIds(), selectedTrackId);

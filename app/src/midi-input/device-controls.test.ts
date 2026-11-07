@@ -143,20 +143,58 @@ test("a message no control with a role sends does nothing", () => {
   );
 });
 
-test("reads how far a Push's relative encoder turned", () => {
-  const push = device("ableton-push-2");
-  const { control } = deviceControlRoles(push).find(
-    ({ control }) => control.name === "Track1 Encoder",
+// What a device's control named `name` does when it sends `value`.
+function turn(id: string, name: string, value: number) {
+  const mapping = device(id);
+  const { control } = deviceControlRoles(mapping).find(
+    ({ control }) => control.name === name,
   ) as ReturnType<typeof deviceControlRoles>[number];
-  const turn = (value: number) =>
-    deviceControlAction(push, {
-      type: "cc",
-      channel: control.channel,
-      controller: control.number as number,
-      value,
-    })?.move;
-  assert.deepEqual(turn(1), { by: 1 / 127 });
-  assert.deepEqual(turn(127), { by: -1 / 127 });
+  return deviceControlAction(mapping, {
+    type: "cc",
+    channel: control.channel,
+    controller: control.number as number,
+    value,
+  })?.move;
+}
+
+test("reads how far a two's complement encoder turned", () => {
+  for (const [id, name] of [
+    ["ableton-push-2", "Track1 Encoder"],
+    ["ableton-push-1", "Track encoder 1"],
+    ["akai-fire", "Filter"],
+    ["akai-apc-key-25-mk2", "Knob 1"],
+  ]) {
+    assert.deepEqual(turn(id, name, 1), { by: 1 / 127 }, id);
+    assert.deepEqual(turn(id, name, 127), { by: -1 / 127 }, id);
+    assert.deepEqual(turn(id, name, 124), { by: -4 / 127 }, id);
+  }
+});
+
+test("reads how far a sign-and-magnitude encoder turned", () => {
+  for (const [id, name] of [
+    ["behringer-x-touch", "Encoder 1"],
+    ["behringer-x-touch", "Encoder 8"],
+    ["behringer-x-touch-one", "Encoder"],
+  ]) {
+    assert.deepEqual(turn(id, name, 1), { by: 1 / 127 }, id);
+    assert.deepEqual(turn(id, name, 65), { by: -1 / 127 }, id);
+    assert.deepEqual(turn(id, name, 68), { by: -4 / 127 }, id);
+    assert.equal(turn(id, name, 64)?.by, 0, id);
+  }
+});
+
+test("an encoder with no format still reads as a place", () => {
+  assert.deepEqual(turn("behringer-x-touch-mini", "Encoder 1", 65), {
+    to: 65 / 127,
+  });
+});
+
+test("the data records each relative encoder's format", () => {
+  const formats = (id: string) =>
+    new Set(device(id).controls.flatMap(({ relative }) => relative ?? []));
+  assert.deepEqual([...formats("behringer-x-touch")], ["sign-magnitude"]);
+  assert.deepEqual([...formats("presonus-faderport-2018")], ["sign-magnitude"]);
+  assert.deepEqual([...formats("ableton-push-2")], ["twos-complement"]);
 });
 
 test("a CC mapped by hand is relative only where its device says so", () => {

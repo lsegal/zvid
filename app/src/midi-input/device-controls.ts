@@ -12,6 +12,7 @@ import {
   expandControls,
   type MidiControl,
   type MidiDeviceMapping,
+  type MidiRelativeFormat,
 } from "./device-mappings.ts";
 import type { MidiMessage } from "./messages.ts";
 
@@ -112,23 +113,35 @@ function rolesOf(mapping: MidiDeviceMapping) {
   return roles;
 }
 
-// A relative encoder sends how far it turned, as a two's complement number of
-// seven bits: 1 is one step up, 127 one step down.
-function relativeMove(value: number): DeviceControlMove {
-  return { by: (value < 64 ? value : value - 128) / 127 };
+// A relative encoder sends how far it turned: below 64 that many steps up, in
+// either format, and otherwise steps down as `format` writes them.
+function relativeMove(
+  format: MidiRelativeFormat,
+  value: number,
+): DeviceControlMove {
+  const down = format === "sign-magnitude" ? 64 - value : value - 128;
+  return { by: (value < 64 ? value : down) / 127 };
 }
 
-const relativeByMapping = new WeakMap<MidiDeviceMapping, Set<string>>();
+const relativeByMapping = new WeakMap<
+  MidiDeviceMapping,
+  Map<string, NonNullable<MidiControl["relative"]>>
+>();
 
 function relativeCcsOf(mapping: MidiDeviceMapping) {
   let relative = relativeByMapping.get(mapping);
   if (!relative) {
-    relative = new Set(
-      expandControls(mapping.controls)
-        .filter((control) => control.type === "cc" && control.relative)
-        .map((control) =>
-          messageId(control.type, control.channel, control.number),
-        ),
+    relative = new Map(
+      expandControls(mapping.controls).flatMap((control) =>
+        control.type === "cc" && control.relative
+          ? [
+              [
+                messageId(control.type, control.channel, control.number),
+                control.relative,
+              ] as const,
+            ]
+          : [],
+      ),
     );
     relativeByMapping.set(mapping, relative);
   }
@@ -140,10 +153,9 @@ export function ccMove(
   mapping: MidiDeviceMapping | undefined,
   { channel, controller, value }: Extract<MidiMessage, { type: "cc" }>,
 ): DeviceControlMove {
-  return mapping &&
-    relativeCcsOf(mapping).has(messageId("cc", channel, controller))
-    ? relativeMove(value)
-    : { to: value / 127 };
+  const relative =
+    mapping && relativeCcsOf(mapping).get(messageId("cc", channel, controller));
+  return relative ? relativeMove(relative, value) : { to: value / 127 };
 }
 
 /** What `message` from a device mapped by `mapping` does, if anything. */
