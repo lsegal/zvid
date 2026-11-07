@@ -906,16 +906,6 @@ body.fx-chain-dragging * {
   align-self: end;
 }
 
-/* On a short panel (useDeviceFit) everything takes one row. */
-.fx-animation-panel[data-fx-layout] .fx-animation-panel__body {
-  grid-template-rows: auto;
-  align-items: center;
-}
-
-.fx-animation-panel[data-fx-layout] .fx-animation-panel__knob {
-  grid-row: auto;
-}
-
 .fx-animation-panel__parameters:disabled {
   color: var(--muted);
   cursor: default;

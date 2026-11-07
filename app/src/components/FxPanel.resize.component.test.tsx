@@ -2,13 +2,14 @@ import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { FX_PANEL_HEIGHT_STORAGE_KEY } from "../app/constants.ts";
 import { renderApp } from "../component-test/app.tsx";
+import { addFromMenu } from "../component-test/fx-actions.ts";
 import { center, dblclick, drag, nextFrames } from "../component-test/input.ts";
 import { setViewport } from "../component-test/viewport.ts";
 
 // The FX panel's handle against the App layout it trades space with.
 
-const query = (selector: string) => {
-  const element = document.querySelector<HTMLElement>(selector);
+const query = <T extends HTMLElement = HTMLElement>(selector: string) => {
+  const element = document.querySelector<T>(selector);
   if (!element) {
     throw new Error(`No ${selector}`);
   }
@@ -179,7 +180,27 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
       [
         ...document.querySelectorAll<HTMLElement>("[data-source-span-id]"),
       ].filter((span) => span.textContent?.includes("MIDI"));
-    const device = (name: string) => query(`[aria-label="${name}"]`);
+    const device = (name: string) => query(`.fx-chain [aria-label="${name}"]`);
+    const limit = () =>
+      Number.parseFloat(
+        body().style.getPropertyValue("--fx-device-max-height"),
+      );
+    const addToLayer = (category: string, item: string, group: string) =>
+      addFromMenu("Add device to this layer", category, item, group);
+    const shortenPanel = async (steps: number) => {
+      handle().focus();
+      await userEvent.keyboard("{ArrowDown}".repeat(steps));
+      await nextFrames();
+    };
+    const growPanel = async () => {
+      handle().focus();
+      await userEvent.keyboard("{End}");
+      await nextFrames();
+    };
+    const rowCount = (section: HTMLElement) =>
+      getComputedStyle(
+        section.querySelector(".fx-animation-panel__body") as HTMLElement,
+      ).gridTemplateRows.split(" ").length;
 
     test("the MIDI sample's clips fit the fitted panel without scrolling", async () => {
       await setViewport({ width: 1389, height: 800 });
@@ -219,6 +240,141 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
       expect(device("Synth").getBoundingClientRect().height).toBeGreaterThan(
         short,
       );
+    });
+
+    test("Levels fits the fitted panel, with its wheels and curve shorter", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await addToLayer("Color", "Levels", "Video");
+      await nextFrames();
+
+      const levels = device("Levels");
+      expect(levels.dataset.fxLayout).toBeDefined();
+      expect(levels.getBoundingClientRect().height).toBeLessThanOrEqual(
+        limit(),
+      );
+      expect(body().scrollHeight).toBe(body().clientHeight);
+      const curve = () => query(".fx-curve__plot").getAttribute("viewBox");
+      const short = curve();
+
+      // Controls stay packed at the top, the wheels in their one row.
+      const wheels = [...levels.querySelectorAll<HTMLElement>(".fx-wheel")];
+      expect(new Set(wheels.map((wheel) => wheel.offsetTop)).size).toBe(1);
+
+      // With height to spare, the usual layout comes back.
+      await growPanel();
+      expect(device("Levels").dataset.fxLayout).toBeUndefined();
+      expect(height(".fx-wheel__disc")).toBe(88);
+      expect(curve()).toBe("0 0 280 140");
+      expect(short).not.toBe(curve());
+    });
+
+    test("Levels keeps its curve tab as the panel resizes", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await addToLayer("Color", "Levels", "Video");
+      await nextFrames();
+      const tab = () =>
+        page.elementLocator(device("Levels")).getByRole("button", {
+          name: "R curve",
+          exact: true,
+        });
+      await userEvent.click(tab());
+
+      await growPanel();
+      await expect.element(tab()).toHaveAttribute("aria-pressed", "true");
+    });
+
+    test("a short panel's smaller wheel moves its puck with the pointer", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await addToLayer("Color", "Levels", "Video");
+      await nextFrames();
+      await shortenPanel(4);
+      expect(device("Levels").dataset.fxLayout).toBe("2");
+
+      const disc = query(".fx-wheel__disc");
+      disc.scrollIntoView({ block: "nearest", inline: "nearest" });
+      await nextFrames();
+      const { width } = disc.getBoundingClientRect();
+      expect(width).toBeLessThan(88);
+      const start = center(disc);
+      await drag(start, { x: start.x + width / 2, y: start.y });
+      await expect
+        .poll(() => Number(disc.getAttribute("aria-valuenow")))
+        .toBeGreaterThanOrEqual(95);
+    });
+
+    test("Scopes fits the fitted panel, its waveform drawn at the shorter size", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await addToLayer("Color", "Scopes", "Video");
+      await nextFrames();
+
+      const scopes = device("Scopes");
+      expect(scopes.dataset.fxLayout).toBeDefined();
+      expect(scopes.getBoundingClientRect().height).toBeLessThanOrEqual(
+        limit(),
+      );
+      expect(body().scrollHeight).toBe(body().clientHeight);
+      // Drawn for its height rather than stretched to it.
+      const scope = query<HTMLCanvasElement>(".fx-waveform__scope");
+      const aspect = () => scope.height / scope.width;
+      expect(aspect()).toBeCloseTo(
+        Number.parseFloat(scope.style.height) / 288,
+        3,
+      );
+      expect(Number.parseFloat(scope.style.height)).toBeLessThan(168);
+
+      await growPanel();
+      expect(device("Scopes").dataset.fxLayout).toBeUndefined();
+      expect(scope.style.height).toBe("168px");
+      await expect.poll(aspect).toBeCloseTo(168 / 288, 3);
+    });
+
+    test("an attached section takes one row when it doesn't fit its usual two", async () => {
+      await setViewport({ width: 1389, height: 800 });
+      await renderApp();
+      await addToLayer("Color", "Contrast", "Video");
+      await userEvent.click(
+        page.getByRole("button", { name: "Turn Animation On for Contrast" }),
+      );
+      await nextFrames();
+      const animation = () => device("Contrast animation");
+
+      // The two rows fit the fitted panel, and it doesn't scroll for them.
+      expect(animation().dataset.fxLayout).toBeUndefined();
+      expect(rowCount(animation())).toBe(2);
+      expect(animation().getBoundingClientRect().height).toBeLessThanOrEqual(
+        limit(),
+      );
+      expect(body().scrollHeight).toBe(body().clientHeight);
+
+      await shortenPanel(4);
+      expect(animation().dataset.fxLayout).toBe("1");
+      expect(rowCount(animation())).toBe(1);
+      // Every mode's controls keep to it, the knobs included.
+      for (const mode of ["Reactive", "LFO"]) {
+        await userEvent.click(
+          page
+            .elementLocator(animation())
+            .getByRole("button", { name: mode, exact: true }),
+        );
+        await nextFrames();
+        expect(rowCount(animation()), mode).toBe(1);
+      }
+
+      await addToLayer("Volume & Stereo", "Gain", "Audio");
+      await userEvent.click(
+        page.getByRole("button", { name: "Turn Modulation On for Gain" }),
+      );
+      await nextFrames();
+      expect(device("Gain modulation").dataset.fxLayout).toBe("1");
+      expect(rowCount(device("Gain modulation"))).toBe(1);
+
+      await growPanel();
+      expect(rowCount(animation())).toBe(2);
+      expect(rowCount(device("Gain modulation"))).toBe(2);
     });
 
     test("resizing and fitting settle on one layout", async () => {

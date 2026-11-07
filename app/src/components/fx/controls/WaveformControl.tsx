@@ -12,7 +12,7 @@ import "./waveform-control.css";
 // its height by the device's layout, and the room its plot leaves for the level
 // labels on the left. The closest labels can be and all still read.
 const WIDTH = 288;
-const HEIGHTS = [168, 136, 112, 88];
+const HEIGHTS = [168, 136, 104];
 const MIN_LABEL_SPACING = 12;
 const LABEL_WIDTH = 30;
 const PADDING = 6;

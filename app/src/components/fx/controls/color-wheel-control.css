@@ -74,14 +74,18 @@
 }
 
 /* On a short panel (useDeviceFit) the discs give up height. */
-.fx-device-panel[data-fx-layout='2'] .fx-wheel__disc {
+.fx-device-panel[data-fx-layout='1'] .fx-wheel__disc {
   width: 64px;
   height: 64px;
 }
 
-.fx-device-panel[data-fx-layout='3'] .fx-wheel__disc {
-  width: 48px;
-  height: 48px;
+.fx-device-panel[data-fx-layout='2'] .fx-wheel__disc {
+  width: 44px;
+  height: 44px;
+}
+
+.fx-device-panel[data-fx-layout='2'] .fx-wheel__header {
+  margin-bottom: 0;
 }
 
 .fx-wheel__disc:focus-visible {
