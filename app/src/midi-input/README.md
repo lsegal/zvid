@@ -3,9 +3,29 @@
 `midi-devices.json` maps 200 MIDI devices (#1554), as data: the port names
 that recognize each and the message each of its keys and controls sends. See
 `MidiDeviceMapping` in `device-mappings.ts` for the format, and
-`device-mappings.test.ts` for what's validated. Only keys and pads act on the
-piano roll today; the rest exist so that their messages are recognized and
-ignored. A device that isn't listed plays through the standard keyboard layout.
+`device-mappings.test.ts` for what's validated. Keys and pads act on the piano
+roll, and knobs and faders on effects and volumes (see below); the rest exist so
+that their messages are recognized and ignored. A device that isn't listed plays
+through the standard keyboard layout.
+
+## What the controls do
+
+A listed device needs no mapping by hand (#1615). `device-controls.ts` gives its
+continuous controls roles from their kinds and names, so that every device follows
+the same rules:
+
+- Knobs and encoders, in the order the device lists them, drive the selected
+  effect's numeric parameters 1 to N, in panel order. Extra knobs do nothing, and
+  neither do any while no effect is selected.
+- A control named for volume or master, a lone fader, or the ninth of nine moves
+  the app's volume (the transport bar's).
+- Other numbered faders move the source tracks' volumes in track order: the first
+  Gain in the track's own stack, added if it has none.
+
+Encoders are read as absolute unless their entry says `relative`, which only the
+Push family's does so far: its Ableton-documented encoders send steps, not places.
+MIDI Map mappings are of notes, which take no role here, so one made by hand always
+wins. Controls that send CC can't be mapped by hand yet.
 
 ## How far to trust the data
 

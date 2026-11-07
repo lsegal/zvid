@@ -329,7 +329,7 @@ export function Editor({
     historyCommands,
     fxEditing,
     refreshAudio: audioMix.refresh,
-    fxLaneId: fxPanel.fxLaneId,
+    panels: { fxPanel, previewVolume },
     mediaItemsById,
     laneStatusById: timeline.laneStatusById,
     playbackOriginRef,
