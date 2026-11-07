@@ -138,9 +138,7 @@ const pressMappedKey = () =>
 
 async function panelPad() {
   const [device] = mapSessionEffectsToDevices([rack], rack.trackId);
-  const parameter = device.parameters.find(
-    ({ key }) => key === DRUM_RACK_KEY,
-  );
+  const parameter = device.parameters.find(({ key }) => key === DRUM_RACK_KEY);
   if (!parameter) {
     throw new Error("No pads on the rack");
   }
@@ -162,53 +160,47 @@ beforeEach(async () => {
   await userEvent.click(document.body);
 });
 
-test(
-  "a pad pressed in the panel sounds through its clip's, track's and Global stacks",
-  { timeout: 60_000 },
-  async () => {
-    const press = await panelPad();
-    session([gain(trackStack, 0)]);
-    const unity = await peakOf(press);
-    expect(unity).toBeGreaterThan(0.01);
+test("a pad pressed in the panel sounds through its clip's, track's and Global stacks", {
+  timeout: 60_000,
+}, async () => {
+  const press = await panelPad();
+  session([gain(trackStack, 0)]);
+  const unity = await peakOf(press);
+  expect(unity).toBeGreaterThan(0.01);
 
-    for (const quieter of [
-      [gain(clipStack, -24)],
-      [gain(trackStack, -24)],
-      [gain(trackStack, 0), gain(GLOBAL_EFFECT_TRACK_ID, -24)],
-    ]) {
-      session(quieter);
-      const peak = await peakOf(press);
-      expect(peak).toBeLessThan(unity / 4);
-      expect(peak).toBeGreaterThan(0);
-    }
-  },
-);
+  for (const quieter of [
+    [gain(clipStack, -24)],
+    [gain(trackStack, -24)],
+    [gain(trackStack, 0), gain(GLOBAL_EFFECT_TRACK_ID, -24)],
+  ]) {
+    session(quieter);
+    const peak = await peakOf(press);
+    expect(peak).toBeLessThan(unity / 4);
+    expect(peak).toBeGreaterThan(0);
+  }
+});
 
-test(
-  "a pad fired from a key map sounds through its track's stack",
-  { timeout: 60_000 },
-  async () => {
-    session([gain(trackStack, 0)]);
-    const unity = await peakOf(pressMappedKey);
-    expect(unity).toBeGreaterThan(0.01);
+test("a pad fired from a key map sounds through its track's stack", {
+  timeout: 60_000,
+}, async () => {
+  session([gain(trackStack, 0)]);
+  const unity = await peakOf(pressMappedKey);
+  expect(unity).toBeGreaterThan(0.01);
 
-    session([gain(trackStack, -24)]);
-    expect(await peakOf(pressMappedKey)).toBeLessThan(unity / 4);
+  session([gain(trackStack, -24)]);
+  expect(await peakOf(pressMappedKey)).toBeLessThan(unity / 4);
 
-    session([gain(trackStack, 0, true)]);
-    expect(await peakOf(pressMappedKey)).toBeLessThan(0.001);
-  },
-);
+  session([gain(trackStack, 0, true)]);
+  expect(await peakOf(pressMappedKey)).toBeLessThan(0.001);
+});
 
-test(
-  "a Drum Rack no source track owns still plays, dry",
-  { timeout: 60_000 },
-  async () => {
-    const press = await panelPad();
-    // None of these stacks is the rack's to play through, not even Global's.
-    const muted = [gain(GLOBAL_EFFECT_TRACK_ID, 0, true)];
-    session(muted, false);
-    expect(await peakOf(press)).toBeGreaterThan(0.01);
-    expect(await peakOf(pressMappedKey)).toBeGreaterThan(0.01);
-  },
-);
+test("a Drum Rack no source track owns still plays, dry", {
+  timeout: 60_000,
+}, async () => {
+  const press = await panelPad();
+  // None of these stacks is the rack's to play through, not even Global's.
+  const muted = [gain(GLOBAL_EFFECT_TRACK_ID, 0, true)];
+  session(muted, false);
+  expect(await peakOf(press)).toBeGreaterThan(0.01);
+  expect(await peakOf(pressMappedKey)).toBeGreaterThan(0.01);
+});
