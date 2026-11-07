@@ -41,6 +41,10 @@ type FxDevicePanelProps = {
   dragging: boolean;
   // Dims the device while its layer's FX are off; its own bypass is kept.
   layerBypassed?: boolean;
+  // Whether it is the one effect selected for other features to target.
+  selected?: boolean;
+  // Absent while attached, when the wrapper takes the clicks.
+  onClick?: (event: ReactMouseEvent<HTMLElement>) => void;
   onToggleCollapsed: () => void;
   onStripClick: () => void;
   onRemove: () => void;
@@ -111,6 +115,8 @@ export function FxDevicePanel({
   collapsed,
   dragging,
   layerBypassed = false,
+  selected = false,
+  onClick,
   onToggleCollapsed,
   onStripClick,
   onRemove,
@@ -143,6 +149,7 @@ export function FxDevicePanel({
     dragging ? "fx-device-panel--dragging" : "",
     device.unsupported ? "fx-device-panel--unsupported" : "",
     attached ? "fx-device-panel--attached" : "",
+    selected ? "fx-device-panel--selected" : "",
     isPinnedDevice(device) ? "fx-device-panel--pinned" : "",
   ]
     .filter(Boolean)
@@ -221,10 +228,12 @@ export function FxDevicePanel({
 
   if (collapsed) {
     return (
+      // biome-ignore lint/a11y/useKeyWithClickEvents: the strip button handles the keyboard
       <section
         aria-label={device.name}
         className={className}
         {...groupAttribute}
+        onClick={onClick}
         onContextMenu={onContextMenu}
         onPointerDown={onTitlePointerDown}
         style={style}
@@ -232,6 +241,7 @@ export function FxDevicePanel({
         {power}
         {animationToggle}
         <button
+          aria-current={selected || undefined}
           aria-expanded={false}
           aria-keyshortcuts={getTitleShortcuts(device)}
           aria-label={`Expand ${device.name}`}
@@ -274,10 +284,12 @@ export function FxDevicePanel({
   ));
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the name button handles the keyboard
     <section
       aria-label={device.name}
       className={className}
       data-fx-layout={layout || undefined}
+      onClick={onClick}
       ref={sectionRef}
       {...groupAttribute}
       style={style}
@@ -293,6 +305,7 @@ export function FxDevicePanel({
         {power}
         {animationToggle}
         <button
+          aria-current={selected || undefined}
           aria-keyshortcuts={getTitleShortcuts(device)}
           aria-label={getTitleLabel(device)}
           className="fx-device-panel__name"

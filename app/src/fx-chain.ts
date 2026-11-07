@@ -357,6 +357,17 @@ export function canStartFxChainPan(event: {
   return event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR);
 }
 
+// What a click inside a device operates rather than selecting the device. The
+// device's name selects it, and is the keyboard's way to.
+const FX_DEVICE_CONTROL_SELECTOR =
+  "button:not([data-fx-focus]), input, select, textarea, label, a[href], .fx-curve__plot, .fx-shape-custom, [role='slider'], [role='listbox'], [role='option'], [role='menu']";
+
+// Whether a click on a device's header or body selects it.
+export function canSelectFxDevice(target: EventTarget | null) {
+  const element = target as { closest?: (selector: string) => unknown };
+  return !element?.closest?.(FX_DEVICE_CONTROL_SELECTOR);
+}
+
 // Screen reader text for a device that moved within its stack, or to the
 // `stack` named.
 export function describeDeviceMove(

@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -12,6 +13,7 @@ import {
   addableEffectsFor,
   animationCollapseKey,
   canMoveDevice as canMoveDeviceIn,
+  canSelectFxDevice,
   canStartFxChainPan,
   describeDeviceMove,
   deviceLayerOptions,
@@ -122,6 +124,9 @@ export type FxChainProps = {
   // Adds the cut or copied device to the end of the `trackId` stack.
   onPaste: (trackId: string, scope: FxEffectScope, id: string) => void;
   onClearAll: (devices: readonly FxDevice[]) => void;
+  // The device selected for other features to target, if the chain shows it.
+  selectedDeviceId?: string;
+  onSelectDevice?: (device: FxDevice) => void;
 };
 
 export type FxCollapseState = {
@@ -200,6 +205,8 @@ export function FxChain({
   onCopy,
   onPaste,
   onClearAll,
+  selectedDeviceId,
+  onSelectDevice,
 }: FxChainProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Title bar (or add button) to focus once the next render lands, so
@@ -471,6 +478,20 @@ export function FxChain({
     }
   }
 
+  // Clicks in a portalled menu bubble through the device too; those, and its
+  // controls, leave the selection alone.
+  function handleDeviceClick(
+    event: ReactMouseEvent<HTMLElement>,
+    device: FxDevice,
+  ) {
+    if (
+      event.currentTarget.contains(event.target as Node) &&
+      canSelectFxDevice(event.target)
+    ) {
+      onSelectDevice?.(device);
+    }
+  }
+
   function openContextMenu(
     event: ReactMouseEvent<HTMLElement>,
     device: FxDevice,
@@ -536,16 +557,22 @@ export function FxChain({
         ((device.group === "clip" && clipScope === "fxClip") ||
           !isContentEffectName(device.effectName));
       const dragging = drag?.deviceId === device.id;
+      const selected = device.id === selectedDeviceId;
+      const attached = animation !== undefined || modulation !== undefined;
       const panel = (
         <FxDevicePanel
           key={device.id}
-          attached={animation !== undefined || modulation !== undefined}
+          attached={attached}
           collapsed={collapsed.has(device.id)}
           device={device}
           dragging={dragging}
+          onClick={
+            attached ? undefined : (event) => handleDeviceClick(event, device)
+          }
           onContextMenu={(event) => openContextMenu(event, device, index)}
           onRemove={() => removeDevice(device)}
           layerBypassed={layerBypassed}
+          selected={selected}
           onSetEnabled={onSetEnabled}
           onSetAnimationEnabled={onSetAnimationEnabled}
           onSetModulationEnabled={onSetModulationEnabled}
@@ -563,7 +590,7 @@ export function FxChain({
           onToggleCollapsed={() => toggleCollapsed(device.id)}
         />
       );
-      if (!animation && !modulation) {
+      if (!attached) {
         return panel;
       }
 
@@ -572,10 +599,14 @@ export function FxChain({
       const animationKey = animationCollapseKey(device.id);
       const modulationKey = modulationCollapseKey(device.id);
       return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: selecting is a pointer shortcut here; the device's name button is the keyboard equivalent
+        // biome-ignore lint/a11y/useKeyWithClickEvents: as above
         <div
-          className={`fx-device-unit${dragging ? " fx-device-unit--dragging" : ""}`}
+          className={`fx-device-unit${dragging ? " fx-device-unit--dragging" : ""}${selected ? " fx-device-unit--selected" : ""}`}
           data-fx-group={device.group}
           key={device.id}
+          onClick={(event) => handleDeviceClick(event, device)}
+          style={{ "--fx-accent": device.accent } as CSSProperties}
         >
           {panel}
           {animation ? (

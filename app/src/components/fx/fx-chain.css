@@ -185,6 +185,26 @@ body.fx-chain-dragging * {
   opacity: 0.35;
 }
 
+/* The one effect selected for other features to target. A device with an
+ * attached section is outlined with it, as one panel. */
+.fx-device-panel--selected:not(.fx-device-panel--attached),
+.fx-device-unit--selected {
+  outline: 2px solid var(--fx-accent);
+  outline-offset: 1px;
+}
+
+.fx-device-unit--selected {
+  border-radius: 16px;
+}
+
+[data-theme='light']
+  :is(
+    .fx-device-panel--selected:not(.fx-device-panel--attached),
+    .fx-device-unit--selected
+  ) {
+  outline-color: color-mix(in srgb, var(--fx-accent) 40%, var(--ink));
+}
+
 .fx-device-panel--bypassed {
   border-color: var(--line);
   opacity: 0.5;
