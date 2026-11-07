@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,

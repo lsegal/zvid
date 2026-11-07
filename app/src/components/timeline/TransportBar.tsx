@@ -66,7 +66,7 @@ type TransportBarProps = {
   isRecording: boolean;
   // The take a MIDI pass is playing notes into.
   midiTake?: MidiTake | null;
-  armedAuditionSession: ArmedAuditionSession;
+  armedAuditionSession?: ArmedAuditionSession;
   toggleRecording: () => void;
 };
 
@@ -264,10 +264,12 @@ export function TransportBar({
         >
           <RecordIcon />
         </button>
-        <ArmedTrackAudition
-          playheadSignal={playheadSignal}
-          session={armedAuditionSession}
-        />
+        {armedAuditionSession ? (
+          <ArmedTrackAudition
+            playheadSignal={playheadSignal}
+            session={armedAuditionSession}
+          />
+        ) : null}
         {midiTake ? (
           <MidiTakeCapture
             isPlaying={isPlaying}

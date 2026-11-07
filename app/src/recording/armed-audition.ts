@@ -5,10 +5,7 @@
 // its FX switched off, stays silent, as it would in the mix.
 import { useSyncExternalStore } from "react";
 import type { ProjectState } from "../app/types.ts";
-import {
-  isLayerFxEnabled,
-  sourceClipEffectTrackId,
-} from "../fx-stack.ts";
+import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
 import { type AuditionVoice, auditionNote } from "../midi-audition.ts";
 import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
