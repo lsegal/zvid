@@ -252,13 +252,14 @@ function graphChains(graph: AuditionChainGraph, sampleRate: number) {
   };
   visit(graph, "", undefined, 0);
   const slowest = Math.max(...chains.map((chain) => chain.pathLatency));
-  return chains.map(({ pathLatency, ...chain }): GraphChain =>
-    chain.takesNote
-      ? {
-          ...chain,
-          settings: { ...chain.settings, delayFrames: slowest - pathLatency },
-        }
-      : chain,
+  return chains.map(
+    ({ pathLatency, ...chain }): GraphChain =>
+      chain.takesNote
+        ? {
+            ...chain,
+            settings: { ...chain.settings, delayFrames: slowest - pathLatency },
+          }
+        : chain,
   );
 }
 
@@ -324,7 +325,7 @@ export class AuditionChains {
         postChainMessage(node, { type: "transport", ...transport });
       }
     }
-    this.configure(chain, stack);
+    this.configure(context, chain, stack);
     this.connect(context, chain);
     return chain.input;
   }
@@ -333,16 +334,18 @@ export class AuditionChains {
   update(
     resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
   ) {
+    const { context } = this;
+    if (!context) {
+      return;
+    }
     for (const [trackId, chain] of this.chains) {
       const stack = resolve(trackId, chain.stack.spanId);
       if (stack) {
-        this.configure(chain, {
+        this.configure(context, chain, {
           ...stack,
           playheadSeconds: chain.stack.playheadSeconds,
         });
-        if (this.context) {
-          this.connect(this.context, chain);
-        }
+        this.connect(context, chain);
       } else {
         this.takeApart(chain);
         this.chains.delete(trackId);
@@ -358,10 +361,13 @@ export class AuditionChains {
     chain.input.disconnect();
   }
 
-  private configure(chain: TrackChain, stack: AuditionStack) {
+  private configure(
+    context: AudioContext,
+    chain: TrackChain,
+    stack: AuditionStack,
+  ) {
     chain.stack = stack;
-    const sampleRate = this.context?.sampleRate ?? 48000;
-    const parts = graphChains(stack, sampleRate);
+    const parts = graphChains(stack, context.sampleRate);
     const shape = parts.map(({ key }) => key).join();
     if (chain.nodes.size && shape !== chain.shape) {
       // Paths came or went, so `connect` builds the graph anew.

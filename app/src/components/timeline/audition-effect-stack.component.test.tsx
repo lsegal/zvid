@@ -183,27 +183,31 @@ test("without an LFO the same held key stays level", async () => {
 
 // A session whose audio comes from a layer clip playing the MIDI clip (#1635).
 const LANE = "lane";
+const OTHER_LANE = "other-lane";
 const LAYER_CLIP = "layer-clip";
-const hearThroughLayer = (effects: unknown[]) => {
+const OTHER_LAYER_CLIP = "other-layer-clip";
+const layerClip = (id: string, laneId: string) => ({
+  id,
+  laneId,
+  sourceSpanId: CLIP,
+  sourceTrackId: TRACK,
+  mediaPath: "",
+  startQ: 0,
+  durationSeconds: 2,
+  trimStartSeconds: 0,
+  sourceOffsetSeconds: 0,
+  sourceSpanOffsetSeconds: 0,
+  sourceWindowStartSeconds: 0,
+  sourceWindowEndSeconds: 2,
+});
+const hearThroughLayer = (
+  effects: unknown[],
+  clips = [layerClip(LAYER_CLIP, LANE)],
+) => {
   setArmedAuditionSource(
     {
-      clips: [
-        {
-          id: LAYER_CLIP,
-          laneId: LANE,
-          sourceSpanId: CLIP,
-          sourceTrackId: TRACK,
-          mediaPath: "",
-          startQ: 0,
-          durationSeconds: 2,
-          trimStartSeconds: 0,
-          sourceOffsetSeconds: 0,
-          sourceSpanOffsetSeconds: 0,
-          sourceWindowStartSeconds: 0,
-          sourceWindowEndSeconds: 2,
-        },
-      ],
-      lanes: [{ id: LANE }],
+      clips,
+      lanes: [{ id: LANE }, { id: OTHER_LANE }],
       mediaItems: [],
       sourceTracks: [{ id: TRACK }],
       sourceSpans: [
@@ -252,5 +256,34 @@ test("a paused key sounds through its layer clip's stack when the mix plays thro
 
   hearThroughLayer([gain(0), onStack(stack, gain(0, false, true))]);
   await expect.poll(() => level()).toBeLessThan(0.001);
+  voice?.release();
+});
+
+// Two layer clips play the MIDI clip on different layers, and the mix sums them
+// (#1646). Well under the limiter, so the sum shows in the level.
+test("a paused key sums every layer clip overlapping at the playhead", async () => {
+  const quiet = gain(-12);
+  const both = [
+    layerClip(LAYER_CLIP, LANE),
+    layerClip(OTHER_LAYER_CLIP, OTHER_LANE),
+  ];
+  hearThroughLayer([quiet]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  await wait(300);
+  const alone = level();
+
+  hearThroughLayer([quiet], both);
+  await expect.poll(() => level()).toBeGreaterThan(alone * 1.7);
+  expect(level()).toBeLessThan(alone * 2.3);
+
+  // Each chain stays its own: muting one leaves the other's level.
+  const muted = onStack(
+    clipEffectTrackId(OTHER_LAYER_CLIP),
+    gain(0, false, true),
+  );
+  hearThroughLayer([quiet, muted], both);
+  await expect.poll(() => level()).toBeLessThan(alone * 1.3);
+  expect(level()).toBeGreaterThan(alone * 0.7);
   voice?.release();
 });

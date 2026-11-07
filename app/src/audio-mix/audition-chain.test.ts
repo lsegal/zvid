@@ -14,7 +14,12 @@ import {
 } from "../fx-modulation-defaults.ts";
 import { DEFAULT_SYNTH_PARAMS } from "../midi-clip.ts";
 import { createSynthEffect } from "../midi-effects.ts";
-import { auditionChainSettings } from "./audition-chain.ts";
+import {
+  type AuditionChainGraph,
+  auditionChainGraph,
+  auditionChainSettings,
+  auditionTailSeconds,
+} from "./audition-chain.ts";
 
 const clipStack = sourceClipEffectTrackId("clip");
 const trackStack = sourceTrackEffectTrackId("track");
@@ -193,5 +198,90 @@ describe("auditionChainSettings", () => {
         [2, 2, undefined],
       );
     });
+  });
+});
+
+describe("auditionChainGraph", () => {
+  const layerClip = (clipId: string, laneId: string) => ({
+    clipId,
+    laneId,
+    laneFxEnabled: true,
+    timeOffsetSeconds: 0,
+  });
+  const names = ({ settings }: AuditionChainGraph) =>
+    settings.stages.map((stage) => stage.effectName);
+  const effects = [
+    effect(GLOBAL_EFFECT_TRACK_ID, "Limiter"),
+    effect("lane", "Delay"),
+    effect("other-lane", "Chorus"),
+    effect(clipEffectTrackId("a"), "Reverb"),
+    effect(clipEffectTrackId("b"), "Phaser"),
+    effect(trackStack, GAIN_EFFECT_NAME),
+  ];
+
+  it("is a lone chain for no layer clip or one", () => {
+    assert.deepEqual(auditionChainGraph(effects, "track", "clip", true, []), {
+      settings: auditionChainSettings(effects, "track", "clip", true),
+    });
+    const only = layerClip("a", "lane");
+    assert.deepEqual(
+      auditionChainGraph(effects, "track", "clip", true, [only]),
+      {
+        settings: auditionChainSettings(effects, "track", "clip", true, only),
+      },
+    );
+  });
+
+  it("runs Global on the sum of the layers, each on the sum of its clips", () => {
+    const graph = auditionChainGraph(effects, "track", "clip", true, [
+      layerClip("a", "lane"),
+      layerClip("b", "lane"),
+      layerClip("c", "other-lane"),
+    ]);
+    assert.deepEqual(names(graph), ["Limiter"]);
+    const [lane, otherLane] = graph.inputs ?? [];
+    assert.deepEqual(names(lane), ["Delay"]);
+    assert.deepEqual(names(otherLane), ["Chorus"]);
+    assert.deepEqual(
+      lane.inputs?.map((clip) => [clip.id, names(clip)]),
+      [
+        ["a", [GAIN_EFFECT_NAME, "Reverb"]],
+        ["b", [GAIN_EFFECT_NAME, "Phaser"]],
+      ],
+    );
+    assert.deepEqual(otherLane.inputs?.map(names), [[GAIN_EFFECT_NAME]]);
+  });
+
+  it("silences just the clip on a layer with its FX off", () => {
+    const graph = auditionChainGraph(effects, "track", "clip", true, [
+      layerClip("a", "lane"),
+      { ...layerClip("c", "other-lane"), laneFxEnabled: false },
+    ]);
+    const clips = graph.inputs?.flatMap(({ inputs = [] }) => inputs);
+    assert.deepEqual(
+      clips?.map(({ settings }) => settings.inputGain),
+      [1, 0],
+    );
+  });
+
+  it("lasts as long as the longest path's tail", () => {
+    const tail = (stages: string[]) =>
+      auditionTailSeconds({
+        trackId: "track",
+        tempo: { bpm: 120, signature: { numerator: 4, denominator: 4 } },
+        playheadSeconds: 0,
+        ...auditionChainGraph(
+          stages.map((name, index) => effect(`lane-${index}`, name)),
+          "track",
+          undefined,
+          true,
+          stages.map((_, index) => layerClip(`c${index}`, `lane-${index}`)),
+        ),
+      });
+    assert.equal(tail(["Reverb", "Delay"]) > 0, true);
+    assert.equal(
+      tail(["Reverb", "Delay"]),
+      Math.max(tail(["Reverb", "Reverb"]), tail(["Delay", "Delay"])),
+    );
   });
 });

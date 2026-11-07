@@ -348,6 +348,92 @@ describe("auditionStackOf", () => {
     assert.deepEqual(through(40), viaLater);
   });
 
+  describe("with several layer clips overlapping at the playhead", () => {
+    const overlapping = session({
+      clips: [
+        layerClip("layer", "lane", "span", "track", 0, 4),
+        layerClip("later", "other-lane", "span", "track", 0, 6),
+      ],
+    });
+
+    it("runs what the mix runs on each of them, and sums them", () => {
+      const mix = resolveAudioClips({ ...overlapping, mediaById: new Map() });
+      const stack = auditionStackOf("track", "span", overlapping, 7);
+      assert.deepEqual(stack?.settings.stages, mix.master);
+      assert.deepEqual(
+        stack?.inputs?.map(({ id, settings }) => [id, settings.stages]),
+        mix.buses.map((bus) => [bus.id, bus.stages]),
+      );
+      assert.deepEqual(
+        stack?.inputs?.flatMap(({ inputs = [] }) =>
+          inputs.map(({ id, settings }) => [
+            id,
+            settings.stages,
+            settings.inputGain,
+          ]),
+        ),
+        mix.clips.map((clip) => [clip.id, clip.stages, clip.hasGain ? 1 : 0]),
+      );
+    });
+
+    it("runs them for a key on the track too, with no clip's stack", () => {
+      const clips = auditionStackOf(
+        "track",
+        undefined,
+        overlapping,
+        7,
+      )?.inputs?.flatMap(({ inputs = [] }) => inputs);
+      assert.deepEqual(
+        clips?.map(({ id, settings }) => [
+          id,
+          settings.stages.map((stage) => stage.effectName),
+        ]),
+        [
+          ["layer", ["Compressor", "Reverb"]],
+          ["later", ["Compressor", "Phaser"]],
+        ],
+      );
+    });
+
+    it("sums only those at the playhead, ending where each clip ends", () => {
+      const clipIds = (playheadQ: number) => {
+        const stack = auditionStackOf("track", "span", overlapping, playheadQ);
+        return stack?.inputs?.flatMap(({ inputs = [] }) =>
+          inputs.map(({ id }) => id),
+        );
+      };
+      assert.equal(clipIds(5), undefined);
+      assert.deepEqual(clipIds(6), ["layer", "later"]);
+      assert.equal(clipIds(8), undefined);
+      assert.deepEqual(stageNames(overlapping, 8), [
+        "Compressor",
+        GAIN_EFFECT_NAME,
+        "Phaser",
+        "Chorus",
+        "Limiter",
+      ]);
+    });
+
+    it("prefers a layer clip at the playhead to a later one that has ended", () => {
+      const long = {
+        ...layerClip("layer", "lane", "span", "track", 0, 0),
+        durationSeconds: 50,
+        sourceWindowEndSeconds: 50,
+      };
+      const played = session({
+        clips: [long, layerClip("later", "other-lane", "span", "track", 0, 4)],
+        sourceSpans: [{ ...midiSpan("span", "track", 0), durationSeconds: 50 }],
+      });
+      assert.deepEqual(stageNames(played, 40), [
+        "Compressor",
+        GAIN_EFFECT_NAME,
+        "Reverb",
+        "Delay",
+        "Limiter",
+      ]);
+    });
+  });
+
   it("silences a key through a layer with its FX off, as the mix silences its clip", () => {
     const off = session({
       lanes: [{ id: "lane", fxEnabled: false }, { id: "other-lane" }],
