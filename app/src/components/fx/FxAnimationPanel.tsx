@@ -1,5 +1,5 @@
 import { CheckIcon, ChevronLeftIcon } from "@heroicons/react/24/solid";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useRef } from "react";
 import {
   isTransitionEffectName,
   TYPE_KEY,
@@ -43,6 +43,7 @@ import { Select } from "../ui/select";
 import { FxAnimationGraph } from "./FxAnimationGraph";
 import type { FxChainProps } from "./FxChain";
 import type { FxEditMode, FxSetParameter } from "./types";
+import { useDeviceFit } from "./use-device-fit";
 
 type FxAnimationPanelProps = {
   device: FxDevice;
@@ -63,6 +64,9 @@ const ANIMATION_MODE_LABELS = {
   lfo: "LFO",
 } as const;
 
+// A section's layouts for a short panel: its usual two rows, then one.
+export const SECTION_LAYOUT_COUNT = 2;
+
 const LFO_SYNC_OPTIONS = ["Off", "On"] as const;
 
 // The Animation section attached to a device's right edge while its
@@ -76,6 +80,18 @@ export function FxAnimationPanel({
   onSetAnimation,
   onSetParameter,
 }: FxAnimationPanelProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const layout = useDeviceFit(
+    sectionRef,
+    [
+      device.effectName,
+      animation.mode,
+      animation.lfo?.sync,
+      Boolean(animation.clip.transition),
+    ].join(),
+    SECTION_LAYOUT_COUNT,
+    !collapsed,
+  );
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const label = `${device.name} animation`;
   const className = [
@@ -138,7 +154,13 @@ export function FxAnimationPanel({
   };
 
   return (
-    <section aria-label={label} className={className} style={style}>
+    <section
+      aria-label={label}
+      className={className}
+      data-fx-layout={layout || undefined}
+      ref={sectionRef}
+      style={style}
+    >
       <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Animation</span>
         <FxAnimationGraph animation={animation} device={device} />

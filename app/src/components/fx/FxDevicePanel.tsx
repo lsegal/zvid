@@ -250,6 +250,7 @@ export function FxDevicePanel({
       key={parameter.key}
       device={device}
       layers={layers}
+      layout={layout}
       onSetParameter={onSetParameter}
       parameter={parameter}
     />

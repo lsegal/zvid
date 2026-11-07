@@ -1,5 +1,5 @@
 import { ChevronLeftIcon } from "@heroicons/react/24/solid";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useRef } from "react";
 import {
   ANIMATION_TIMINGS,
   REACTIVE_MOTIONS,
@@ -18,10 +18,12 @@ import {
   FxAnimationSelect,
   FxLfoControls,
   FxReactiveKnobs,
+  SECTION_LAYOUT_COUNT,
 } from "./FxAnimationPanel";
 import type { FxChainProps } from "./FxChain";
 import { FxModulationGraph } from "./FxModulationGraph";
 import type { FxEditMode } from "./types";
+import { useDeviceFit } from "./use-device-fit";
 
 type FxModulationPanelProps = {
   device: FxDevice;
@@ -45,6 +47,13 @@ export function FxModulationPanel({
   onToggleCollapsed,
   onSetModulation,
 }: FxModulationPanelProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const layout = useDeviceFit(
+    sectionRef,
+    [modulation.mode, modulation.lfo.sync].join(),
+    SECTION_LAYOUT_COUNT,
+    !collapsed,
+  );
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const label = `${device.name} modulation`;
   const className = [
@@ -87,7 +96,13 @@ export function FxModulationPanel({
   ) => set({ ...modulation, lfo: { ...lfo, ...patch } }, mode);
 
   return (
-    <section aria-label={label} className={className} style={style}>
+    <section
+      aria-label={label}
+      className={className}
+      data-fx-layout={layout || undefined}
+      ref={sectionRef}
+      style={style}
+    >
       <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Modulation</span>
         <FxModulationGraph device={device} modulation={modulation} />
