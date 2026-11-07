@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
+import type { ProjectState } from "./app/types.ts";
 import {
   EDITOR_TEST_TIMEOUT,
   renderEditor,
@@ -6,8 +7,8 @@ import {
 } from "./component-test/editor.tsx";
 import { applyTheme, type Theme } from "./theme.ts";
 
-// In the light theme, the track header column and FX device titles follow the
-// theme (#1563). Source track lanes keep the dark palette (#1492).
+// In the light theme, the track header column, FX device titles (#1563) and
+// source track lanes (#1617) follow the theme.
 
 const HEADERS = {
   "layer header": ".track-label--lane",
@@ -53,9 +54,36 @@ function colors(selector: string) {
   return { background: style.backgroundColor, ink: style.color };
 }
 
-async function renderIn(theme: Theme) {
+// The test pattern's track, then a track with a MIDI clip.
+function withMidiClip(): ProjectState {
+  const base = withTestPatternTrack();
+  return {
+    ...base,
+    sourceTracks: [
+      ...base.sourceTracks,
+      { id: "keys", name: "Keys", colorIndex: 2, recordingPaths: [] },
+    ],
+    sourceSpans: [
+      ...base.sourceSpans,
+      {
+        id: "midi",
+        sourceTrackId: "keys",
+        label: "Keys",
+        mediaPath: "",
+        startQ: 0,
+        durationSeconds: 4,
+        trimStartSeconds: 0,
+        notes: [{ pitch: 60, start: 0, length: 1, velocity: 100 }],
+        tint: "#1c2340",
+        accent: "#7ca1ff",
+      },
+    ],
+  };
+}
+
+async function renderIn(theme: Theme, project = withTestPatternTrack()) {
   applyTheme(theme);
-  await renderEditor({ project: withTestPatternTrack() });
+  await renderEditor({ project });
   await expect
     .poll(() => document.querySelector(".track-row--source"))
     .not.toBeNull();
@@ -79,17 +107,35 @@ describe("light theme surfaces", () => {
   );
 
   test(
-    "source track lanes stay dark beside their light labels",
+    "source track lanes are light like layer lanes",
     async () => {
       await renderIn("light");
       const lane = ".track-row__content--source";
-      expect(getComputedStyle(query(lane)).colorScheme).toBe("dark");
-      expect(luminance(colors(".track-row--source").background)).toBeLessThan(
-        0.05,
+      expect(getComputedStyle(query(lane)).colorScheme).toBe("light");
+      // The lane's own wash is translucent, so nothing dark may sit under it.
+      expect(colors(".track-row--source").background).toBe("rgba(0, 0, 0, 0)");
+      expect(colors(lane).background).toBe(
+        colors(".track-row__content--arrangement").background,
       );
-      expect(getComputedStyle(query(".track-label--source")).colorScheme).toBe(
-        "light",
-      );
+    },
+    EDITOR_TEST_TIMEOUT,
+  );
+
+  test(
+    "MIDI clip notes stand out on a light clip and keep the dark theme's color",
+    async () => {
+      const note = ".source-span__midi-note";
+      const noteColor = () => colors(note).background;
+      const project = withMidiClip();
+      await renderIn("light", project);
+      await expect.poll(() => document.querySelector(note)).not.toBeNull();
+      const clip = colors('[data-source-span-id="midi"]').background;
+      expect(luminance(clip)).toBeGreaterThan(0.5);
+      expect(contrast(noteColor(), clip)).toBeGreaterThan(3);
+      applyTheme("dark");
+      await expect
+        .poll(() => channels(noteColor()))
+        .toEqual(channels("color-mix(in srgb, #7ca1ff 70%, white)"));
     },
     EDITOR_TEST_TIMEOUT,
   );
