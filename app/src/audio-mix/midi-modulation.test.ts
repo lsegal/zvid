@@ -17,6 +17,7 @@ import {
   type MidiNote,
 } from "../midi-clip.ts";
 import { createSynthEffect, midiChainOf } from "../midi-effects.ts";
+import { midiReactiveOnsets } from "../midi-panel-model.ts";
 import { arpeggiate, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { granularGrains } from "./granular.ts";
 import {
