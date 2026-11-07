@@ -600,6 +600,48 @@ describe("projectToSession", () => {
     assert.equal(plain.modulation, undefined);
   });
 
+  it("round-trips MIDI effects' modulation settings", () => {
+    const modulation: EffectModulation = {
+      enabled: true,
+      mode: "lfo",
+      transient: {
+        motion: "Single",
+        timing: "Normal",
+        reactivity: 1,
+        amplitude: 2,
+        parameters: ["Octaves"],
+        version: 2,
+      },
+      lfo: {
+        shape: "Triangle",
+        sync: false,
+        rate: 4,
+        syncRate: "1/4",
+        depth: 1.5,
+        phase: 45,
+        parameters: ["Rate", "Octaves"],
+      },
+    };
+    const effectNames = ["Synth", "Granular", "Arpeggiator"];
+    const session = projectToSession(
+      baseProject({
+        effects: effectNames.map((effectName) => ({
+          id: effectName,
+          trackId: "main-1",
+          effectName,
+          parameters: [],
+          modulation,
+        })),
+      }),
+      { playheadQ: 0 },
+    );
+    const loaded = mapEffects(JSON.parse(JSON.stringify(session)).effects);
+    assert.deepEqual(
+      loaded.map((effect) => effect.modulation),
+      effectNames.map(() => modulation),
+    );
+  });
+
   it("drops an Order's exclusions of layers that no longer exist", () => {
     const project = baseProject();
     const session = projectToSession(

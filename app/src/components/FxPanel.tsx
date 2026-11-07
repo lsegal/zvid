@@ -15,6 +15,7 @@ import {
   type KeyMapControls,
   MidiMapContext,
 } from "./fx/key-map-context";
+import { FxMidiOnsetsContext } from "./fx/modulation-clock";
 import { FxDeviceMaxHeightContext } from "./fx/use-device-fit";
 import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";
@@ -41,6 +42,7 @@ export type FxPanelProps = Pick<
   | "fxRecordTrack"
   | "fxSourceTrackId"
   | "fxMidiClip"
+  | "fxMidiOnsets"
   | "orderLayerOptions"
   | "selectedFxDevice"
   | "selectFxDevice"
@@ -110,6 +112,7 @@ export function FxPanel({
   fxRecordTrack,
   fxSourceTrackId,
   fxMidiClip,
+  fxMidiOnsets,
   isInspectorCollapsed,
   keyMap = INACTIVE_KEY_MAP,
   midiMap = INACTIVE_KEY_MAP,
@@ -144,7 +147,7 @@ export function FxPanel({
     isInspectorCollapsed,
   );
   return (
-    <>
+    <FxMidiOnsetsContext.Provider value={fxMidiOnsets}>
       {fxPanelResize && !isInspectorCollapsed ? (
         <hr
           className="fx-panel-resize-handle"
@@ -269,6 +272,6 @@ export function FxPanel({
           </FxDeviceMaxHeightContext.Provider>
         </div>
       </section>
-    </>
+    </FxMidiOnsetsContext.Provider>
   );
 }

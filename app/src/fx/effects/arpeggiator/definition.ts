@@ -34,6 +34,7 @@ export const definition: FxEffectDefinition = {
       key: RATE_KEY,
       label: "Rate",
       options: RATE_OPTIONS,
+      modulatable: true,
       defaultValue: rateOption(DEFAULT_ARPEGGIATOR.rate),
     },
     {

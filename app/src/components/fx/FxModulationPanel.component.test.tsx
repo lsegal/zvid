@@ -2,14 +2,18 @@ import { describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { selectSourceSpan } from "../../app/source-selection.ts";
+import type { ProjectState } from "../../app/types.ts";
 import { FxEditor } from "../../component-test/fx-editor.tsx";
 import {
   EMPTY_PROJECT,
   mediaItem,
   withDroppedMedia,
+  withEffect,
 } from "../../component-test/fx-projects.ts";
 import { setViewport } from "../../component-test/viewport.ts";
+import { sourceClipEffectTrackId } from "../../fx/stack/clip-stacks.ts";
 import { LFO_SYNC_RATES } from "../../fx-animation-defaults.ts";
+import { addDefaultSynth } from "../../midi-effects.ts";
 import { FxModulationPanel } from "./FxModulationPanel.tsx";
 
 // The Modulation modifier: the audio side's Animation. Audio devices get a
@@ -17,7 +21,69 @@ import { FxModulationPanel } from "./FxModulationPanel.tsx";
 // Modulation section to the device's right edge, with Transient and LFO
 // modes.
 
+const MIDI_SPAN = {
+  id: "bassline",
+  sourceTrackId: "bass",
+  label: "Bassline",
+  mediaPath: "",
+  startQ: 0,
+  durationSeconds: 4,
+  trimStartSeconds: 0,
+  notes: [{ pitch: 48, start: 0, length: 2, velocity: 100 }],
+  tint: "#1c2340",
+  accent: "#7ca1ff",
+};
+
 describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
+  test("a MIDI device's section offers Reactive and LFO on its knobs and Rate", async () => {
+    await setViewport({ width: 1600, height: 1200 });
+    const stack = sourceClipEffectTrackId(MIDI_SPAN.id);
+    const project: ProjectState = withEffect(
+      {
+        ...EMPTY_PROJECT,
+        sourceTracks: [
+          { id: "bass", name: "Bass", colorIndex: 2, recordingPaths: [] },
+        ],
+        sourceSpans: [MIDI_SPAN],
+        effects: addDefaultSynth(EMPTY_PROJECT.effects, "bass", "synth"),
+      },
+      stack,
+      "Arpeggiator",
+    ).project;
+    await render(
+      <FxEditor
+        project={project}
+        selection={{ source: selectSourceSpan(MIDI_SPAN) }}
+      />,
+    );
+
+    await page
+      .getByRole("button", { name: "Turn Modulation On for Synth" })
+      .click();
+    const synth = page.getByRole("region", { name: "Synth modulation" });
+    const mode = synth.getByRole("group", { name: "Mode" });
+    expect(
+      mode
+        .getByRole("button")
+        .elements()
+        .map((button) => button.textContent?.trim()),
+    ).toEqual(["Reactive", "LFO"]);
+    await expect
+      .element(synth.getByRole("button", { name: /^Parameters: 1 of 8$/ }))
+      .toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Turn Modulation On for Arpeggiator" })
+      .click();
+    await expect
+      .element(
+        page
+          .getByRole("region", { name: "Arpeggiator modulation" })
+          .getByRole("button", { name: "Parameters: 1 of 2" }),
+      )
+      .toBeVisible();
+  });
+
   test("an audio device's Modulation section attaches, switches modes and folds", async () => {
     await setViewport({ width: 1600, height: 1200 });
     const dropped = withDroppedMedia(

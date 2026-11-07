@@ -21,17 +21,32 @@ import {
   mixGrains,
 } from "./audio-mix/granular.ts";
 import {
+  createModulator,
+  type MidiModulation,
+  type MidiModulator,
+  modulatedParams,
+} from "./audio-mix/midi-modulation.ts";
+import {
   bendRate,
   pressureLevel,
   TIMBRE_CENTER,
   timbreCutoff,
 } from "./audio-mix/note-expression.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor.ts";
 import {
   type EnvelopePoint,
+  modulatedSynthParams,
   noteFrequency,
   synthEnvelope,
 } from "./audio-mix/synth.ts";
 import { padForNote } from "./fx/effects/drum-rack/banks.ts";
+import { GRANULAR_KEYS } from "./fx/effects/granular/granular.ts";
+import {
+  CUTOFF_KEY,
+  DETUNE_KEY,
+  RESONANCE_KEY,
+} from "./fx/effects/synth/synth.ts";
+import type { ReactiveOnset } from "./fx-animation-impulse.ts";
 import type {
   DrumRackParams,
   ExpressionSample,
@@ -69,6 +84,62 @@ export function updateAuditionChains(
   resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
 ) {
   auditionChains.update(resolve);
+}
+
+// How often a sounding voice follows its instrument's Modulation, in ms.
+const MODULATION_TICK_MS = 20;
+// How often a held grain cloud is mixed anew for knobs that move its grains,
+// in ms, and how long the Reactive hits of an instrument are kept, in seconds.
+const CLOUD_REMIX_MS = 250;
+const AUDITION_ONSET_SECONDS = 5;
+// The tempo an audition without a chain, so without a session, follows.
+const DEFAULT_AUDITION_TEMPO = {
+  bpm: 120,
+  signature: DEFAULT_TIME_SIGNATURE,
+};
+
+// The keys played lately on each modulated instrument, by its effect: each new
+// one moves every voice of the instrument still sounding, as hits do in a clip.
+const auditionOnsets = new Map<string, ReactiveOnset[]>();
+
+// The Reactive hits of `modulation`, with a key struck now at session second
+// `time`. A time before the last hit means the playhead has been moved back.
+function strikeAuditionOnset(modulation: MidiModulation, time: number) {
+  const recent = (auditionOnsets.get(modulation.seed) ?? []).filter(
+    (onset) => onset.time <= time && time - onset.time < AUDITION_ONSET_SECONDS,
+  );
+  recent.push({ time, strength: 1 });
+  auditionOnsets.set(modulation.seed, recent);
+}
+
+// What moves the knobs of a voice in `context`, its seconds on the context's
+// clock: `modulation` on `stack`'s chain's clock, so the instrument's LFOs run
+// on under a paused key with the chain's. Strikes a Reactive hit at `start`.
+function auditionModulator(
+  modulation: MidiModulation | undefined,
+  stack: AuditionStack | undefined,
+  start: number,
+): MidiModulator | undefined {
+  if (!modulation) {
+    return undefined;
+  }
+  const sessionTime = (seconds: number) =>
+    stack ? auditionChains.timelineSeconds(stack, seconds) : seconds;
+  if (modulation.mode === "transient") {
+    strikeAuditionOnset(modulation, sessionTime(start));
+  }
+  return createModulator(
+    modulation,
+    () => stack?.tempo ?? DEFAULT_AUDITION_TEMPO,
+    sessionTime,
+    () => auditionOnsets.get(modulation.seed) ?? [],
+  );
+}
+
+// Calls `follow` until the returned function is called.
+function followModulation(follow: () => void) {
+  const timer = setInterval(follow, MODULATION_TICK_MS);
+  return () => clearInterval(timer);
 }
 
 // Where a voice in `context` plays to, and what it calls when it has ended,
@@ -198,7 +269,14 @@ export function auditionNote(
   stack?: AuditionStack,
 ): AuditionVoice | undefined {
   if (instrument.kind === "granular") {
-    return auditionGranular(pitch, instrument.params, expression, hold, stack);
+    return auditionGranular(
+      pitch,
+      instrument.params,
+      expression,
+      hold,
+      stack,
+      instrument.modulation,
+    );
   }
   if (instrument.kind === "drums") {
     const pad = padForNote(pitch);
@@ -209,19 +287,32 @@ export function auditionNote(
     void auditionDrumPad(pad, instrument.params, voice, stack);
     return voice;
   }
-  return auditionSynth(pitch, instrument.params, expression, hold, stack);
+  return auditionSynth(
+    pitch,
+    instrument.params,
+    expression,
+    hold,
+    stack,
+    instrument.modulation,
+  );
 }
 
 function auditionSynth(
   pitch: number,
-  params: SynthParams,
+  baseParams: SynthParams,
   expression: ExpressionSample | undefined,
   hold: boolean,
   stack: AuditionStack | undefined,
+  modulation: MidiModulation | undefined,
 ): AuditionVoice {
   const context = auditionContext.acquire();
   const { output, ended } = auditionOutput(context, stack);
   const start = context.currentTime + 0.01;
+  const modulator = auditionModulator(modulation, stack, start);
+  // A note takes its Octave and envelope from where the knobs are as it starts.
+  const params = modulator
+    ? modulatedSynthParams(baseParams, modulator, start)
+    : baseParams;
   const oscillator = context.createOscillator();
   oscillator.type = params.wave;
   oscillator.frequency.value = noteFrequency(pitch, params.octave);
@@ -238,7 +329,36 @@ function auditionSynth(
   const gain = context.createGain();
   gain.gain.value = 0;
   oscillator.connect(filter).connect(gain).connect(pressure).connect(output);
+  // Where the knobs and the player's expression are now, Detune, Cutoff and
+  // Resonance going on moving as the note sounds.
+  let live = params;
+  let latest = expression;
+  const applyDetune = () =>
+    glide(oscillator.detune, live.detune + (latest?.bend ?? 0) * 100, context);
+  const applyCutoff = () =>
+    glide(
+      filter.frequency,
+      latest?.timbre === undefined
+        ? live.cutoff
+        : timbreCutoff(live.cutoff, latest.timbre),
+      context,
+    );
+  const stopFollowing = modulator
+    ? followModulation(() => {
+        live = modulatedSynthParams(baseParams, modulator, context.currentTime);
+        if (modulator.moves(DETUNE_KEY)) {
+          applyDetune();
+        }
+        if (modulator.moves(CUTOFF_KEY)) {
+          applyCutoff();
+        }
+        if (modulator.moves(RESONANCE_KEY)) {
+          glide(filter.Q, live.resonance, context);
+        }
+      })
+    : undefined;
   oscillator.onended = () => {
+    stopFollowing?.();
     oscillator.disconnect();
     filter.disconnect();
     gain.disconnect();
@@ -277,14 +397,11 @@ function auditionSynth(
     },
     release: () => release(),
     update(sample) {
-      glide(oscillator.detune, params.detune + sample.bend * 100, context);
+      latest = sample;
+      applyDetune();
       glide(pressure.gain, expressionGain(sample), context);
       if (sample.timbre !== undefined) {
-        glide(
-          filter.frequency,
-          timbreCutoff(params.cutoff, sample.timbre),
-          context,
-        );
+        applyCutoff();
       }
     },
   };
@@ -295,15 +412,22 @@ function auditionSynth(
 // that starts holding fades into a loop, since it can't go on past its end.
 function auditionGranular(
   pitch: number,
-  params: GranularParams,
+  baseParams: GranularParams,
   expression: ExpressionSample | undefined,
   hold: boolean,
   stack: AuditionStack | undefined,
+  modulation: MidiModulation | undefined,
 ): AuditionVoice {
   const context = auditionContext.acquire();
   const { output, ended } = auditionOutput(context, stack);
   const { sampleRate } = context;
   const start = context.currentTime + 0.01;
+  const modulator = auditionModulator(modulation, stack, start);
+  const paramsAt = (seconds: number) =>
+    modulator
+      ? modulatedGranularParams(baseParams, modulator, seconds)
+      : baseParams;
+  const params = paramsAt(start);
   // At 60 bpm a quarter note lasts a second.
   const note: MidiNote = {
     pitch,
@@ -325,6 +449,7 @@ function auditionGranular(
   pressure.gain.value = expressionGain(expression);
   filter.connect(pressure).connect(output);
   let sounding = 0;
+  let stopFollowing: (() => void) | undefined;
   const playCloud = (
     samples: Float32Array<ArrayBuffer>,
     from: number,
@@ -345,6 +470,7 @@ function auditionGranular(
       envelope.disconnect();
       sounding--;
       if (!sounding) {
+        stopFollowing?.();
         filter.disconnect();
         pressure.disconnect();
         ended();
@@ -354,6 +480,7 @@ function auditionGranular(
     return { source, envelope };
   };
   let release = () => {};
+  let released = false;
   const holdCloud = (
     samples: Float32Array<ArrayBuffer>,
     from: number,
@@ -370,66 +497,125 @@ function auditionGranular(
       fadeIn,
     );
     release = () => source.stop(releaseCloud(context.currentTime));
-    return source;
+    return { source, envelope };
   };
   const rate = bendRate(expression?.bend ?? 0);
   const fixed = hold
     ? undefined
     : playCloud(
-        mixGranularAudition(note, params, sampleRate),
+        mixGranularAudition(note, baseParams, sampleRate, modulator, start),
         start,
         rate,
         false,
       );
-  let source =
-    fixed?.source ??
-    holdCloud(granularLoop(note, params, sampleRate), start, rate, 0);
+  const loopAt = (seconds: number) =>
+    granularLoop(note, paramsAt(seconds), sampleRate);
+  let cloud = fixed ?? holdCloud(loopAt(start), start, rate, 0);
   let fixedUntil = fixed ? start + AUDITION_HOLD_SECONDS : 0;
   const pressedTimbre = expression?.timbre ?? TIMBRE_CENTER;
+  // Where the Cutoff is now, and how far the player's slide has moved it.
+  let liveCutoff = params.cutoff;
+  let slid = TIMBRE_CENTER;
+  const applyCutoff = () =>
+    glide(filter.frequency, timbreCutoff(liveCutoff, slid), context);
+  // Gives way to a loop mixed from the knobs as they are now.
+  const joinLoop = (from: number) => {
+    const joined = from + CLOUD_CROSSFADE_SECONDS;
+    const samples = loopAt(from);
+    const { source, envelope } = cloud;
+    envelope.gain.cancelScheduledValues(from);
+    envelope.gain.setValueAtTime(envelope.gain.value, from);
+    envelope.gain.linearRampToValueAtTime(0, joined);
+    source.stop(joined);
+    cloud = holdCloud(
+      samples,
+      from,
+      source.playbackRate.value,
+      CLOUD_CROSSFADE_SECONDS,
+    );
+  };
+  const movesGrains =
+    modulator &&
+    Object.values(GRANULAR_KEYS).some(
+      (key) =>
+        modulator.moves(key) &&
+        key !== GRANULAR_KEYS.cutoff &&
+        key !== GRANULAR_KEYS.resonance,
+    );
+  if (modulator) {
+    let nextMix = start + CLOUD_REMIX_MS / 1000;
+    stopFollowing = followModulation(() => {
+      const now = context.currentTime;
+      const live = paramsAt(now);
+      liveCutoff = live.cutoff;
+      if (modulator.moves(GRANULAR_KEYS.cutoff)) {
+        applyCutoff();
+      }
+      if (modulator.moves(GRANULAR_KEYS.resonance)) {
+        glide(filter.Q, live.resonance, context);
+      }
+      if (movesGrains && !fixedUntil && !released && now >= nextMix) {
+        nextMix = now + CLOUD_REMIX_MS / 1000;
+        joinLoop(now + 0.01);
+      }
+    });
+  }
   return {
     hold() {
       if (!fixed || context.currentTime >= fixedUntil) {
         return;
       }
       fixedUntil = 0;
-      const samples = granularLoop(note, params, sampleRate);
-      const from = Math.max(context.currentTime + 0.01, start);
-      const joined = from + CLOUD_CROSSFADE_SECONDS;
-      fixed.envelope.gain.setValueAtTime(1, from);
-      fixed.envelope.gain.linearRampToValueAtTime(0, joined);
-      fixed.source.stop(joined);
-      source = holdCloud(
-        samples,
-        from,
-        source.playbackRate.value,
-        CLOUD_CROSSFADE_SECONDS,
-      );
+      joinLoop(Math.max(context.currentTime + 0.01, start));
     },
-    release: () => release(),
+    release() {
+      released = true;
+      release();
+    },
     update(sample) {
-      glide(source.playbackRate, bendRate(sample.bend), context);
+      glide(cloud.source.playbackRate, bendRate(sample.bend), context);
       glide(pressure.gain, expressionGain(sample), context);
       if (sample.timbre !== undefined) {
-        glide(
-          filter.frequency,
-          timbreCutoff(
-            params.cutoff,
-            TIMBRE_CENTER + sample.timbre - pressedTimbre,
-          ),
-          context,
-        );
+        slid = TIMBRE_CENTER + sample.timbre - pressedTimbre;
+        applyCutoff();
       }
     },
   };
+}
+
+function modulatedGranularParams(
+  params: GranularParams,
+  modulator: MidiModulator,
+  seconds: number,
+): GranularParams {
+  const moved = modulatedParams(params, GRANULAR_KEYS, modulator, seconds);
+  return { ...moved, transpose: Math.round(moved.transpose) };
 }
 
 function mixGranularAudition(
   note: MidiNote,
   params: GranularParams,
   sampleRate: number,
+  modulator: MidiModulator | undefined,
+  start: number,
 ) {
-  const grains = granularGrains([note], params, 60);
-  const seconds = AUDITION_HOLD_SECONDS + params.release + params.grainSize;
+  const grains = granularGrains(
+    [note],
+    params,
+    60,
+    Number.POSITIVE_INFINITY,
+    // The cloud is mixed ahead, from `start` on the voice's clock.
+    modulator && {
+      moves: modulator.moves,
+      value: (key, base, seconds) =>
+        modulator.value(key, base, start + seconds),
+    },
+  );
+  // A modulated Release or Grain Size can outlast the knobs as they are set.
+  const seconds = grains.reduce(
+    (end, grain) => Math.max(end, grain.startSeconds + grain.durationSeconds),
+    AUDITION_HOLD_SECONDS + params.release + params.grainSize,
+  );
   return mixGrains(grains, sampleRate, Math.ceil(seconds * sampleRate));
 }
 

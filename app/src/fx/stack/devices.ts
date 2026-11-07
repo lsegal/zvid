@@ -311,12 +311,13 @@ function toDevice(
     group,
     domain,
     enabled: effect.enabled !== false,
-    // Audio effects carry Modulation instead of Animation.
+    // Audio and MIDI effects carry Modulation instead of Animation.
     supportsAnimation:
       domain === "video" && supportsAnimation(effect.effectName),
     ...(effect.animation ? { animation: effect.animation } : {}),
     supportsModulation:
-      domain === "audio" && supportsModulation(effect.effectName),
+      (domain === "audio" || domain === "midi") &&
+      supportsModulation(effect.effectName),
     ...(effect.modulation ? { modulation: effect.modulation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     ...(definition.knobRows

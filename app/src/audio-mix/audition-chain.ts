@@ -192,6 +192,21 @@ export class AuditionChains {
     return chain.input;
   }
 
+  /**
+   * The session second `contextTime` plays at on `stack`'s chain, the clock its
+   * LFOs run on, which goes on from the playhead whether or not it moves.
+   */
+  timelineSeconds(
+    { trackId, playheadSeconds }: AuditionStack,
+    contextTime: number,
+  ) {
+    const transport = this.chains.get(trackId)?.transport;
+    return transport
+      ? transport.timelineSeconds +
+          (contextTime - transport.contextTime) * transport.rate
+      : playheadSeconds;
+  }
+
   /** Has the open chains follow an edit: `resolve` gives each stack now. */
   update(
     resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,

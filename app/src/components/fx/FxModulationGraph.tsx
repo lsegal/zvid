@@ -1,9 +1,14 @@
 import { useCallback, useContext, useMemo, useRef } from "react";
+import { reactiveLevelAt } from "../../audio-mix/midi-modulation";
 import {
   transientLevel,
   watchTransient,
 } from "../../audio-mix/transient-monitor";
-import type { EffectModulation } from "../../fx-modulation-defaults";
+import { quartersToSeconds } from "../../composition-clip-timing";
+import {
+  type EffectModulation,
+  getTransientTimingFrames,
+} from "../../fx-modulation-defaults";
 import {
   lfoTraceSeconds,
   sampleLfoTrace,
@@ -12,7 +17,10 @@ import {
 } from "../../fx-modulation-trace";
 import type { FxDevice } from "../../fx-stack";
 import { FxTraceGraph, TRACE_SAMPLES, type TraceSource } from "./FxTraceGraph";
-import { FxModulationClockContext } from "./modulation-clock";
+import {
+  FxMidiOnsetsContext,
+  FxModulationClockContext,
+} from "./modulation-clock";
 
 type FxModulationGraphProps = {
   device: FxDevice;
@@ -31,6 +39,20 @@ export function FxModulationGraph({
   // Read each frame, so a new Motion doesn't restart the trace.
   const motionRef = useRef(modulation.transient.motion);
   motionRef.current = modulation.transient.motion;
+  // A MIDI effect has no chain to report its level, so it is worked out here
+  // from its notes at the playhead.
+  const midiOnsets = useContext(FxMidiOnsetsContext);
+  const midiLevelRef = useRef<() => number>(() => 0);
+  midiLevelRef.current = () =>
+    clock
+      ? reactiveLevelAt(
+          modulation.transient,
+          getTransientTimingFrames(modulation.transient.timing),
+          midiOnsets?.get(device.id) ?? [],
+          quartersToSeconds(clock.signal.get(), clock.bpm),
+        ).level
+      : 0;
+  const isMidi = device.domain === "midi";
   const { id, accent } = device;
 
   const { shape, sync, rate, syncRate, phase, depth } = lfo;
@@ -59,11 +81,14 @@ export function FxModulationGraph({
             kind: "scroll",
             perSecond: TRACE_SAMPLES / TRANSIENT_TRACE_SECONDS,
             level: () =>
-              transientTraceValue(motionRef.current, transientLevel(id)),
+              transientTraceValue(
+                motionRef.current,
+                isMidi ? midiLevelRef.current() : transientLevel(id),
+              ),
             watch: () => watchTransient(id),
           }
         : { kind: "window", sample: sampleLfo },
-    [mode, id, sampleLfo],
+    [mode, id, sampleLfo, isMidi],
   );
 
   return (
