@@ -4,6 +4,7 @@ import { toggleLayerId } from "./composition-order.ts";
 import {
   addableEffectsFor,
   canMoveDevice,
+  canSelectFxDevice,
   canStartFxChainPan,
   describeArrangedLayers,
   describeDeviceMove,
@@ -983,6 +984,34 @@ describe("getDefaultLaneId", () => {
 
   it("falls back to the first layer", () => {
     assert.equal(getDefaultLaneId([{ id: "1" }, { id: "2" }], []), "1");
+  });
+});
+
+describe("canSelectFxDevice", () => {
+  // A stand-in target inside the element the selector's `part` matches.
+  function target(part: string | undefined) {
+    return {
+      closest: (selector: string) =>
+        part !== undefined && selector.split(", ").includes(part),
+    } as unknown as EventTarget;
+  }
+
+  it("selects from a device's header, body and name", () => {
+    assert.equal(canSelectFxDevice(target(undefined)), true);
+    assert.equal(canSelectFxDevice(target(".fx-device-panel__title")), true);
+  });
+
+  it("leaves its controls to their own behavior", () => {
+    for (const part of [
+      "button:not([data-fx-focus])",
+      "input",
+      "textarea",
+      "[role='slider']",
+      "[role='option']",
+      ".fx-curve__plot",
+    ]) {
+      assert.equal(canSelectFxDevice(target(part)), false, part);
+    }
   });
 });
 

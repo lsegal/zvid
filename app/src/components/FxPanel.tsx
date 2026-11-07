@@ -42,6 +42,8 @@ export type FxPanelProps = Pick<
   | "fxSourceTrackId"
   | "fxMidiClip"
   | "orderLayerOptions"
+  | "selectedFxDevice"
+  | "selectFxDevice"
 > &
   Pick<
     FxEditing,
@@ -117,6 +119,8 @@ export function FxPanel({
   pasteFxDevice,
   removeFxDevice,
   resetFxDevice,
+  selectedFxDevice,
+  selectFxDevice,
   setFxDeviceAnimation,
   setFxDeviceAnimationEnabled,
   setFxDeviceModulation,
@@ -257,6 +261,8 @@ export function FxPanel({
                   onSetModulationEnabled={setFxDeviceModulationEnabled}
                   onSetModulation={setFxDeviceModulation}
                   onSetParameter={setFxDeviceParameter}
+                  selectedDeviceId={selectedFxDevice?.id}
+                  onSelectDevice={selectFxDevice}
                 />
               </MidiMapContext.Provider>
             </KeyMapContext.Provider>

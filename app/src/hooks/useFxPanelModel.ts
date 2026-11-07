@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildOrderLayerOptions,
   getFxClip,
@@ -155,6 +155,16 @@ export function useFxPanelModel({
       playheadVisualLayerIds,
     ],
   );
+  // The effect picked in the panel. It counts only while the panel shows it,
+  // so selecting another clip or track retargets the selection, and coming
+  // back to its stack restores it. Global effects stay selected throughout.
+  const [selectedEffectId, setSelectedEffectId] = useState<string>();
+  const selectedFxDevice = fxDevices.find(
+    (device) => device.id === selectedEffectId,
+  );
+  const selectFxDevice = useCallback((device: { id: string }) => {
+    setSelectedEffectId(device.id);
+  }, []);
   const fxPanelTitle = getFxPanelTitle(fxLayerName, fxClipName);
   // The source stacks the selected layer clip inherits, which its Clip
   // section lists ahead of its own.
@@ -214,6 +224,9 @@ export function useFxPanelModel({
     fxClipLayerOptions,
     missingFonts,
     fxDevices,
+    // The one selected effect, which features such as MIDI mappings target.
+    selectedFxDevice,
+    selectFxDevice,
     fxPanelTitle,
   };
 }
