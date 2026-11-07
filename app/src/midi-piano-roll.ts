@@ -6,8 +6,8 @@ import { type MidiNote, withNoteStartMoved } from "./midi-clip.ts";
 
 // Edits snap to sixteenth notes.
 export const PIANO_ROLL_SNAP_Q = 0.25;
-// What a click adds: a quarter note at a firm velocity.
-export const NEW_NOTE_LENGTH_Q = 1;
+// What a click adds: one grid cell at a firm velocity.
+export const NEW_NOTE_LENGTH_Q = PIANO_ROLL_SNAP_Q;
 export const NEW_NOTE_VELOCITY = 100;
 // The roll's lowest and highest keys: C1 to C8.
 export const PIANO_ROLL_LOW_PITCH = 24;
@@ -74,6 +74,49 @@ export function addNote(
       velocity: NEW_NOTE_VELOCITY,
     },
   ]);
+}
+
+/**
+ * `notes` with a stroke's new note in the grid cell at `pitch` and `startQ`,
+ * or `notes` itself when the cell is off the grid or a note of that pitch is
+ * already in it.
+ */
+export function paintNote(
+  notes: readonly MidiNote[],
+  pitch: number,
+  startQ: number,
+): readonly MidiNote[] {
+  const start = snapQ(startQ);
+  const occupied = notes.some(
+    (note) =>
+      note.pitch === pitch &&
+      note.start < start + PIANO_ROLL_SNAP_Q &&
+      note.start + note.length > start,
+  );
+  return occupied ||
+    start < 0 ||
+    pitch < PIANO_ROLL_LOW_PITCH ||
+    pitch > PIANO_ROLL_HIGH_PITCH
+    ? notes
+    : addNote(notes, pitch, start);
+}
+
+/**
+ * `notes` without those under the point at `pitch` and `atQ`, or `notes`
+ * itself when none is.
+ */
+export function eraseNotesAt(
+  notes: readonly MidiNote[],
+  pitch: number,
+  atQ: number,
+): readonly MidiNote[] {
+  const kept = notes.filter(
+    (note) =>
+      note.pitch !== pitch ||
+      atQ < note.start ||
+      atQ >= note.start + note.length,
+  );
+  return kept.length === notes.length ? notes : kept;
 }
 
 /**
