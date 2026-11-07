@@ -7,9 +7,27 @@
 // preview plays it from the clip's position under the playhead, through
 // seeks and loops, and export renders it into the mix, so both hear the
 // same performance.
-import type { MidiInstrument, MidiNote, SynthParams } from "../midi-clip.ts";
+import {
+  CUTOFF_KEY,
+  DETUNE_KEY,
+  RESONANCE_KEY,
+  SYNTH_NUMBER_KEYS,
+} from "../fx/effects/synth/synth.ts";
+import {
+  expressionValueAt,
+  type MidiInstrument,
+  type MidiNote,
+  type SynthParams,
+} from "../midi-clip.ts";
 import { renderDrumClip } from "./drum-rack.ts";
 import { renderGranularClip } from "./granular.ts";
+import {
+  clipModulator,
+  controlCurve,
+  type MidiModulationClock,
+  type MidiModulator,
+  modulatedParams,
+} from "./midi-modulation.ts";
 import type { DecodedAudio } from "./mix.ts";
 import {
   pressureLevel,
@@ -25,6 +43,9 @@ export type SynthClip = {
   notes: readonly MidiNote[];
   instrument: MidiInstrument;
   durationSeconds: number;
+  // Where the clip sits on the session's clock, for an instrument or
+  // generator with modulation to follow.
+  modulationClock?: MidiModulationClock;
 };
 
 // A note's peak level at full velocity, leaving headroom for chords.
@@ -42,12 +63,26 @@ export type SynthVoice = {
   // When its gain is back to 0 and its oscillator stops.
   stopSeconds: number;
   envelope: EnvelopePoint[];
-  // What its expression does, for a note with any: its oscillator's detune in
-  // cents, a further gain, and its filter's cutoff in Hz.
+  // What its expression and modulation do, for a note with any: its
+  // oscillator's detune in cents, a further gain, and its filter's cutoff in
+  // Hz and resonance.
   detune?: VoiceCurvePoint[];
   level?: VoiceCurvePoint[];
   cutoff?: VoiceCurvePoint[];
+  resonance?: VoiceCurvePoint[];
 };
+
+/**
+ * The Synth settings `modulator` has at `seconds`, Octave on whole octaves.
+ */
+export function modulatedSynthParams(
+  params: SynthParams,
+  modulator: MidiModulator,
+  seconds: number,
+): SynthParams {
+  const moved = modulatedParams(params, SYNTH_NUMBER_KEYS, modulator, seconds);
+  return { ...moved, octave: Math.round(moved.octave) };
+}
 
 /** The frequency `pitch` sounds at, `octave` octaves up. */
 export function noteFrequency(pitch: number, octave = 0) {
@@ -93,13 +128,16 @@ export function synthEnvelope(
 /**
  * The voices `notes` play through `params` at `bpm`, in seconds from the
  * clip's content start, leaving out notes that start at or after
- * `endSeconds`, where the clip's audio ends.
+ * `endSeconds`, where the clip's audio ends. With `modulator`, a note takes
+ * its Octave and envelope from where the knobs are as it starts, and its
+ * Detune, Cutoff and Resonance go on moving as it sounds.
  */
 export function synthVoices(
   notes: readonly MidiNote[],
-  params: SynthParams,
+  baseParams: SynthParams,
   bpm: number,
   endSeconds = Number.POSITIVE_INFINITY,
+  modulator?: MidiModulator,
 ): SynthVoice[] {
   const secondsPerQuarter = 60 / bpm;
   return notes.flatMap((note) => {
@@ -107,6 +145,9 @@ export function synthVoices(
     if (startSeconds >= endSeconds || note.length <= 0) {
       return [];
     }
+    const params = modulator
+      ? modulatedSynthParams(baseParams, modulator, startSeconds)
+      : baseParams;
     const envelope = synthEnvelope(
       params,
       (SYNTH_VOICE_LEVEL * note.velocity) / 127,
@@ -116,16 +157,51 @@ export function synthVoices(
     const { bend, pressure, timbre } = note.expression ?? {};
     const curve = (points: typeof bend, value: (point: number) => number) =>
       voiceCurve(points ?? [], startSeconds, secondsPerQuarter, value);
+    const stopSeconds = envelope[envelope.length - 1].seconds;
+    // A moving knob's curve, with the note's expression on top of it.
+    const moving = (key: string, value: (seconds: number) => number) =>
+      modulator?.moves(key)
+        ? controlCurve(startSeconds, stopSeconds, value)
+        : undefined;
+    const pointAt = (points: NonNullable<typeof bend>, seconds: number) =>
+      expressionValueAt(points, (seconds - startSeconds) / secondsPerQuarter);
+    const movingDetune = moving(DETUNE_KEY, (seconds) => {
+      const detune = modulator?.value(DETUNE_KEY, baseParams.detune, seconds);
+      return (detune as number) + (bend ? pointAt(bend, seconds) * 100 : 0);
+    });
+    const movingCutoff = moving(CUTOFF_KEY, (seconds) => {
+      const cutoff = modulator?.value(
+        CUTOFF_KEY,
+        baseParams.cutoff,
+        seconds,
+      ) as number;
+      return timbre ? timbreCutoff(cutoff, pointAt(timbre, seconds)) : cutoff;
+    });
+    const movingResonance = moving(
+      RESONANCE_KEY,
+      (seconds) =>
+        modulator?.value(
+          RESONANCE_KEY,
+          baseParams.resonance,
+          seconds,
+        ) as number,
+    );
     return [
       {
         frequency: noteFrequency(note.pitch, params.octave),
         startSeconds,
-        stopSeconds: envelope[envelope.length - 1].seconds,
+        stopSeconds,
         envelope,
         ...(bend
           ? { detune: curve(bend, (value) => params.detune + value * 100) }
           : {}),
-        ...(pressure ? { level: curve(pressure, pressureLevel) } : {}),
+        ...(pressure
+          ? {
+              level: curve(pressure, (value) =>
+                pressureLevel(value, note.velocity),
+              ),
+            }
+          : {}),
         ...(timbre
           ? {
               cutoff: curve(timbre, (value) =>
@@ -133,6 +209,9 @@ export function synthVoices(
               ),
             }
           : {}),
+        ...(movingDetune ? { detune: movingDetune } : {}),
+        ...(movingCutoff ? { cutoff: movingCutoff } : {}),
+        ...(movingResonance ? { resonance: movingResonance } : {}),
       },
     ];
   });
@@ -174,6 +253,12 @@ export async function renderSynthClip(
       synth.durationSeconds,
       bpm,
       sampleRate,
+      clipModulator(
+        instrument.modulation,
+        synth.notes,
+        bpm,
+        synth.modulationClock,
+      ),
     );
   }
   if (instrument.kind === "drums") {
@@ -193,6 +278,12 @@ export async function renderSynthClip(
     params,
     bpm,
     synth.durationSeconds,
+    clipModulator(
+      instrument.modulation,
+      synth.notes,
+      bpm,
+      synth.modulationClock,
+    ),
   )) {
     const oscillator = context.createOscillator();
     oscillator.type = params.wave;
@@ -214,6 +305,9 @@ export async function renderSynthClip(
     }
     if (voice.cutoff) {
       scheduleVoiceCurve(filter.frequency, voice.cutoff);
+    }
+    if (voice.resonance) {
+      scheduleVoiceCurve(filter.Q, voice.resonance);
     }
     const shaped = oscillator.connect(filter).connect(gain);
     if (voice.level) {

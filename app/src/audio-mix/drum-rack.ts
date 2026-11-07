@@ -33,8 +33,10 @@ export type DrumHit = {
   level: number;
   // When a later hit in its choke group cuts it off.
   chokeSeconds?: number;
-  // Its note's expression, with how long a quarter note lasts to read it by.
+  // Its note's expression, with the velocity pressure swells from and how long
+  // a quarter note lasts to read it by.
   expression?: NoteExpression;
+  velocity?: number;
   secondsPerQuarter?: number;
 };
 
@@ -66,7 +68,11 @@ export function drumHits(
           startSeconds,
           level: (DRUM_VOICE_LEVEL * note.velocity) / 127,
           ...(note.expression
-            ? { expression: note.expression, secondsPerQuarter }
+            ? {
+                expression: note.expression,
+                velocity: note.velocity,
+                secondsPerQuarter,
+              }
             : {}),
         },
       ];
@@ -152,7 +158,7 @@ function mixExpressiveHit(
         sample[whole] + (sample[whole + 1] - sample[whole]) * (read - whole);
       const choked = step < choke ? 1 : 1 - (step - choke) / fade;
       const pressed = pressure
-        ? pressureLevel(expressionValueAt(pressure, atQ))
+        ? pressureLevel(expressionValueAt(pressure, atQ), hit.velocity ?? 127)
         : 1;
       out[first + step] += hit.level * choked * pressed * value;
     }

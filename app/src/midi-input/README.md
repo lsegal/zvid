@@ -31,9 +31,27 @@ the two formats its values fall in, and a mid-range value, 0, or a run of values
 with neither is a knob or fader's position. A control's first messages are held,
 moving nothing, until one or the other shows.
 
+<<<<<<< HEAD
 A mapping made by hand always wins. Notes take no role here, and a CC mapped to a
 knob or fader in MIDI Map mode stops doing what its role did. Mapped by hand, a CC
 works on any device, listed or not, and its encoders step as above. Faders that send pitch bend can't be mapped by hand.
+=======
+A mapping made by hand always wins. Notes take no role here, and a CC or pitch
+bend mapped to a knob or fader in MIDI Map mode stops doing what its role did.
+Mapped by hand, a CC works on any device, listed or not, and is read as absolute
+unless its device's entry says `relative`. A pitch bend fader is mapped by its
+channel, and shows as `PB 3` for channel 3.
+
+A pitch wheel sends what such a fader sends, so while assigning, a bend is taken
+as a fader only when nothing says it's a wheel. It doesn't assign while a key of
+the same device is down, while the device plays MPE, or at center, where a wheel
+rests. A bend begun with a key down stays ignored until it returns to center or
+rests for a second, so a wheel springing back after the key comes up maps nothing.
+The note a Mackie fader holds while touched (`faderTouchNote`) doesn't count as a
+key for that fader, because a device in Mackie mode that isn't listed plays it as
+one. Moving a wheel on purpose with no key down does map it: nothing tells it from
+a fader then, and the badge shows what happened.
+>>>>>>> origin/main
 
 A control that sends 14-bit CC, an MSB on controller N and an LSB on N + 32 for
 each move, maps by hand as one control on N and moves at full resolution

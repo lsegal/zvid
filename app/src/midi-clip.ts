@@ -5,6 +5,8 @@
 // clips imported from a Live set stay media-less placeholders that video can
 // be linked to, since the import does not read their notes.
 
+import type { MidiModulation } from "./audio-mix/midi-modulation.ts";
+
 /**
  * A point of a note's expression: `at` quarter notes from the note's start,
  * so it follows the note and the tempo. A curve ramps linearly from point to
@@ -156,8 +158,8 @@ export type DrumRackParams = {
 
 /** The instrument a MIDI clip plays its notes through. */
 export type MidiInstrument =
-  | { kind: "synth"; params: SynthParams }
-  | { kind: "granular"; params: GranularParams }
+  | { kind: "synth"; params: SynthParams; modulation?: MidiModulation }
+  | { kind: "granular"; params: GranularParams; modulation?: MidiModulation }
   | { kind: "drums"; params: DrumRackParams };
 
 /** The instrument a MIDI clip without one auditions its notes with. */

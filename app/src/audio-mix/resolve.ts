@@ -50,7 +50,11 @@ import {
   type AudioTimeSignature,
   DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
-import { type AudioStageEffect, audioStageOf } from "./stages.ts";
+import {
+  type AudioStageEffect,
+  audioStageOf,
+  withLfoTimeOffset,
+} from "./stages.ts";
 import { type SynthClip, synthMediaId } from "./synth.ts";
 
 type AudioEffect = AudioStageEffect;
@@ -246,15 +250,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   const inheritedStagesOf = (source: InheritedSource, enabled: boolean) =>
     source.stackIds.flatMap((stackId) =>
       stagesOf(stackId, enabled).map((stage) =>
-        stage.modulation?.mode === "lfo" && source.timeOffsetSeconds
-          ? {
-              ...stage,
-              modulation: {
-                ...stage.modulation,
-                timeOffsetSeconds: source.timeOffsetSeconds,
-              },
-            }
-          : stage,
+        withLfoTimeOffset(stage, source.timeOffsetSeconds),
       ),
     );
 
@@ -311,6 +307,16 @@ export function resolveAudioClips<Effect extends AudioEffect>({
         return [];
       }
       const durationSeconds = span.trimStartSeconds + span.durationSeconds;
+      // Only what is modulated renders anew when its clip moves.
+      const modulationClock =
+        (chain.instrument.kind !== "drums" && chain.instrument.modulation) ||
+        chain.generators.some((generator) => generator.modulation)
+          ? {
+              offsetSeconds:
+                quartersToSeconds(span.startQ, bpm) - span.trimStartSeconds,
+              signature,
+            }
+          : undefined;
       // The notes its timeline plays to its end, its loop repeated (see
       // midi-clip-timeline.ts). Generators step on the track's beat grid,
       // where the clip's quarter 0 falls trimmed-start quarters before the
@@ -323,11 +329,13 @@ export function resolveAudioClips<Effect extends AudioEffect>({
         ),
         chain.generators,
         span.startQ - secondsToQuarters(span.trimStartSeconds, bpm),
+        modulationClock && { ...modulationClock, bpm },
       );
       const synth: SynthClip = {
         notes,
         instrument: chain.instrument,
         durationSeconds,
+        ...(modulationClock ? { modulationClock } : {}),
       };
       const mediaId = synthMediaId(span.id, synth, bpm);
       return [[span.id, { synth, mediaId }] as const];

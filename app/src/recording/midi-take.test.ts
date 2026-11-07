@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { MidiNote } from "../midi-clip.ts";
+import { type MidiNote, readMidiNotes } from "../midi-clip.ts";
 import type { RecordQuantize } from "./midi-quantize.ts";
 import { MidiTake } from "./midi-take.ts";
 
@@ -33,6 +33,21 @@ test("the clip starts on the grid, so every note can land on it", () => {
   take.addNote(note(0.05));
   assert.equal(take.finish().notes[0]?.start, 0);
 });
+
+for (const quantize of ["off", "1/8"] as const) {
+  test(`a take keeps played velocities through a save with quantize ${quantize}`, () => {
+    const { take } = makeTake(0, quantize);
+    const velocities = [1, 30, 80, 127];
+    velocities.forEach((velocity, index) => {
+      take.addNote({ ...note(index), velocity });
+    });
+    const saved = JSON.parse(JSON.stringify(take.finish().notes));
+    assert.deepEqual(
+      readMidiNotes(saved)?.map((played) => played.velocity),
+      velocities,
+    );
+  });
+}
 
 test("notes snap to the timeline's grid and keep their length", () => {
   const { take } = makeTake(1, "1/8");

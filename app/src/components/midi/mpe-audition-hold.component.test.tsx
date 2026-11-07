@@ -170,7 +170,7 @@ test("clicks and keys from a device not playing MPE don't hold", async () => {
   roll.send(0x90, 60, 100);
   roll.send(0x80, 60, 0);
   document.querySelector<HTMLElement>("[aria-label='Play C4']")?.click();
-  expect(holds).toEqual([undefined, undefined]);
+  expect(holds).toEqual([false, false]);
   roll.unmount();
 });
 
@@ -178,10 +178,10 @@ test("a key already down holds once its device is shown to play MPE", async () =
   const { holds, held, released, onAudition } = listeningVoices();
   const roll = await renderRoll({ onAudition });
   roll.send(0x91, 60, 100);
-  expect(holds).toEqual([undefined]);
+  expect(holds).toEqual([false]);
   expect(held).toEqual([]);
   roll.send(0x92, 64, 100);
-  expect(holds).toEqual([undefined, true]);
+  expect(holds).toEqual([false, true]);
   expect(held).toEqual([60]);
   roll.send(0x81, 60, 0);
   expect(released).toEqual([60]);
@@ -233,7 +233,7 @@ test("a keyboard that never counts as MPE doesn't hold", async () => {
   roll.send(0x90, 60, 100);
   roll.send(0x90, 64, 100);
   roll.send(0x99, 36, 100);
-  expect(holds).toEqual([undefined, undefined, undefined]);
+  expect(holds).toEqual([false, false, false]);
   expect(held).toEqual([]);
   roll.unmount();
 });
@@ -347,7 +347,7 @@ test.each(INSTRUMENTS)(
     const { level, brightness } = listenToAuditions();
     const roll = await renderRoll({ instrument });
     roll.configureMpe();
-    roll.send(0x91, 60, 100);
+    roll.send(0x91, 60, 40);
     await wait(PAST_A_FIXED_AUDITION_MS);
     expect(level()).toBeGreaterThan(SOUNDING);
 
@@ -361,9 +361,11 @@ test.each(INSTRUMENTS)(
     roll.send(0xb1, 74, 0);
     await expect.poll(brightness, TIMEOUT).toBeLessThan(open * 0.8);
 
-    const full = level();
+    const struck = level();
+    roll.send(0xd1, 127);
+    await expect.poll(level, TIMEOUT).toBeGreaterThan(struck * 1.5);
     roll.send(0xd1, 0);
-    await expect.poll(level, TIMEOUT).toBeLessThan(full * 0.6);
+    await expect.poll(level, TIMEOUT).toBeLessThan(struck * 1.3);
     expect(level()).toBeGreaterThan(SOUNDING);
 
     roll.send(0x81, 60, 0);

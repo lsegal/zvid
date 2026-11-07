@@ -57,8 +57,8 @@ export function ArmedTrackAudition({
     hub: midiInputHub,
     clip: NO_CLIP,
     clock: null,
-    onAudition: (pitch, expression) =>
-      auditionTracks(trackIds, pitch, expression),
+    onAudition: (pitch, velocity, expression) =>
+      auditionTracks(trackIds, pitch, expression, undefined, velocity),
     onCapture: ignoreCapture,
   });
   useComputerKeyboardEntry({

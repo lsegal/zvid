@@ -34,7 +34,7 @@ type PressedKey = {
 };
 
 // Plays the piano roll from MIDI keys while `enabled`: every key auditions
-// its pitch, and while the transport plays inside `clip` it also writes a
+// its pitch at its velocity, and while the transport plays inside `clip` it also writes a
 // note, handed to `onCapture` when the key comes up. The transport stopping
 // or the playhead jumping back ends the held notes where the playhead was,
 // and so does the device going away, MIDI turning off or the roll closing.
@@ -60,6 +60,7 @@ export function useMidiNoteCapture({
   clock: Pick<FxModulationClock, "signal" | "isPlaying"> | null;
   onAudition: (
     pitch: number,
+    velocity: number,
     expression: ExpressionSample | undefined,
     hold: boolean,
   ) => AuditionVoice | undefined;
@@ -139,7 +140,7 @@ export function useMidiNoteCapture({
       playedKeys.current.get(heldKey)?.voice?.release();
       playedKeys.current.set(heldKey, {
         pitch,
-        voice: latest.current.onAudition(pitch, undefined, false),
+        voice: latest.current.onAudition(pitch, velocity, undefined, false),
       });
       syncPlayedPitches();
       finish(heldKey, playheadQ);
@@ -218,8 +219,8 @@ export function useMidiNoteCapture({
         }
         const sample = mpe.sampleOf(key.channel);
         const voice = mpe.isActive()
-          ? onAudition(key.pitch, sample, true)
-          : onAudition(key.pitch, undefined, false);
+          ? onAudition(key.pitch, key.velocity, sample, true)
+          : onAudition(key.pitch, key.velocity, undefined, false);
         const recorder = createExpressionRecorder();
         if (sample) {
           recorder.add(0, sample);

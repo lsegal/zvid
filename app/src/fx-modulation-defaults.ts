@@ -1,8 +1,9 @@
-// The Modulation modifier an audio effect can carry: its settings, and each
-// effect's defaults for them. It is the audio side's Animation: Transient
+// The Modulation modifier an audio or MIDI effect can carry: its settings, and
+// each effect's defaults for them. It is the audio side's Animation: Transient
 // moves the selected knobs on hits exactly as Animation's Reactive mode
 // does, and LFO moves them continuously on session time with Animation's LFO
-// settings. Effects that aren't listed here, Reverse and Re-Pitch among
+// settings. On a MIDI effect Transient's hits are its notes, and it goes by
+// Reactive. Effects that aren't listed here, Reverse and Re-Pitch among
 // them, don't support modulation.
 
 import {
@@ -25,6 +26,11 @@ export type ModulationMode = (typeof MODULATION_MODES)[number];
 
 export const MODULATION_MODE_LABELS: Readonly<Record<ModulationMode, string>> =
   { transient: "Transient", lfo: "LFO" };
+
+// A MIDI effect hears notes rather than audio transients.
+export const MIDI_MODULATION_MODE_LABELS: Readonly<
+  Record<ModulationMode, string>
+> = { transient: "Reactive", lfo: "LFO" };
 
 // Transient's settings are Reactive's, so it moves the knobs the same way.
 export type TransientModulation = ReactiveAnimation;
@@ -92,6 +98,10 @@ const MODULATION_DEFAULTS: ReadonlyMap<string, FxModulationDefaults> = new Map([
   ["Auto Pan", defaults("Single", 0.3, ["Depth"])],
   ["Stereo", defaults("Wobble", 0.4, ["Pan"])],
   ["Mono", defaults("Single", 0.4, ["Amount"])],
+  ["Synth", defaults("Single", 0.4, ["Cutoff"])],
+  ["Granular", defaults("Single", 0.4, ["Position"])],
+  // Octaves has few steps, so it takes a wider swing to reach the next one.
+  ["Arpeggiator", defaults("Single", 2, ["Octaves"])],
 ]);
 
 export function supportsModulation(effectName: string) {
@@ -99,16 +109,17 @@ export function supportsModulation(effectName: string) {
 }
 
 // The parameters Modulation can move: the effect's visible knobs, leaving
-// out on/off toggles such as Gain's Mute.
+// out on/off toggles such as Gain's Mute, and the choices marked as stepping
+// through their options.
 export function getModulatableParameters(
   effectName: string,
 ): AnimatableParameter[] {
   return getEffectDefinition(effectName)
     .parameters.filter(
       (parameter) =>
-        parameter.kind === "number" &&
         !parameter.hidden &&
-        parameter.control !== "toggle",
+        ((parameter.kind === "number" && parameter.control !== "toggle") ||
+          (parameter.kind === "enum" && parameter.modulatable === true)),
     )
     .map((parameter) => ({ key: parameter.key, label: parameter.label }));
 }

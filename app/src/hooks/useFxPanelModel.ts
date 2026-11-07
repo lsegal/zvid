@@ -25,7 +25,7 @@ import {
   type SessionEffect,
 } from "../fx-stack";
 import type { MediaItem } from "../media";
-import { getMidiPanelModel } from "../midi-panel-model.ts";
+import { getMidiPanelModel, midiReactiveOnsets } from "../midi-panel-model.ts";
 import { getMissingFonts, subscribeFonts } from "../text-fonts.ts";
 
 export type FxPanelModelInputs = {
@@ -196,8 +196,13 @@ export function useFxPanelModel({
     () => getMidiPanelModel(sourceSelection, sourceSpans, effects, bpm),
     [bpm, effects, sourceSelection, sourceSpans],
   );
+  const fxMidiOnsets = useMemo(
+    () => midiReactiveOnsets(sourceSpans, effects, bpm),
+    [bpm, effects, sourceSpans],
+  );
 
   return {
+    fxMidiOnsets,
     fxLaneId,
     fxLane,
     fxKind,

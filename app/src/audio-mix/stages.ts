@@ -27,6 +27,20 @@ function storedNumber(stored: AudioStageEffect["parameters"][number]) {
   return Number.isFinite(value) ? value : undefined;
 }
 
+// `stage` with its LFO, if any, running `seconds` ahead of the song, on the source
+// track time of a layer clip that inherits it (see resolve.ts).
+export function withLfoTimeOffset(
+  stage: AudioStage,
+  seconds: number,
+): AudioStage {
+  return stage.modulation?.mode === "lfo" && seconds
+    ? {
+        ...stage,
+        modulation: { ...stage.modulation, timeOffsetSeconds: seconds },
+      }
+    : stage;
+}
+
 // `effect` as a stage; `fallbackId` names it when the effect has no id.
 // `enabled: false` bypasses it whatever its own flag says, as for a track
 // whose FX switch is off.
@@ -66,9 +80,10 @@ export function audioStageOf(
 }
 
 // `effect`'s Modulation as its stage runs it, or undefined while it is off
-// or would move nothing.
-function audioStageModulation(
-  effect: AudioStageEffect,
+// or would move nothing. A choice it can step through moves as a knob over
+// its options' indices.
+export function audioStageModulation(
+  effect: Pick<AudioStageEffect, "effectName" | "modulation">,
 ): AudioStageModulation | undefined {
   const modulation = effect.modulation;
   if (!modulation?.enabled) {
@@ -84,11 +99,16 @@ function audioStageModulation(
   );
   const parameters: ModulatedParameter[] = [];
   for (const parameter of getEffectDefinition(effect.effectName).parameters) {
-    if (
-      parameter.kind === "number" &&
-      selected.has(parameter.key) &&
-      modulatable.has(parameter.key)
-    ) {
+    if (!selected.has(parameter.key) || !modulatable.has(parameter.key)) {
+      continue;
+    }
+    if (parameter.kind === "enum") {
+      parameters.push({
+        key: parameter.key,
+        min: 0,
+        max: parameter.options.length - 1,
+      });
+    } else if (parameter.kind === "number") {
       parameters.push({
         key: parameter.key,
         min: parameter.min,

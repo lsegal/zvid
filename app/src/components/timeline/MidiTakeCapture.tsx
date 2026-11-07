@@ -28,7 +28,8 @@ export function MidiTakeCapture({
     hub: midiInputHub,
     clip: take.captureClip,
     clock,
-    onAudition: (pitch, expression) => auditionArmedTracks(pitch, expression),
+    onAudition: (pitch, velocity, expression) =>
+      auditionArmedTracks(pitch, expression, undefined, velocity),
     onCapture: (note) => take.addNote(note),
   });
   useComputerKeyboardEntry({

@@ -20,8 +20,8 @@ import {
   pressKeyMapTarget,
   removeKeyMapping,
 } from "../key-map.ts";
-import { auditionDrumPad } from "../midi-audition.ts";
 import { computerKeyboardEntry } from "../midi-input/computer-keyboard.ts";
+import { auditionRackPad } from "../recording/armed-audition.ts";
 import { hasOpenPopup } from "../space-shortcut.ts";
 
 const NO_PADS: ReadonlySet<string> = new Set();
@@ -55,7 +55,8 @@ export function fireMappedButtons(
     fired = true;
     if (press.kind === "pad") {
       pads.push(padId(target.effectId, press.pad));
-      void auditionDrumPad(
+      void auditionRackPad(
+        target.effectId,
         press.pad,
         drumRackParams(parseDrumRack(press.settings)),
       );

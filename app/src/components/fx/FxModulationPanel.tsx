@@ -8,6 +8,7 @@ import {
   createDefaultModulation,
   type EffectModulation,
   getModulatableParameters,
+  MIDI_MODULATION_MODE_LABELS,
   MODULATION_MODE_LABELS,
   MODULATION_MODES,
 } from "../../fx-modulation-defaults";
@@ -35,7 +36,7 @@ type FxModulationPanelProps = {
   onSetModulation?: FxChainProps["onSetModulation"];
 };
 
-// The Modulation section attached to an audio device's right edge while its
+// The Modulation section attached to an audio or MIDI device's right edge while its
 // Modulation toggle is on: the audio side's Animation section, built the
 // same way. Transient moves the knobs on hits as Animation's Reactive mode
 // does; LFO moves them over time with Animation's LFO controls.
@@ -121,7 +122,11 @@ export function FxModulationPanel({
         <FxAnimationSegmented
           label="Mode"
           onChange={(mode) => set({ ...modulation, mode })}
-          optionLabel={(mode) => MODULATION_MODE_LABELS[mode]}
+          optionLabel={(mode) =>
+            (device.domain === "midi"
+              ? MIDI_MODULATION_MODE_LABELS
+              : MODULATION_MODE_LABELS)[mode]
+          }
           options={MODULATION_MODES}
           value={modulation.mode}
         />

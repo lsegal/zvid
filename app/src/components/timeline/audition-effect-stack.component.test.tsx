@@ -7,7 +7,10 @@ import {
   MUTE_KEY,
 } from "../../fx/effects/gain/gain.ts";
 import { MUTE_ON } from "../../fx/effects/gain/processor.ts";
-import { sourceTrackEffectTrackId } from "../../fx/stack/clip-stacks.ts";
+import {
+  clipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../../fx/stack/clip-stacks.ts";
 import { createEffect } from "../../fx/stack/ops.ts";
 import {
   createDefaultModulation,
@@ -76,6 +79,9 @@ const synth = createSynthEffect(trackStack, {
 const hear = (effects: unknown[]) => {
   setArmedAuditionSource(
     {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
       sourceTracks: [{ id: TRACK }],
       sourceSpans: [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }],
       effects: [synth, ...effects],
@@ -173,4 +179,182 @@ test("without an LFO the same held key stays level", async () => {
   const levels = await levelsOverASecond();
   voice?.release();
   expect(Math.max(...levels)).toBeLessThan(Math.min(...levels) * 1.1);
+});
+
+// A sawtooth through a low Cutoff, with its LFO moving the filter, so the level
+// at the speakers follows the sweep (#1642).
+const sweptSynth = (lfo: boolean) => {
+  const effect = createSynthEffect(trackStack, {
+    ...DEFAULT_SYNTH_PARAMS,
+    wave: "sawtooth",
+    cutoff: 200,
+    attack: 0,
+    decay: 0,
+    sustain: 1,
+    release: 0,
+  });
+  const modulation = createDefaultModulation(
+    effect.effectName,
+  ) as EffectModulation;
+  return {
+    ...effect,
+    modulation: {
+      ...modulation,
+      enabled: lfo,
+      mode: "lfo" as const,
+      lfo: {
+        ...modulation.lfo,
+        shape: "Sine" as const,
+        sync: false,
+        rate: 2,
+        depth: 2,
+        parameters: ["Cutoff"],
+      },
+    },
+  };
+};
+
+const hearOnly = (effects: unknown[]) => {
+  setArmedAuditionSource(
+    {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
+      sourceTracks: [{ id: TRACK }],
+      sourceSpans: [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }],
+      effects,
+      bpm: 120,
+      signatureId: "4/4",
+    } as unknown as ArmedAuditionSession,
+    () => 8,
+  );
+};
+
+test("a Synth's LFO sweeps its Cutoff under a key held with the playhead paused", async () => {
+  await userEvent.click(document.body);
+  const swept = sweptSynth(true);
+  hearOnly([swept, gain(0)]);
+  const voice = auditionTracks(new Set([TRACK]), 36, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  const levels = await levelsOverASecond();
+  voice?.release();
+  expect(Math.max(...levels)).toBeGreaterThan(Math.min(...levels) * 1.3);
+});
+
+test("with its Modulation off the same Synth holds its Cutoff", async () => {
+  await userEvent.click(document.body);
+  hearOnly([sweptSynth(false), gain(0)]);
+  const voice = auditionTracks(new Set([TRACK]), 36, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  await wait(100);
+  const levels = await levelsOverASecond();
+  voice?.release();
+  expect(Math.max(...levels)).toBeLessThan(Math.min(...levels) * 1.25);
+});
+
+// A session whose audio comes from a layer clip playing the MIDI clip (#1635).
+const LANE = "lane";
+const OTHER_LANE = "other-lane";
+const LAYER_CLIP = "layer-clip";
+const OTHER_LAYER_CLIP = "other-layer-clip";
+const layerClip = (id: string, laneId: string) => ({
+  id,
+  laneId,
+  sourceSpanId: CLIP,
+  sourceTrackId: TRACK,
+  mediaPath: "",
+  startQ: 0,
+  durationSeconds: 2,
+  trimStartSeconds: 0,
+  sourceOffsetSeconds: 0,
+  sourceSpanOffsetSeconds: 0,
+  sourceWindowStartSeconds: 0,
+  sourceWindowEndSeconds: 2,
+});
+const hearThroughLayer = (
+  effects: unknown[],
+  clips = [layerClip(LAYER_CLIP, LANE)],
+) => {
+  setArmedAuditionSource(
+    {
+      clips,
+      lanes: [{ id: LANE }, { id: OTHER_LANE }],
+      mediaItems: [],
+      sourceTracks: [{ id: TRACK }],
+      sourceSpans: [
+        {
+          id: CLIP,
+          sourceTrackId: TRACK,
+          mediaPath: "",
+          startQ: 0,
+          durationSeconds: 2,
+          trimStartSeconds: 0,
+          notes: [{ pitch: 60, start: 0, length: 1, velocity: 100 }],
+        },
+      ],
+      effects: [synth, ...effects],
+      bpm: 120,
+      signatureId: "4/4",
+    } as unknown as ArmedAuditionSession,
+    () => 0,
+  );
+};
+
+const onStack = (stackId: string, effect: ReturnType<typeof gain>) => ({
+  ...effect,
+  trackId: stackId,
+});
+
+test("a paused key sounds through its layer's stack when the mix plays through it", async () => {
+  hearThroughLayer([gain(0), onStack(LANE, gain(0))]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.01);
+  // Past the moment the note reached the speakers, so this is its full level.
+  await wait(300);
+  const unity = level();
+
+  hearThroughLayer([gain(0), onStack(LANE, gain(-24))]);
+  await expect.poll(() => level()).toBeLessThan(unity / 4);
+  expect(level()).toBeGreaterThan(0);
+  voice?.release();
+});
+
+test("a paused key sounds through its layer clip's stack when the mix plays through it", async () => {
+  const stack = clipEffectTrackId(LAYER_CLIP);
+  hearThroughLayer([gain(0), onStack(stack, gain(0))]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.01);
+
+  hearThroughLayer([gain(0), onStack(stack, gain(0, false, true))]);
+  await expect.poll(() => level()).toBeLessThan(0.001);
+  voice?.release();
+});
+
+// Two layer clips play the MIDI clip on different layers, and the mix sums them
+// (#1646). Well under the limiter, so the sum shows in the level.
+test("a paused key sums every layer clip overlapping at the playhead", async () => {
+  const quiet = gain(-12);
+  const both = [
+    layerClip(LAYER_CLIP, LANE),
+    layerClip(OTHER_LAYER_CLIP, OTHER_LANE),
+  ];
+  hearThroughLayer([quiet]);
+  const voice = auditionTracks(new Set([TRACK]), 69, undefined);
+  await expect.poll(() => level(), { timeout: 5000 }).toBeGreaterThan(0.001);
+  await wait(300);
+  const alone = level();
+
+  hearThroughLayer([quiet], both);
+  await expect.poll(() => level()).toBeGreaterThan(alone * 1.7);
+  expect(level()).toBeLessThan(alone * 2.3);
+
+  // Each chain stays its own: muting one leaves the other's level.
+  const muted = onStack(
+    clipEffectTrackId(OTHER_LAYER_CLIP),
+    gain(0, false, true),
+  );
+  hearThroughLayer([quiet, muted], both);
+  await expect.poll(() => level()).toBeLessThan(alone * 1.3);
+  expect(level()).toBeGreaterThan(alone * 0.7);
+  voice?.release();
 });
