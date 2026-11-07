@@ -92,10 +92,20 @@
 }
 
 .fx-panel__body {
+  /* Fills the panel, so its chain can render into whatever height the row has;
+     the body only scrolls once the chain's devices can't shrink any further. */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
+}
+
+.fx-panel__body > .fx-chain {
+  /* Grows to the panel's height, never below its devices'. */
+  flex: 1 0 auto;
 }
 
 /* Standard scrollbar properties leave macOS's overlay scrollbar, hidden until

@@ -188,7 +188,7 @@ export function knobColumnCount(knobCount: number) {
 
 // Devices with more full-width controls than this, such as Text, lay them
 // out in columns so they fit the panel's height.
-const MAX_CONTROL_ROWS = 3;
+const MAX_CONTROL_ROWS = 2;
 
 export function usesColumnLayout(controlCount: number) {
   return controlCount > MAX_CONTROL_ROWS;

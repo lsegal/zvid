@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { FX_PANEL_HEIGHT_STORAGE_KEY } from "../app/constants.ts";
 import { renderApp } from "../component-test/app.tsx";
 import { center, dblclick, drag, nextFrames } from "../component-test/input.ts";
@@ -17,6 +17,29 @@ const query = (selector: string) => {
 const height = (selector: string) =>
   query(selector).getBoundingClientRect().height;
 const handle = () => query(".fx-panel-resize-handle");
+
+// The MIDI sample's Arp clip, whose Clip and Notes regions lead the chain.
+async function openMidiClip() {
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "File", exact: true }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "Open", exact: true }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "Samples", exact: true }),
+  );
+  await userEvent.click(
+    page.getByRole("menuitem", { name: "MIDI", exact: true }),
+  );
+  const clip = () =>
+    [...document.querySelectorAll<HTMLElement>("[data-source-span-id]")].find(
+      (span) => span.textContent?.startsWith("Arp"),
+    );
+  await expect.poll(clip, { timeout: 30_000 }).toBeTruthy();
+  await userEvent.click(clip() as HTMLElement);
+  await expect.poll(() => document.querySelector(".piano-roll")).not.toBeNull();
+}
 
 describe("FX panel resizing", { timeout: 60_000 }, () => {
   test("dragging the top edge trades height with the editor panel", async () => {
@@ -102,5 +125,51 @@ describe("FX panel resizing", { timeout: 60_000 }, () => {
     expect(style.scrollbarWidth).toBe("auto");
     expect(style.scrollbarColor).toBe("auto");
     expect(getComputedStyle(body, "::-webkit-scrollbar").width).toBe("10px");
+  });
+
+  test("the Clip and Notes regions render into the panel's height", async () => {
+    await setViewport({ width: 1389, height: 800 });
+    await renderApp();
+    await openMidiClip();
+    handle().focus();
+
+    // Taller than the chain's devices: nothing scrolls, and the regions end
+    // at the chain's bottom edge with no dead space under their contents.
+    await userEvent.keyboard("{End}");
+    await nextFrames();
+    const body = query(".fx-panel__body");
+    expect(body.scrollHeight).toBe(body.clientHeight);
+    const bottom = (selector: string) =>
+      query(selector).getBoundingClientRect().bottom;
+    const tallRoll = height(".piano-roll__scroll");
+    expect(bottom(".piano-roll__scroll")).toBeCloseTo(
+      bottom(".piano-roll") - 11,
+      0,
+    );
+    // Above the chain's bottom padding, and its scrollbar where those take room.
+    const chain = query(".fx-chain");
+    expect(bottom(".piano-roll")).toBeCloseTo(
+      chain.getBoundingClientRect().top + chain.clientHeight - 16,
+      0,
+    );
+    // The Clip frame fills the height too, but its fields stay packed at the
+    // top rather than stretching down to its bottom edge.
+    const fields = document.querySelectorAll<HTMLElement>(
+      ".source-clip-properties__fields > *",
+    );
+    expect(bottom(".source-clip-properties")).toBeCloseTo(
+      bottom(".piano-roll"),
+      0,
+    );
+    expect(
+      fields[1].getBoundingClientRect().top -
+        fields[0].getBoundingClientRect().bottom,
+    ).toBeCloseTo(8, 0);
+
+    // Shorter, the roll gives up height before the body starts to scroll.
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+    await nextFrames();
+    expect(height(".piano-roll__scroll")).toBeCloseTo(tallRoll - 32, 0);
+    expect(body.scrollHeight).toBe(body.clientHeight);
   });
 });

@@ -7,6 +7,7 @@
 /* The piano roll: keys down the left, the clip's window across, scrolling
    both ways inside the device. */
 .piano-roll {
+  --piano-roll-min-grid: 96px;
   max-width: min(640px, 70vw);
 }
 
@@ -27,6 +28,17 @@
      where scrollbars take room (Linux, Windows), and show a horizontal one
      until the next layout, which moves the velocity lane under the pointer. */
   scrollbar-gutter: stable;
+}
+
+/* In the desktop panel the roll takes the height the panel has, and gives it
+   back first when the panel gets shorter. On a phone's sheet and in the stacked
+   layouts, where the page or the sheet scrolls, it keeps the height above. */
+@media (min-width: 901px) and (min-height: 560px) {
+  .fx-chain .piano-roll__scroll {
+    flex: 1 1 0;
+    height: auto;
+    min-height: calc(var(--piano-roll-min-grid) + var(--piano-roll-velocity));
+  }
 }
 
 .piano-roll__keys {
