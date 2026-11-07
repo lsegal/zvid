@@ -77,6 +77,7 @@ describe(SourceSpan, { timeout: EDITOR_TEST_TIMEOUT }, () => {
     const element = span() as HTMLElement;
     const quarterPx = quarterWidth(element);
     const body = element.querySelector(".source-span__body") as HTMLElement;
+    body.scrollIntoView({ block: "nearest", inline: "nearest" });
     const from = center(body);
 
     let pointerId = 0;
