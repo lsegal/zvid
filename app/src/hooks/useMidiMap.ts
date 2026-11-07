@@ -9,7 +9,8 @@ import type {
 import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
 import { keyMapTargetId, pressKeyMapTarget } from "../key-map.ts";
 import { knobParameter, moveEffectParameter } from "../midi-device-targets.ts";
-import { ccMove } from "../midi-input/device-controls.ts";
+import { type CcReading, cc14Reader } from "../midi-input/cc14.ts";
+import { ccMove, pitchBendMove } from "../midi-input/device-controls.ts";
 import {
   type MidiInputHub,
   type MidiInputInfo,
@@ -20,18 +21,19 @@ import {
   midiKeyEvent,
 } from "../midi-input/keyboard-layout.ts";
 import type { MidiMessage } from "../midi-input/messages.ts";
-import { mpeInputFor } from "../midi-input/mpe.ts";
+import { BEND_CENTER, mpeInputFor } from "../midi-input/mpe.ts";
 import {
   assignMidiMapping,
+  faderTouchNote,
   findMidiMapping,
   learnMidiMappingsMpe,
-  type MidiCcMapping,
   type MidiKnobTarget,
   type MidiMapKey,
   type MidiMapping,
   type MidiMapTarget,
   midiCcTargets,
   midiMappingMatches,
+  midiPitchBendTargets,
   removeMidiMapping,
 } from "../midi-map.ts";
 import { pitchName } from "../midi-piano-roll.ts";
@@ -44,9 +46,17 @@ import { fireMappedButtons, isKeyForPopup, padId } from "./useKeyMap.ts";
 const NO_PADS: ReadonlySet<string> = new Set();
 const NOT_MAPPING: KeyMapButtonProps = {};
 
-type CcMessage = Extract<MidiMessage, { type: "cc" }>;
+// How long a bend begun with a key down has to rest before it can assign.
+const WHEEL_REST_MS = 1000;
 
-function heldKeyId(input: MidiInputInfo, { channel, pitch }: MidiKeyEvent) {
+type CcMessage = Extract<MidiMessage, { type: "cc" }>;
+type BendMessage = Extract<MidiMessage, { type: "pitchbend" }>;
+type KnobReading = CcReading | BendMessage;
+
+function heldKeyId(
+  input: MidiInputInfo,
+  { channel, pitch }: Pick<MidiKeyEvent, "channel" | "pitch">,
+) {
   return `${input.id}:${channel}:${pitch}`;
 }
 
@@ -69,6 +79,9 @@ function mappingLabel(mapping: MidiMapping | undefined) {
   if (!mapping) {
     return undefined;
   }
+  if (mapping.pitchBend) {
+    return `PB ${mapping.channel}`;
+  }
   return mapping.controller === undefined
     ? pitchName(mapping.note)
     : `CC ${mapping.controller}`;
@@ -89,13 +102,13 @@ function mapKeyOf(
   };
 }
 
-// MIDI Map mode, the mapped MIDI keys and CC controls, and the Key Map's controls
+// MIDI Map mode, the mapped MIDI keys and controls, and the Key Map's controls
 // with it: the effect buttons belong to whichever is mapping, and turning one on
 // turns the other off, so a click selects a button for one of them. Knobs and
-// faders are the MIDI Map's alone. A mapped CC is claimed, which keeps it from a
-// device's built-in role (#1615). The hub only delivers what the MIDI control and
-// device selection let through. It's only listened to while there's something to
-// hear.
+// faders are the MIDI Map's alone. A mapped CC or pitch bend is claimed, which
+// keeps it from a device's built-in role (#1615). The hub only delivers what the
+// MIDI control and device selection let through. It's only listened to while
+// there's something to hear.
 export function useMidiMap({
   hub = midiInputHub,
   keyMap,
@@ -152,6 +165,12 @@ export function useMidiMap({
     const mpeOwner = {};
     // The keys down that this claimed, with the pads each holds.
     const heldKeys = new Map<string, readonly string[]>();
+    // When each channel's bend was last taken for a wheel, by input and channel.
+    const wheelBends = new Map<string, number>();
+    // Each device's 14-bit controls, and the reading of the message in hand:
+    // the hub asks to claim a message before delivering it.
+    const cc14Readers = new Map<string, ReturnType<typeof cc14Reader>>();
+    let reading: KnobReading | undefined;
     const { edit: editSettled, flush } = settledEffectEdits((...args) =>
       latestRef.current.editEffects(...args),
     );
@@ -184,10 +203,15 @@ export function useMidiMap({
       );
     };
 
-    // The knobs and faders a CC drives, leaving out any that are gone.
-    const knobsOf = ({ channel, controller }: CcMessage) => {
+    // The knobs and faders a CC or pitch bend drives, leaving out any that are
+    // gone.
+    const knobsOf = (message: KnobReading) => {
       const { effects: current, midiMappings: mappings } = latestRef.current;
-      return midiCcTargets(mappings, channel, controller).flatMap((target) => {
+      const targets =
+        message.type === "cc"
+          ? midiCcTargets(mappings, message.channel, message.controller)
+          : midiPitchBendTargets(mappings, message.channel);
+      return targets.flatMap((target) => {
         const effect = current.find((item) => item.id === target.effectId);
         return effect && knobParameter(effect, target.parameter)
           ? [{ target, effect }]
@@ -195,19 +219,73 @@ export function useMidiMap({
       });
     };
 
-    const assignCc = (target: MidiKnobTarget, message: CcMessage) => {
-      const { channel, controller } = message;
-      const latest = latestRef.current;
-      const existing = findMidiMapping(latest.midiMappings, target);
-      const id = `${channel}:${controller}:${keyMapTargetId(target)}`;
+    // Relative encoders send steps, which have no second half to pair.
+    const readCc = (input: MidiInputInfo, message: CcMessage): CcReading => {
+      if (ccMove(input.mapping, message).by !== undefined) {
+        return message;
+      }
+      let read = cc14Readers.get(input.id);
+      if (!read) {
+        read = cc14Reader();
+        cc14Readers.set(input.id, read);
+      }
+      return read(message);
+    };
+
+    // Whether a key of `input` is down, other than the note that touching the
+    // fader on `channel` holds.
+    const keyHeldFor = (input: MidiInputInfo, channel: number) => {
+      const touch = heldKeyId(input, faderTouchNote(channel));
+      return [...heldKeys.keys()].some(
+        (id) => id !== touch && id.startsWith(`${input.id}:`),
+      );
+    };
+
+    // Whether a bend is a fader being moved, as far as can be told, rather than
+    // a wheel played along with a note or springing back from one.
+    const bendAssigns = (
+      input: MidiInputInfo,
+      { channel, value }: BendMessage,
+    ) => {
+      const id = `${input.id}:${channel}`;
+      const now = performance.now();
       if (
-        (existing?.channel === channel && existing.controller === controller) ||
+        keyHeldFor(input, channel) ||
+        mpeInputFor(mpeOwner, input.id).isActive()
+      ) {
+        wheelBends.set(id, now);
+        return false;
+      }
+      if (value === BEND_CENTER) {
+        wheelBends.delete(id);
+        return false;
+      }
+      const last = wheelBends.get(id);
+      if (last !== undefined && now - last < WHEEL_REST_MS) {
+        wheelBends.set(id, now);
+        return false;
+      }
+      wheelBends.delete(id);
+      return true;
+    };
+
+    const assignControl = (target: MidiKnobTarget, message: KnobReading) => {
+      const latest = latestRef.current;
+      const { channel } = message;
+      const mapping: MidiMapping =
+        message.type === "cc"
+          ? { controller: message.controller, channel, target }
+          : { pitchBend: true, channel, target };
+      const existing = findMidiMapping(latest.midiMappings, target);
+      const id = `${mappingLabel(mapping)}:${channel}:${keyMapTargetId(target)}`;
+      if (
+        (existing?.channel === channel &&
+          mappingLabel(existing) === mappingLabel(mapping)) ||
         assigningRef.current === id
       ) {
         return;
       }
       assigningRef.current = id;
-      const mapping: MidiCcMapping = { controller, channel, target };
       latest.commitProjectChange("Map MIDI Control", (current) =>
         patchProjectState(current, {
           midiMappings: assignMidiMapping(current.midiMappings, mapping),
@@ -215,13 +293,18 @@ export function useMidiMap({
       );
     };
 
-    const moveKnobs = (input: MidiInputInfo, message: CcMessage) => {
+    const moveKnobs = (input: MidiInputInfo, message: KnobReading) => {
       const knobs = knobsOf(message);
       const [first] = knobs;
       if (!first) {
         return;
       }
-      const move = ccMove(input.mapping, message);
+      const move =
+        message.type === "pitchbend"
+          ? pitchBendMove(message)
+          : message.to === undefined
+            ? ccMove(input.mapping, message)
+            : { to: message.to };
       editSettled(
         effectHistoryLabels.parameter(
           first.effect.effectName,
@@ -247,10 +330,13 @@ export function useMidiMap({
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           mpe.receive(message);
+          if (message.type !== "cc" && message.type !== "pitchbend") {
+            return false;
+          }
+          reading = message.type === "cc" ? readCc(input, message) : message;
           return (
-            message.type === "cc" &&
-            (latestRef.current.selected?.kind === "number" ||
-              knobsOf(message).length > 0)
+            latestRef.current.selected?.kind === "number" ||
+            knobsOf(reading).length > 0
           );
         }
         if (!key.down) {
@@ -266,12 +352,18 @@ export function useMidiMap({
       message(input, message) {
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
-          if (message.type === "cc") {
+          if (
+            (message.type === "cc" || message.type === "pitchbend") &&
+            reading
+          ) {
             const { active: mapping, selected: target } = latestRef.current;
             if (!mapping) {
-              moveKnobs(input, message);
-            } else if (target?.kind === "number") {
-              assignCc(target, message);
+              moveKnobs(input, reading);
+            } else if (
+              target?.kind === "number" &&
+              (reading.type === "cc" || bendAssigns(input, reading))
+            ) {
+              assignControl(target, reading);
             }
           }
           return;
@@ -330,6 +422,7 @@ export function useMidiMap({
           }
         }
         mpeInputFor(mpeOwner, input.id).releaseAll();
+        cc14Readers.delete(input.id);
       },
     });
     return () => {

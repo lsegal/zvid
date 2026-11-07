@@ -132,7 +132,7 @@ export const audio: Guide = {
         },
         {
           type: "p",
-          text: "To use any other controller, or give a control a different job, switch **MIDI** to its map mode, click a knob or fader in a device, and move the control. It drives that knob from then on, in place of anything it did by default. Delete removes the mapping. Mappings are saved with the session and go away with their device.",
+          text: "To use any other controller, or give a control a different job, switch **MIDI** to its map mode, click a knob or fader in a device, and move the control. It drives that knob from then on, in place of anything it did by default. A fader that sends pitch bend, as in Mackie mode, maps the same way and shows its channel, as `PB 3`. A keyboard's pitch wheel isn't mapped while you're holding a key. Delete removes the mapping. Mappings are saved with the session and go away with their device.",
         },
         {
           type: "figure",

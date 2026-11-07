@@ -4,13 +4,16 @@ import { createEffect, GLOBAL_EFFECT_TRACK_ID } from "./fx-stack.ts";
 import type { KeyMapTarget } from "./key-map.ts";
 import {
   assignMidiMapping,
+  faderTouchNote,
   findMidiMapping,
   learnMidiMappingsMpe,
   type MidiCcMapping,
+  type MidiKnobTarget,
   type MidiMapKey,
   type MidiNoteMapping,
   midiCcTargets,
   midiMappingMatches,
+  midiPitchBendTargets,
   pruneMidiMappings,
   readMidiMappings,
   removeMidiMapping,
@@ -215,5 +218,68 @@ describe("CC mappings", () => {
     ]) {
       assert.equal(readMidiMappings([raw], [effect]), undefined);
     }
+  });
+});
+
+describe("pitch bend mappings", () => {
+  const bend = (channel: number, target: MidiKnobTarget = CUTOFF) => ({
+    pitchBend: true as const,
+    channel,
+    target,
+  });
+
+  it("are found by channel, and kept apart from notes and CCs", () => {
+    const other = { ...CUTOFF, parameter: "drive" };
+    const mappings = [
+      bend(3),
+      bend(3, other),
+      bend(4, { ...CUTOFF, parameter: "x" }),
+    ];
+    assert.deepEqual(midiPitchBendTargets(mappings, 3), [CUTOFF, other]);
+    assert.deepEqual(midiPitchBendTargets(mappings, 2), []);
+    assert.deepEqual(midiPitchBendTargets(undefined, 3), []);
+    assert.deepEqual(
+      midiPitchBendTargets([ccMapping(3, 3), mapping(3, 3)], 3),
+      [],
+    );
+    assert.deepEqual(midiCcTargets([bend(3)], 3, 3), []);
+    assert.equal(midiMappingMatches(bend(3), key(60, 3)), false);
+  });
+
+  it("replace what their knob had, and go away with their effect", () => {
+    assert.deepEqual(assignMidiMapping([ccMapping(74)], bend(3)), [bend(3)]);
+    assert.equal(removeMidiMapping([bend(3)], CUTOFF), undefined);
+    assert.equal(pruneMidiMappings([bend(3)], []), undefined);
+  });
+
+  it("survive being read back from a session", () => {
+    const effect = createEffect(GLOBAL_EFFECT_TRACK_ID, "Delay");
+    const saved = bend(3, { ...CUTOFF, effectId: effect.id });
+    assert.deepEqual(
+      readMidiMappings(JSON.parse(JSON.stringify([saved])), [effect]),
+      [saved],
+    );
+  });
+
+  it("are dropped from a session when unusable", () => {
+    const effect = createEffect(GLOBAL_EFFECT_TRACK_ID, "Delay");
+    const target = { ...CUTOFF, effectId: effect.id };
+    for (const raw of [
+      { pitchBend: true, channel: 0, target },
+      { pitchBend: true, channel: 17, target },
+      { pitchBend: "yes", channel: 1, target },
+      {
+        pitchBend: true,
+        channel: 1,
+        target: { kind: "power", effectId: effect.id },
+      },
+    ]) {
+      assert.equal(readMidiMappings([raw], [effect]), undefined);
+    }
+  });
+
+  it("a Mackie fader's touch note follows its channel", () => {
+    assert.deepEqual(faderTouchNote(1), { channel: 1, pitch: 104 });
+    assert.deepEqual(faderTouchNote(9), { channel: 1, pitch: 112 });
   });
 });

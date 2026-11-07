@@ -5,7 +5,8 @@
 // the mix. Its notes sound through its effects, as the mix plays them, their
 // LFOs on the audio clock rather than the paused playhead (see
 // audio-mix/audition-chain.ts), and where the mix plays the track through a layer
-// clip, through that one's too.
+// clip, through that one's too. A Drum Rack's pads sound through the stacks of
+// the clip or track the rack is on.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -15,13 +16,23 @@ import {
   auditionChainSettings,
 } from "../audio-mix/audition-chain.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
-import { isLayerFxEnabled, sourceTrackEffectTrackId } from "../fx-stack.ts";
+import {
+  getEffectSourceSpanId,
+  getEffectSourceTrackId,
+  isLayerFxEnabled,
+  sourceTrackEffectTrackId,
+} from "../fx-stack.ts";
 import {
   type AuditionVoice,
+  auditionDrumPad,
   auditionNote,
   updateAuditionChains,
 } from "../midi-audition.ts";
-import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
+import type {
+  DrumRackParams,
+  ExpressionSample,
+  MidiInstrument,
+} from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
 import {
   getClipPieceClips,
@@ -283,6 +294,31 @@ export function auditionClipNote(
     trackId === undefined
       ? undefined
       : auditionStackOf(trackId, spanId, session, playheadQ()),
+  );
+}
+
+/**
+ * Plays `pad` of the Drum Rack `effectId`, which plays `params`, through the
+ * stacks of the clip or track the rack is on, or dry without a source track
+ * owning it.
+ */
+export function auditionRackPad(
+  effectId: string,
+  pad: number,
+  params: DrumRackParams,
+) {
+  const stackId = session.effects.find(({ id }) => id === effectId)?.trackId;
+  const spanId = stackId && getEffectSourceSpanId(stackId);
+  const trackId = spanId
+    ? session.sourceSpans.find((span) => span.id === spanId)?.sourceTrackId
+    : stackId && getEffectSourceTrackId(stackId);
+  return auditionDrumPad(
+    pad,
+    params,
+    undefined,
+    trackId
+      ? auditionStackOf(trackId, spanId, session, playheadQ())
+      : undefined,
   );
 }
 
