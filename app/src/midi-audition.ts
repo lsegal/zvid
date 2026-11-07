@@ -5,7 +5,14 @@
 // own, suspended again once nothing is sounding. A key from a device playing
 // MPE holds its voice until the key comes up, so its expression stays audible,
 // and a voice already sounding starts holding once its device is shown to.
+// Given its track's stack, a voice plays on through its effects, whose chain
+// keeps the context running for its tail (see audio-mix/audition-chain.ts).
 import { audioDiagnostics } from "./audio-mix/audio-diagnostics.ts";
+import {
+  AuditionChains,
+  type AuditionStack,
+  auditionTailSeconds,
+} from "./audio-mix/audition-chain.ts";
 import { DRUM_VOICE_LEVEL, loadDrumSample } from "./audio-mix/drum-rack.ts";
 import {
   GRANULAR_VOICE_LEVEL,
@@ -45,6 +52,41 @@ const auditionContext = new SharedAudioContext(() => {
   audioDiagnostics.addContext("note audition", context);
   return context;
 });
+
+const auditionChains = new AuditionChains((context) => {
+  if (auditionContext.userCount) {
+    void context.resume().catch(() => {});
+  }
+});
+
+/** Has the chains of tracks auditioned so far follow an edit to their stacks. */
+export function updateAuditionChains(
+  resolve: (spanId: string) => AuditionStack | undefined,
+) {
+  auditionChains.update(resolve);
+}
+
+// Where a voice in `context` plays to, and what it calls when it has ended,
+// which lets the context go once anything of it left in the chain has too.
+function auditionOutput(context: AudioContext, stack?: AuditionStack) {
+  if (!stack) {
+    return {
+      output: context.destination as AudioNode,
+      ended: () => auditionContext.release(),
+    };
+  }
+  return {
+    output: auditionChains.input(context, stack),
+    ended() {
+      const tail = auditionTailSeconds(stack);
+      if (tail > 0) {
+        setTimeout(() => auditionContext.release(), tail * 1000);
+      } else {
+        auditionContext.release();
+      }
+    },
+  };
+}
 
 /**
  * An audition still sounding, which expression can go on changing. `hold` keeps
@@ -141,16 +183,17 @@ function holdEnvelope(
  * Plays `pitch` through `instrument`, starting from `expression` if it has
  * any: for a moment, or with `hold` until the voice is released, which a Drum
  * Rack's one-shot pads don't wait for. Returns the voice, unless the
- * instrument has nothing to play.
+ * instrument has nothing to play. With `stack` it plays through that chain.
  */
 export function auditionNote(
   pitch: number,
   instrument: MidiInstrument,
   expression?: ExpressionSample,
   hold = false,
+  stack?: AuditionStack,
 ): AuditionVoice | undefined {
   if (instrument.kind === "granular") {
-    return auditionGranular(pitch, instrument.params, expression, hold);
+    return auditionGranular(pitch, instrument.params, expression, hold, stack);
   }
   if (instrument.kind === "drums") {
     const pad = padForNote(pitch);
@@ -158,10 +201,10 @@ export function auditionNote(
       return undefined;
     }
     const voice = drumPadVoice(expression);
-    void auditionDrumPad(pad, instrument.params, voice);
+    void auditionDrumPad(pad, instrument.params, voice, stack);
     return voice;
   }
-  return auditionSynth(pitch, instrument.params, expression, hold);
+  return auditionSynth(pitch, instrument.params, expression, hold, stack);
 }
 
 function auditionSynth(
@@ -169,8 +212,10 @@ function auditionSynth(
   params: SynthParams,
   expression: ExpressionSample | undefined,
   hold: boolean,
+  stack: AuditionStack | undefined,
 ): AuditionVoice {
   const context = auditionContext.acquire();
+  const { output, ended } = auditionOutput(context, stack);
   const start = context.currentTime + 0.01;
   const oscillator = context.createOscillator();
   oscillator.type = params.wave;
@@ -191,13 +236,13 @@ function auditionSynth(
     .connect(filter)
     .connect(gain)
     .connect(pressure)
-    .connect(context.destination);
+    .connect(output);
   oscillator.onended = () => {
     oscillator.disconnect();
     filter.disconnect();
     gain.disconnect();
     pressure.disconnect();
-    auditionContext.release();
+    ended();
   };
   oscillator.start(start);
   let release = () => {};
@@ -252,8 +297,10 @@ function auditionGranular(
   params: GranularParams,
   expression: ExpressionSample | undefined,
   hold: boolean,
+  stack: AuditionStack | undefined,
 ): AuditionVoice {
   const context = auditionContext.acquire();
+  const { output, ended } = auditionOutput(context, stack);
   const { sampleRate } = context;
   const start = context.currentTime + 0.01;
   // At 60 bpm a quarter note lasts a second.
@@ -275,7 +322,7 @@ function auditionGranular(
   filter.Q.value = params.resonance;
   const pressure = context.createGain();
   pressure.gain.value = expressionGain(expression);
-  filter.connect(pressure).connect(context.destination);
+  filter.connect(pressure).connect(output);
   let sounding = 0;
   const playCloud = (
     samples: Float32Array<ArrayBuffer>,
@@ -299,7 +346,7 @@ function auditionGranular(
       if (!sounding) {
         filter.disconnect();
         pressure.disconnect();
-        auditionContext.release();
+        ended();
       }
     };
     source.start(from);
@@ -417,12 +464,14 @@ export async function auditionDrumPad(
   pad: number,
   params: DrumRackParams,
   voice?: DrumPadVoice,
+  stack?: AuditionStack,
 ) {
   const url = params.samples[pad];
   if (!url) {
     return false;
   }
   const context = auditionContext.acquire();
+  const { output, ended } = auditionOutput(context, stack);
   const sample = await loadDrumSample(url, context.sampleRate);
   if (!sample) {
     auditionContext.release();
@@ -436,7 +485,7 @@ export async function auditionDrumPad(
   source.playbackRate.value = bendRate(expression?.bend ?? 0);
   const gain = context.createGain();
   gain.gain.value = DRUM_VOICE_LEVEL * expressionGain(expression);
-  source.connect(gain).connect(context.destination);
+  source.connect(gain).connect(output);
   voice?.attach((sample) => {
     glide(source.playbackRate, bendRate(sample.bend), context);
     glide(gain.gain, DRUM_VOICE_LEVEL * expressionGain(sample), context);
@@ -444,7 +493,7 @@ export async function auditionDrumPad(
   source.onended = () => {
     source.disconnect();
     gain.disconnect();
-    auditionContext.release();
+    ended();
   };
   source.start();
   return true;

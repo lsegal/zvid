@@ -11,7 +11,7 @@ import {
 } from "react";
 import { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { isContextMenuPress, type MenuPoint } from "../../context-menu.ts";
-import { type AuditionVoice, auditionNote } from "../../midi-audition.ts";
+import type { AuditionVoice } from "../../midi-audition.ts";
 import {
   type ExpressionSample,
   expressionSampleAtStart,
@@ -56,7 +56,10 @@ import {
   noteMenuEntries,
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
-import { useArmedRollKeys } from "../../recording/armed-audition.ts";
+import {
+  auditionClipNote,
+  useArmedRollKeys,
+} from "../../recording/armed-audition.ts";
 import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
 import { ZOOM_DEFAULT } from "../../zoom";
@@ -188,7 +191,7 @@ export function PianoRoll({
   onToggleCollapsed,
   onSetNotes,
   onSetTimeline,
-  onAudition = auditionNote,
+  onAudition,
   midiHub = midiInputHub,
   keyboardEntry = computerKeyboardEntry,
 }: PianoRollProps) {
@@ -246,10 +249,14 @@ export function PianoRoll({
     pitch: number,
     expression?: ExpressionSample,
     hold = false,
-  ) =>
-    expression || hold
+  ) => {
+    if (!onAudition) {
+      return auditionClipNote(spanId, pitch, instrument, expression, hold);
+    }
+    return expression || hold
       ? onAudition(pitch, instrument, expression, hold)
       : onAudition(pitch, instrument);
+  };
   // A note clicked on sounds as it starts.
   const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
     audition(pitch, expression && expressionSampleAtStart(expression));
