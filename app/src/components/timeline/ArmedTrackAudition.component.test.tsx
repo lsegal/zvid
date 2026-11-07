@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";
-import { DEFAULT_SYNTH_PARAMS } from "../../midi-clip.ts";
+import { DEFAULT_SYNTH_PARAMS, type SynthParams } from "../../midi-clip.ts";
 import { createSynthEffect } from "../../midi-effects.ts";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
 import {
@@ -13,6 +13,7 @@ import { createPlayheadSignal } from "../../playhead-signal.ts";
 import {
   type ArmedAuditionSession,
   claimRollKeys,
+  setArmedAuditionSource,
 } from "../../recording/armed-audition.ts";
 import { MidiTake } from "../../recording/midi-take.ts";
 import { disarmAllTracks, setTrackArmed } from "../../recording/record-arm.ts";
@@ -24,7 +25,7 @@ import { MidiTakeCapture } from "./MidiTakeCapture";
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 
-const wave = (spanId: string, type: OscillatorType) =>
+const wave = (spanId: string, type: SynthParams["wave"]) =>
   createSynthEffect(sourceClipEffectTrackId(spanId), {
     ...DEFAULT_SYNTH_PARAMS,
     wave: type,
@@ -53,6 +54,7 @@ function send(status: number, pitch: number) {
   port.onmidimessage?.({ data: new Uint8Array([status, pitch, 100]) });
 }
 
+let stopListening = () => {};
 let oscillators: OscillatorNode[] = [];
 const sounding = () => oscillators.map((oscillator) => oscillator.type).sort();
 
@@ -71,9 +73,13 @@ beforeEach(async () => {
     access;
   midiInputHub.setEnabled(true);
   computerKeyboardEntry.setEnabled(true);
+  // Keeps the port open, so a key not sounding is one that was heard.
+  stopListening = midiInputHub.listen({ message() {}, disconnected() {} });
+  await expect.poll(() => port.onmidimessage).not.toBeNull();
 });
 
 afterEach(() => {
+  stopListening();
   vi.restoreAllMocks();
   disarmAllTracks();
   midiInputHub.setEnabled(false);
@@ -88,7 +94,6 @@ async function renderAudition() {
       session={session}
     />,
   );
-  await expect.poll(() => port.onmidimessage).not.toBeNull();
 }
 
 function fire(type: "keydown" | "keyup", code: string) {
@@ -173,7 +178,7 @@ test("a piano roll taking the keys takes over from it", async () => {
 test("a MIDI take auditions through the armed tracks, not a default Synth", async () => {
   setTrackArmed("saw", true);
   setTrackArmed("empty", true);
-  await renderAudition();
+  setArmedAuditionSource(session, () => 0);
   const take = new MidiTake({
     startQ: 0,
     input: "device",
@@ -190,7 +195,5 @@ test("a MIDI take auditions through the armed tracks, not a default Synth", asyn
   );
   send(NOTE_ON, 60);
   send(NOTE_OFF, 60);
-  // Heard twice here only because the idle router isn't told of a pass in this
-  // isolated render; the wave says which instrument played.
-  expect(new Set(sounding())).toEqual(new Set(["sawtooth"]));
+  expect(sounding()).toEqual(["sawtooth"]);
 });

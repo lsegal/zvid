@@ -203,7 +203,7 @@ test(
     onTestFinished(() => createOscillator.mockRestore());
     await openEditor();
     await chooseMidiTab();
-    await page.getByRole("radio", { name: "Typing keyboard" }).click();
+    await page.getByRole("radio", { name: "Computer keyboard" }).click();
     await armButton().click();
     await recordButton().click();
     await expect.element(stopButton()).toBeVisible();

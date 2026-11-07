@@ -16,6 +16,7 @@ import {
   DEFAULT_INSTRUMENT,
   DEFAULT_SYNTH_PARAMS,
   type MidiNote,
+  type SynthParams,
 } from "../../midi-clip.ts";
 import { defaultMidiTimeline } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
@@ -422,7 +423,7 @@ test("an open roll's keys also sound the other armed tracks", async () => {
       queueMicrotask(() => types.push(oscillator.type));
       return oscillator;
     });
-  const wave = (wave: OscillatorType, spanId: string) =>
+  const wave = (wave: SynthParams["wave"], spanId: string) =>
     createSynthEffect(sourceClipEffectTrackId(spanId), {
       ...DEFAULT_SYNTH_PARAMS,
       wave,
