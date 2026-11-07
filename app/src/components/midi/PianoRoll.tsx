@@ -27,7 +27,6 @@ import {
 import { type MidiInputHub, midiInputHub } from "../../midi-input/input-hub.ts";
 import type { MidiClipModel } from "../../midi-panel-model.ts";
 import {
-  addNote,
   copyNotes,
   deleteNote,
   deleteNotes,
@@ -74,6 +73,7 @@ import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
 import { useComputerKeyboardEntry } from "./use-computer-keyboard-entry";
 import { useMidiNoteCapture } from "./use-midi-note-capture";
+import { usePianoRollStroke } from "./use-piano-roll-stroke";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -155,11 +155,13 @@ function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
 // The selected MIDI clip's piano roll, after its Clip properties: a key for
 // each pitch down the left and the clip's notes across, from its quarter 0,
 // under its own ruler with the loop brace and Start marker (see
-// PianoRollRuler). Clicking empty grid inside the clip's Length adds a note
-// there, dragging a note moves it in time and pitch, Ctrl/Cmd-dragging drops
-// a copy instead, dragging either of its edges resizes it, and right-clicking
-// a note opens its menu of note actions; each edit is one undo step. A moved
-// or copied note trims the notes of its pitch it lands on, the way clips do.
+// PianoRollRuler). Pressing empty grid inside the clip's Length adds a note
+// there and dragging on paints one in each cell crossed, right-clicking or
+// right-dragging erases the notes under the pointer (see
+// use-piano-roll-stroke.ts), dragging a note moves it in time and pitch,
+// Ctrl/Cmd-dragging drops a copy instead, and dragging either of its edges
+// resizes it; each edit is one undo step. A long press or the menu key opens
+// the menu of note actions. A moved or copied note trims the notes of its pitch it lands on, the way clips do.
 // Clicking a note selects it (Shift-click adds to the selection) and Escape
 // clears the selection. The keys act on the selected notes (see
 // piano-roll-actions.ts): the arrows nudge them a snap (Shift for half) or a
@@ -190,6 +192,8 @@ export function PianoRoll({
   const keyMap = useKeyMapControls();
   const midiMap = useContext(MidiMapContext);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
+  // Whether the grid's last press erased, so its contextmenu opens no menu.
+  const erasePress = useRef(false);
   const velocityLane = useVelocityLaneHeight();
   const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
   // The selected notes' keys, for the clip they were selected in.
@@ -202,7 +206,6 @@ export function PianoRoll({
   const select = (keys: Iterable<string>) =>
     setSelection({ spanId, keys: new Set(keys) });
   const { mac } = getShortcutLabels();
-  const shownNotes = drag?.notes ?? notes;
   const viewQ = rollViewQ(notes, timeline);
   const gridWidth = viewQ * PIANO_ROLL_QUARTER_PX;
   const gridHeight = PITCHES.length * PIANO_ROLL_ROW_PX;
@@ -243,6 +246,21 @@ export function PianoRoll({
   const auditionNoteFrom = ({ pitch, expression }: MidiNote) =>
     audition(pitch, expression && expressionSampleAtStart(expression));
 
+  const stroke = usePianoRollStroke({
+    spanId,
+    lengthQ: timeline.length,
+    gridPoint,
+    onAudition: (pitch) => audition(pitch),
+    onPaint: select,
+    onErase: (keys) =>
+      setSelection((current) => ({
+        ...current,
+        keys: new Set([...current.keys].filter((key) => !keys.has(key))),
+      })),
+    onSetNotes,
+  });
+  const shownNotes = drag?.notes ?? stroke.notes ?? notes;
+
   // The clip's notes with the captures not yet back from the session, since
   // a chord's keys come up faster than the roll re-renders.
   const capturedNotes = useRef(notes);
@@ -264,8 +282,10 @@ export function PianoRoll({
         capturedNotes.current.length,
       );
       capturedNotes.current = next;
-      // A note drag's snapshot of the clip would overwrite the new note.
+      // A drag's or a stroke's snapshot of the clip would overwrite the new
+      // note.
       setDrag(null);
+      stroke.cancel();
       onSetNotes(spanId, next, midiHistoryLabels.recordNote);
     },
   });
@@ -308,14 +328,20 @@ export function PianoRoll({
 
   function handleGridPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // Right-clicks, and Ctrl-clicks, which macOS treats as right-clicks,
-    // open the note menu.
-    if (event.button !== 0 || isContextMenuPress(event, mac)) {
+    // erase.
+    const erasing = isContextMenuPress(event, mac);
+    if ((event.button !== 0 && !erasing) || stroke.isBusy(event.pointerId)) {
       return;
     }
+    erasePress.current = erasing;
     event.preventDefault();
     event.stopPropagation();
     // The grid takes the focus so the panel hears Delete and Escape.
     gridRef.current?.focus({ preventScroll: true });
+    if (erasing) {
+      stroke.start(event, "erase", notes);
+      return;
+    }
     const noteElement = (event.target as Element).closest<HTMLElement>(
       "[data-note-index]",
     );
@@ -360,14 +386,11 @@ export function PianoRoll({
       select([]);
       return;
     }
-    audition(point.pitch);
-    const next = addNote(notes, point.pitch, point.startQ);
-    const added = next.find((note) => !notes.includes(note));
-    select(added ? [noteKey(added)] : []);
-    onSetNotes(spanId, next, midiHistoryLabels.addNote);
+    stroke.start(event, "paint", notes);
   }
 
   function handleGridPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    stroke.move(event);
     if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
@@ -506,7 +529,12 @@ export function PianoRoll({
   // The note action keys act on the selected notes, and Escape clears the
   // selection, unless a note's own button handled the key.
   function handlePanelKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.defaultPrevented || drag || isMidiControl(event.target)) {
+    if (
+      event.defaultPrevented ||
+      drag ||
+      stroke.notes ||
+      isMidiControl(event.target)
+    ) {
       return;
     }
     const action = noteActionForKey(event, mac);
@@ -520,14 +548,21 @@ export function PianoRoll({
     }
   }
 
-  // Right-clicking a note outside the selection selects it, then the menu
-  // opens on the selection; right-clicking empty grid keeps the selection.
+  // A right-click's contextmenu, before or after its press ends depending on
+  // the platform, belongs to the erase stroke. Otherwise it's a long press or
+  // the menu key: a note outside the selection becomes the selection, then
+  // the menu opens on it; on empty grid the selection stays.
   function handleGridContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
+    if (erasePress.current) {
+      erasePress.current = false;
+      return;
+    }
     if (drag) {
       return;
     }
+    stroke.cancel();
     const noteElement = (event.target as Element).closest<HTMLElement>(
       "[data-note-index]",
     );
@@ -625,16 +660,25 @@ export function PianoRoll({
             </button>
           ))}
         </div>
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: adding and dragging notes are pointer gestures; each note's button deletes it from the keyboard */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: painting, erasing and dragging notes are pointer gestures; each note's button deletes it from the keyboard */}
         <div
           className={`piano-roll__grid${drag?.edge ? " piano-roll__grid--resizing" : ""}`}
           data-piano-roll-grid
           onContextMenu={handleGridContextMenu}
-          onLostPointerCapture={(event) => endDrag(event, true)}
-          onPointerCancel={(event) => endDrag(event, false)}
+          onLostPointerCapture={(event) => {
+            stroke.end(event, true);
+            endDrag(event, true);
+          }}
+          onPointerCancel={(event) => {
+            stroke.end(event, false);
+            endDrag(event, false);
+          }}
           onPointerDown={handleGridPointerDown}
           onPointerMove={handleGridPointerMove}
-          onPointerUp={(event) => endDrag(event, true)}
+          onPointerUp={(event) => {
+            stroke.end(event, true);
+            endDrag(event, true);
+          }}
           ref={gridRef}
           style={{ width: gridWidth, height: gridHeight }}
           tabIndex={-1}
@@ -675,7 +719,7 @@ export function PianoRoll({
                   width,
                   top: rowOf(note.pitch) * PIANO_ROLL_ROW_PX,
                 }}
-                title={`${pitchName(note.pitch)}: Delete to remove, right-click for actions`}
+                title={`${pitchName(note.pitch)}: Delete or right-click to remove`}
                 type="button"
               >
                 <span
