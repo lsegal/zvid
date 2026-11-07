@@ -16,6 +16,7 @@ import {
   menuItem,
   nextFrames,
   pressMod,
+  rightClick,
   undo,
 } from "../../component-test/input.ts";
 import { sourceClipEffectTrackId } from "../../fx-stack.ts";

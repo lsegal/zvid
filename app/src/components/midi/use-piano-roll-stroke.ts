@@ -53,11 +53,7 @@ export function usePianoRollStroke({
   const [notes, setNotes] = useState<readonly MidiNote[] | null>(null);
 
   // `current` with the stroke's edit at a client point.
-  function strokeAt(
-    stroke: Stroke,
-    current: readonly MidiNote[],
-    at: ClientPoint,
-  ) {
+  function strokeAt(current: readonly MidiNote[], at: ClientPoint) {
     const point = gridPoint(at);
     if (!point) {
       return current;
@@ -111,7 +107,7 @@ export function usePianoRollStroke({
     const steps = Math.ceil(Math.max(Math.abs(deltaX), Math.abs(deltaY)));
     let next = stroke.notes;
     for (let step = 1; step <= steps; step += 1) {
-      next = strokeAt(stroke, next, {
+      next = strokeAt(next, {
         clientX: stroke.x + (deltaX * step) / steps,
         clientY: stroke.y + (deltaY * step) / steps,
       });
