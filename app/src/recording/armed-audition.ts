@@ -1,12 +1,11 @@
 // Keys played on a MIDI device or the typing keyboard sound through every track
 // armed for recording, whatever is selected (#1599), or with none armed, through
-// the selected track (#1618). A track's instruments sit on its MIDI clips'
-// stacks, so it plays the instrument of its MIDI clip at or last before the
-// playhead, or else of its first. A track with none, or with its FX switched
-// off, stays silent, as it would in the mix.
+// the selected track (#1618). A track plays the instrument on its own stack. A
+// track with none, or with its FX switched off, stays silent, as it would in
+// the mix.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { ProjectState } from "../app/types.ts";
-import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
+import { isLayerFxEnabled, sourceTrackEffectTrackId } from "../fx-stack.ts";
 import { type AuditionVoice, auditionNote } from "../midi-audition.ts";
 import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
@@ -34,7 +33,6 @@ export function keyTrackIds(
 export function trackInstruments(
   trackIds: ReadonlySet<string>,
   { sourceTracks, sourceSpans, effects }: ArmedAuditionSession,
-  playheadQ: number,
   exceptSpanId?: string,
 ): MidiInstrument[] {
   const exceptTrackId = sourceSpans.find(
@@ -48,19 +46,11 @@ export function trackInstruments(
     ) {
       return [];
     }
-    const played = sourceSpans
-      .filter((span) => span.sourceTrackId === track.id && span.notes)
-      .flatMap((span) => {
-        const stackId = sourceClipEffectTrackId(span.id);
-        const instrument = auditionInstrumentOf(
-          effects.filter((effect) => effect.trackId === stackId),
-        );
-        return instrument ? [{ startQ: span.startQ, instrument }] : [];
-      })
-      .sort((a, b) => a.startQ - b.startQ);
-    const clip =
-      played.findLast(({ startQ }) => startQ <= playheadQ) ?? played[0];
-    return clip ? [clip.instrument] : [];
+    const stackId = sourceTrackEffectTrackId(track.id);
+    const instrument = auditionInstrumentOf(
+      effects.filter((effect) => effect.trackId === stackId),
+    );
+    return instrument ? [instrument] : [];
   });
 }
 
@@ -97,14 +87,9 @@ let session: ArmedAuditionSession = {
   sourceSpans: [],
   effects: [],
 };
-let playheadQ = () => 0;
 
-export function setArmedAuditionSource(
-  nextSession: ArmedAuditionSession,
-  nextPlayheadQ: () => number,
-) {
+export function setArmedAuditionSource(nextSession: ArmedAuditionSession) {
   session = nextSession;
-  playheadQ = nextPlayheadQ;
 }
 
 /**
@@ -119,8 +104,8 @@ export function auditionTracks(
   exceptSpanId?: string,
 ) {
   return combineVoices(
-    trackInstruments(trackIds, session, playheadQ(), exceptSpanId).map(
-      (instrument) => auditionNote(pitch, instrument, expression, true),
+    trackInstruments(trackIds, session, exceptSpanId).map((instrument) =>
+      auditionNote(pitch, instrument, expression, true),
     ),
   );
 }

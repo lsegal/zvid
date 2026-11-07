@@ -13,7 +13,10 @@ import { isEffectMedia, isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import { readMidiNotes } from "../midi-clip.ts";
 import { readMidiTimeline } from "../midi-clip-timeline.ts";
-import { migrateMidiClipEffects } from "../midi-effects.ts";
+import {
+  migrateMidiClipEffects,
+  migrateMidiTrackEffects,
+} from "../midi-effects.ts";
 import { pruneMidiMappings, readMidiMappings } from "../midi-map.ts";
 import {
   fitSourceSpansToMedia,
@@ -408,7 +411,8 @@ export function sessionToProject(
   // tracks' Synth and Arpeggiator, as part of the load so none of it is a
   // separate undo step. Stacks of clips, source tracks and source clips
   // that could not be loaded are dropped with them.
-  const effects = migrateMidiClipEffects(
+  const effects = migrateMidiTrackEffects(
+    migrateMidiClipEffects(
     migrateDefaultGain(
       migrateClipContentEffects(
         pruneSourceEffects(
@@ -439,6 +443,9 @@ export function sessionToProject(
     session.tracks ?? [],
     sourceSpans,
     session.midiClipEffects,
+    ),
+    sourceSpans,
+    session.midiTrackEffects,
   );
 
   // An old session's main audio becomes a source track of its own, with

@@ -269,7 +269,6 @@ export function TransportBar({
         </button>
         {armedAuditionSession ? (
           <ArmedTrackAudition
-            playheadSignal={playheadSignal}
             selectedTrackId={selectedSourceTrackId}
             session={armedAuditionSession}
           />

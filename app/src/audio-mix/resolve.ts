@@ -14,9 +14,9 @@
 // plays, which it inherits (see composition-source-effects.ts).
 //
 // A source clip with MIDI notes sounds like one with audio: it plays its
-// notes through the MIDI effects on its own stack, its Arpeggiators and
-// then its instrument, a Synth or a Granular (see midi-effects.ts and
-// synth.ts).
+// notes through the MIDI effects on its track's stack, its Arpeggiators and
+// then its instrument, a Synth or a Granular, unless it has an instrument
+// on its own stack (see midi-effects.ts and synth.ts).
 import { quartersToSeconds, secondsToQuarters } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
@@ -36,7 +36,7 @@ import {
   type MidiClipTimeline,
   performMidiNotes,
 } from "../midi-clip-timeline.ts";
-import { midiChainOf } from "../midi-effects.ts";
+import { clipMidiStack, midiChainOf } from "../midi-effects.ts";
 import { applyNoteGenerators } from "../note-generators.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
@@ -300,7 +300,13 @@ export function resolveAudioClips<Effect extends AudioEffect>({
     sourceSpans.flatMap((span) => {
       const chain = bypassed.has(span.sourceTrackId)
         ? undefined
-        : midiChainOf(midiEffects.get(sourceClipEffectTrackId(span.id)) ?? []);
+        : midiChainOf(
+            clipMidiStack(
+              midiEffects.get(sourceClipEffectTrackId(span.id)) ?? [],
+              midiEffects.get(sourceTrackEffectTrackId(span.sourceTrackId)) ??
+                [],
+            ),
+          );
       if (!span.notes?.length || !chain) {
         return [];
       }

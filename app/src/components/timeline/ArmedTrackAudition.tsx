@@ -3,7 +3,6 @@ import type { MidiNote } from "../../midi-clip.ts";
 import { newMidiTimeline } from "../../midi-clip-timeline.ts";
 import { computerKeyboardEntry } from "../../midi-input/computer-keyboard.ts";
 import { midiInputHub } from "../../midi-input/input-hub.ts";
-import type { PlayheadSignal } from "../../playhead-signal.ts";
 import {
   type ArmedAuditionSession,
   auditionTracks,
@@ -32,23 +31,21 @@ const ignoreCapture = (_note: MidiNote) => {};
 // tracks has something to play.
 export function ArmedTrackAudition({
   session,
-  playheadSignal,
   selectedTrackId,
 }: {
   session: ArmedAuditionSession;
-  playheadSignal: PlayheadSignal;
   selectedTrackId?: string;
 }) {
   useEffect(() => {
-    setArmedAuditionSource(session, () => playheadSignal.get());
-  }, [session, playheadSignal]);
+    setArmedAuditionSource(session);
+  }, [session]);
   const trackIds = keyTrackIds(useArmedTrackIds(), selectedTrackId);
   const midiPassActive = useMidiPassActive();
   const rollKeysClaimed = useRollKeysClaimed();
   const enabled =
     !midiPassActive &&
     !rollKeysClaimed &&
-    trackInstruments(trackIds, session, 0).length > 0;
+    trackInstruments(trackIds, session).length > 0;
   const { playKey, releaseKey } = useMidiNoteCapture({
     enabled,
     hub: midiInputHub,
