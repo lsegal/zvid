@@ -188,6 +188,9 @@ export type ProjectSession = {
   // Arpeggiator effects; without it the session is older and its tracks'
   // synths and arpeggiators are moved onto their MIDI clips on open.
   midiClipEffects?: boolean;
+  // Set by sessions whose MIDI effects sit on their source tracks; without
+  // it the session is older and its MIDI clips' are moved there on open.
+  midiTrackEffects?: boolean;
 };
 
 export type ServerMediaRef = {

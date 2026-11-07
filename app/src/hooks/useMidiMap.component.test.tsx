@@ -357,7 +357,7 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     const base = withTestPatternTrack(INITIAL_PROJECT_STATE);
     const effects = addDefaultSynth(
       [...base.effects, createEffect(GLOBAL_EFFECT_TRACK_ID, "Bloom", "bloom")],
-      "bassline",
+      "bass",
       "bass-synth",
     );
     let state: EditorState | undefined;

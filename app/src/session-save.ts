@@ -407,6 +407,8 @@ export function projectToSession(
     // MIDI clips are written with their MIDI effects, so a removed Synth
     // stays removed.
     midiClipEffects: true,
+    // Tracks are written with their MIDI effects.
+    midiTrackEffects: true,
   };
 
   return session;

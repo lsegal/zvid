@@ -16,8 +16,9 @@
 // A 12-bar electro track in D major, 120 BPM, whose every sound is
 // generated: MIDI clips play through a Drum Rack (its banks are
 // synthesized, see scripts/gen-drum-banks.mjs), Synths, an Arpeggiator and a
-// Granular, each with audio effects stacked after it. No clip plays recorded
-// audio. The picture is LottieFiles animations and the zvid logo.
+// Granular, each on its track's stack with audio effects stacked after it. No
+// clip plays recorded audio. The picture is LottieFiles animations and the
+// zvid logo.
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -134,8 +135,33 @@ function remapMedia(value) {
   return value;
 }
 
-// The session as the sample opens it: at the start and with nothing
-// selected. The timeline keeps the zoom it was saved at (90%, #1467).
+// `effects` with each source clip's stack moved to its track (#1626). A track
+// has one instrument chain, so at most one of its clips may have a stack.
+function moveClipEffectsToTracks(effects, clips) {
+  const trackOfStack = new Map(
+    clips.map((clip) => [`source-clip:source-${clip.id}`, clip.trackId]),
+  );
+  const stackOfTrack = new Map();
+  return effects.map((effect) => {
+    if (!effect.trackId.startsWith("source-clip:")) {
+      return effect;
+    }
+    const trackId = trackOfStack.get(effect.trackId);
+    if (!trackId) {
+      throw new Error(`No sample clip for the stack ${effect.trackId}`);
+    }
+    const other = stackOfTrack.get(trackId);
+    if (other && other !== effect.trackId) {
+      throw new Error(`${other} and ${effect.trackId} share a track`);
+    }
+    stackOfTrack.set(trackId, effect.trackId);
+    return { ...effect, trackId: `source-track:${trackId}` };
+  });
+}
+
+// The session as the sample opens it: at the start, with nothing selected, and
+// its sound on its tracks. The timeline keeps the zoom it was saved at (90%,
+// #1467).
 function normalizeSession(session) {
   const strip = (value) => {
     if (Array.isArray(value)) {
@@ -152,8 +178,10 @@ function normalizeSession(session) {
   };
   return {
     ...strip(session),
+    effects: moveClipEffectsToTracks(session.effects, session.clips),
     playPosition: 0,
     playStartPosition: 0,
+    midiTrackEffects: true,
   };
 }
 
