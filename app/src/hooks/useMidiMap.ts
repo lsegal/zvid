@@ -9,6 +9,7 @@ import type {
 import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
 import { keyMapTargetId, pressKeyMapTarget } from "../key-map.ts";
 import { knobParameter, moveEffectParameter } from "../midi-device-targets.ts";
+import { type CcReading, cc14Reader } from "../midi-input/cc14.ts";
 import { ccMove } from "../midi-input/device-controls.ts";
 import {
   type MidiInputHub,
@@ -152,6 +153,10 @@ export function useMidiMap({
     const mpeOwner = {};
     // The keys down that this claimed, with the pads each holds.
     const heldKeys = new Map<string, readonly string[]>();
+    // Each device's 14-bit controls, and the reading of the message in hand:
+    // the hub asks to claim a message before delivering it.
+    const cc14Readers = new Map<string, ReturnType<typeof cc14Reader>>();
+    let reading: CcReading | undefined;
     const { edit: editSettled, flush } = settledEffectEdits((...args) =>
       latestRef.current.editEffects(...args),
     );
@@ -185,7 +190,7 @@ export function useMidiMap({
     };
 
     // The knobs and faders a CC drives, leaving out any that are gone.
-    const knobsOf = ({ channel, controller }: CcMessage) => {
+    const knobsOf = ({ channel, controller }: CcReading) => {
       const { effects: current, midiMappings: mappings } = latestRef.current;
       return midiCcTargets(mappings, channel, controller).flatMap((target) => {
         const effect = current.find((item) => item.id === target.effectId);
@@ -195,7 +200,20 @@ export function useMidiMap({
       });
     };
 
-    const assignCc = (target: MidiKnobTarget, message: CcMessage) => {
+    // Relative encoders send steps, which have no second half to pair.
+    const readCc = (input: MidiInputInfo, message: CcMessage): CcReading => {
+      if (ccMove(input.mapping, message).by !== undefined) {
+        return message;
+      }
+      let read = cc14Readers.get(input.id);
+      if (!read) {
+        read = cc14Reader();
+        cc14Readers.set(input.id, read);
+      }
+      return read(message);
+    };
+
+    const assignCc = (target: MidiKnobTarget, message: CcReading) => {
       const { channel, controller } = message;
       const latest = latestRef.current;
       const existing = findMidiMapping(latest.midiMappings, target);
@@ -215,13 +233,16 @@ export function useMidiMap({
       );
     };
 
-    const moveKnobs = (input: MidiInputInfo, message: CcMessage) => {
+    const moveKnobs = (input: MidiInputInfo, message: CcReading) => {
       const knobs = knobsOf(message);
       const [first] = knobs;
       if (!first) {
         return;
       }
-      const move = ccMove(input.mapping, message);
+      const move =
+        message.to === undefined
+          ? ccMove(input.mapping, message)
+          : { to: message.to };
       editSettled(
         effectHistoryLabels.parameter(
           first.effect.effectName,
@@ -247,10 +268,13 @@ export function useMidiMap({
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
           mpe.receive(message);
+          if (message.type !== "cc") {
+            return false;
+          }
+          reading = readCc(input, message);
           return (
-            message.type === "cc" &&
-            (latestRef.current.selected?.kind === "number" ||
-              knobsOf(message).length > 0)
+            latestRef.current.selected?.kind === "number" ||
+            knobsOf(reading).length > 0
           );
         }
         if (!key.down) {
@@ -266,12 +290,12 @@ export function useMidiMap({
       message(input, message) {
         const key = midiKeyEvent(message, input.mapping);
         if (!key) {
-          if (message.type === "cc") {
+          if (message.type === "cc" && reading) {
             const { active: mapping, selected: target } = latestRef.current;
             if (!mapping) {
-              moveKnobs(input, message);
+              moveKnobs(input, reading);
             } else if (target?.kind === "number") {
-              assignCc(target, message);
+              assignCc(target, reading);
             }
           }
           return;
@@ -330,6 +354,7 @@ export function useMidiMap({
           }
         }
         mpeInputFor(mpeOwner, input.id).releaseAll();
+        cc14Readers.delete(input.id);
       },
     });
     return () => {

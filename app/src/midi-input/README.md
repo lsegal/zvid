@@ -31,6 +31,12 @@ knob or fader in MIDI Map mode stops doing what its role did. Mapped by hand, a 
 works on any device, listed or not, and is read as absolute unless its device's
 entry says `relative`. Faders that send pitch bend can't be mapped by hand.
 
+A control that sends 14-bit CC, an MSB on controller N and an LSB on N + 32 for
+each move, maps by hand as one control on N and moves at full resolution
+(`cc14.ts`). It's recognized by the LSB arriving straight after its MSB, so
+controllers 32 to 63 stay separate controls on devices that use them that way.
+Built-in roles still read these controls as 7-bit.
+
 ## Which encoders were checked
 
 #1630 read the published chart of every device with an encoder, or a knob on one,
