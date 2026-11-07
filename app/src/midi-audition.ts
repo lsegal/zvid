@@ -59,6 +59,11 @@ const auditionChains = new AuditionChains((context) => {
   }
 });
 
+/** Where audition chains load the chain worklet from. */
+export function setAuditionWorkletUrl(url: string) {
+  auditionChains.workletUrl = url;
+}
+
 /** Has the chains of tracks auditioned so far follow an edit to their stacks. */
 export function updateAuditionChains(
   resolve: (spanId: string) => AuditionStack | undefined,

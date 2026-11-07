@@ -96,6 +96,9 @@ export class AuditionChains {
   private readonly wake: (context: AudioContext) => void;
   private context: AudioContext | null = null;
   private worklet: WorkletState = "idle";
+  // The chain worklet's URL (see chain-worklet-url.ts), which only Vite can
+  // resolve, so the app hands it over.
+  workletUrl: string | undefined;
   private output: AudioNode | null = null;
   private readonly chains = new Map<string, TrackChain>();
 
@@ -202,9 +205,10 @@ export class AuditionChains {
   private async load(context: AudioContext) {
     this.worklet = "loading";
     try {
-      // Imported here because only Vite can resolve it (see chain-worklet-url.ts).
-      const { CHAIN_WORKLET_URL } = await import("./chain-worklet-url.ts");
-      await context.audioWorklet.addModule(CHAIN_WORKLET_URL);
+      if (!this.workletUrl) {
+        throw new Error("No chain worklet URL");
+      }
+      await context.audioWorklet.addModule(this.workletUrl);
       this.worklet = "ready";
     } catch (error) {
       console.warn("Auditions play without their effects.", error);
