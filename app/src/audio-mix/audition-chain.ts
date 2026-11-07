@@ -2,9 +2,11 @@
 // per source track, the same DSP the mix runs (see chain.ts), holding the
 // clip's stack, its track's and the Global one, then the mix's limiter, so a
 // key sounds as the track does in playback. Where the mix plays the track through
-// a layer clip, it holds that clip's and its layer's stacks too. A track's chain
-// outlives its notes, so they share its tails and its LFOs carry on from one to
-// the next.
+// a layer clip, it holds that clip's and its layer's stacks too. Where it plays
+// the track through several at once, a note sounds through a chain for each,
+// summed into a chain for each layer, then one for Global, as in the mix. A
+// track's chains outlive its notes, so they share its tails and its LFOs carry on
+// from one to the next.
 //
 // A chain's transport always moves at the audio clock's rate. It starts from
 // the playhead and runs on from there whether or not the session is playing,
@@ -18,7 +20,11 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
-import { type AudioChainSettings, chainTailSeconds } from "./chain.ts";
+import {
+  type AudioChainSettings,
+  chainLatencyFrames,
+  chainTailSeconds,
+} from "./chain.ts";
 import {
   type ChainTransport,
   createChainNode,
@@ -34,12 +40,18 @@ import {
   withLfoTimeOffset,
 } from "./stages.ts";
 
+// A chain a note plays through: `settings` runs on the note itself, or where
+// paths join, on the sum of `inputs`, which the note goes into instead.
+export type AuditionChainGraph = {
+  settings: AudioChainSettings;
+  inputs?: readonly (AuditionChainGraph & { id: string })[];
+};
+
 // What a note auditioned on a source track plays through.
-export type AuditionStack = {
+export type AuditionStack = AuditionChainGraph & {
   trackId: string;
   // The clip the note is on, which a note played into the track has none of.
   spanId?: string;
-  settings: AudioChainSettings;
   tempo: AudioTempo;
   playheadSeconds: number;
 };
@@ -53,6 +65,54 @@ export type AuditionLayerClip = {
   // stacks it inherits run on.
   timeOffsetSeconds: number;
 };
+
+function stackReader(effects: readonly AudioStageEffect[]) {
+  const stackOf = (stackId: string) =>
+    effects.filter(
+      (effect) =>
+        effect.trackId === stackId && isAudioEffectName(effect.effectName),
+    );
+  const stagesOf = (stackId: string, enabled = true) =>
+    stackOf(stackId).map((effect, index) =>
+      audioStageOf(effect, `${stackId}:${index}`, enabled),
+    );
+  const gainIn = (stackIds: readonly string[]) =>
+    stackIds
+      .flatMap(stackOf)
+      .some(
+        (effect) =>
+          effect.enabled !== false && isGainEffectName(effect.effectName),
+      );
+  return { stagesOf, gainIn };
+}
+
+// A layer clip's chain short of its layer's stack: the source stacks it inherits
+// and its own, silent on a layer with its FX off or with no Gain on any of those.
+function layerClipSettings(
+  { stagesOf, gainIn }: ReturnType<typeof stackReader>,
+  trackId: string,
+  spanId: string | undefined,
+  { clipId, laneId, laneFxEnabled, timeOffsetSeconds }: AuditionLayerClip,
+): AudioChainSettings {
+  const sourceStackIds = [
+    sourceTrackEffectTrackId(trackId),
+    ...(spanId === undefined ? [] : [sourceClipEffectTrackId(spanId)]),
+  ];
+  const clipStackId = clipEffectTrackId(clipId);
+  return {
+    stages: [
+      ...sourceStackIds.flatMap((stackId) =>
+        stagesOf(stackId, laneFxEnabled).map((stage) =>
+          withLfoTimeOffset(stage, timeOffsetSeconds),
+        ),
+      ),
+      ...stagesOf(clipStackId, laneFxEnabled),
+    ],
+    inputGain:
+      laneFxEnabled && gainIn([...sourceStackIds, clipStackId, laneId]) ? 1 : 0,
+    delayFrames: 0,
+  };
+}
 
 /**
  * The chain a note on the clip `spanId` of the track `trackId`, or on the track
@@ -72,44 +132,27 @@ export function auditionChainSettings(
   fxEnabled: boolean,
   layerClip?: AuditionLayerClip,
 ): AudioChainSettings {
-  const stackOf = (stackId: string) =>
-    effects.filter(
-      (effect) =>
-        effect.trackId === stackId && isAudioEffectName(effect.effectName),
+  const reader = stackReader(effects);
+  const { stagesOf, gainIn } = reader;
+  if (layerClip) {
+    const { stages, ...rest } = layerClipSettings(
+      reader,
+      trackId,
+      spanId,
+      layerClip,
     );
-  const stagesOf = (stackId: string, enabled = true) =>
-    stackOf(stackId).map((effect, index) =>
-      audioStageOf(effect, `${stackId}:${index}`, enabled),
-    );
+    return {
+      ...rest,
+      stages: [
+        ...stages,
+        ...stagesOf(layerClip.laneId, layerClip.laneFxEnabled),
+        ...stagesOf(GLOBAL_EFFECT_TRACK_ID),
+      ],
+    };
+  }
   const clipStackIds =
     spanId === undefined ? [] : [sourceClipEffectTrackId(spanId)];
   const trackStackId = sourceTrackEffectTrackId(trackId);
-  const gainIn = (stackIds: readonly string[]) =>
-    stackIds
-      .flatMap(stackOf)
-      .some(
-        (effect) =>
-          effect.enabled !== false && isGainEffectName(effect.effectName),
-      );
-  if (layerClip) {
-    const { clipId, laneId, laneFxEnabled, timeOffsetSeconds } = layerClip;
-    const sourceStackIds = [trackStackId, ...clipStackIds];
-    const layerStackIds = [clipEffectTrackId(clipId), laneId];
-    return {
-      stages: [
-        ...sourceStackIds.flatMap((stackId) =>
-          stagesOf(stackId, laneFxEnabled).map((stage) =>
-            withLfoTimeOffset(stage, timeOffsetSeconds),
-          ),
-        ),
-        ...layerStackIds.flatMap((stackId) => stagesOf(stackId, laneFxEnabled)),
-        ...stagesOf(GLOBAL_EFFECT_TRACK_ID),
-      ],
-      inputGain:
-        laneFxEnabled && gainIn([...sourceStackIds, ...layerStackIds]) ? 1 : 0,
-      delayFrames: 0,
-    };
-  }
   const hasGain = gainIn([...clipStackIds, trackStackId]);
   return {
     stages: [
@@ -122,17 +165,112 @@ export function auditionChainSettings(
   };
 }
 
+/**
+ * What a note plays through with `layerClips` playing it: a lone chain, as
+ * auditionChainSettings gives it, or the mix's graph where there are several.
+ */
+export function auditionChainGraph(
+  effects: readonly AudioStageEffect[],
+  trackId: string,
+  spanId: string | undefined,
+  fxEnabled: boolean,
+  layerClips: readonly AuditionLayerClip[],
+): AuditionChainGraph {
+  if (layerClips.length < 2) {
+    return {
+      settings: auditionChainSettings(
+        effects,
+        trackId,
+        spanId,
+        fxEnabled,
+        layerClips[0],
+      ),
+    };
+  }
+  const reader = stackReader(effects);
+  const chainOf = (stages: AudioChainSettings["stages"]) => ({
+    stages,
+    inputGain: 1,
+    delayFrames: 0,
+  });
+  return {
+    settings: chainOf(reader.stagesOf(GLOBAL_EFFECT_TRACK_ID)),
+    inputs: [...new Set(layerClips.map(({ laneId }) => laneId))].map(
+      (laneId) => {
+        const onLane = layerClips.filter((clip) => clip.laneId === laneId);
+        return {
+          id: laneId,
+          settings: chainOf(reader.stagesOf(laneId, onLane[0].laneFxEnabled)),
+          inputs: onLane.map((clip) => ({
+            id: clip.clipId,
+            settings: layerClipSettings(reader, trackId, spanId, clip),
+          })),
+        };
+      },
+    ),
+  };
+}
+
 /** How long a chain with `stack`'s settings sounds on after its last voice. */
-export function auditionTailSeconds({ settings, tempo }: AuditionStack) {
-  return chainTailSeconds(AUDIO_PROCESSORS, settings.stages, tempo);
+export function auditionTailSeconds(stack: AuditionStack) {
+  const tailOf = ({ settings, inputs = [] }: AuditionChainGraph): number =>
+    chainTailSeconds(AUDIO_PROCESSORS, settings.stages, stack.tempo) +
+    Math.max(0, ...inputs.map(tailOf));
+  return tailOf(stack);
+}
+
+// One chain of `graph`: `key` is its path from the root, and `delayFrames` lines
+// up what comes through it with the slowest path, as the mix does.
+type GraphChain = {
+  key: string;
+  parentKey?: string;
+  settings: AudioChainSettings;
+  takesNote: boolean;
+};
+
+export function graphChains(graph: AuditionChainGraph, sampleRate: number) {
+  const chains: (GraphChain & { pathLatency: number })[] = [];
+  const visit = (
+    { settings, inputs = [] }: AuditionChainGraph,
+    key: string,
+    parentKey: string | undefined,
+    pathLatency: number,
+  ) => {
+    const latency =
+      pathLatency +
+      chainLatencyFrames(AUDIO_PROCESSORS, settings.stages, sampleRate);
+    chains.push({
+      key,
+      parentKey,
+      settings,
+      takesNote: !inputs.length,
+      pathLatency: latency,
+    });
+    for (const input of inputs) {
+      visit(input, `${key}/${input.id}`, key, latency);
+    }
+  };
+  visit(graph, "", undefined, 0);
+  const slowest = Math.max(...chains.map((chain) => chain.pathLatency));
+  return chains.map(
+    ({ pathLatency, ...chain }): GraphChain =>
+      chain.takesNote
+        ? {
+            ...chain,
+            settings: { ...chain.settings, delayFrames: slowest - pathLatency },
+          }
+        : chain,
+  );
 }
 
 type TrackChain = {
-  // What voices connect to, from before the chain itself can be made.
+  // What voices connect to, from before the chains themselves can be made.
   input: GainNode;
-  node: AudioWorkletNode | null;
+  // Each of the graph's chains by its key, with what it was last told.
+  nodes: Map<string, { node: AudioWorkletNode; posted: string }>;
   stack: AuditionStack;
-  posted: string;
+  // Which chains the stack's graph has, which `nodes` are made for.
+  shape: string;
   transport: ChainTransport;
 };
 
@@ -175,19 +313,19 @@ export class AuditionChains {
     if (!chain) {
       chain = {
         input: context.createGain(),
-        node: null,
+        nodes: new Map(),
         stack,
-        posted: "",
+        shape: "",
         transport,
       };
       this.chains.set(stack.trackId, chain);
     } else if (chain.stack.playheadSeconds !== stack.playheadSeconds) {
       chain.transport = transport;
-      if (chain.node) {
-        postChainMessage(chain.node, { type: "transport", ...transport });
+      for (const { node } of chain.nodes.values()) {
+        postChainMessage(node, { type: "transport", ...transport });
       }
     }
-    this.configure(chain, stack);
+    this.configure(context, chain, stack);
     this.connect(context, chain);
     return chain.input;
   }
@@ -211,32 +349,58 @@ export class AuditionChains {
   update(
     resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
   ) {
+    const { context } = this;
+    if (!context) {
+      return;
+    }
     for (const [trackId, chain] of this.chains) {
       const stack = resolve(trackId, chain.stack.spanId);
       if (stack) {
-        this.configure(chain, {
+        this.configure(context, chain, {
           ...stack,
           playheadSeconds: chain.stack.playheadSeconds,
         });
+        this.connect(context, chain);
       } else {
-        chain.node?.disconnect();
-        chain.input.disconnect();
+        this.takeApart(chain);
         this.chains.delete(trackId);
       }
     }
   }
 
-  private configure(chain: TrackChain, stack: AuditionStack) {
-    chain.stack = stack;
-    const posted = JSON.stringify([stack.settings, stack.tempo]);
-    if (chain.node && chain.posted !== posted) {
-      postChainMessage(chain.node, {
-        type: "configure",
-        settings: stack.settings,
-        tempo: stack.tempo,
-      });
+  private takeApart(chain: TrackChain) {
+    for (const { node } of chain.nodes.values()) {
+      node.disconnect();
     }
-    chain.posted = posted;
+    chain.nodes.clear();
+    chain.input.disconnect();
+  }
+
+  private configure(
+    context: AudioContext,
+    chain: TrackChain,
+    stack: AuditionStack,
+  ) {
+    chain.stack = stack;
+    const parts = graphChains(stack, context.sampleRate);
+    const shape = parts.map(({ key }) => key).join();
+    if (chain.nodes.size && shape !== chain.shape) {
+      // Paths came or went, so `connect` builds the graph anew.
+      this.takeApart(chain);
+    }
+    chain.shape = shape;
+    for (const { key, settings } of parts) {
+      const part = chain.nodes.get(key);
+      const posted = JSON.stringify([settings, stack.tempo]);
+      if (part && part.posted !== posted) {
+        postChainMessage(part.node, {
+          type: "configure",
+          settings,
+          tempo: stack.tempo,
+        });
+        part.posted = posted;
+      }
+    }
     if (this.worklet === "failed") {
       chain.input.gain.value = this.gainAlone(stack);
     }
@@ -251,13 +415,31 @@ export class AuditionChains {
       // keeps its attack.
       void context.suspend().catch(() => {});
     }
-    if (this.worklet === "ready" && !chain.node) {
-      chain.node = createChainNode(context, {
-        settings: chain.stack.settings,
-        tempo: chain.stack.tempo,
-        transport: chain.transport,
-      });
-      chain.input.connect(chain.node).connect(this.limiter(context));
+    if (this.worklet === "ready" && !chain.nodes.size) {
+      const { tempo } = chain.stack;
+      for (const { key, parentKey, settings, takesNote } of graphChains(
+        chain.stack,
+        context.sampleRate,
+      )) {
+        const node = createChainNode(context, {
+          settings,
+          tempo,
+          transport: chain.transport,
+        });
+        chain.nodes.set(key, {
+          node,
+          posted: JSON.stringify([settings, tempo]),
+        });
+        // Parents come first, so there is one to connect to.
+        node.connect(
+          parentKey === undefined
+            ? this.limiter(context)
+            : (chain.nodes.get(parentKey)?.node as AudioNode),
+        );
+        if (takesNote) {
+          chain.input.connect(node);
+        }
+      }
     }
     if (this.worklet === "failed") {
       chain.input.gain.value = this.gainAlone(chain.stack);
@@ -287,10 +469,13 @@ export class AuditionChains {
   }
 
   // As the preview plays without its worklet: its Gains alone.
-  private gainAlone({ settings }: AuditionStack) {
+  private gainAlone({ settings, inputs }: AuditionChainGraph): number {
     return (
       settings.inputGain *
-      steadyGainAmplitude(AUDIO_PROCESSORS, settings.stages)
+      steadyGainAmplitude(AUDIO_PROCESSORS, settings.stages) *
+      (inputs
+        ? inputs.reduce((sum, input) => sum + this.gainAlone(input), 0)
+        : 1)
     );
   }
 
