@@ -23,6 +23,7 @@ import { copyClipEffects } from "../fx-stack";
 import {
   editTimelineSelection,
   LANE_SELECTION_DRAG_THRESHOLD_PX,
+  type LaneSelectionGesture,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
 } from "../lane-selection-gesture.ts";
@@ -110,10 +111,20 @@ export function useClipDrag({
     clips: ArrangementClip[];
     spans: SourceSpan[] | null;
   } | null>(null);
+  // The lane selection gesture at the pointer's last move, and the drag it
+  // belongs to. The gesture in the drag state lags the same way, so a quick
+  // release would read a drag as a click (#1607).
+  const latestGestureRef = useRef<{
+    drag: DragState;
+    gesture: LaneSelectionGesture;
+  } | null>(null);
 
   useEffect(() => {
     if (latestPreviewRef.current?.drag !== dragState) {
       latestPreviewRef.current = null;
+    }
+    if (latestGestureRef.current?.drag !== dragState) {
+      latestGestureRef.current = null;
     }
     if (!dragState) {
       return;
@@ -186,8 +197,10 @@ export function useClipDrag({
           snapUnit,
           shouldSnap,
         );
+        const latestGesture =
+          latestGestureRef.current?.gesture ?? dragState.gesture;
         const { gesture, selection } = moveLaneSelectionGesture(
-          dragState.gesture,
+          latestGesture,
           event.clientX,
           nextQ,
           minimumWindowQ,
@@ -195,7 +208,8 @@ export function useClipDrag({
         if (!selection) {
           return;
         }
-        if (gesture !== dragState.gesture) {
+        if (gesture !== latestGesture) {
+          latestGestureRef.current = { drag: dragState, gesture };
           setDragState({ ...dragState, gesture });
         }
         setPendingSelection({
@@ -455,7 +469,9 @@ export function useClipDrag({
         laneMarqueeRef.current = false;
         hideMarquee();
       } else if (dragState.kind === "selection") {
-        const release = releaseLaneSelectionGesture(dragState.gesture);
+        const release = releaseLaneSelectionGesture(
+          latestGestureRef.current?.gesture ?? dragState.gesture,
+        );
         if (release.kind === "click") {
           setPendingSelection(null);
           setPlayheadQ(release.playheadQ);
