@@ -20,6 +20,10 @@ import { undo } from "../component-test/input.ts";
 import { createEffect, GLOBAL_EFFECT_TRACK_ID } from "../fx-stack.ts";
 import { knobParameters } from "../midi-device-targets.ts";
 import {
+  COMPUTER_KEYBOARD_STORAGE_KEY,
+  computerKeyboardEntry,
+} from "../midi-input/computer-keyboard.ts";
+import {
   type MidiAccessLike,
   type MidiInputPort,
   midiInputHub,
@@ -136,6 +140,8 @@ beforeEach(() => {
 afterEach(() => {
   midiInputHub.chooseDevice(null);
   midiInputHub.setEnabled(false);
+  computerKeyboardEntry.setEnabled(false);
+  localStorage.removeItem(COMPUTER_KEYBOARD_STORAGE_KEY);
   localStorage.removeItem(MIDI_INPUT_STORAGE_KEY);
   ports.clear();
   access.onstatechange?.();
@@ -278,6 +284,7 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
   test("the Key Map leaves knobs alone", async () => {
     const port = plugIn("Homemade Box");
+    computerKeyboardEntry.setEnabled(true);
     const { delay } = await open(port);
     await page.getByRole("button", { name: /^Key (on|map)$/ }).click();
     await expect
