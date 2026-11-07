@@ -197,6 +197,39 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await vi.waitFor(() => expect(get().project.midiMappings).toBeUndefined());
   });
 
+  test("an encoder mapped by hand on a device the app doesn't know steps instead of slamming (#1644)", async () => {
+    const port = plugIn("Homemade Encoders");
+    const { value, delay } = await open(port);
+    const { min, max } = firstKnob(delay);
+    await toggleButton().click();
+    const { key, label } = await selectKnob(delay);
+    // One detent clockwise: 1 is one step up in two's complement.
+    cc(port, 16, 1);
+    await vi.waitFor(() =>
+      expect(markOf(dialOf(delay.id, label))?.dataset.keyMapKey).toBe("CC 16"),
+    );
+    await toggleButton().click();
+    await vi.waitFor(() => expect(markOf(dialOf(delay.id, label))).toBeNull());
+    const before = value(delay.id, key) as number;
+
+    for (let detent = 0; detent < 8; detent += 1) {
+      cc(port, 16, 1);
+    }
+    await vi.waitFor(() =>
+      expect(value(delay.id, key) as number).toBeGreaterThan(before),
+    );
+    const raised = value(delay.id, key) as number;
+    expect(raised).toBeLessThan(max);
+    // Counter-clockwise, 127 is one step down, not the top of the range.
+    for (let detent = 0; detent < 4; detent += 1) {
+      cc(port, 16, 127);
+    }
+    await vi.waitFor(() =>
+      expect(value(delay.id, key) as number).toBeLessThan(raised),
+    );
+    expect(value(delay.id, key) as number).toBeGreaterThan(min);
+  });
+
   test("a control mapped by hand does that instead of its built-in role", async () => {
     const port = plugIn("Launchkey 49 MK3 MIDI");
     const { get, value, delay, reverb } = await open(port);
@@ -214,7 +247,7 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
 
     await toggleButton().click();
     await selectKnob(reverb);
-    cc(port, 21, 5);
+    cc(port, 21, 50);
     await vi.waitFor(() =>
       expect(get().project.midiMappings?.[0]?.controller).toBe(21),
     );
@@ -231,6 +264,7 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     // The next knob keeps its role.
     const second = knobParameters(delay)[1]?.key as string;
     const secondBefore = value(delay.id, second);
+    cc(port, 22, 100);
     cc(port, 22, 127);
     await vi.waitFor(() =>
       expect(value(delay.id, second)).not.toBe(secondBefore),
@@ -242,6 +276,7 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       .click();
     await vi.waitFor(() => expect(get().project.midiMappings).toBeUndefined());
     const firstBefore = value(delay.id, delayKey);
+    cc(port, 21, 100);
     cc(port, 21, 127);
     await vi.waitFor(() =>
       expect(value(delay.id, delayKey)).not.toBe(firstBefore),

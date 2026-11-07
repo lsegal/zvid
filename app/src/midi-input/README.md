@@ -22,10 +22,20 @@ the same rules:
 - Other numbered faders move the source tracks' volumes in track order: the first
   Gain in the track's own stack, added if it has none.
 
-Encoders are read as absolute unless their entry says `relative`, naming how they
-write their steps: `twos-complement` (1 is one step up, 127 one step down) or
-`sign-magnitude` (65 is one step down).
+An encoder whose entry says `relative` is read as steps from its first message,
+in the format named: `twos-complement` (1 is one step up, 127 one step down) or
+`sign-magnitude` (65 is one step down). Any other CC, on any device, is told
+apart by what it sends (`relative-cc.ts`, #1644): the same small step twice
+running, or a step up next to a step down, is an encoder, read in whichever of
+the two formats its values fall in, and a mid-range value, 0, or a run of values
+with neither is a knob or fader's position. A control's first messages are held,
+moving nothing, until one or the other shows.
 
+<<<<<<< HEAD
+A mapping made by hand always wins. Notes take no role here, and a CC mapped to a
+knob or fader in MIDI Map mode stops doing what its role did. Mapped by hand, a CC
+works on any device, listed or not, and its encoders step as above. Faders that send pitch bend can't be mapped by hand.
+=======
 A mapping made by hand always wins. Notes take no role here, and a CC or pitch
 bend mapped to a knob or fader in MIDI Map mode stops doing what its role did.
 Mapped by hand, a CC works on any device, listed or not, and is read as absolute
@@ -41,6 +51,7 @@ The note a Mackie fader holds while touched (`faderTouchNote`) doesn't count as 
 key for that fader, because a device in Mackie mode that isn't listed plays it as
 one. Moving a wheel on purpose with no key down does map it: nothing tells it from
 a fader then, and the badge shows what happened.
+>>>>>>> origin/main
 
 A control that sends 14-bit CC, an MSB on controller N and an LSB on N + 32 for
 each move, maps by hand as one control on N and moves at full resolution
@@ -65,6 +76,13 @@ Relative:
 | Akai APC40, APC40 mkII | Cue level, and the mkII's tempo knob | Two's complement | Akai's protocol |
 | Akai APC Key 25 mkII | Knobs | Two's complement, assumed from the APC40 | Akai's protocol says only relative |
 | Keith McMillen QuNeo | Rotary direction | Two's complement | Its manual |
+
+Read as positions, an encoder's 1 and 127 slam its target between the ends of
+its range (#1644), which is why unlisted controls are told apart by what they
+send. A Push's built-in roles only work on a port recognized as a Push. Its ports go by different names by
+platform, which Ableton gives as `Ableton Push (Port 2)` on Windows and
+`Ableton Push (User Port)` on macOS, with no generation, so a bare `Ableton Push`
+is read as the 1st generation, whose encoders send the same messages.
 
 Absolute, or relative only when set so, in the charts or manuals that cover them:
 Behringer BCR2000 and BCF2000; Arturia MiniLab and MiniLab mkII,

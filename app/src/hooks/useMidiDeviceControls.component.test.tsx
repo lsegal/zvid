@@ -126,7 +126,7 @@ describe("built-in MIDI device controls", {
     const { parameterValue, delay } = await open();
     const [first] = knobParameters(delay);
     assert(first);
-    cc(FIRST_KNOB, 127);
+    cc(FIRST_KNOB, 100);
     await settle();
     expect(parameterValue(delay.id, first.key)).toBe(first.numericValue);
 
@@ -141,6 +141,22 @@ describe("built-in MIDI device controls", {
     );
   });
 
+  test("a knob sending relative steps steps its parameter (#1644)", async () => {
+    const { parameterValue, delay } = await open();
+    const [first] = knobParameters(delay);
+    assert(first);
+    await select(delay.id);
+    for (let detent = 0; detent < 8; detent += 1) {
+      cc(FIRST_KNOB, 127);
+    }
+    await vi.waitFor(() =>
+      expect(parameterValue(delay.id, first.key)).toBeLessThan(
+        first.numericValue as number,
+      ),
+    );
+    expect(parameterValue(delay.id, first.key)).toBeGreaterThan(first.min);
+  });
+
   test("selecting another effect retargets the knobs", async () => {
     const { parameterValue, delay, reverb } = await open();
     const [delayKnob] = knobParameters(delay);
@@ -148,6 +164,7 @@ describe("built-in MIDI device controls", {
     assert(delayKnob && reverbKnob);
     await select(delay.id);
     await select(reverb.id);
+    cc(FIRST_KNOB, 100);
     cc(FIRST_KNOB, 127);
     await vi.waitFor(() =>
       expect(parameterValue(reverb.id, reverbKnob.key)).toBe(reverbKnob.max),
@@ -188,6 +205,7 @@ describe("built-in MIDI device controls", {
     const { get } = await open();
     const [track] = get().project.sourceTracks;
     assert(track);
+    cc(FIRST_FADER, 100);
     cc(FIRST_FADER, 127);
     const gainOf = () =>
       get().project.effects.find(

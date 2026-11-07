@@ -14551,6 +14551,7 @@
     "manufacturer": "Ableton",
     "model": "Push (1st gen)",
     "portNames": [
+      "ableton push",
       "ableton push user port",
       "ableton push live port",
       "ableton push 1"
@@ -14646,7 +14647,9 @@
     "manufacturer": "Ableton",
     "model": "Push 2",
     "portNames": [
-      "ableton push 2"
+      "ableton push 2",
+      "push 2",
+      "push2"
     ],
     "source": {
       "url": "https://raw.githubusercontent.com/Ableton/push-interface/main/doc/Push2-map.json",
@@ -15324,7 +15327,8 @@
     "model": "Push 3",
     "portNames": [
       "ableton push 3",
-      "push 3"
+      "push 3",
+      "push3"
     ],
     "source": {
       "url": "https://www.ableton.com/en/push/manual/",

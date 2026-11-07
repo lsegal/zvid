@@ -15,6 +15,7 @@ import {
   type MidiRelativeFormat,
 } from "./device-mappings.ts";
 import type { MidiMessage } from "./messages.ts";
+import { relativeCcReader } from "./relative-cc.ts";
 
 export type DeviceControlRole =
   | { kind: "fx-knob"; index: number }
@@ -165,16 +166,48 @@ export function pitchBendMove({
   return { to: value / 16383 };
 }
 
-/** What `message` from a device mapped by `mapping` does, if anything. */
+/** Whether a CC is relative as `mapping` describes its device. */
+export function isRelativeCc(
+  mapping: MidiDeviceMapping | undefined,
+  { channel, controller }: Extract<MidiMessage, { type: "cc" }>,
+) {
+  return Boolean(
+    mapping && relativeCcsOf(mapping).has(messageId("cc", channel, controller)),
+  );
+}
+
+/**
+ * Reads one device's CCs in the order it sends them: as `mapping` says, and the
+ * rest as `relative-cc.ts` tells them apart, which holds a control's first
+ * messages, moving nothing, until it knows (#1644).
+ */
+export function ccMoveReader() {
+  const read = relativeCcReader();
+  return (
+    mapping: MidiDeviceMapping | undefined,
+    message: Extract<MidiMessage, { type: "cc" }>,
+  ): DeviceControlMove | undefined =>
+    isRelativeCc(mapping, message) ? ccMove(mapping, message) : read(message);
+}
+
+/**
+ * What `message` from a device mapped by `mapping` does, if anything. `readCc`
+ * gives a CC's move, or nothing while it holds the message.
+ */
 export function deviceControlAction(
   mapping: MidiDeviceMapping,
   message: MidiMessage,
+  readCc: (
+    mapping: MidiDeviceMapping,
+    message: Extract<MidiMessage, { type: "cc" }>,
+  ) => DeviceControlMove | undefined = ccMove,
 ): { role: DeviceControlRole; move: DeviceControlMove } | undefined {
   if (message.type === "cc") {
     const entry = rolesOf(mapping).get(
       messageId("cc", message.channel, message.controller),
     );
-    return entry && { role: entry.role, move: ccMove(mapping, message) };
+    const move = entry && readCc(mapping, message);
+    return entry && move && { role: entry.role, move };
   }
   if (message.type === "pitchbend") {
     const entry = rolesOf(mapping).get(messageId("pitchbend", message.channel));
