@@ -32,6 +32,16 @@ export const MIDI_CONTROL_TYPES = [
 
 export type MidiControlType = (typeof MIDI_CONTROL_TYPES)[number];
 
+// How a relative encoder writes how far it turned, in seven bits: 1 is one
+// step up in both, and one step down is 127 in two's complement and 65 in sign
+// and magnitude, which Mackie Control style encoders use.
+export const MIDI_RELATIVE_FORMATS = [
+  "twos-complement",
+  "sign-magnitude",
+] as const;
+
+export type MidiRelativeFormat = (typeof MIDI_RELATIVE_FORMATS)[number];
+
 /**
  * A control, or with `count` a run of them: its message's note or CC
  * `number` rising by one per control, and `{n}` in its name counting from 1.
@@ -45,7 +55,7 @@ export type MidiControlEntry = {
   number?: number;
   count?: number;
   // An encoder sending how far it turned, not where it is.
-  relative?: true;
+  relative?: MidiRelativeFormat;
 };
 
 export type MidiControl = Omit<MidiControlEntry, "count">;
@@ -200,6 +210,9 @@ export function mappingProblems(mapping: MidiDeviceMapping): string[] {
     }
     if (entry.relative && entry.type !== "cc") {
       problem(`${entry.name}: only a cc control can be relative`);
+    }
+    if (entry.relative && !MIDI_RELATIVE_FORMATS.includes(entry.relative)) {
+      problem(`${entry.name}: unknown relative format ${entry.relative}`);
     }
     const numbered = entry.type === "note" || entry.type === "cc";
     if (numbered !== (entry.number !== undefined)) {

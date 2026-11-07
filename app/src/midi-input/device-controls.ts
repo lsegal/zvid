@@ -11,6 +11,7 @@ import {
   expandControls,
   type MidiControl,
   type MidiDeviceMapping,
+  type MidiRelativeFormat,
 } from "./device-mappings.ts";
 import type { MidiMessage } from "./messages.ts";
 
@@ -111,10 +112,14 @@ function rolesOf(mapping: MidiDeviceMapping) {
   return roles;
 }
 
-// A relative encoder sends how far it turned, as a two's complement number of
-// seven bits: 1 is one step up, 127 one step down.
-function relativeMove(value: number): DeviceControlMove {
-  return { by: (value < 64 ? value : value - 128) / 127 };
+// A relative encoder sends how far it turned: below 64 that many steps up, in
+// either format, and otherwise steps down as `format` writes them.
+function relativeMove(
+  format: MidiRelativeFormat,
+  value: number,
+): DeviceControlMove {
+  const down = format === "sign-magnitude" ? 64 - value : value - 128;
+  return { by: (value < 64 ? value : down) / 127 };
 }
 
 /** What `message` from a device mapped by `mapping` does, if anything. */
@@ -130,7 +135,7 @@ export function deviceControlAction(
       entry && {
         role: entry.role,
         move: entry.control.relative
-          ? relativeMove(message.value)
+          ? relativeMove(entry.control.relative, message.value)
           : { to: message.value / 127 },
       }
     );
