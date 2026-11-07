@@ -34,9 +34,7 @@ import type { MarqueeSelection } from "./useMarqueeSelection.ts";
 export type ClipDragInputs = {
   dragState: DragState | null;
   setDragState: Dispatch<SetStateAction<DragState | null>>;
-  dragPreviewClips: ArrangementClip[] | null;
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
-  dragPreviewSourceSpans: SourceSpan[] | null;
   setDragPreviewSourceSpans: Dispatch<SetStateAction<SourceSpan[] | null>>;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
@@ -72,9 +70,7 @@ export type ClipDragInputs = {
 export function useClipDrag({
   dragState,
   setDragState,
-  dragPreviewClips,
   setDragPreviewClips,
-  dragPreviewSourceSpans,
   setDragPreviewSourceSpans,
   setPendingSelection,
   setSelectedClipId,
@@ -105,11 +101,35 @@ export function useClipDrag({
   const { show: showMarquee, hide: hideMarquee } = marquee;
   // Whether the lane selection drag left its layer and draws a marquee.
   const laneMarqueeRef = useRef(false);
+  // The preview at the pointer's last move, and the drag it belongs to. The
+  // release reads this rather than the preview state, which lags until React
+  // renders the move: a quick release would otherwise land short of the
+  // pointer, or read as a click (#1605).
+  const latestPreviewRef = useRef<{
+    drag: DragState;
+    clips: ArrangementClip[];
+    spans: SourceSpan[] | null;
+  } | null>(null);
 
   useEffect(() => {
+    if (latestPreviewRef.current?.drag !== dragState) {
+      latestPreviewRef.current = null;
+    }
     if (!dragState) {
       return;
     }
+
+    const showPreview = (
+      nextClips: ArrangementClip[] | null,
+      spans: SourceSpan[] | null = null,
+    ) => {
+      latestPreviewRef.current = nextClips && {
+        drag: dragState,
+        clips: nextClips,
+        spans,
+      };
+      setDragPreviewClips(nextClips);
+    };
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== dragState.pointerId) {
@@ -287,7 +307,17 @@ export function useClipDrag({
             laneIds.indexOf(dragState.originLaneId);
           const moved =
             laneShift !== 0 || Math.abs(deltaQ) > TIMELINE_DRAG_EPSILON;
-          setDragPreviewClips(
+          // Selected source clips take the same time offset, clamped on
+          // their own, and stay on their source tracks (#1483).
+          const movedSpans =
+            moved && dragState.spanGroup
+              ? moveSourceSpanGroup(
+                  sourceSpans,
+                  new Set(dragState.spanGroup),
+                  { deltaQ, trackShift: 0, trackIds: [], bpm },
+                )
+              : null;
+          showPreview(
             moved
               ? moveClipGroup(clips, groupMembers(dragState), {
                   deltaQ,
@@ -299,19 +329,10 @@ export function useClipDrag({
                   duplicate: dragState.duplicateOnDrag,
                 })
               : null,
+            movedSpans,
           );
-          // Selected source clips take the same time offset, clamped on
-          // their own, and stay on their source tracks (#1483).
           if (dragState.spanGroup) {
-            setDragPreviewSourceSpans(
-              moved
-                ? moveSourceSpanGroup(
-                    sourceSpans,
-                    new Set(dragState.spanGroup),
-                    { deltaQ, trackShift: 0, trackIds: [], bpm },
-                  )
-                : null,
-            );
+            setDragPreviewSourceSpans(movedSpans);
           }
           return;
         }
@@ -322,7 +343,7 @@ export function useClipDrag({
             Math.abs(nextStartQ - dragState.originStartQ) <=
               TIMELINE_DRAG_EPSILON
           ) {
-            setDragPreviewClips(null);
+            showPreview(null);
             return;
           }
 
@@ -333,7 +354,7 @@ export function useClipDrag({
             return;
           }
 
-          setDragPreviewClips(
+          showPreview(
             resolveClipOverlapPreview(
               [
                 ...clips,
@@ -354,7 +375,7 @@ export function useClipDrag({
           return;
         }
 
-        setDragPreviewClips(
+        showPreview(
           resolveClipOverlapPreview(
             clips,
             dragState.clipId,
@@ -385,7 +406,7 @@ export function useClipDrag({
         );
         const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ);
 
-        setDragPreviewClips(
+        showPreview(
           resolveClipOverlapPreview(
             clips,
             dragState.clipId,
@@ -406,7 +427,7 @@ export function useClipDrag({
         nextEndQ - dragState.originStartQ,
       );
 
-      setDragPreviewClips(
+      showPreview(
         resolveClipOverlapPreview(
           clips,
           dragState.clipId,
@@ -421,6 +442,9 @@ export function useClipDrag({
       if (event.pointerId !== dragState.pointerId) {
         return;
       }
+
+      const preview = latestPreviewRef.current;
+      const dragPreviewClips = preview?.clips ?? null;
 
       // A drag released off its layer keeps what its marquee selected.
       // Otherwise a press released before it became a drag is a click: it
@@ -457,7 +481,7 @@ export function useClipDrag({
               : dragState.kind === "resize-start"
                 ? "Trim clip start"
                 : "Trim clip end";
-        const movedSpans = dragPreviewSourceSpans;
+        const movedSpans = preview?.spans;
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
             // Moved source clips change only what the other clips'
@@ -566,7 +590,7 @@ export function useClipDrag({
         dragState.kind === "move" &&
         dragState.duplicateOnDrag &&
         !dragState.group &&
-        !dragPreviewClips
+        !latestPreviewRef.current
       ) {
         setSelectedClipId(dragState.sourceClipId);
       }
@@ -593,8 +617,6 @@ export function useClipDrag({
     bpm,
     clips,
     commitProjectChange,
-    dragPreviewClips,
-    dragPreviewSourceSpans,
     dragState,
     jumpToClipStart,
     minimumWindowQ,
