@@ -224,6 +224,48 @@ test(
 );
 
 test(
+  "with no track armed, keys sound the selected track's Synth",
+  async () => {
+    const createOscillator = vi.spyOn(
+      AudioContext.prototype,
+      "createOscillator",
+    );
+    onTestFinished(() => createOscillator.mockRestore());
+    await openEditor();
+    await chooseMidiTab();
+    await page.getByRole("radio", { name: "Computer keyboard" }).click();
+    await armButton().click();
+    await recordButton().click();
+    await expect.element(stopButton()).toBeVisible();
+    await userEvent.keyboard("{a>}");
+    await expect.poll(() => queryAll(LIVE_NOTES).length).toBe(1);
+    await userEvent.keyboard("{/a}");
+    await stopButton().click();
+    await expect.poll(() => queryAll(CLIP_NOTES).length).toBe(1);
+    await page
+      .getByRole("button", { name: /^Disarm /i })
+      .first()
+      .click();
+    createOscillator.mockClear();
+
+    await userEvent.keyboard("{a>}");
+    await userEvent.keyboard("{/a}");
+    expect(createOscillator).not.toHaveBeenCalled();
+
+    query("[data-source-track-label-id]").click();
+    await expect
+      .poll(async () => {
+        await userEvent.keyboard("{a>}");
+        await userEvent.keyboard("{/a}");
+        return createOscillator.mock.calls.length;
+      })
+      .toBeGreaterThan(0);
+    expect(queryAll(CLIP_NOTES)).toHaveLength(1);
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   "stopping with nothing played leaves no clip",
   async () => {
     await openEditor();

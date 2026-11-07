@@ -218,11 +218,13 @@ test("arming a track takes the keys off the selected track, and disarming hands 
 
   oscillators = [];
   setTrackArmed("saw", false);
-  await expect.poll(() => {
-    send(NOTE_ON, 60);
-    send(NOTE_OFF, 60);
-    return sounding().at(-1);
-  }).toBe("square");
+  await expect
+    .poll(() => {
+      send(NOTE_ON, 60);
+      send(NOTE_OFF, 60);
+      return sounding().at(-1);
+    })
+    .toBe("square");
   expect(sounding()).not.toContain("sawtooth");
 });
 
