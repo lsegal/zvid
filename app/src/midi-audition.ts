@@ -237,11 +237,7 @@ function auditionSynth(
   pressure.gain.value = expressionGain(expression);
   const gain = context.createGain();
   gain.gain.value = 0;
-  oscillator
-    .connect(filter)
-    .connect(gain)
-    .connect(pressure)
-    .connect(output);
+  oscillator.connect(filter).connect(gain).connect(pressure).connect(output);
   oscillator.onended = () => {
     oscillator.disconnect();
     filter.disconnect();

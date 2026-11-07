@@ -96,7 +96,13 @@ export function trackInstruments(
 /** What a note on the clip `spanId` plays through, at `playheadQ`. */
 export function auditionStackOf(
   spanId: string,
-  { sourceTracks, sourceSpans, effects, bpm, signatureId }: ArmedAuditionSession,
+  {
+    sourceTracks,
+    sourceSpans,
+    effects,
+    bpm,
+    signatureId,
+  }: ArmedAuditionSession,
   playheadQ: number,
 ): AuditionStack | undefined {
   const trackId = sourceSpans.find((span) => span.id === spanId)?.sourceTrackId;
