@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
+import {
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../fx/stack/clip-stacks.ts";
 import { createEffect } from "../fx/stack/ops.ts";
 import {
   createDefaultModulation,
@@ -402,6 +405,46 @@ describe("a modulated MIDI clip in the mix", () => {
         },
         60,
       ),
+    );
+  });
+});
+
+describe("midiReactiveOnsets", () => {
+  const TRACK_STACK = sourceTrackEffectTrackId("t");
+  const span = (id: string, startQ: number) =>
+    ({
+      id,
+      sourceTrackId: "t",
+      startQ,
+      trimStartSeconds: 0,
+      durationSeconds: 1,
+      notes: [note(0, 1)],
+    }) as never;
+  const synth = (mode: "transient" | "lfo") => ({
+    ...createSynthEffect(TRACK_STACK, undefined, "synth"),
+    modulation: {
+      ...(createDefaultModulation("Synth") as EffectModulation),
+      enabled: true,
+      mode,
+    },
+  });
+
+  it("gathers a track's Synth's hits from every clip it plays, in order", () => {
+    const onsets = midiReactiveOnsets(
+      [span("b", 4), span("a", 0)],
+      [synth("transient")],
+      60,
+    );
+    assert.deepEqual(onsets.get("synth"), [
+      { time: 0, strength: 1 },
+      { time: 4, strength: 1 },
+    ]);
+  });
+
+  it("has none for an LFO", () => {
+    assert.equal(
+      midiReactiveOnsets([span("a", 0)], [synth("lfo")], 60).size,
+      0,
     );
   });
 });
