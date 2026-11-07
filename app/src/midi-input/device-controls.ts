@@ -125,7 +125,7 @@ function relativeMove(
 
 const relativeByMapping = new WeakMap<
   MidiDeviceMapping,
-  Map<string, NonNullable<MidiControl["relative"]>>
+  Map<string, MidiRelativeFormat>
 >();
 
 function relativeCcsOf(mapping: MidiDeviceMapping) {
