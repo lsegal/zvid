@@ -59,6 +59,14 @@ export function sortNotes(notes: readonly MidiNote[]) {
   );
 }
 
+// Whether `note` overlaps quarters `startQ` to `endQ`, more than touching.
+function overlapsSpan(note: MidiNote, startQ: number, endQ: number) {
+  return (
+    Math.min(note.start + note.length, endQ) - Math.max(note.start, startQ) >
+    1e-9
+  );
+}
+
 /** `notes` with a new note of `pitch` at `startQ`, kept in start order. */
 export function addNote(
   notes: readonly MidiNote[],
@@ -78,27 +86,32 @@ export function addNote(
 
 /**
  * `notes` with a stroke's new note in the grid cell at `pitch` and `startQ`,
- * or `notes` itself when the cell is off the grid or a note of that pitch is
- * already in it.
+ * replacing any notes of that pitch from `base`, the clip before the stroke,
+ * that reach into the cell. `notes` itself when the cell is off the grid or
+ * the stroke already painted it.
  */
 export function paintNote(
   notes: readonly MidiNote[],
   pitch: number,
   startQ: number,
+  base: readonly MidiNote[],
 ): readonly MidiNote[] {
   const start = snapQ(startQ);
-  const occupied = notes.some(
+  const under = notes.filter(
     (note) =>
       note.pitch === pitch &&
-      note.start < start + PIANO_ROLL_SNAP_Q &&
-      note.start + note.length > start,
+      overlapsSpan(note, start, start + PIANO_ROLL_SNAP_Q),
   );
-  return occupied ||
+  return under.some((note) => !base.includes(note)) ||
     start < 0 ||
     pitch < PIANO_ROLL_LOW_PITCH ||
     pitch > PIANO_ROLL_HIGH_PITCH
     ? notes
-    : addNote(notes, pitch, start);
+    : addNote(
+        notes.filter((note) => !under.includes(note)),
+        pitch,
+        start,
+      );
 }
 
 /**
@@ -167,6 +180,33 @@ export function resizeNote(
     );
     return withNoteStartMoved({ ...note, ...from }, start - from.start);
   });
+}
+
+/**
+ * `notes` in start order after the note at `index` was resized from `from`,
+ * without the notes of its pitch under the span it grew over. A note it
+ * only touches, or overlapped before and didn't grow over, stays.
+ */
+export function resizeOverNotes(
+  notes: readonly MidiNote[],
+  index: number,
+  from: MidiNote,
+): MidiNote[] {
+  const resized = notes[index];
+  if (!resized) {
+    return sortNotes(notes);
+  }
+  const under = (note: MidiNote) =>
+    note.pitch === resized.pitch &&
+    (overlapsSpan(note, resized.start, from.start) ||
+      overlapsSpan(
+        note,
+        from.start + from.length,
+        resized.start + resized.length,
+      ));
+  return sortNotes(
+    notes.filter((note, noteIndex) => noteIndex === index || !under(note)),
+  );
 }
 
 /** `notes` without the note at `index`. */

@@ -5,7 +5,7 @@ import {
 } from "react";
 import type { MidiNote } from "../../midi-clip.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
-import { addNote, noteKey, paintNote } from "../../midi-piano-roll.ts";
+import { noteKey, paintNote } from "../../midi-piano-roll.ts";
 import type { SetMidiClipNotes } from "./PianoRoll";
 
 type Stroke = {
@@ -38,8 +38,8 @@ type PianoRollStrokeOptions = {
 };
 
 // The piano roll's paint strokes: from a press, every grid cell the pointer
-// crosses gets a note. The whole stroke is one undo step when it ends. The
-// stroke lives in a ref as well as state, since pointer moves can outrun the
+// crosses gets a note, replacing the notes of its pitch under it. The whole
+// stroke is one undo step when it ends. The stroke lives in a ref as well as state, since pointer moves can outrun the
 // roll's renders.
 export function usePianoRollStroke({
   spanId,
@@ -53,13 +53,17 @@ export function usePianoRollStroke({
   const [notes, setNotes] = useState<readonly MidiNote[] | null>(null);
 
   // `current` with the stroke's edit at a client point.
-  function strokeAt(current: readonly MidiNote[], at: ClientPoint) {
+  function strokeAt(
+    current: readonly MidiNote[],
+    base: readonly MidiNote[],
+    at: ClientPoint,
+  ) {
     const point = gridPoint(at);
     if (!point) {
       return current;
     }
     return point.startQ < lengthQ
-      ? paintNote(current, point.pitch, point.startQ)
+      ? paintNote(current, point.pitch, point.startQ, base)
       : current;
   }
 
@@ -84,8 +88,7 @@ export function usePianoRollStroke({
     };
     const point = gridPoint(event);
     if (point) {
-      // The press lands on no note, even in a cell another note reaches into.
-      stroke.notes = addNote(base, point.pitch, point.startQ);
+      stroke.notes = paintNote(base, point.pitch, point.startQ, base);
       stroke.pitch = point.pitch;
       onAudition(point.pitch);
       onPaint(paintedKeys(stroke));
@@ -107,7 +110,7 @@ export function usePianoRollStroke({
     const steps = Math.ceil(Math.max(Math.abs(deltaX), Math.abs(deltaY)));
     let next = stroke.notes;
     for (let step = 1; step <= steps; step += 1) {
-      next = strokeAt(next, {
+      next = strokeAt(next, stroke.base, {
         clientX: stroke.x + (deltaX * step) / steps,
         clientY: stroke.y + (deltaY * step) / steps,
       });
@@ -138,7 +141,8 @@ export function usePianoRollStroke({
       return;
     }
     cancel();
-    const count = Math.abs(stroke.notes.length - stroke.base.length);
+    // Not the change in length: a painted note can replace the note under it.
+    const count = paintedKeys(stroke).length;
     if (!commit || !count) {
       return;
     }
