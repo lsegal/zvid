@@ -22,10 +22,39 @@ the same rules:
 - Other numbered faders move the source tracks' volumes in track order: the first
   Gain in the track's own stack, added if it has none.
 
-Encoders are read as absolute unless their entry says `relative`, which only the
-Push family's does so far: its Ableton-documented encoders send steps, not places.
-MIDI Map mappings are of notes, which take no role here, so one made by hand always
+Encoders are read as absolute unless their entry says `relative`, naming how they
+write their steps: `twos-complement` (1 is one step up, 127 one step down) or
+`sign-magnitude` (65 is one step down). MIDI Map mappings are of notes, which take no role here, so one made by hand always
 wins. Controls that send CC can't be mapped by hand yet.
+
+## Which encoders were checked
+
+#1630 read the published chart of every device with an encoder, or a knob on one,
+for what it sends at factory defaults. None was tried on hardware.
+
+Relative:
+
+| Device | Encoders | Format | From |
+| --- | --- | --- | --- |
+| Behringer X-Touch, X-Touch One | Encoders, jog wheel | Sign and magnitude | A third party's Mackie Control map, for their factory mode |
+| PreSonus FaderPort (2018) | Session Navigator | Sign and magnitude | Its manual |
+| Ableton Push 2 | All | Two's complement | Ableton's MIDI interface document |
+| Ableton Push 1, Push 3 | All | Two's complement | Assumed from Push 2: no chart |
+| Akai Fire | All | Two's complement | SEGGER's decoding of the device |
+| Akai APC40, APC40 mkII | Cue level, and the mkII's tempo knob | Two's complement | Akai's protocol |
+| Akai APC Key 25 mkII | Knobs | Two's complement, assumed from the APC40 | Akai's protocol says only relative |
+| Keith McMillen QuNeo | Rotary direction | Two's complement | Its manual |
+
+Absolute, or relative only when set so, in the charts or manuals that cover them:
+Behringer BCR2000 and BCF2000; Arturia MiniLab and MiniLab mkII,
+BeatStep, BeatStep Pro, KeyLab Essential and KeyLab; Nektar Panorama T4 and T6;
+Novation Launchkey MK4; M-Audio Oxygen Pro and Hammer 88 Pro; Korg
+nanoKONTROL Studio.
+
+Not stated anywhere found, so read as absolute: Behringer X-Touch Mini, whose chart
+gives only its numbers; Arturia MiniLab 3 and KeyStep Pro; Native Instruments
+Maschine and Komplete Kontrol; and Novation SL MkIII, whose chart covers only its
+InControl mode, where the knobs send two's complement on channel 16.
 
 ## How far to trust the data
 
