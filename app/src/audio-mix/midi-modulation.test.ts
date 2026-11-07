@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createSynthEffect } from "../midi-effects.ts";
 import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { createEffect } from "../fx/stack/ops.ts";
 import {
@@ -14,7 +13,7 @@ import {
   DEFAULT_SYNTH_PARAMS,
   type MidiNote,
 } from "../midi-clip.ts";
-import { midiChainOf } from "../midi-effects.ts";
+import { createSynthEffect, midiChainOf } from "../midi-effects.ts";
 import { arpeggiate, DEFAULT_ARPEGGIATOR } from "../note-generators.ts";
 import { granularGrains } from "./granular.ts";
 import {
@@ -281,9 +280,7 @@ describe("granularGrains with Modulation", () => {
   it("spaces grains as Density moves", () => {
     const grains = grainsFor(lfo("Density", 1, 100, 2));
     const gap = (seconds: number) => {
-      const index = grains.findIndex(
-        (grain) => grain.startSeconds >= seconds,
-      );
+      const index = grains.findIndex((grain) => grain.startSeconds >= seconds);
       return grains[index + 1].startSeconds - grains[index].startSeconds;
     };
     assert.notEqual(gap(0.25).toFixed(4), gap(0.75).toFixed(4));
@@ -408,5 +405,3 @@ describe("a modulated MIDI clip in the mix", () => {
     );
   });
 });
-
-

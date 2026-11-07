@@ -9,13 +9,13 @@ import type { FxPanelResize } from "../hooks/useFxPanelResize.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
 import { InheritedSourceFx } from "./fx/InheritedSourceFx";
-import { FxMidiOnsetsContext } from "./fx/modulation-clock";
 import {
   INACTIVE_KEY_MAP,
   KeyMapContext,
   type KeyMapControls,
   MidiMapContext,
 } from "./fx/key-map-context";
+import { FxMidiOnsetsContext } from "./fx/modulation-clock";
 import { FxDeviceMaxHeightContext } from "./fx/use-device-fit";
 import { MidiDevices } from "./midi/MidiDevices";
 import { SourceClipProperties } from "./SourceClipProperties";

@@ -150,7 +150,10 @@ export class AuditionChains {
    * The session second `contextTime` plays at on `stack`'s chain, the clock its
    * LFOs run on, which goes on from the playhead whether or not it moves.
    */
-  timelineSeconds({ trackId, playheadSeconds }: AuditionStack, contextTime: number) {
+  timelineSeconds(
+    { trackId, playheadSeconds }: AuditionStack,
+    contextTime: number,
+  ) {
     const transport = this.chains.get(trackId)?.transport;
     return transport
       ? transport.timelineSeconds +

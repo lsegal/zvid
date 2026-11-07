@@ -39,6 +39,7 @@ import {
   noteFrequency,
   synthEnvelope,
 } from "./audio-mix/synth.ts";
+import { padForNote } from "./fx/effects/drum-rack/banks.ts";
 import { GRANULAR_KEYS } from "./fx/effects/granular/granular.ts";
 import {
   CUTOFF_KEY,
@@ -46,7 +47,6 @@ import {
   RESONANCE_KEY,
 } from "./fx/effects/synth/synth.ts";
 import type { ReactiveOnset } from "./fx-animation-impulse.ts";
-import { padForNote } from "./fx/effects/drum-rack/banks.ts";
 import type {
   DrumRackParams,
   ExpressionSample,
@@ -510,9 +510,7 @@ function auditionGranular(
       );
   const loopAt = (seconds: number) =>
     granularLoop(note, paramsAt(seconds), sampleRate);
-  let cloud =
-    fixed ??
-    holdCloud(loopAt(start), start, rate, 0);
+  let cloud = fixed ?? holdCloud(loopAt(start), start, rate, 0);
   let fixedUntil = fixed ? start + AUDITION_HOLD_SECONDS : 0;
   const pressedTimbre = expression?.timbre ?? TIMBRE_CENTER;
   // Where the Cutoff is now, and how far the player's slide has moved it.
@@ -609,7 +607,8 @@ function mixGranularAudition(
     // The cloud is mixed ahead, from `start` on the voice's clock.
     modulator && {
       moves: modulator.moves,
-      value: (key, base, seconds) => modulator.value(key, base, start + seconds),
+      value: (key, base, seconds) =>
+        modulator.value(key, base, start + seconds),
     },
   );
   // A modulated Release or Grain Size can outlast the knobs as they are set.

@@ -390,13 +390,7 @@ export async function renderGranularClip(
   modulator?: MidiModulator,
 ): Promise<DecodedAudio> {
   const length = Math.max(1, Math.ceil(durationSeconds * sampleRate));
-  const grains = granularGrains(
-    notes,
-    params,
-    bpm,
-    durationSeconds,
-    modulator,
-  );
+  const grains = granularGrains(notes, params, bpm, durationSeconds, modulator);
   const mixed = await mixGrainsOffThread(grains, sampleRate, length);
   return {
     sampleRate,

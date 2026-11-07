@@ -1,7 +1,7 @@
 import { createContext } from "react";
 import type { ArrangementClip } from "../../app/types";
-import type { PlayheadSignal } from "../../playhead-signal";
 import type { ReactiveOnset } from "../../fx-animation-impulse";
+import type { PlayheadSignal } from "../../playhead-signal";
 import type { MeterSignature } from "../../timeline-format";
 
 // Where the session is, for the Modulation and Animation sections' graphs

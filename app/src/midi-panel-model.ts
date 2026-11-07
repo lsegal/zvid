@@ -1,10 +1,11 @@
 // What the FX panel's piano roll shows for the source selection: the
 // selected source clip when it is a MIDI clip.
-import { noteOnsets } from "./audio-mix/midi-modulation.ts";
-import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor.ts";
+
 import type { SourceSelection } from "./app/source-selection.ts";
 import { getClipDurationQ, secondsToQuarters } from "./app/timeline-math.ts";
 import type { SourceSpan } from "./app/types.ts";
+import { noteOnsets } from "./audio-mix/midi-modulation.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor.ts";
 import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import type { SessionEffect } from "./fx/stack/types.ts";
 import type { ReactiveOnset } from "./fx-animation-impulse.ts";
@@ -65,7 +66,8 @@ function reactiveOnsetsOf(
   }
   const durationSeconds = span.trimStartSeconds + span.durationSeconds;
   const offsetSeconds = (span.startQ * 60) / bpm - span.trimStartSeconds;
-  const gridOffsetQ = span.startQ - secondsToQuarters(span.trimStartSeconds, bpm);
+  const gridOffsetQ =
+    span.startQ - secondsToQuarters(span.trimStartSeconds, bpm);
   const clock = { offsetSeconds, signature: DEFAULT_TIME_SIGNATURE, bpm };
   const reactiveOnsets = new Map<string, readonly ReactiveOnset[]>();
   const hear = (
