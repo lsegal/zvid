@@ -53,7 +53,7 @@ import {
 } from "./PianoRoll";
 
 // MIDI clips in source-track lanes (#1351): their piano-roll thumbnails,
-// the Synth and Arpeggiator MIDI effects on their own stacks (#1386), and
+// the Synth and Arpeggiator MIDI effects on their tracks' stacks (#1386), and
 // the piano roll that edits the selected clip's notes, each edit one undo
 // step. The source lane menu's Add MIDI Clip creates empty ones at the
 // playhead (#1363, #1369), with a Synth.
