@@ -52,6 +52,7 @@ import type { FxEditMode, FxSetParameter } from "./types";
 import { useDeviceDrag } from "./use-device-drag";
 import { useWheelScrollX } from "./use-wheel-scroll-x";
 import "./fx-chain.css";
+import "./fx-device-selected.css";
 import "./fx-device-title.css";
 import "./key-map.css";
 

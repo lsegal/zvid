@@ -360,7 +360,7 @@ export function canStartFxChainPan(event: {
 // What a click inside a device operates rather than selecting the device. The
 // device's name selects it, and is the keyboard's way to.
 const FX_DEVICE_CONTROL_SELECTOR =
-  "button:not([data-fx-focus]), input, select, textarea, label, a[href], .fx-curve__plot, .fx-shape-custom, [role='slider'], [role='listbox'], [role='option'], [role='menu']";
+  "button:not([data-fx-focus]), input, select, textarea, label, a[href], .fx-curve__plot, [role='slider'], [role='listbox'], [role='option'], [role='menu']";
 
 // Whether a click on a device's header or body selects it.
 export function canSelectFxDevice(target: EventTarget | null) {
