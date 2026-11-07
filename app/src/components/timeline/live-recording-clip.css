@@ -83,11 +83,12 @@
   box-shadow: 0 0 6px rgba(255, 59, 59, 0.8);
 }
 
-/* A MIDI take's notes, above the red tint, in the color of a source clip's. */
-.live-recording-clip--midi {
-  --clip-accent: #fff;
-}
-
+/* A MIDI take's notes, above the red tint. The clip is dark red in either
+   theme, so they stay white. */
 .live-recording-clip--midi .source-span__midi {
   z-index: 1;
+}
+
+.live-recording-clip--midi .source-span__midi-note {
+  background: #fff;
 }
