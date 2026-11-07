@@ -73,8 +73,7 @@ function mapKeyOf(
 // the effect buttons belong to whichever is mapping, and turning one on turns
 // the other off, so a click selects a button for one of them. The hub only
 // delivers what the MIDI control and device selection let through. It's only
-// listened to while there's something to hear, so a session without mappings
-// doesn't ask for MIDI access on launch.
+// listened to while there's something to hear.
 export function useMidiMap({
   hub = midiInputHub,
   keyMap,

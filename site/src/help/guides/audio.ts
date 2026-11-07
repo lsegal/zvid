@@ -127,6 +127,10 @@ export const audio: Guide = {
           text: "MIDI clips play through instruments that live on the clip's own stack, under **MIDI** in the Add menu. Arpeggiators rework the notes first, in stack order. Then the **first enabled instrument** plays them, and any instruments after it stay silent. The sound then runs through the clip's audio effects. Create a MIDI clip by right-clicking a source track's lane and choosing **Add MIDI Clip**.",
         },
         {
+          type: "p",
+          text: "Popular MIDI controllers work with nothing to map once **MIDI** is on. Click a device in the FX panel to select it, and the controller's knobs drive its numeric controls in order. A master or lone fader moves the volume, and numbered faders move each source track's Gain.",
+        },
+        {
           type: "figure",
           shot: "audio-drum-rack",
           alt: "The Drum Rack device with its TR-808 bank: a four by four grid of pads from Kick to Cowbell.",
