@@ -322,8 +322,10 @@ describe(`${Timeline.name} on a phone`, {
       .poll(() => boxOf(".timeline-selection").width)
       .toBeGreaterThan(drawn.width + 30);
 
-    // A swipe keeps it; a tap on it opens its menu as a sheet.
-    await drag({ x: scroll.x - 40, y }, { x: scroll.x + 40, y });
+    // A swipe keeps it; a tap on it opens its menu as a sheet. The swipe
+    // rests before lifting: a fling can carry the selection's center off the
+    // right edge of the screen, where the tap would land on nothing (#1609).
+    await drag({ x: scroll.x - 40, y }, { x: scroll.x + 40, y }, 0, 200);
     await settledPlayheadQ();
     expect(isVisible(selection())).toBe(true);
     const fill = await findByRole("button", "Insert Fill Clip", {
