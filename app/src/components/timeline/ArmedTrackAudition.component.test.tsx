@@ -31,6 +31,9 @@ const wave = (trackId: string, type: SynthParams["wave"]) =>
     wave: type,
   });
 const session = {
+  clips: [],
+  lanes: [],
+  mediaItems: [],
   sourceTracks: [{ id: "square" }, { id: "saw" }, { id: "empty" }],
   sourceSpans: [
     { id: "m1", sourceTrackId: "square", startQ: 0, notes: [] },

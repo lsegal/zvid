@@ -50,7 +50,11 @@ import {
   type AudioTimeSignature,
   DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
-import { type AudioStageEffect, audioStageOf } from "./stages.ts";
+import {
+  type AudioStageEffect,
+  audioStageOf,
+  withLfoTimeOffset,
+} from "./stages.ts";
 import { type SynthClip, synthMediaId } from "./synth.ts";
 
 type AudioEffect = AudioStageEffect;
@@ -246,15 +250,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   const inheritedStagesOf = (source: InheritedSource, enabled: boolean) =>
     source.stackIds.flatMap((stackId) =>
       stagesOf(stackId, enabled).map((stage) =>
-        stage.modulation?.mode === "lfo" && source.timeOffsetSeconds
-          ? {
-              ...stage,
-              modulation: {
-                ...stage.modulation,
-                timeOffsetSeconds: source.timeOffsetSeconds,
-              },
-            }
-          : stage,
+        withLfoTimeOffset(stage, source.timeOffsetSeconds),
       ),
     );
 

@@ -27,6 +27,20 @@ function storedNumber(stored: AudioStageEffect["parameters"][number]) {
   return Number.isFinite(value) ? value : undefined;
 }
 
+// `stage` with its LFO, if any, running `seconds` ahead of the song, on the source
+// track time of a layer clip that inherits it (see resolve.ts).
+export function withLfoTimeOffset(
+  stage: AudioStage,
+  seconds: number,
+): AudioStage {
+  return stage.modulation?.mode === "lfo" && seconds
+    ? {
+        ...stage,
+        modulation: { ...stage.modulation, timeOffsetSeconds: seconds },
+      }
+    : stage;
+}
+
 // `effect` as a stage; `fallbackId` names it when the effect has no id.
 // `enabled: false` bypasses it whatever its own flag says, as for a track
 // whose FX switch is off.

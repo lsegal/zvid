@@ -59,6 +59,9 @@ const gain = (stackId: string, db: number, mute = false): SessionEffect => {
 const session = (effects: SessionEffect[], owned = true, onStack = rack) => {
   setArmedAuditionSource(
     {
+      clips: [],
+      lanes: [],
+      mediaItems: [],
       sourceTracks: [{ id: TRACK }],
       sourceSpans: owned
         ? [{ id: CLIP, sourceTrackId: TRACK, startQ: 0, notes: [] }]
