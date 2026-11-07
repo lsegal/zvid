@@ -42,6 +42,12 @@ key for that fader, because a device in Mackie mode that isn't listed plays it a
 one. Moving a wheel on purpose with no key down does map it: nothing tells it from
 a fader then, and the badge shows what happened.
 
+A control that sends 14-bit CC, an MSB on controller N and an LSB on N + 32 for
+each move, maps by hand as one control on N and moves at full resolution
+(`cc14.ts`). It's recognized by the LSB arriving straight after its MSB, so
+controllers 32 to 63 stay separate controls on devices that use them that way.
+Built-in roles still read these controls as 7-bit.
+
 ## Which encoders were checked
 
 #1630 read the published chart of every device with an encoder, or a knob on one,
