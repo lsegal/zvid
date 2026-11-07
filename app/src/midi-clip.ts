@@ -1,5 +1,5 @@
 // A MIDI clip is a source clip that carries notes instead of media. It
-// plays them through the instrument on its own stack, a Synth, a Granular
+// plays them through the instrument on its track's stack, a Synth, a Granular
 // or a Drum Rack (see midi-effects.ts and audio-mix/synth.ts), in preview and
 // export alike. A clip without `notes` is not a MIDI clip: MIDI
 // clips imported from a Live set stay media-less placeholders that video can

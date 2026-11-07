@@ -116,8 +116,10 @@ function firstKnob(effect: ReturnType<typeof createEffect>) {
   return parameter as NonNullable<typeof parameter>;
 }
 
-async function selectKnob(effect: ReturnType<typeof createEffect>) {
-  const { key, label } = firstKnob(effect);
+async function selectKnob(
+  effect: ReturnType<typeof createEffect>,
+  { key, label } = firstKnob(effect),
+) {
   const dial = dialOf(effect.id, label);
   await page.elementLocator(dial).click();
   await vi.waitFor(() =>
@@ -244,6 +246,96 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     await vi.waitFor(() =>
       expect(value(delay.id, delayKey)).not.toBe(firstBefore),
     );
+  });
+
+  test("a 14-bit control maps as one control and moves at full resolution (#1639)", async () => {
+    const port = plugIn("Homemade Box");
+    const { get, value, delay } = await open(port);
+    await toggleButton().click();
+    // High cut has the fine steps to show the extra resolution.
+    const highCut = knobParameters(delay).find(
+      (parameter) => parameter.key === "High cut",
+    );
+    const { key, label } = await selectKnob(delay, highCut);
+    const before = value(delay.id, key);
+
+    for (const [msb, lsb] of [
+      [30, 90],
+      [30, 100],
+      [31, 0],
+    ] as const) {
+      cc(port, 1, msb, 2);
+      cc(port, 33, lsb, 2);
+    }
+    await vi.waitFor(() =>
+      expect(markOf(dialOf(delay.id, label))?.dataset.keyMapKey).toBe("CC 1"),
+    );
+    await settle();
+    expect(get().project.midiMappings).toEqual([
+      {
+        controller: 1,
+        channel: 2,
+        target: { kind: "number", effectId: delay.id, parameter: key },
+      },
+    ]);
+    expect(value(delay.id, key)).toBe(before);
+    // One undo step takes back the whole sweep.
+    await undo();
+    await vi.waitFor(() => expect(get().project.midiMappings).toBeUndefined());
+    cc(port, 1, 30, 2);
+    cc(port, 33, 90, 2);
+    await vi.waitFor(() =>
+      expect(get().project.midiMappings?.[0]?.controller).toBe(1),
+    );
+    await toggleButton().click();
+
+    // The fine part moves the knob between two steps of the coarse part.
+    const moved = async (msb: number, lsb: number) => {
+      cc(port, 1, msb, 2);
+      cc(port, 33, lsb, 2);
+      await settle();
+      return value(delay.id, key) as number;
+    };
+    const low = await moved(64, 0);
+    const middle = await moved(64, 64);
+    const high = await moved(65, 0);
+    expect(middle).toBeGreaterThan(low);
+    expect(high).toBeGreaterThan(middle);
+    // Now it's known, so is a move of the fine part alone.
+    cc(port, 33, 64, 2);
+    await settle();
+    expect(value(delay.id, key)).toBeCloseTo(await moved(65, 64), 10);
+  });
+
+  test("controllers 32 to 63 stay ordinary controls on a device using them that way (#1639)", async () => {
+    const port = plugIn("Homemade Box");
+    const { get, value, delay, reverb } = await open(port);
+    await toggleButton().click();
+    const { key: delayKey } = await selectKnob(delay);
+    cc(port, 33, 10);
+    await vi.waitFor(() =>
+      expect(get().project.midiMappings?.[0]?.controller).toBe(33),
+    );
+    const { key: reverbKey } = await selectKnob(reverb);
+    await settle();
+    cc(port, 1, 10);
+    await vi.waitFor(() =>
+      expect(get().project.midiMappings?.[1]?.controller).toBe(1),
+    );
+    await toggleButton().click();
+
+    const reverbBefore = value(reverb.id, reverbKey);
+    cc(port, 33, 100);
+    await vi.waitFor(() => expect(value(delay.id, delayKey)).not.toBe(0));
+    await settle();
+    const delayAfter = value(delay.id, delayKey);
+    expect(value(reverb.id, reverbKey)).toBe(reverbBefore);
+
+    cc(port, 1, 100);
+    await vi.waitFor(() =>
+      expect(value(reverb.id, reverbKey)).not.toBe(reverbBefore),
+    );
+    expect(value(delay.id, delayKey)).toBe(delayAfter);
   });
 
   test("selecting a knob doesn't move it, Delete removes its mapping, and only a CC maps it", async () => {

@@ -152,6 +152,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   clipContentEffects: true,
   audioGainDefaulted: true,
   midiClipEffects: true,
+  midiTrackEffects: true,
 };
 
 // Card colors of fill clips on layers without an accent.

@@ -42,6 +42,7 @@ export type FxPanelProps = Pick<
   | "fxRecordTrack"
   | "fxSourceTrackId"
   | "fxMidiClip"
+  | "fxMidiOnsets"
   | "orderLayerOptions"
   | "selectedFxDevice"
   | "selectFxDevice"
@@ -87,7 +88,7 @@ export type FxPanelProps = Pick<
 // for the selected layer or clip, and the FX chain. A source track's Record
 // device leads the chain, ahead of the selected source clip's properties,
 // even though it belongs to the track. A selected MIDI clip adds its piano
-// roll after those; its Synth and Arpeggiator are effects on its own stack.
+// roll after those; its Synth and Arpeggiator are effects on its track's stack.
 export function FxPanel({
   addFxDevice,
   clearFxDevices,
@@ -111,6 +112,7 @@ export function FxPanel({
   fxRecordTrack,
   fxSourceTrackId,
   fxMidiClip,
+  fxMidiOnsets,
   isInspectorCollapsed,
   keyMap = INACTIVE_KEY_MAP,
   midiMap = INACTIVE_KEY_MAP,
@@ -145,7 +147,7 @@ export function FxPanel({
     isInspectorCollapsed,
   );
   return (
-    <FxMidiOnsetsContext.Provider value={fxMidiClip?.reactiveOnsets}>
+    <FxMidiOnsetsContext.Provider value={fxMidiOnsets}>
       {fxPanelResize && !isInspectorCollapsed ? (
         <hr
           className="fx-panel-resize-handle"

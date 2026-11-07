@@ -18,8 +18,9 @@ export const definition: FxEffectDefinition = {
   category: "midi",
   domain: "midi",
   known: true,
-  // Only a MIDI clip's own stack, as the Synth (see addableEffectsFor).
-  scopes: ["clip"],
+  // Only a source track's and a MIDI clip's stacks, as the Synth (see
+  // addableEffectsFor).
+  scopes: ["layer", "clip"],
   parameters: [
     {
       kind: "drum-rack",

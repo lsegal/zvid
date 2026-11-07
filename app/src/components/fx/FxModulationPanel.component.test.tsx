@@ -45,7 +45,7 @@ describe(FxModulationPanel.name, { timeout: 60_000 }, () => {
           { id: "bass", name: "Bass", colorIndex: 2, recordingPaths: [] },
         ],
         sourceSpans: [MIDI_SPAN],
-        effects: addDefaultSynth(EMPTY_PROJECT.effects, MIDI_SPAN.id, "synth"),
+        effects: addDefaultSynth(EMPTY_PROJECT.effects, "bass", "synth"),
       },
       stack,
       "Arpeggiator",

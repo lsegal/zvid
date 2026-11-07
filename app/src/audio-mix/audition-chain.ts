@@ -33,22 +33,24 @@ import {
 // What a note auditioned on a source track plays through.
 export type AuditionStack = {
   trackId: string;
-  spanId: string;
+  // The clip the note is on, which a note played into the track has none of.
+  spanId?: string;
   settings: AudioChainSettings;
   tempo: AudioTempo;
   playheadSeconds: number;
 };
 
 /**
- * The chain a note on the clip `spanId` of the track `trackId` plays through:
- * the clip's audio effects, its track's, then Global's, in the mix's order. As
+ * The chain a note on the clip `spanId` of the track `trackId`, or on the track
+ * itself without one, plays through: the clip's audio effects, if any, its
+ * track's, then Global's, in the mix's order. As
  * in the mix (see resolve.ts) a track without an enabled Gain is silent, and
  * one with its FX switched off bypasses all but Global.
  */
 export function auditionChainSettings(
   effects: readonly AudioStageEffect[],
   trackId: string,
-  spanId: string,
+  spanId: string | undefined,
   fxEnabled: boolean,
 ): AudioChainSettings {
   const stackOf = (stackId: string) =>
@@ -60,14 +62,18 @@ export function auditionChainSettings(
     stackOf(stackId).map((effect, index) =>
       audioStageOf(effect, `${stackId}:${index}`, enabled),
     );
-  const clipStackId = sourceClipEffectTrackId(spanId);
+  const clipStackIds =
+    spanId === undefined ? [] : [sourceClipEffectTrackId(spanId)];
   const trackStackId = sourceTrackEffectTrackId(trackId);
-  const hasGain = [...stackOf(clipStackId), ...stackOf(trackStackId)].some(
+  const hasGain = [
+    ...clipStackIds.flatMap(stackOf),
+    ...stackOf(trackStackId),
+  ].some(
     (effect) => effect.enabled !== false && isGainEffectName(effect.effectName),
   );
   return {
     stages: [
-      ...stagesOf(clipStackId, fxEnabled),
+      ...clipStackIds.flatMap((stackId) => stagesOf(stackId, fxEnabled)),
       ...stagesOf(trackStackId, fxEnabled),
       ...stagesOf(GLOBAL_EFFECT_TRACK_ID),
     ],
@@ -161,10 +167,12 @@ export class AuditionChains {
       : playheadSeconds;
   }
 
-  /** Has the open chains follow an edit: `resolve` gives each clip's stack now. */
-  update(resolve: (spanId: string) => AuditionStack | undefined) {
+  /** Has the open chains follow an edit: `resolve` gives each stack now. */
+  update(
+    resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
+  ) {
     for (const [trackId, chain] of this.chains) {
-      const stack = resolve(chain.stack.spanId);
+      const stack = resolve(trackId, chain.stack.spanId);
       if (stack) {
         this.configure(chain, {
           ...stack,

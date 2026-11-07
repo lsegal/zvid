@@ -81,7 +81,7 @@ export function setAuditionWorkletUrl(url: string) {
 
 /** Has the chains of tracks auditioned so far follow an edit to their stacks. */
 export function updateAuditionChains(
-  resolve: (spanId: string) => AuditionStack | undefined,
+  resolve: (trackId: string, spanId?: string) => AuditionStack | undefined,
 ) {
   auditionChains.update(resolve);
 }

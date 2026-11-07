@@ -1,11 +1,11 @@
 // Keys played on a MIDI device or the typing keyboard sound through every track
 // armed for recording, whatever is selected (#1599), or with none armed, through
-// the selected track (#1618). A track's instruments sit on its MIDI clips'
-// stacks, so it plays the instrument of its MIDI clip at or last before the
-// playhead, or else of its first. A track with none, or with its FX switched
-// off, stays silent, as it would in the mix. Either way its notes sound through
-// its clip's and track's effects, as the mix plays them, their LFOs on the audio
-// clock rather than the paused playhead (see audio-mix/audition-chain.ts).
+// the selected track (#1618). A track plays the instrument on its own stack. A
+// track with none, or with its FX switched off, stays silent, as it would in
+// the mix. Its notes sound through its effects, as the mix plays them, their
+// LFOs on the audio clock rather than the paused playhead (see
+// audio-mix/audition-chain.ts). A Drum Rack's pads sound through the stacks of
+// the clip or track the rack is on.
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
@@ -13,13 +13,23 @@ import {
   type AuditionStack,
   auditionChainSettings,
 } from "../audio-mix/audition-chain.ts";
-import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
+import {
+  getEffectSourceSpanId,
+  getEffectSourceTrackId,
+  isLayerFxEnabled,
+  sourceTrackEffectTrackId,
+} from "../fx-stack.ts";
 import {
   type AuditionVoice,
+  auditionDrumPad,
   auditionNote,
   updateAuditionChains,
 } from "../midi-audition.ts";
-import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
+import type {
+  DrumRackParams,
+  ExpressionSample,
+  MidiInstrument,
+} from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
 import { signatureById } from "../time-signature.ts";
 import { getArmedTrackIds } from "./record-arm.ts";
@@ -40,13 +50,12 @@ export function keyTrackIds(
 }
 
 /**
- * What the tracks in `trackIds` play, leaving out the track that owns the clip
- * `exceptSpanId`: each one's instrument and the clip whose it is.
+ * The instruments of the tracks in `trackIds`, leaving out the track that owns
+ * the clip `exceptSpanId`, by track id.
  */
 function trackAuditions(
   trackIds: ReadonlySet<string>,
   { sourceTracks, sourceSpans, effects }: ArmedAuditionSession,
-  playheadQ: number,
   exceptSpanId?: string,
 ) {
   const exceptTrackId = sourceSpans.find(
@@ -60,21 +69,11 @@ function trackAuditions(
     ) {
       return [];
     }
-    const played = sourceSpans
-      .filter((span) => span.sourceTrackId === track.id && span.notes)
-      .flatMap((span) => {
-        const stackId = sourceClipEffectTrackId(span.id);
-        const instrument = auditionInstrumentOf(
-          effects.filter((effect) => effect.trackId === stackId),
-        );
-        return instrument
-          ? [{ spanId: span.id, startQ: span.startQ, instrument }]
-          : [];
-      })
-      .sort((a, b) => a.startQ - b.startQ);
-    const clip =
-      played.findLast(({ startQ }) => startQ <= playheadQ) ?? played[0];
-    return clip ? [clip] : [];
+    const stackId = sourceTrackEffectTrackId(track.id);
+    const instrument = auditionInstrumentOf(
+      effects.filter((effect) => effect.trackId === stackId),
+    );
+    return instrument ? [{ trackId: track.id, instrument }] : [];
   });
 }
 
@@ -85,27 +84,23 @@ function trackAuditions(
 export function trackInstruments(
   trackIds: ReadonlySet<string>,
   session: ArmedAuditionSession,
-  playheadQ: number,
   exceptSpanId?: string,
 ): MidiInstrument[] {
-  return trackAuditions(trackIds, session, playheadQ, exceptSpanId).map(
+  return trackAuditions(trackIds, session, exceptSpanId).map(
     ({ instrument }) => instrument,
   );
 }
 
-/** What a note on the clip `spanId` plays through, at `playheadQ`. */
+/**
+ * What a note on the track `trackId` plays through, at `playheadQ`: the clip
+ * `spanId`'s stack as well for a note on that clip, and otherwise its own.
+ */
 export function auditionStackOf(
-  spanId: string,
-  {
-    sourceTracks,
-    sourceSpans,
-    effects,
-    bpm,
-    signatureId,
-  }: ArmedAuditionSession,
+  trackId: string,
+  spanId: string | undefined,
+  { sourceTracks, effects, bpm, signatureId }: ArmedAuditionSession,
   playheadQ: number,
 ): AuditionStack | undefined {
-  const trackId = sourceSpans.find((span) => span.id === spanId)?.sourceTrackId;
   const track = sourceTracks.find((candidate) => candidate.id === trackId);
   if (!track) {
     return undefined;
@@ -168,8 +163,8 @@ export function setArmedAuditionSource(
 ) {
   session = nextSession;
   playheadQ = nextPlayheadQ;
-  updateAuditionChains((spanId) =>
-    auditionStackOf(spanId, session, playheadQ()),
+  updateAuditionChains((trackId, spanId) =>
+    auditionStackOf(trackId, spanId, session, playheadQ()),
   );
 }
 
@@ -185,14 +180,14 @@ export function auditionTracks(
   exceptSpanId?: string,
 ) {
   return combineVoices(
-    trackAuditions(trackIds, session, playheadQ(), exceptSpanId).map(
-      ({ spanId, instrument }) =>
+    trackAuditions(trackIds, session, exceptSpanId).map(
+      ({ trackId, instrument }) =>
         auditionNote(
           pitch,
           instrument,
           expression,
           true,
-          auditionStackOf(spanId, session, playheadQ()),
+          auditionStackOf(trackId, undefined, session, playheadQ()),
         ),
     ),
   );
@@ -206,12 +201,42 @@ export function auditionClipNote(
   expression?: ExpressionSample,
   hold = false,
 ) {
+  const trackId = session.sourceSpans.find(
+    (span) => span.id === spanId,
+  )?.sourceTrackId;
   return auditionNote(
     pitch,
     instrument,
     expression,
     hold,
-    auditionStackOf(spanId, session, playheadQ()),
+    trackId === undefined
+      ? undefined
+      : auditionStackOf(trackId, spanId, session, playheadQ()),
+  );
+}
+
+/**
+ * Plays `pad` of the Drum Rack `effectId`, which plays `params`, through the
+ * stacks of the clip or track the rack is on, or dry without a source track
+ * owning it.
+ */
+export function auditionRackPad(
+  effectId: string,
+  pad: number,
+  params: DrumRackParams,
+) {
+  const stackId = session.effects.find(({ id }) => id === effectId)?.trackId;
+  const spanId = stackId && getEffectSourceSpanId(stackId);
+  const trackId = spanId
+    ? session.sourceSpans.find((span) => span.id === spanId)?.sourceTrackId
+    : stackId && getEffectSourceTrackId(stackId);
+  return auditionDrumPad(
+    pad,
+    params,
+    undefined,
+    trackId
+      ? auditionStackOf(trackId, spanId, session, playheadQ())
+      : undefined,
   );
 }
 
