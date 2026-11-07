@@ -594,9 +594,7 @@ export function useTimelineEditing({
   useSourceSpanDrag({
     sourceSpanDrag,
     setSourceSpanDrag,
-    dragPreviewSourceSpans,
     setDragPreviewSourceSpans,
-    dragPreviewClips,
     setDragPreviewClips,
     sourceSpans,
     clips,

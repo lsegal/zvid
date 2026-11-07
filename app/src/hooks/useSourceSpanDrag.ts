@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { moveClipGroup } from "../app/clip-group-move.ts";
 import type { SelectionItem } from "../app/multi-selection.ts";
 import { patchProjectState } from "../app/session-project.ts";
@@ -21,9 +21,7 @@ import { syncClipsToSourceSpans } from "../source-track-content.ts";
 export type SourceSpanDragInputs = {
   sourceSpanDrag: SourceSpanDragState | null;
   setSourceSpanDrag: Dispatch<SetStateAction<SourceSpanDragState | null>>;
-  dragPreviewSourceSpans: SourceSpan[] | null;
   setDragPreviewSourceSpans: Dispatch<SetStateAction<SourceSpan[] | null>>;
-  dragPreviewClips: ArrangementClip[] | null;
   setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
   sourceSpans: SourceSpan[];
   clips: ArrangementClip[];
@@ -87,9 +85,7 @@ function swallowNextClick() {
 export function useSourceSpanDrag({
   sourceSpanDrag,
   setSourceSpanDrag,
-  dragPreviewSourceSpans,
   setDragPreviewSourceSpans,
-  dragPreviewClips,
   setDragPreviewClips,
   sourceSpans,
   clips,
@@ -106,8 +102,17 @@ export function useSourceSpanDrag({
   refuseReadOnlyEdit,
   commitProjectChange,
 }: SourceSpanDragInputs) {
+  // The preview at the pointer's last move. The release commits this rather
+  // than the preview state, which lags until React renders the move: a quick
+  // release would otherwise land short of the pointer (#1602).
+  const latestPreviewRef = useRef<{
+    spans: SourceSpan[];
+    clips: ArrangementClip[] | null;
+  } | null>(null);
+
   useEffect(() => {
     if (!sourceSpanDrag) {
+      latestPreviewRef.current = null;
       return;
     }
 
@@ -149,7 +154,7 @@ export function useSourceSpanDrag({
       const deltaX = event.clientX - sourceSpanDrag.pointerStartX;
       const deltaY = event.clientY - sourceSpanDrag.pointerStartY;
       if (
-        !dragPreviewSourceSpans &&
+        !latestPreviewRef.current &&
         Math.abs(deltaX) <= LANE_SELECTION_DRAG_THRESHOLD_PX &&
         (sourceSpanDrag.kind !== "move" ||
           Math.abs(deltaY) <= LANE_SELECTION_DRAG_THRESHOLD_PX)
@@ -184,18 +189,15 @@ export function useSourceSpanDrag({
           ? trackIds.indexOf(sourceTrackId) -
             trackIds.indexOf(origin.sourceTrackId)
           : 0;
-        setDragPreviewSourceSpans(
-          moveSourceSpanGroup(
-            sourceSpans,
-            new Set(
-              group.flatMap((item) => (item.kind === "span" ? [item.id] : [])),
-            ),
-            { deltaQ, trackShift, trackIds, bpm },
+        const groupSpans = moveSourceSpanGroup(
+          sourceSpans,
+          new Set(
+            group.flatMap((item) => (item.kind === "span" ? [item.id] : [])),
           ),
+          { deltaQ, trackShift, trackIds, bpm },
         );
-        if (groupClipIds.length) {
-          setDragPreviewClips(
-            moveClipGroup(
+        const groupClips = groupClipIds.length
+          ? moveClipGroup(
               clips,
               groupClipIds.map((id) => ({ clipId: id, sourceClipId: id })),
               {
@@ -207,26 +209,30 @@ export function useSourceSpanDrag({
                 bpm,
                 duplicate: false,
               },
-            ),
-          );
+            )
+          : null;
+        latestPreviewRef.current = { spans: groupSpans, clips: groupClips };
+        setDragPreviewSourceSpans(groupSpans);
+        if (groupClips) {
+          setDragPreviewClips(groupClips);
         }
         return;
       }
-      setDragPreviewSourceSpans(
-        dragSourceSpanInSpans(
-          dragSpans,
-          origin,
-          sourceSpanDrag.kind,
-          deltaX / quarterPx,
-          sourceTrackId,
-          {
-            bpm,
-            fps,
-            snapUnit,
-            snap: snapEnabled && !event.shiftKey,
-          },
-        ),
+      const spans = dragSourceSpanInSpans(
+        dragSpans,
+        origin,
+        sourceSpanDrag.kind,
+        deltaX / quarterPx,
+        sourceTrackId,
+        {
+          bpm,
+          fps,
+          snapUnit,
+          snap: snapEnabled && !event.shiftKey,
+        },
       );
+      latestPreviewRef.current = { spans, clips: null };
+      setDragPreviewSourceSpans(spans);
     };
 
     const onPointerUp = (event: PointerEvent) => {
@@ -234,10 +240,9 @@ export function useSourceSpanDrag({
         return;
       }
 
-      if (duplicateId && dragPreviewSourceSpans) {
-        const copy = dragPreviewSourceSpans.find(
-          (item) => item.id === duplicateId,
-        );
+      const preview = latestPreviewRef.current;
+      if (duplicateId && preview) {
+        const copy = preview.spans.find((item) => item.id === duplicateId);
         if (copy) {
           const placement = {
             startQ: copy.startQ,
@@ -254,11 +259,10 @@ export function useSourceSpanDrag({
           });
         }
         swallowNextClick();
-      } else if (group && dragPreviewSourceSpans) {
+      } else if (group && preview) {
         // Unselected clips keep their place; only what their windows hold
         // changes.
-        const spans = dragPreviewSourceSpans;
-        const movedClips = groupClipIds.length ? dragPreviewClips : null;
+        const { spans, clips: movedClips } = preview;
         commitProjectChange(`Move ${group.length} clips`, (current) =>
           patchProjectState(current, {
             sourceSpans: spans,
@@ -272,8 +276,8 @@ export function useSourceSpanDrag({
         );
         // The group stays selected.
         swallowNextClick();
-      } else if (dragPreviewSourceSpans) {
-        const spans = dragPreviewSourceSpans;
+      } else if (preview) {
+        const { spans } = preview;
         commitProjectChange(
           sourceSpanDrag.kind === "move"
             ? "Move source clip"
@@ -324,8 +328,6 @@ export function useSourceSpanDrag({
     bpm,
     clips,
     commitProjectChange,
-    dragPreviewClips,
-    dragPreviewSourceSpans,
     fps,
     isWorkspaceReadOnlyRef,
     quarterPx,
