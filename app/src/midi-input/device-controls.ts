@@ -5,9 +5,9 @@
 // master, lone or ninth fader, or any control named for volume, is the app's volume;
 // and numbered faders are the source tracks' volumes, in track order.
 //
-// Only CC messages, and the pitch bend some faders send, take a role. A CC
-// mapped by hand in the MIDI Map (#1631) claims its messages before they get
-// here, so a mapping always beats the role.
+// Only CC messages, and the pitch bend some faders send, take a role. A CC or
+// pitch bend mapped by hand in the MIDI Map (#1631, #1638) claims its messages
+// before they get here, so a mapping always beats the role.
 import {
   expandControls,
   type MidiControl,
@@ -158,6 +158,13 @@ export function ccMove(
   return relative ? relativeMove(relative, value) : { to: value / 127 };
 }
 
+/** Where a pitch bend moves its target. */
+export function pitchBendMove({
+  value,
+}: Extract<MidiMessage, { type: "pitchbend" }>): DeviceControlMove {
+  return { to: value / 16383 };
+}
+
 /** What `message` from a device mapped by `mapping` does, if anything. */
 export function deviceControlAction(
   mapping: MidiDeviceMapping,
@@ -171,7 +178,7 @@ export function deviceControlAction(
   }
   if (message.type === "pitchbend") {
     const entry = rolesOf(mapping).get(messageId("pitchbend", message.channel));
-    return entry && { role: entry.role, move: { to: message.value / 16383 } };
+    return entry && { role: entry.role, move: pitchBendMove(message) };
   }
   return undefined;
 }
