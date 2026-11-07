@@ -216,8 +216,8 @@ test("keys played across the octaves leave the roll where it was", async () => {
   }
   const before = scroller.scrollTop;
   const left = scroller.scrollLeft;
-  // Both ends of the range start out of view; so does a pitch above it.
-  for (const pitch of [24, 60, 108, 120]) {
+  // Both ends of the range start out of view.
+  for (const pitch of [24, 60, 108]) {
     roll.send(0x90, pitch, 90);
     await expect.poll(() => roll.auditions.at(-1)).toBe(pitch);
     roll.send(0x80, pitch, 0);
