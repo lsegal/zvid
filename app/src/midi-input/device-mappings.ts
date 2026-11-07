@@ -1,8 +1,9 @@
 // What MIDI devices send, as data: a mapping per device (see
 // midi-devices.json and its README) records the port names that recognize it
 // and the message each of its keys and controls sends at its factory
-// defaults. Only keys and pads act on the piano roll; the others are known
-// so their messages are recognized and ignored.
+// defaults. Keys and pads act on the piano roll, and knobs and faders through
+// device-controls.ts; the others are known so their messages are recognized
+// and ignored.
 import type { MidiMessage } from "./messages.ts";
 
 export const MIDI_CONTROL_KINDS = [
@@ -43,6 +44,8 @@ export type MidiControlEntry = {
   channel: number;
   number?: number;
   count?: number;
+  // An encoder sending how far it turned, not where it is.
+  relative?: true;
 };
 
 export type MidiControl = Omit<MidiControlEntry, "count">;
@@ -194,6 +197,9 @@ export function mappingProblems(mapping: MidiDeviceMapping): string[] {
     }
     if (count > 1 && !entry.name.includes("{n}")) {
       problem(`${entry.name}: a run needs {n} in its name`);
+    }
+    if (entry.relative && entry.type !== "cc") {
+      problem(`${entry.name}: only a cc control can be relative`);
     }
     const numbered = entry.type === "note" || entry.type === "cc";
     if (numbered !== (entry.number !== undefined)) {
