@@ -3,18 +3,30 @@
 // the selected track (#1618). A track's instruments sit on its MIDI clips'
 // stacks, so it plays the instrument of its MIDI clip at or last before the
 // playhead, or else of its first. A track with none, or with its FX switched
-// off, stays silent, as it would in the mix.
+// off, stays silent, as it would in the mix. Either way its notes sound through
+// its clip's and track's effects, as the mix plays them, their LFOs on the audio
+// clock rather than the paused playhead (see audio-mix/audition-chain.ts).
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
+import {
+  type AuditionStack,
+  auditionChainSettings,
+} from "../audio-mix/audition-chain.ts";
 import { isLayerFxEnabled, sourceClipEffectTrackId } from "../fx-stack.ts";
-import { type AuditionVoice, auditionNote } from "../midi-audition.ts";
+import {
+  type AuditionVoice,
+  auditionNote,
+  updateAuditionChains,
+} from "../midi-audition.ts";
 import type { ExpressionSample, MidiInstrument } from "../midi-clip.ts";
 import { auditionInstrumentOf } from "../midi-effects.ts";
+import { signatureById } from "../time-signature.ts";
 import { getArmedTrackIds } from "./record-arm.ts";
 
 export type ArmedAuditionSession = Pick<
   ProjectState,
-  "sourceTracks" | "sourceSpans" | "effects"
+  "sourceTracks" | "sourceSpans" | "effects" | "bpm" | "signatureId"
 >;
 
 /** The tracks idle keys sound through: the armed ones, or else the selected. */
@@ -28,15 +40,15 @@ export function keyTrackIds(
 }
 
 /**
- * The instruments of the tracks in `trackIds`, leaving out the track that owns
- * the clip `exceptSpanId`.
+ * What the tracks in `trackIds` play, leaving out the track that owns the clip
+ * `exceptSpanId`: each one's instrument and the clip whose it is.
  */
-export function trackInstruments(
+function trackAuditions(
   trackIds: ReadonlySet<string>,
   { sourceTracks, sourceSpans, effects }: ArmedAuditionSession,
   playheadQ: number,
   exceptSpanId?: string,
-): MidiInstrument[] {
+) {
   const exceptTrackId = sourceSpans.find(
     (span) => span.id === exceptSpanId,
   )?.sourceTrackId;
@@ -55,13 +67,62 @@ export function trackInstruments(
         const instrument = auditionInstrumentOf(
           effects.filter((effect) => effect.trackId === stackId),
         );
-        return instrument ? [{ startQ: span.startQ, instrument }] : [];
+        return instrument
+          ? [{ spanId: span.id, startQ: span.startQ, instrument }]
+          : [];
       })
       .sort((a, b) => a.startQ - b.startQ);
     const clip =
       played.findLast(({ startQ }) => startQ <= playheadQ) ?? played[0];
-    return clip ? [clip.instrument] : [];
+    return clip ? [clip] : [];
   });
+}
+
+/**
+ * The instruments of the tracks in `trackIds`, leaving out the track that owns
+ * the clip `exceptSpanId`.
+ */
+export function trackInstruments(
+  trackIds: ReadonlySet<string>,
+  session: ArmedAuditionSession,
+  playheadQ: number,
+  exceptSpanId?: string,
+): MidiInstrument[] {
+  return trackAuditions(trackIds, session, playheadQ, exceptSpanId).map(
+    ({ instrument }) => instrument,
+  );
+}
+
+/** What a note on the clip `spanId` plays through, at `playheadQ`. */
+export function auditionStackOf(
+  spanId: string,
+  {
+    sourceTracks,
+    sourceSpans,
+    effects,
+    bpm,
+    signatureId,
+  }: ArmedAuditionSession,
+  playheadQ: number,
+): AuditionStack | undefined {
+  const trackId = sourceSpans.find((span) => span.id === spanId)?.sourceTrackId;
+  const track = sourceTracks.find((candidate) => candidate.id === trackId);
+  if (!track) {
+    return undefined;
+  }
+  const { numerator, denominator } = signatureById(signatureId);
+  return {
+    trackId: track.id,
+    spanId,
+    settings: auditionChainSettings(
+      effects,
+      track.id,
+      spanId,
+      isLayerFxEnabled(track),
+    ),
+    tempo: { bpm, signature: { numerator, denominator } },
+    playheadSeconds: quartersToSeconds(playheadQ, bpm),
+  };
 }
 
 /** One voice for `voices`, which all follow it. */
@@ -96,6 +157,8 @@ let session: ArmedAuditionSession = {
   sourceTracks: [],
   sourceSpans: [],
   effects: [],
+  bpm: 120,
+  signatureId: "4/4",
 };
 let playheadQ = () => 0;
 
@@ -105,6 +168,9 @@ export function setArmedAuditionSource(
 ) {
   session = nextSession;
   playheadQ = nextPlayheadQ;
+  updateAuditionChains((spanId) =>
+    auditionStackOf(spanId, session, playheadQ()),
+  );
 }
 
 /**
@@ -119,9 +185,33 @@ export function auditionTracks(
   exceptSpanId?: string,
 ) {
   return combineVoices(
-    trackInstruments(trackIds, session, playheadQ(), exceptSpanId).map(
-      (instrument) => auditionNote(pitch, instrument, expression, true),
+    trackAuditions(trackIds, session, playheadQ(), exceptSpanId).map(
+      ({ spanId, instrument }) =>
+        auditionNote(
+          pitch,
+          instrument,
+          expression,
+          true,
+          auditionStackOf(spanId, session, playheadQ()),
+        ),
     ),
+  );
+}
+
+/** Plays `pitch` through the instrument and stack of the clip `spanId`. */
+export function auditionClipNote(
+  spanId: string,
+  pitch: number,
+  instrument: MidiInstrument,
+  expression?: ExpressionSample,
+  hold = false,
+) {
+  return auditionNote(
+    pitch,
+    instrument,
+    expression,
+    hold,
+    auditionStackOf(spanId, session, playheadQ()),
   );
 }
 
