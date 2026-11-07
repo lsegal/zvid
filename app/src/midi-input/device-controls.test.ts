@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   ccMove,
+  ccMoveReader,
   deviceControlAction,
   deviceControlRoles,
 } from "./device-controls.ts";
@@ -261,4 +262,29 @@ test("a Push steps under any name its ports go by (#1644)", () => {
       }
     }
   }
+});
+
+test("an encoder no entry calls relative steps once its messages show it (#1644)", () => {
+  const launchkey = device("novation-launchkey-49-mk3");
+  const push = device("ableton-push-2");
+  const knob = (value: number, controller = 21) => ({
+    type: "cc" as const,
+    channel: 1,
+    controller,
+    value,
+  });
+  const read = ccMoveReader();
+  // Unknown, a control's first step is held, not read as a place.
+  assert.equal(deviceControlAction(launchkey, knob(1), read), undefined);
+  assert.deepEqual(deviceControlAction(launchkey, knob(1), read)?.move, {
+    by: 2 / 127,
+  });
+  assert.deepEqual(read(launchkey, knob(127)), { by: -1 / 127 });
+  // On no listed device, mapped by hand.
+  assert.equal(read(undefined, knob(127, 30)), undefined);
+  assert.deepEqual(read(undefined, knob(127, 30)), { by: -2 / 127 });
+  // A knob reads as a place, and an encoder its entry calls relative as steps
+  // from the first.
+  assert.deepEqual(read(launchkey, knob(90, 22)), { to: 90 / 127 });
+  assert.deepEqual(read(push, knob(127, 71)), { by: -1 / 127 });
 });

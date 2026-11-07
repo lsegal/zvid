@@ -10,7 +10,11 @@ import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
 import { keyMapTargetId, pressKeyMapTarget } from "../key-map.ts";
 import { knobParameter, moveEffectParameter } from "../midi-device-targets.ts";
 import { type CcReading, cc14Reader } from "../midi-input/cc14.ts";
-import { ccMove } from "../midi-input/device-controls.ts";
+import {
+  ccMoveReader,
+  type DeviceControlMove,
+  isRelativeCc,
+} from "../midi-input/device-controls.ts";
 import {
   type MidiInputHub,
   type MidiInputInfo,
@@ -156,7 +160,11 @@ export function useMidiMap({
     // Each device's 14-bit controls, and the reading of the message in hand:
     // the hub asks to claim a message before delivering it.
     const cc14Readers = new Map<string, ReturnType<typeof cc14Reader>>();
+    // Each device's 7-bit controls, read in order to tell encoders from knobs.
+    const moveReaders = new Map<string, ReturnType<typeof ccMoveReader>>();
     let reading: CcReading | undefined;
+    // Where the message in hand moves its knobs: nothing while it's held.
+    let move: DeviceControlMove | undefined;
     const { edit: editSettled, flush } = settledEffectEdits((...args) =>
       latestRef.current.editEffects(...args),
     );
@@ -202,7 +210,7 @@ export function useMidiMap({
 
     // Relative encoders send steps, which have no second half to pair.
     const readCc = (input: MidiInputInfo, message: CcMessage): CcReading => {
-      if (ccMove(input.mapping, message).by !== undefined) {
+      if (isRelativeCc(input.mapping, message)) {
         return message;
       }
       let read = cc14Readers.get(input.id);
@@ -211,6 +219,21 @@ export function useMidiMap({
         cc14Readers.set(input.id, read);
       }
       return read(message);
+    };
+
+    const readMove = (
+      input: MidiInputInfo,
+      read: CcReading,
+    ): DeviceControlMove | undefined => {
+      if (read.to !== undefined) {
+        return { to: read.to };
+      }
+      let readMoves = moveReaders.get(input.id);
+      if (!readMoves) {
+        readMoves = ccMoveReader();
+        moveReaders.set(input.id, readMoves);
+      }
+      return readMoves(input.mapping, read);
     };
 
     const assignCc = (target: MidiKnobTarget, message: CcReading) => {
@@ -233,16 +256,12 @@ export function useMidiMap({
       );
     };
 
-    const moveKnobs = (input: MidiInputInfo, message: CcReading) => {
+    const moveKnobs = (message: CcReading, move: DeviceControlMove) => {
       const knobs = knobsOf(message);
       const [first] = knobs;
       if (!first) {
         return;
       }
-      const move =
-        message.to === undefined
-          ? ccMove(input.mapping, message)
-          : { to: message.to };
       editSettled(
         effectHistoryLabels.parameter(
           first.effect.effectName,
@@ -272,6 +291,7 @@ export function useMidiMap({
             return false;
           }
           reading = readCc(input, message);
+          move = readMove(input, reading);
           return (
             latestRef.current.selected?.kind === "number" ||
             knobsOf(reading).length > 0
@@ -293,7 +313,9 @@ export function useMidiMap({
           if (message.type === "cc" && reading) {
             const { active: mapping, selected: target } = latestRef.current;
             if (!mapping) {
-              moveKnobs(input, reading);
+              if (move) {
+                moveKnobs(reading, move);
+              }
             } else if (target?.kind === "number") {
               assignCc(target, reading);
             }

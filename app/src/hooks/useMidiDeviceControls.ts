@@ -6,7 +6,10 @@ import {
   movePosition,
   moveTrackVolume,
 } from "../midi-device-targets.ts";
-import { deviceControlAction } from "../midi-input/device-controls.ts";
+import {
+  ccMoveReader,
+  deviceControlAction,
+} from "../midi-input/device-controls.ts";
 import { type MidiInputHub, midiInputHub } from "../midi-input/input-hub.ts";
 import { settledEffectEdits } from "./settled-effect-edits.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
@@ -36,10 +39,18 @@ export function useMidiDeviceControls({
       latestRef.current.editEffects(...args),
     );
 
+    // Each device's CCs, read in order to tell its encoders from its knobs.
+    const ccReaders = new Map<string, ReturnType<typeof ccMoveReader>>();
+
     const stopListening = hub.listen({
       message(input, message) {
+        let readCc = ccReaders.get(input.id);
+        if (!readCc) {
+          readCc = ccMoveReader();
+          ccReaders.set(input.id, readCc);
+        }
         const action =
-          input.mapping && deviceControlAction(input.mapping, message);
+          input.mapping && deviceControlAction(input.mapping, message, readCc);
         if (!action) {
           return;
         }
