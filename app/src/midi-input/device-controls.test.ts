@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { deviceControlAction, deviceControlRoles } from "./device-controls.ts";
+import {
+  ccMove,
+  deviceControlAction,
+  deviceControlRoles,
+} from "./device-controls.ts";
 import type { MidiDeviceMapping } from "./device-mappings.ts";
 
 const DEVICES = JSON.parse(
@@ -153,4 +157,23 @@ test("reads how far a Push's relative encoder turned", () => {
     })?.move;
   assert.deepEqual(turn(1), { by: 1 / 127 });
   assert.deepEqual(turn(127), { by: -1 / 127 });
+});
+
+test("a CC mapped by hand is relative only where its device says so", () => {
+  const push = device("ableton-push-2");
+  const { control } = deviceControlRoles(push).find(
+    ({ control }) => control.name === "Track1 Encoder",
+  ) as ReturnType<typeof deviceControlRoles>[number];
+  const message = {
+    type: "cc" as const,
+    channel: control.channel,
+    controller: control.number as number,
+    value: 127,
+  };
+  assert.deepEqual(ccMove(push, message), { by: -1 / 127 });
+  assert.deepEqual(ccMove(undefined, message), { to: 1 });
+  assert.deepEqual(
+    ccMove(device("novation-launchkey-49-mk3"), { ...message, controller: 21 }),
+    { to: 1 },
+  );
 });

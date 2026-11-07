@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { patchProjectState } from "../app/session-project.ts";
 import type { ProjectState } from "../app/types.ts";
 import { isEditableEventTarget } from "../app/util.ts";
-import type {
-  KeyMapButtonProps,
-  KeyMapControls,
+import {
+  INACTIVE_KEY_MAP,
+  type KeyMapButtonProps,
+  type KeyMapControls,
 } from "../components/fx/key-map-context.ts";
-import { INACTIVE_KEY_MAP } from "../components/fx/key-map-context.ts";
 import { drumRackParams } from "../fx/effects/drum-rack/drum-media.ts";
 import { parseDrumRack } from "../fx/effects/drum-rack/drum-rack.ts";
 import type { SessionEffect } from "../fx-stack.ts";

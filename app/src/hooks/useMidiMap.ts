@@ -7,11 +7,7 @@ import type {
   KeyMapControls,
 } from "../components/fx/key-map-context.ts";
 import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
-import {
-  type KeyMapTarget,
-  keyMapTargetId,
-  pressKeyMapTarget,
-} from "../key-map.ts";
+import { keyMapTargetId, pressKeyMapTarget } from "../key-map.ts";
 import { knobParameter, moveEffectParameter } from "../midi-device-targets.ts";
 import { ccMove } from "../midi-input/device-controls.ts";
 import {

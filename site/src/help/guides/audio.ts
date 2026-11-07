@@ -131,6 +131,10 @@ export const audio: Guide = {
           text: "Popular MIDI controllers work with nothing to map once **MIDI** is on. Click a device in the FX panel to select it, and the controller's knobs drive its numeric controls in order. A master or lone fader moves the volume, and numbered faders move each source track's Gain.",
         },
         {
+          type: "p",
+          text: "To use any other controller, or give a control a different job, switch **MIDI** to its map mode, click a knob or fader in a device, and move the control. It drives that knob from then on, in place of anything it did by default. Delete removes the mapping. Mappings are saved with the session and go away with their device.",
+        },
+        {
           type: "figure",
           shot: "audio-drum-rack",
           alt: "The Drum Rack device with its TR-808 bank: a four by four grid of pads from Kick to Cowbell.",

@@ -32,8 +32,8 @@ export function useMidiDeviceControls({
   latestRef.current = inputs;
 
   useEffect(() => {
-    const { edit: editSettled, flush } = settledEffectEdits(
-      (...args) => latestRef.current.editEffects(...args),
+    const { edit: editSettled, flush } = settledEffectEdits((...args) =>
+      latestRef.current.editEffects(...args),
     );
 
     const stopListening = hub.listen({
