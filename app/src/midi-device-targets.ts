@@ -87,9 +87,9 @@ export function moveTrackVolume(
     ? effects
     : addEffect(effects, trackId, GAIN_EFFECT_NAME);
   const gain = findGain(withGain);
-  const parameter = gain && deviceOf(gain)?.parameters.find(
-    (candidate) => candidate.key === GAIN_KEY,
-  );
+  const parameter =
+    gain &&
+    deviceOf(gain)?.parameters.find((candidate) => candidate.key === GAIN_KEY);
   return gain && parameter
     ? setEffectParameter(
         withGain,

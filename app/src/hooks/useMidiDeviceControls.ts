@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import { effectHistoryLabels, type SessionEffect } from "../fx-stack.ts";
-import { deviceControlAction } from "../midi-input/device-controls.ts";
-import { type MidiInputHub, midiInputHub } from "../midi-input/input-hub.ts";
 import {
   knobParameters,
   moveEffectKnob,
   movePosition,
   moveTrackVolume,
 } from "../midi-device-targets.ts";
+import { deviceControlAction } from "../midi-input/device-controls.ts";
+import { type MidiInputHub, midiInputHub } from "../midi-input/input-hub.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 
 // How long a control rests before its moves become one undo step.
@@ -64,8 +64,9 @@ export function useMidiDeviceControls({
         } else if (role.kind === "track-volume") {
           const trackId = latest.sourceTrackIds[role.index];
           if (trackId !== undefined) {
-            editSettled(effectHistoryLabels.parameter("Gain", "Gain"), (effects) =>
-              moveTrackVolume(effects, trackId, move),
+            editSettled(
+              effectHistoryLabels.parameter("Gain", "Gain"),
+              (effects) => moveTrackVolume(effects, trackId, move),
             );
           }
         } else {

@@ -1,4 +1,12 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 import { page } from "vitest/browser";
 import { PREVIEW_VOLUME_STORAGE_KEY } from "../app/constants.ts";
 import {
@@ -56,13 +64,13 @@ async function open() {
     },
   });
   const get = () => state as EditorState;
-  const valueOf = (id: string, key: string) =>
+  const parameterValue = (id: string, key: string) =>
     get()
       .project.effects.find((effect) => effect.id === id)
       ?.parameters.find((parameter) => parameter.key === key)?.numericValue;
   await vi.waitFor(() => expect(port.onmidimessage).not.toBeNull());
   await settle();
-  return { get, valueOf, delay, reverb };
+  return { get, parameterValue, delay, reverb };
 }
 
 const FIRST_KNOB = 21;
@@ -71,8 +79,7 @@ const MASTER_FADER = 7;
 // Past the debounce that turns a run of moves into one undo step.
 const SETTLED_MS = 500;
 
-const settle = (ms = 100) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const settle = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Clicks the device's title bar, which selects it.
 async function select(effectId: string) {
@@ -112,24 +119,30 @@ afterEach(() => {
   access.onstatechange?.();
 });
 
-describe("built-in MIDI device controls", { timeout: EDITOR_TEST_TIMEOUT }, () => {
+describe("built-in MIDI device controls", {
+  timeout: EDITOR_TEST_TIMEOUT,
+}, () => {
   test("the first knob moves the selected effect's first parameter, with no mapping", async () => {
-    const { valueOf, delay } = await open();
+    const { parameterValue, delay } = await open();
     const [first] = knobParameters(delay);
     assert(first);
     cc(FIRST_KNOB, 127);
     await settle();
-    expect(valueOf(delay.id, first.key)).toBe(first.numericValue);
+    expect(parameterValue(delay.id, first.key)).toBe(first.numericValue);
 
     await select(delay.id);
     cc(FIRST_KNOB, 127);
-    await vi.waitFor(() => expect(valueOf(delay.id, first.key)).toBe(first.max));
+    await vi.waitFor(() =>
+      expect(parameterValue(delay.id, first.key)).toBe(first.max),
+    );
     cc(FIRST_KNOB, 0);
-    await vi.waitFor(() => expect(valueOf(delay.id, first.key)).toBe(first.min));
+    await vi.waitFor(() =>
+      expect(parameterValue(delay.id, first.key)).toBe(first.min),
+    );
   });
 
   test("selecting another effect retargets the knobs", async () => {
-    const { valueOf, delay, reverb } = await open();
+    const { parameterValue, delay, reverb } = await open();
     const [delayKnob] = knobParameters(delay);
     const [reverbKnob] = knobParameters(reverb);
     assert(delayKnob && reverbKnob);
@@ -137,24 +150,28 @@ describe("built-in MIDI device controls", { timeout: EDITOR_TEST_TIMEOUT }, () =
     await select(reverb.id);
     cc(FIRST_KNOB, 127);
     await vi.waitFor(() =>
-      expect(valueOf(reverb.id, reverbKnob.key)).toBe(reverbKnob.max),
+      expect(parameterValue(reverb.id, reverbKnob.key)).toBe(reverbKnob.max),
     );
-    expect(valueOf(delay.id, delayKnob.key)).toBe(delayKnob.numericValue);
+    expect(parameterValue(delay.id, delayKnob.key)).toBe(
+      delayKnob.numericValue,
+    );
   });
 
   test("a run of moves is one undo step", async () => {
-    const { valueOf, delay } = await open();
+    const { parameterValue, delay } = await open();
     const [first] = knobParameters(delay);
     assert(first);
     await select(delay.id);
     for (const value of [10, 60, 127]) {
       cc(FIRST_KNOB, value);
     }
-    await vi.waitFor(() => expect(valueOf(delay.id, first.key)).toBe(first.max));
+    await vi.waitFor(() =>
+      expect(parameterValue(delay.id, first.key)).toBe(first.max),
+    );
     await settle(SETTLED_MS);
     await undo();
     await vi.waitFor(() =>
-      expect(valueOf(delay.id, first.key)).toBe(first.numericValue),
+      expect(parameterValue(delay.id, first.key)).toBe(first.numericValue),
     );
   });
 

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import {
-  deviceControlAction,
-  deviceControlRoles,
-} from "./device-controls.ts";
+import { deviceControlAction, deviceControlRoles } from "./device-controls.ts";
 import type { MidiDeviceMapping } from "./device-mappings.ts";
 
 const DEVICES = JSON.parse(
@@ -29,7 +26,10 @@ test("knobs are the effect's knobs in order, and the master fader the volume", (
     roles.filter(({ role }) => role.kind === "fx-knob").map(({ role }) => role),
     knobs.map((_, index) => ({ kind: "fx-knob", index })),
   );
-  assert.equal(rolesNamed("novation-launchkey-49-mk3", "track-volume").length, 8);
+  assert.equal(
+    rolesNamed("novation-launchkey-49-mk3", "track-volume").length,
+    8,
+  );
   assert.deepEqual(rolesNamed("novation-launchkey-49-mk3", "master-volume"), [
     "Master Fader",
   ]);
@@ -44,7 +44,9 @@ test("a control named for volume is the volume, not a knob", () => {
 });
 
 test("a lone fader is the volume, and the ninth of nine the master", () => {
-  assert.deepEqual(rolesNamed("m-audio-hammer-88", "master-volume"), ["Slider"]);
+  assert.deepEqual(rolesNamed("m-audio-hammer-88", "master-volume"), [
+    "Slider",
+  ]);
   assert.equal(rolesNamed("arturia-keylab-49-mk3", "track-volume").length, 8);
   assert.equal(rolesNamed("arturia-keylab-49-mk3", "master-volume").length, 1);
   assert.equal(rolesNamed("korg-nanokontrol2", "track-volume").length, 8);
@@ -62,7 +64,10 @@ test("keys, wheels, pedals, buttons and touches take no role", () => {
         control.type === "cc" || control.type === "pitchbend",
         `${mapping.id}: ${control.name}`,
       );
-      assert.ok(!/touch$/i.test(control.name), `${mapping.id}: ${control.name}`);
+      assert.ok(
+        !/touch$/i.test(control.name),
+        `${mapping.id}: ${control.name}`,
+      );
     }
   }
 });
@@ -86,7 +91,14 @@ test("every device's roles number its knobs and tracks from the first", () => {
 test("reads where a CC control and a pitch bend fader are", () => {
   const mapping = {
     controls: [
-      { name: "Knob {n}", kind: "knob", type: "cc", channel: 1, number: 21, count: 2 },
+      {
+        name: "Knob {n}",
+        kind: "knob",
+        type: "cc",
+        channel: 1,
+        number: 21,
+        count: 2,
+      },
       { name: "Master fader", kind: "fader", type: "pitchbend", channel: 9 },
     ],
   } as MidiDeviceMapping;
@@ -108,11 +120,21 @@ test("reads where a CC control and a pitch bend fader are", () => {
 test("a message no control with a role sends does nothing", () => {
   const launchkey = device("novation-launchkey-49-mk3");
   assert.equal(
-    deviceControlAction(launchkey, { type: "cc", channel: 16, controller: 1, value: 9 }),
+    deviceControlAction(launchkey, {
+      type: "cc",
+      channel: 16,
+      controller: 1,
+      value: 9,
+    }),
     undefined,
   );
   assert.equal(
-    deviceControlAction(launchkey, { type: "note-on", channel: 1, note: 60, velocity: 9 }),
+    deviceControlAction(launchkey, {
+      type: "note-on",
+      channel: 1,
+      note: 60,
+      velocity: 9,
+    }),
     undefined,
   );
 });

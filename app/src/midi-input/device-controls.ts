@@ -61,20 +61,27 @@ export function deviceControlRoles(
         ? faders[0]
         : undefined;
   let knobs = 0;
-  return controls.flatMap((control) => {
-    if (isVolume(control) || control === master) {
-      return [{ control, role: { kind: "master-volume" as const } }];
-    }
-    if (control.kind !== "fader") {
-      const index = knobs;
-      knobs += 1;
-      return [{ control, role: { kind: "fx-knob" as const, index } }];
-    }
-    const index = numbered.indexOf(control);
-    return index < 0
-      ? []
-      : [{ control, role: { kind: "track-volume" as const, index } }];
-  });
+  return controls.flatMap(
+    (
+      control,
+    ): {
+      control: MidiControl;
+      role: DeviceControlRole;
+    }[] => {
+      if (isVolume(control) || control === master) {
+        return [{ control, role: { kind: "master-volume" } }];
+      }
+      if (control.kind !== "fader") {
+        const index = knobs;
+        knobs += 1;
+        return [{ control, role: { kind: "fx-knob", index } }];
+      }
+      const index = numbered.indexOf(control);
+      return index < 0
+        ? []
+        : [{ control, role: { kind: "track-volume", index } }];
+    },
+  );
 }
 
 function messageId(type: string, channel: number, number?: number) {
@@ -129,9 +136,7 @@ export function deviceControlAction(
     );
   }
   if (message.type === "pitchbend") {
-    const entry = rolesOf(mapping).get(
-      messageId("pitchbend", message.channel),
-    );
+    const entry = rolesOf(mapping).get(messageId("pitchbend", message.channel));
     return entry && { role: entry.role, move: { to: message.value / 16383 } };
   }
   return undefined;
