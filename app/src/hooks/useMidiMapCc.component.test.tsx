@@ -116,8 +116,10 @@ function firstKnob(effect: ReturnType<typeof createEffect>) {
   return parameter as NonNullable<typeof parameter>;
 }
 
-async function selectKnob(effect: ReturnType<typeof createEffect>) {
-  const { key, label } = firstKnob(effect);
+async function selectKnob(
+  effect: ReturnType<typeof createEffect>,
+  { key, label } = firstKnob(effect),
+) {
   const dial = dialOf(effect.id, label);
   await page.elementLocator(dial).click();
   await vi.waitFor(() =>
@@ -250,7 +252,11 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     const port = plugIn("Homemade Box");
     const { get, value, delay } = await open(port);
     await toggleButton().click();
-    const { key, label } = await selectKnob(delay);
+    // High cut has the fine steps to show the extra resolution.
+    const highCut = knobParameters(delay).find(
+      (parameter) => parameter.key === "High cut",
+    );
+    const { key, label } = await selectKnob(delay, highCut);
     const before = value(delay.id, key);
 
     for (const [msb, lsb] of [
@@ -273,9 +279,11 @@ describe("MIDI Map CC mappings", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       },
     ]);
     expect(value(delay.id, key)).toBe(before);
+    // One undo step takes back the whole sweep.
     await undo();
     await vi.waitFor(() => expect(get().project.midiMappings).toBeUndefined());
-    await page.getByRole("button", { name: "Redo" }).click();
+    cc(port, 1, 30, 2);
+    cc(port, 33, 90, 2);
     await vi.waitFor(() =>
       expect(get().project.midiMappings?.[0]?.controller).toBe(1),
     );
