@@ -20,7 +20,10 @@ import {
   undo,
 } from "../../component-test/input.ts";
 import { setViewport } from "../../component-test/viewport.ts";
-import { sourceClipEffectTrackId } from "../../fx-stack.ts";
+import {
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../../fx-stack.ts";
 import { installHarness } from "../../harness";
 import {
   DEFAULT_GRANULAR_PARAMS,
@@ -86,7 +89,7 @@ function midiProject(): ProjectState {
         accent: "#7ca1ff",
       },
     ],
-    effects: addDefaultSynth(base.effects, "source-bassline", "bass-synth"),
+    effects: addDefaultSynth(base.effects, "bass", "bass-synth"),
   };
 }
 
@@ -115,19 +118,16 @@ async function open(initial = midiProject()) {
     notes: () =>
       project().sourceSpans.find((span) => span.id === "source-bassline")
         ?.notes,
-    // What the clip's MIDI effects play.
+    // What the track's MIDI effects play.
     chain: () =>
       midiChainOf(
         project().effects.filter(
-          (effect) =>
-            effect.trackId === sourceClipEffectTrackId("source-bassline"),
+          (effect) => effect.trackId === sourceTrackEffectTrackId("bass"),
         ),
       ),
-    stackNames: (spanId = "source-bassline") =>
+    stackNames: (stackId = sourceTrackEffectTrackId("bass")) =>
       project()
-        .effects.filter(
-          (effect) => effect.trackId === sourceClipEffectTrackId(spanId),
-        )
+        .effects.filter((effect) => effect.trackId === stackId)
         .map((effect) => effect.effectName),
   };
 }
@@ -183,7 +183,7 @@ async function selectBassline() {
 }
 
 test(
-  "a MIDI clip's Synth is an effect on its own stack, whose edits are undoable",
+  "a MIDI clip's Synth is an effect on its track's stack, whose edits are undoable",
   async () => {
     const { chain } = await open();
     const synthOf = () => {
@@ -227,7 +227,7 @@ test(
 );
 
 test(
-  "only a MIDI clip's add menu offers the MIDI group, whose Arpeggiator feeds the Synth",
+  "a MIDI clip's add menus offer the MIDI group, whose Arpeggiator on the track feeds the Synth",
   async () => {
     const { chain, stackNames } = await open();
     await selectBassline();
@@ -249,21 +249,8 @@ test(
     );
     await userEvent.keyboard("{Escape}");
 
-    // The track's menu offers none.
-    await userEvent.click(
-      page.getByRole("button", { name: "Add device to this track" }),
-    );
-    await expect.element(page.getByRole("menu")).toBeVisible();
-    expect(
-      page
-        .getByRole("menu")
-        .getByRole("menuitem", { name: "MIDI", exact: true })
-        .elements(),
-    ).toHaveLength(0);
-    await userEvent.keyboard("{Escape}");
-
     await addFromMenu(
-      "Add device to this clip",
+      "Add device to this track",
       "MIDI",
       /^Arpeggiator/,
       "MIDI",
@@ -300,7 +287,7 @@ test(
   async () => {
     const { chain, stackNames } = await open();
     await selectBassline();
-    await addFromMenu("Add device to this clip", "MIDI", /^Granular/, "MIDI");
+    await addFromMenu("Add device to this track", "MIDI", /^Granular/, "MIDI");
     await expect.poll(() => stackNames()).toEqual(["Synth", "Granular"]);
     const granular = page.getByRole("region", {
       name: "Granular",
@@ -1119,7 +1106,9 @@ test(
     expect(clip.label).toBe(NEW_MIDI_CLIP_LABEL);
     expect(bassSpans().find((span) => span.id === ahead.id)).toEqual(ahead);
     // It plays through a default Synth, with no Arpeggiator, and its Gain.
-    expect(stackNames(clip.id)).toEqual(["Synth", "Gain"]);
+    // It plays the track's Synth, with a Gain of its own.
+    expect(stackNames(sourceClipEffectTrackId(clip.id))).toEqual(["Gain"]);
+    expect(stackNames()).toEqual(["Synth"]);
 
     // It shows as a MIDI clip, selected with its piano roll open.
     const span = () =>
