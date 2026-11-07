@@ -61,6 +61,7 @@ import { SharedAudioContext } from "./recording/shared-audio-context.ts";
 export const AUDITION_HOLD_SECONDS = 0.35;
 // An audition's peak level, a little under a full-velocity note's in the mix.
 const AUDITION_LEVEL = 0.2;
+const FULL_VELOCITY = 127;
 
 const auditionContext = new SharedAudioContext(() => {
   const context = new AudioContext();
@@ -259,7 +260,8 @@ function holdEnvelope(
  * Plays `pitch` through `instrument`, starting from `expression` if it has
  * any: for a moment, or with `hold` until the voice is released, which a Drum
  * Rack's one-shot pads don't wait for. Returns the voice, unless the
- * instrument has nothing to play. With `stack` it plays through that chain.
+ * instrument has nothing to play. With `stack` it plays through that chain. It
+ * sounds as hard as `velocity`, as the same note does in the mix.
  */
 export function auditionNote(
   pitch: number,
@@ -267,6 +269,7 @@ export function auditionNote(
   expression?: ExpressionSample,
   hold = false,
   stack?: AuditionStack,
+  velocity = FULL_VELOCITY,
 ): AuditionVoice | undefined {
   if (instrument.kind === "granular") {
     return auditionGranular(
@@ -276,6 +279,7 @@ export function auditionNote(
       hold,
       stack,
       instrument.modulation,
+      velocity,
     );
   }
   if (instrument.kind === "drums") {
@@ -284,7 +288,7 @@ export function auditionNote(
       return undefined;
     }
     const voice = drumPadVoice(expression);
-    void auditionDrumPad(pad, instrument.params, voice, stack);
+    void auditionDrumPad(pad, instrument.params, voice, stack, velocity);
     return voice;
   }
   return auditionSynth(
@@ -294,6 +298,7 @@ export function auditionNote(
     hold,
     stack,
     instrument.modulation,
+    velocity,
   );
 }
 
@@ -304,10 +309,12 @@ function auditionSynth(
   hold: boolean,
   stack: AuditionStack | undefined,
   modulation: MidiModulation | undefined,
+  velocity: number,
 ): AuditionVoice {
   const context = auditionContext.acquire();
   const { output, ended } = auditionOutput(context, stack);
   const start = context.currentTime + 0.01;
+  const level = (AUDITION_LEVEL * velocity) / FULL_VELOCITY;
   const modulator = auditionModulator(modulation, stack, start);
   // A note takes its Octave and envelope from where the knobs are as it starts.
   const params = modulator
@@ -372,7 +379,7 @@ function auditionSynth(
       gain.gain,
       params,
       start,
-      AUDITION_LEVEL,
+      level,
       from,
     );
     release = () => oscillator.stop(releaseGain(context.currentTime));
@@ -382,7 +389,7 @@ function auditionSynth(
     holdFrom(start);
   } else {
     fixedUntil = start + AUDITION_HOLD_SECONDS;
-    const envelope = synthEnvelope(params, AUDITION_LEVEL, start, fixedUntil);
+    const envelope = synthEnvelope(params, level, start, fixedUntil);
     scheduleEnvelope(gain.gain, envelope);
     oscillator.stop(envelope[envelope.length - 1].seconds);
   }
@@ -417,6 +424,7 @@ function auditionGranular(
   hold: boolean,
   stack: AuditionStack | undefined,
   modulation: MidiModulation | undefined,
+  velocity: number,
 ): AuditionVoice {
   const context = auditionContext.acquire();
   const { output, ended } = auditionOutput(context, stack);
@@ -433,7 +441,7 @@ function auditionGranular(
     pitch,
     start: 0,
     length: AUDITION_HOLD_SECONDS,
-    velocity: Math.round((127 * AUDITION_LEVEL) / GRANULAR_VOICE_LEVEL),
+    velocity: (velocity * AUDITION_LEVEL) / GRANULAR_VOICE_LEVEL,
     // The cloud is mixed before it plays, so its reads stay where they start;
     // the source's rate and gain below can still follow the bend and pressure,
     // and the filter how far the slide has moved since.
@@ -643,15 +651,16 @@ function drumPadVoice(initial: ExpressionSample | undefined): DrumPadVoice {
 }
 
 /**
- * Plays `pad`'s sample through a Drum Rack playing `params`, at a
- * full-velocity hit's level, once it has loaded. Resolves to whether it
- * played: false for a silent pad or a sample that can't be read.
+ * Plays `pad`'s sample through a Drum Rack playing `params`, at the level of a
+ * hit at `velocity`, once it has loaded. Resolves to whether it played: false
+ * for a silent pad or a sample that can't be read.
  */
 export async function auditionDrumPad(
   pad: number,
   params: DrumRackParams,
   voice?: DrumPadVoice,
   stack?: AuditionStack,
+  velocity = FULL_VELOCITY,
 ) {
   const url = params.samples[pad];
   if (!url) {
@@ -670,12 +679,13 @@ export async function auditionDrumPad(
   source.buffer = buffer;
   const expression = voice?.sample();
   source.playbackRate.value = bendRate(expression?.bend ?? 0);
+  const level = (DRUM_VOICE_LEVEL * velocity) / FULL_VELOCITY;
   const gain = context.createGain();
-  gain.gain.value = DRUM_VOICE_LEVEL * expressionGain(expression);
+  gain.gain.value = level * expressionGain(expression);
   source.connect(gain).connect(output);
   voice?.attach((sample) => {
     glide(source.playbackRate, bendRate(sample.bend), context);
-    glide(gain.gain, DRUM_VOICE_LEVEL * expressionGain(sample), context);
+    glide(gain.gain, level * expressionGain(sample), context);
   });
   source.onended = () => {
     source.disconnect();

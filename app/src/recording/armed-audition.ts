@@ -265,6 +265,7 @@ export function auditionTracks(
   pitch: number,
   expression: ExpressionSample | undefined,
   exceptSpanId?: string,
+  velocity?: number,
 ) {
   return combineVoices(
     trackAuditions(trackIds, session, exceptSpanId).map(
@@ -275,6 +276,7 @@ export function auditionTracks(
           expression,
           true,
           auditionStackOf(trackId, undefined, session, playheadQ()),
+          velocity,
         ),
     ),
   );
@@ -287,6 +289,7 @@ export function auditionClipNote(
   instrument: MidiInstrument,
   expression?: ExpressionSample,
   hold = false,
+  velocity?: number,
 ) {
   const trackId = session.sourceSpans.find(
     (span) => span.id === spanId,
@@ -299,6 +302,7 @@ export function auditionClipNote(
     trackId === undefined
       ? undefined
       : auditionStackOf(trackId, spanId, session, playheadQ()),
+    velocity,
   );
 }
 
@@ -331,8 +335,15 @@ export function auditionArmedTracks(
   pitch: number,
   expression: ExpressionSample | undefined,
   exceptSpanId?: string,
+  velocity?: number,
 ) {
-  return auditionTracks(getArmedTrackIds(), pitch, expression, exceptSpanId);
+  return auditionTracks(
+    getArmedTrackIds(),
+    pitch,
+    expression,
+    exceptSpanId,
+    velocity,
+  );
 }
 
 // How many open piano rolls take the keys, passing them on to the armed tracks.
@@ -375,7 +386,12 @@ export function useArmedRollKeys(takesKeys: boolean, spanId: string) {
       voice: AuditionVoice | undefined,
       pitch: number,
       expression: ExpressionSample | undefined,
-    ) => combineVoices([voice, auditionArmedTracks(pitch, expression, spanId)]),
+      velocity: number,
+    ) =>
+      combineVoices([
+        voice,
+        auditionArmedTracks(pitch, expression, spanId, velocity),
+      ]),
     [spanId],
   );
 }

@@ -262,6 +262,53 @@ test(
 );
 
 test(
+  "a take keeps each note's played velocity, and each key sounds as hard as it was played",
+  async () => {
+    await openEditor();
+    await chooseMidiTab();
+    await armButton().click();
+    await recordButton().click();
+    await expect.element(stopButton()).toBeVisible();
+    await expect.poll(() => port.onmidimessage).not.toBeNull();
+    const velocities = [30, 80, 127];
+    for (const [index, velocity] of velocities.entries()) {
+      send(NOTE_ON, 60, velocity);
+      await expect.poll(() => queryAll(LIVE_NOTES).length).toBe(index + 1);
+      send(NOTE_OFF, 60, 0);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await stopButton().click();
+    await expect.poll(() => queryAll(CLIP_NOTES).length).toBe(3);
+    await userEvent.click(query("[data-source-span-id]"));
+    await expect
+      .poll(() =>
+        queryAll("[aria-label$=' velocity']").map((stem) =>
+          Number(stem.getAttribute("aria-valuenow")),
+        ),
+      )
+      .toEqual(velocities);
+
+    // The clip's Synth is on the armed track now, so a second pass sounds it.
+    const peaks = vi.spyOn(AudioParam.prototype, "linearRampToValueAtTime");
+    onTestFinished(() => peaks.mockRestore());
+    await recordButton().click();
+    await expect.element(stopButton()).toBeVisible();
+    await expect.poll(() => port.onmidimessage).not.toBeNull();
+    for (const velocity of [127, 32]) {
+      peaks.mockClear();
+      send(NOTE_ON, 72, velocity);
+      send(NOTE_OFF, 72, 0);
+      await expect.poll(() => peaks.mock.calls.length).toBeGreaterThan(0);
+      expect(Math.max(...peaks.mock.calls.map(([value]) => value))).toBeCloseTo(
+        (0.2 * velocity) / 127,
+      );
+    }
+    await stopButton().click();
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   "stopping with nothing played leaves no clip",
   async () => {
     await openEditor();

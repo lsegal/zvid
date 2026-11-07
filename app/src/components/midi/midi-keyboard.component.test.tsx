@@ -90,6 +90,7 @@ async function renderRoll({
   const signal = createPlayheadSignal(0);
   const edits: { notes: readonly MidiNote[]; label: string }[] = [];
   const auditions: number[] = [];
+  const auditionVelocities: (number | undefined)[] = [];
   const hub = createMidiInputHub({
     requestAccess: async () => access,
     loadMappings: async () => [MAPPED],
@@ -128,8 +129,9 @@ async function renderRoll({
             timeline: defaultMidiTimeline(8),
             instrument: DEFAULT_INSTRUMENT,
           }}
-          onAudition={(pitch) => {
+          onAudition={(pitch, _, __, ___, velocity) => {
             auditions.push(pitch);
+            auditionVelocities.push(velocity);
             return undefined;
           }}
           onSetNotes={(_, next, label) => {
@@ -150,6 +152,7 @@ async function renderRoll({
     signal,
     edits,
     auditions,
+    auditionVelocities,
     setPlaying: (next: boolean) => setPlaying(next),
     send: (...bytes: number[]) =>
       port.onmidimessage?.({ data: new Uint8Array(bytes) }),
@@ -269,6 +272,16 @@ test("a device going away clears its keys' highlights", async () => {
   roll.port.state = "disconnected";
   roll.access.onstatechange?.();
   await expect.poll(() => playedPitches().rows).toEqual([]);
+  roll.unmount();
+});
+
+test("a key auditions at the velocity it was played at", async () => {
+  const roll = await renderRoll({ playing: false });
+  for (const velocity of [20, 127]) {
+    roll.send(0x90, 60, velocity);
+    roll.send(0x80, 60, 0);
+  }
+  await expect.poll(() => roll.auditionVelocities).toEqual([20, 127]);
   roll.unmount();
 });
 
