@@ -1,4 +1,3 @@
-import { ChevronLeftIcon } from "@heroicons/react/24/solid";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -57,6 +56,10 @@ import {
   setNoteClipboard,
 } from "../../piano-roll-actions.ts";
 import {
+  type PianoRollGrid,
+  pianoRollCellsPerQ,
+} from "../../piano-roll-grid.ts";
+import {
   auditionClipNote,
   useArmedRollKeys,
 } from "../../recording/armed-audition.ts";
@@ -64,16 +67,14 @@ import { useMidiPassActive } from "../../recording/record-source.ts";
 import { chainHandlers } from "../../use-drag-scroll";
 import { ZOOM_DEFAULT } from "../../zoom";
 import { ContextMenu } from "../ContextMenu";
-import { MidiMapContext, useKeyMapControls } from "../fx/key-map-context";
 import { FxModulationClockContext } from "../fx/modulation-clock";
 import type { FxEditMode } from "../fx/types";
-import { KeyInputControl, MidiInputControl } from "../InputModeControl";
 import "../fx/fx-chain.css";
 import "../fx/fx-device-title.css";
 import "./midi-devices.css";
+import { PianoRollHeader } from "./PianoRollHeader";
 import { PianoRollHeldNote } from "./PianoRollHeldNotes";
-import { PianoRollKeyboardEntry } from "./PianoRollKeyboardEntry";
-import { isMidiControl, PianoRollMidiControls } from "./PianoRollMidiControls";
+import { isMidiControl } from "./PianoRollMidiControls";
 import { PianoRollPlayhead, pianoRollPlayheadQ } from "./PianoRollPlayhead";
 import { PianoRollRuler } from "./PianoRollRuler";
 import { PianoRollVelocity, useVelocityLaneHeight } from "./PianoRollVelocity";
@@ -166,7 +167,7 @@ const NO_SELECTION: ReadonlySet<string> = new Set();
 // lands on, the way clips do; painting or resizing over them removes them.
 // Clicking a note selects it (Shift-click adds to the selection) and Escape
 // clears the selection. The keys act on the selected notes (see
-// piano-roll-actions.ts): the arrows nudge them a snap (Shift for half) or a
+// piano-roll-actions.ts): the arrows nudge them a cell (Shift for half) or a
 // semitone, Delete or Backspace deletes them, and Cmd/Ctrl+D, X, C and V
 // duplicate, cut, copy and paste, pasting at the playhead. Clicking a note or a key
 // auditions it through the clip's instrument. A read-only line follows the
@@ -191,8 +192,6 @@ export function PianoRoll({
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const clock = useContext(FxModulationClockContext);
-  const keyMap = useKeyMapControls();
-  const midiMap = useContext(MidiMapContext);
   const [drag, setDrag] = useState<NoteDrag | null>(null);
   const velocityLane = useVelocityLaneHeight();
   const [menuAnchor, setMenuAnchor] = useState<MenuPoint | null>(null);
@@ -209,6 +208,8 @@ export function PianoRoll({
   const pan = usePianoRollPan(scrollRef);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   const quarterPx = PIANO_ROLL_QUARTER_PX * zoom;
+  const [grid, setGrid] = useState<PianoRollGrid>("adaptive");
+  const cellsPerQ = pianoRollCellsPerQ(grid, quarterPx);
   const { viewQ, fitWidth } = usePianoRollView({
     scrollRef,
     collapsed,
@@ -223,6 +224,7 @@ export function PianoRoll({
     "--fx-accent": accent,
     "--piano-roll-row": `${PIANO_ROLL_ROW_PX}px`,
     "--piano-roll-quarter": `${quarterPx}px`,
+    "--piano-roll-cell": `${quarterPx / cellsPerQ}px`,
     "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
     "--piano-roll-velocity": `${velocityLane.height}px`,
     "--piano-roll-fit-width": `${fitWidth}px`,
@@ -261,6 +263,7 @@ export function PianoRoll({
   const stroke = usePianoRollStroke({
     spanId,
     lengthQ: timeline.length,
+    cellsPerQ,
     gridPoint,
     onAudition: (pitch) => audition(pitch),
     onPaint: select,
@@ -390,13 +393,21 @@ export function PianoRoll({
     }
     const deltaQ = (event.clientX - drag.startX) / quarterPx;
     const moved = drag.edge
-      ? resizeNote(drag.base, drag.index, drag.from, drag.edge, deltaQ)
+      ? resizeNote(
+          drag.base,
+          drag.index,
+          drag.from,
+          drag.edge,
+          deltaQ,
+          cellsPerQ,
+        )
       : moveNote(
           drag.base,
           drag.index,
           drag.from,
           deltaQ,
           -Math.round((event.clientY - drag.startY) / PIANO_ROLL_ROW_PX),
+          cellsPerQ,
         );
     const before = drag.notes[drag.index];
     const after = moved[drag.index];
@@ -446,7 +457,9 @@ export function PianoRoll({
       model,
       clock?.signal.get() ?? Number.NaN,
     );
-    return soundingQ === undefined ? timeline.start : snapQ(soundingQ);
+    return soundingQ === undefined
+      ? timeline.start
+      : snapQ(soundingQ, cellsPerQ);
   }
 
   function applyEdit(edit: NoteSelectionEdit | undefined, label: string) {
@@ -508,9 +521,9 @@ export function PianoRoll({
         );
         break;
       default: {
-        const { deltaQ, deltaPitch } = NOTE_SHIFTS[action];
+        const { cells, deltaPitch } = NOTE_SHIFTS[action];
         applyEdit(
-          shiftNotes(notes, selectedKeys, deltaQ, deltaPitch),
+          shiftNotes(notes, selectedKeys, cells / cellsPerQ, deltaPitch),
           deltaPitch
             ? midiHistoryLabels.transposeNotes
             : midiHistoryLabels.nudgeNotes,
@@ -592,38 +605,16 @@ export function PianoRoll({
       onKeyDown={handlePanelKeyDown}
       style={style}
     >
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a pointer shortcut; the collapse button is its keyboard equivalent */}
-      <header
-        className="fx-device-panel__title"
-        onDoubleClick={(event) => {
-          if (
-            !(event.target as HTMLElement).closest("button") &&
-            !isMidiControl(event.target)
-          ) {
-            onToggleCollapsed();
-          }
-        }}
-      >
-        <span className="fx-device-panel__name">Notes</span>
-        <PianoRollMidiControls hub={midiHub} state={midi}>
-          <PianoRollKeyboardEntry state={keyboardEntryState} />
-          {/* A phone has no top bar for these. */}
-          <div className="piano-roll__phone-inputs">
-            <KeyInputControl entry={keyboardEntry} map={keyMap} />
-            <MidiInputControl hub={midiHub} map={midiMap} />
-          </div>
-        </PianoRollMidiControls>
-        <button
-          aria-expanded
-          aria-label="Collapse Notes"
-          className="fx-device-panel__collapse"
-          onClick={onToggleCollapsed}
-          title="Collapse Notes"
-          type="button"
-        >
-          <ChevronLeftIcon aria-hidden="true" />
-        </button>
-      </header>
+      <PianoRollHeader
+        grid={grid}
+        keyboardEntry={keyboardEntry}
+        keyboardEntryState={keyboardEntryState}
+        midi={midi}
+        midiHub={midiHub}
+        onGridChange={setGrid}
+        onToggleCollapsed={onToggleCollapsed}
+        quarterPx={quarterPx}
+      />
       <div className="piano-roll__scroll" data-fx-no-drag ref={scrollRef}>
         <div className="piano-roll__corner" />
         <PianoRollRuler

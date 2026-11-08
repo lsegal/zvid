@@ -2,7 +2,7 @@
 // menu that lists them (see components/midi/PianoRoll.tsx), and the note
 // clipboard they share across clips.
 import type { ContextMenuEntry } from "./context-menu.ts";
-import { type NoteClipboard, PIANO_ROLL_SNAP_Q } from "./midi-piano-roll.ts";
+import type { NoteClipboard } from "./midi-piano-roll.ts";
 
 export type NoteAction =
   | "nudgeLeft"
@@ -17,15 +17,15 @@ export type NoteAction =
   | "paste"
   | "delete";
 
-/** The quarters and semitones each nudge or pitch action moves notes. */
+/** The grid cells and semitones each nudge or pitch action moves notes. */
 export const NOTE_SHIFTS = {
-  nudgeLeft: { deltaQ: -PIANO_ROLL_SNAP_Q, deltaPitch: 0 },
-  nudgeRight: { deltaQ: PIANO_ROLL_SNAP_Q, deltaPitch: 0 },
-  nudgeFineLeft: { deltaQ: -PIANO_ROLL_SNAP_Q / 2, deltaPitch: 0 },
-  nudgeFineRight: { deltaQ: PIANO_ROLL_SNAP_Q / 2, deltaPitch: 0 },
-  pitchUp: { deltaQ: 0, deltaPitch: 1 },
-  pitchDown: { deltaQ: 0, deltaPitch: -1 },
-} satisfies Partial<Record<NoteAction, { deltaQ: number; deltaPitch: number }>>;
+  nudgeLeft: { cells: -1, deltaPitch: 0 },
+  nudgeRight: { cells: 1, deltaPitch: 0 },
+  nudgeFineLeft: { cells: -0.5, deltaPitch: 0 },
+  nudgeFineRight: { cells: 0.5, deltaPitch: 0 },
+  pitchUp: { cells: 0, deltaPitch: 1 },
+  pitchDown: { cells: 0, deltaPitch: -1 },
+} satisfies Partial<Record<NoteAction, { cells: number; deltaPitch: number }>>;
 
 const PLAIN_KEYS: Record<string, NoteAction> = {
   ArrowLeft: "nudgeLeft",

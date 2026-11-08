@@ -23,7 +23,7 @@ const STRAIGHT_STEPS_PER_Q: Readonly<Record<string, number>> = {
 
 // A grid's divisions per quarter note, which stay whole for triplets where
 // their steps in quarters don't; 0 for Off.
-function divisionsPerQ(quantize: RecordQuantize) {
+export function divisionsPerQ(quantize: RecordQuantize) {
   if (quantize === "off") {
     return 0;
   }

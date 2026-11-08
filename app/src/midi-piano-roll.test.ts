@@ -13,7 +13,6 @@ import {
   noteKey,
   PIANO_ROLL_HIGH_PITCH,
   PIANO_ROLL_LOW_PITCH,
-  PIANO_ROLL_SNAP_Q,
   paintNote,
   pasteNotes,
   pitchName,
@@ -31,6 +30,8 @@ import {
 
 const C4: MidiNote = { pitch: 60, start: 0, length: 1, velocity: 100 };
 const E4: MidiNote = { pitch: 64, start: 2, length: 0.5, velocity: 90 };
+// A sixteenth-note grid's cells per quarter.
+const SIXTEENTHS = 4;
 
 describe("pitch names", () => {
   it("names middle C C4 and marks black keys", () => {
@@ -43,22 +44,33 @@ describe("pitch names", () => {
 });
 
 describe("piano roll edits", () => {
-  it("snaps to sixteenth notes", () => {
-    assert.equal(snapQ(1.3), 1.25);
-    assert.equal(snapQ(0.249), 0);
-    assert.equal(snapQ(0.25), 0.25);
+  it("snaps down to the grid's cells", () => {
+    assert.equal(snapQ(1.3, SIXTEENTHS), 1.25);
+    assert.equal(snapQ(0.249, SIXTEENTHS), 0);
+    assert.equal(snapQ(0.25, SIXTEENTHS), 0.25);
+    assert.equal(snapQ(1.3, 1), 1);
+    // Eighth triplets: three cells a quarter, landing on whole thirds.
+    assert.equal(snapQ(1.7, 3), 5 / 3);
+    assert.equal(snapQ(2 / 3, 3), 2 / 3);
   });
 
   it("adds a note one grid cell long, in start order", () => {
-    assert.deepEqual(addNote([C4, E4], 67, 1.6), [
+    assert.deepEqual(addNote([C4, E4], 67, 1.6, SIXTEENTHS), [
       C4,
-      { pitch: 67, start: 1.5, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
+      { pitch: 67, start: 1.5, length: 0.25, velocity: 100 },
       E4,
+    ]);
+    // A quarter-note grid's cell is a quarter long (#1654).
+    assert.deepEqual(addNote([], 67, 1.6, 1), [
+      { pitch: 67, start: 1, length: 1, velocity: 100 },
     ]);
   });
 
   it("keeps added notes inside the roll's keys", () => {
-    assert.equal(addNote([], 200, 0)[0].pitch, PIANO_ROLL_HIGH_PITCH);
+    assert.equal(
+      addNote([], 200, 0, SIXTEENTHS)[0].pitch,
+      PIANO_ROLL_HIGH_PITCH,
+    );
   });
 
   it("paints a note into a cell of the grid, replacing the notes under it", () => {
@@ -66,26 +78,27 @@ describe("piano roll edits", () => {
     const painted = (startQ: number) => ({
       pitch: C4.pitch,
       start: startQ,
-      length: PIANO_ROLL_SNAP_Q,
+      length: 0.25,
       velocity: 100,
     });
     // Touching C4's end, which stays.
-    assert.deepEqual(paintNote([C4], C4.pitch, start + 0.1, [C4]), [
+    assert.deepEqual(paintNote([C4], C4.pitch, start + 0.1, [C4], SIXTEENTHS), [
       C4,
       painted(start),
     ]);
     // C4 covers the cell's start, and goes however little of it is under.
-    assert.deepEqual(paintNote([C4, E4], C4.pitch, C4.start + 0.1, [C4, E4]), [
-      painted(0),
-      E4,
-    ]);
+    assert.deepEqual(
+      paintNote([C4, E4], C4.pitch, C4.start + 0.1, [C4, E4], SIXTEENTHS),
+      [painted(0), E4],
+    );
     // A note starting partway through a cell is under it too.
     const partway = { ...C4, start: 0.375 };
-    assert.deepEqual(paintNote([partway], C4.pitch, 0.3, [partway]), [
-      painted(0.25),
-    ]);
+    assert.deepEqual(
+      paintNote([partway], C4.pitch, 0.3, [partway], SIXTEENTHS),
+      [painted(0.25)],
+    );
     // Other pitches stay.
-    assert.deepEqual(paintNote([E4], C4.pitch, E4.start, [E4]), [
+    assert.deepEqual(paintNote([E4], C4.pitch, E4.start, [E4], SIXTEENTHS), [
       painted(E4.start),
       E4,
     ]);
@@ -93,29 +106,58 @@ describe("piano roll edits", () => {
 
   it("paints no cell off the grid or already painted by the stroke", () => {
     const notes = [C4];
-    assert.equal(paintNote(notes, C4.pitch, C4.start + 0.1, []), notes);
-    assert.equal(paintNote(notes, C4.pitch + 1, -0.1, notes), notes);
-    assert.equal(paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0, notes), notes);
-    assert.equal(paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0, notes), notes);
+    assert.equal(
+      paintNote(notes, C4.pitch, C4.start + 0.1, [], SIXTEENTHS),
+      notes,
+    );
+    assert.equal(
+      paintNote(notes, C4.pitch + 1, -0.1, notes, SIXTEENTHS),
+      notes,
+    );
+    assert.equal(
+      paintNote(notes, PIANO_ROLL_HIGH_PITCH + 1, 0, notes, SIXTEENTHS),
+      notes,
+    );
+    assert.equal(
+      paintNote(notes, PIANO_ROLL_LOW_PITCH - 1, 0, notes, SIXTEENTHS),
+      notes,
+    );
   });
 
   it("moves a note by snapped quarters and whole semitones from where it was", () => {
-    assert.deepEqual(moveNote([C4, E4], 0, C4, 1.1, 2), [
+    assert.deepEqual(moveNote([C4, E4], 0, C4, 1.1, 2, SIXTEENTHS), [
       { ...C4, start: 1, pitch: 62 },
       E4,
     ]);
     // Never before the clip's content start.
-    assert.equal(moveNote([C4], 0, C4, -3, 0)[0].start, 0);
+    assert.equal(moveNote([C4], 0, C4, -3, 0, SIXTEENTHS)[0].start, 0);
   });
 
   it("resizes a note's end on the grid, never shorter than a sixteenth", () => {
-    assert.deepEqual(resizeNote([C4, E4], 0, C4, "end", 1.4), [
+    assert.deepEqual(resizeNote([C4, E4], 0, C4, "end", 1.4, SIXTEENTHS), [
       { ...C4, length: 2.5 },
       E4,
     ]);
-    assert.equal(resizeNote([C4], 0, C4, "end", -0.9)[0].length, 0.25);
-    assert.equal(resizeNote([C4], 0, C4, "end", -5)[0].length, 0.25);
-    assert.equal(resizeNote([E4], 0, E4, "end", -1)[0].start, 2);
+    assert.equal(
+      resizeNote([C4], 0, C4, "end", -0.9, SIXTEENTHS)[0].length,
+      0.25,
+    );
+    assert.equal(
+      resizeNote([C4], 0, C4, "end", -5, SIXTEENTHS)[0].length,
+      0.25,
+    );
+    assert.equal(resizeNote([E4], 0, E4, "end", -1, SIXTEENTHS)[0].start, 2);
+  });
+
+  it("edits on the grid it's given, a cell at least", () => {
+    // Quarter notes: a painted note fills the quarter it lands in.
+    assert.deepEqual(paintNote([], 60, 2.7, [], 1), [
+      { pitch: 60, start: 2, length: 1, velocity: 100 },
+    ]);
+    // Eighth triplets: moves and resizes land on thirds of a quarter.
+    assert.equal(moveNote([C4], 0, C4, 0.4, 0, 3)[0].start, 1 / 3);
+    assert.equal(resizeNote([C4], 0, C4, "end", -0.9, 3)[0].length, 1 / 3);
+    assert.equal(resizeNote([C4], 0, C4, "end", 0.6, 3)[0].length, 5 / 3);
   });
 
   it("removes the same-pitch notes a resized note grew over", () => {
@@ -153,18 +195,18 @@ describe("piano roll edits", () => {
   });
 
   it("resizes a note's start, keeping its end", () => {
-    assert.deepEqual(resizeNote([E4], 0, E4, "start", -0.6)[0], {
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", -0.6, SIXTEENTHS)[0], {
       ...E4,
       start: 1.5,
       length: 1,
     });
-    assert.deepEqual(resizeNote([E4], 0, E4, "start", 2)[0], {
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", 2, SIXTEENTHS)[0], {
       ...E4,
       start: 2.25,
       length: 0.25,
     });
     // Never before the clip's content start.
-    assert.deepEqual(resizeNote([E4], 0, E4, "start", -9)[0], {
+    assert.deepEqual(resizeNote([E4], 0, E4, "start", -9, SIXTEENTHS)[0], {
       ...E4,
       start: 0,
       length: 2.5,
@@ -374,7 +416,14 @@ describe("a note with expression", () => {
   };
 
   it("keeps its curve in place when its start is dragged", () => {
-    const [resized] = resizeNote([expressive], 0, expressive, "start", 1);
+    const [resized] = resizeNote(
+      [expressive],
+      0,
+      expressive,
+      "start",
+      1,
+      SIXTEENTHS,
+    );
     assert.equal(resized.start, 1);
     assert.equal(resized.length, 3);
     assert.deepEqual(resized.expression?.bend, [
@@ -384,9 +433,16 @@ describe("a note with expression", () => {
   });
 
   it("keeps its curve when its end is dragged or it is moved", () => {
-    const [resized] = resizeNote([expressive], 0, expressive, "end", -1);
+    const [resized] = resizeNote(
+      [expressive],
+      0,
+      expressive,
+      "end",
+      -1,
+      SIXTEENTHS,
+    );
     assert.equal(resized.expression?.bend, bend);
-    const moved = moveNote([expressive], 0, expressive, 2, 3);
+    const moved = moveNote([expressive], 0, expressive, 2, 3, SIXTEENTHS);
     assert.equal(
       moved.find((note) => note.pitch === 63)?.expression?.bend,
       bend,

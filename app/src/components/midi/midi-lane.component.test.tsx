@@ -37,10 +37,7 @@ import {
   type MidiClipTimeline,
 } from "../../midi-clip-timeline.ts";
 import { addDefaultSynth, midiChainOf } from "../../midi-effects.ts";
-import {
-  PIANO_ROLL_HIGH_PITCH,
-  PIANO_ROLL_SNAP_Q,
-} from "../../midi-piano-roll.ts";
+import { PIANO_ROLL_HIGH_PITCH } from "../../midi-piano-roll.ts";
 import { DEFAULT_ARPEGGIATOR } from "../../note-generators.ts";
 import { setNoteClipboard } from "../../piano-roll-actions.ts";
 import { createPlayheadSignal } from "../../playhead-signal.ts";
@@ -376,22 +373,23 @@ test(
       .getByRole("region", { name: "Bassline notes" })
       .element()
       .querySelector("header");
-    expect(header?.textContent?.trim()).toBe("NotesAll devices");
+    expect(header?.textContent?.trim()).toBe("NotesAll devicesAdaptive (1/4)");
   },
   EDITOR_TEST_TIMEOUT,
 );
 
 test(
-  "clicking the piano roll adds a note, and undo removes it",
+  "clicking the piano roll adds a note one grid cell long, and undo removes it (#1654)",
   async () => {
     const { grid, notes } = await openPianoRoll();
-    const point = cell(grid, 6, 52);
+    // At the roll's opening zoom, Adaptive's cells are quarters.
+    const point = cell(grid, 6.5, 52);
     await click(point.x, point.y);
     await expect.poll(() => notes()?.length).toBe(4);
     expect(notes()?.[3]).toEqual({
       pitch: 52,
       start: 6,
-      length: PIANO_ROLL_SNAP_Q,
+      length: 1,
       velocity: 100,
     });
     // The lane's thumbnail follows.
@@ -407,18 +405,21 @@ test(
   EDITOR_TEST_TIMEOUT,
 );
 
-// What a stroke across empty grid at `pitch` paints: a note per cell from
-// `fromQ` up to `toQ`.
-function paintedRun(pitch: number, fromQ: number, toQ: number) {
-  return Array.from(
-    { length: (toQ - fromQ) / PIANO_ROLL_SNAP_Q },
-    (_, index) => ({
-      pitch,
-      start: fromQ + index * PIANO_ROLL_SNAP_Q,
-      length: PIANO_ROLL_SNAP_Q,
-      velocity: 100,
-    }),
-  );
+// What a stroke across empty grid at `pitch` paints: a note per `cellQ`
+// cell from `fromQ` up to `toQ`.
+function paintedRun(pitch: number, fromQ: number, toQ: number, cellQ = 1) {
+  return Array.from({ length: (toQ - fromQ) / cellQ }, (_, index) => ({
+    pitch,
+    start: fromQ + index * cellQ,
+    length: cellQ,
+    velocity: 100,
+  }));
+}
+
+// Picks `grid` from the roll's grid size menu.
+async function chooseGrid(grid: string) {
+  await userEvent.click(page.getByRole("combobox", { name: "Grid size" }));
+  await userEvent.click(page.getByRole("option", { name: grid, exact: true }));
 }
 
 test(
@@ -429,7 +430,7 @@ test(
     const to = cell(grid, 5, 52);
     // A single move across the cells, as a fast drag sends.
     await drag(from, to, { steps: 1 });
-    const run = paintedRun(52, 4, 5.25);
+    const run = paintedRun(52, 4, 6);
     await expect
       .poll(() => notes()?.filter((note) => note.pitch === 52))
       .toEqual(run);
@@ -447,11 +448,12 @@ test(
   "a paint stroke replaces the notes under it and stops at the clip's Length (#1595, #1612)",
   async () => {
     const { grid, notes } = await openPianoRoll();
+    await chooseGrid("1/16");
     // Across G3, which sits at quarters 2 to 3 of the row.
     await drag(cell(grid, 1.5, 55), cell(grid, 3.25, 55), { steps: 4 });
     await expect
       .poll(() => notes()?.filter((note) => note.pitch === 55))
-      .toEqual(paintedRun(55, 1.5, 3.5));
+      .toEqual(paintedRun(55, 1.5, 3.5, 0.25));
     expect(notes()?.filter((note) => note.pitch !== 55)).toEqual(
       NOTES.filter((note) => note.pitch !== 55),
     );
@@ -462,7 +464,7 @@ test(
     await drag(cell(grid, 7.5, 52), cell(grid, 9, 52), { steps: 4 });
     await expect
       .poll(() => notes()?.filter((note) => note.pitch === 52))
-      .toEqual(paintedRun(52, 7.5, 8));
+      .toEqual(paintedRun(52, 7.5, 8, 0.25));
   },
   EDITOR_TEST_TIMEOUT,
 );
@@ -517,6 +519,7 @@ test(
   "resizing a note over notes of its pitch removes them on commit, as one undo step (#1612)",
   async () => {
     const { grid, notes, status } = await openPianoRoll();
+    await chooseGrid("1/16");
     // Two more notes on G3's row: one G3 grows over, one it stops touching.
     await drag(cell(grid, 3.5, 55), cell(grid, 3.5, 55));
     await drag(cell(grid, 5, 55), cell(grid, 5, 55));
@@ -552,6 +555,7 @@ test(
   "dragging a note's edges resizes it on the grid as one undo step each",
   async () => {
     const { notes, status } = await openPianoRoll();
+    await chooseGrid("1/16");
     const note = noteButton("C4");
     if (!note) {
       throw new Error("missing C4 note");
@@ -721,9 +725,10 @@ test(
   "the arrows nudge and transpose the selected notes, one undo step each (#1397)",
   async () => {
     const { notes, status } = await openPianoRoll();
+    await chooseGrid("1/16");
     await clickNote("C3");
     await clickNote("G3", ["Shift"]);
-    // A snap right, then half a snap more.
+    // A cell right, then half a cell more.
     await userEvent.keyboard("{ArrowRight}");
     await expect.poll(() => notes()?.[0]?.start).toBe(0.25);
     await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
@@ -1135,9 +1140,7 @@ test(
     await click(point.x, point.y);
     await expect
       .poll(() => bassSpans().find((item) => item.id === clip.id)?.notes)
-      .toEqual([
-        { pitch: 60, start: 1, length: PIANO_ROLL_SNAP_Q, velocity: 100 },
-      ]);
+      .toEqual([{ pitch: 60, start: 1, length: 1, velocity: 100 }]);
     await expect
       .poll(() => span()?.querySelectorAll(".source-span__midi-note").length)
       .toBe(1);
@@ -1201,14 +1204,14 @@ test("Paste puts the first note at the note the playhead sounds, snapped (#1397)
   });
   document.querySelector<HTMLElement>("[data-piano-roll-grid]")?.focus();
   // 1.6 quarters into the clip sounds quarter 3.6 from its Start at 2,
-  // which snaps down to 3.5.
+  // which snaps down to 3 on the opening zoom's quarter-note grid.
   signal.set(11.6);
   await pressMod("v");
   expect(onSetNotes).toHaveBeenLastCalledWith(
     "clip",
     [
-      { pitch: 48, start: 3.5, length: 1, velocity: 100 },
-      { pitch: 55, start: 4, length: 1, velocity: 100 },
+      { pitch: 48, start: 3, length: 1, velocity: 100 },
+      { pitch: 55, start: 3.5, length: 1, velocity: 100 },
     ],
     "Paste Notes",
   );

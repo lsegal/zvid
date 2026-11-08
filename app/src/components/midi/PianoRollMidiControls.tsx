@@ -20,11 +20,14 @@ const ACCESS_MESSAGES = {
   denied: "MIDI permission denied",
 };
 
-/** Whether `target` is in the controls, including the device list's portal. */
+/**
+ * Whether `target` is in the controls, including the device and grid size
+ * lists' portals.
+ */
 export function isMidiControl(target: EventTarget) {
   return Boolean(
     (target as Element).closest(
-      "[data-piano-roll-midi-controls], .piano-roll__midi-device-list",
+      "[data-piano-roll-midi-controls], .piano-roll__midi-device-list, .piano-roll__grid-size-list",
     ),
   );
 }

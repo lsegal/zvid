@@ -200,7 +200,9 @@
   outline-offset: 1px;
 }
 
-/* Rows for each key, darker for black keys' rows, with beat and bar lines. */
+/* Rows for each key, darker for black keys' rows, with bar, beat and grid
+   cell lines. Beat lines step out with cells coarser than a beat, so every
+   line drawn is one a painted note can start on. */
 .piano-roll__grid {
   position: relative;
   flex: none;
@@ -212,10 +214,12 @@
       transparent 1px
     ),
     linear-gradient(90deg, rgb(var(--tint) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--tint) / 0.035) 1px, transparent 1px),
     linear-gradient(0deg, rgb(var(--tint) / 0.05) 1px, transparent 1px);
   background-size:
     calc(var(--piano-roll-quarter) * 4) 100%,
-    var(--piano-roll-quarter) 100%,
+    max(var(--piano-roll-quarter), var(--piano-roll-cell)) 100%,
+    var(--piano-roll-cell) 100%,
     100% var(--piano-roll-row);
   cursor: crosshair;
   touch-action: none;
