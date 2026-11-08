@@ -489,5 +489,4 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
     tap(keysPort, C4);
     await expect.poll(() => orderOf(state())?.enabled).toBe(true);
   });
-
 });
