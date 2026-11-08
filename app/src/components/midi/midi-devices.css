@@ -24,6 +24,10 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   scrollbar-width: thin;
+  /* As wide as the unzoomed grid, not the zoomed one, so zooming scales the
+     grid inside the roll rather than resizing the Notes region (#1652). */
+  contain: inline-size;
+  contain-intrinsic-inline-size: calc(34px + var(--piano-roll-fit-width));
   /* Sized to its content, the roll would leave out its vertical scrollbar
      where scrollbars take room (Linux, Windows), and show a horizontal one
      until the next layout, which moves the velocity lane under the pointer. */
