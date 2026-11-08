@@ -81,6 +81,7 @@ import { useComputerKeyboardEntry } from "./use-computer-keyboard-entry";
 import { useMidiNoteCapture } from "./use-midi-note-capture";
 import { usePianoRollPan } from "./use-piano-roll-pan";
 import { usePianoRollStroke } from "./use-piano-roll-stroke";
+import { usePianoRollView } from "./use-piano-roll-view";
 
 export type SetMidiClipNotes = (
   spanId: string,
@@ -150,16 +151,6 @@ type NoteDrag = {
 
 const NO_SELECTION: ReadonlySet<string> = new Set();
 
-// The quarters the roll shows: the clip's Length and every note, out to the
-// next bar, and one more bar to drag the loop or the clip's end into.
-function rollViewQ(notes: readonly MidiNote[], timeline: MidiClipTimeline) {
-  const lastQ = notes.reduce(
-    (end, note) => Math.max(end, note.start + note.length),
-    timeline.length,
-  );
-  return Math.ceil(lastQ / 4) * 4 + 4;
-}
-
 // The selected MIDI clip's piano roll, after its Clip properties: a key for
 // each pitch down the left and the clip's notes across, from its quarter 0,
 // under its own ruler with the loop brace and Start marker (see
@@ -218,7 +209,14 @@ export function PianoRoll({
   const pan = usePianoRollPan(scrollRef);
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   const quarterPx = PIANO_ROLL_QUARTER_PX * zoom;
-  const viewQ = rollViewQ(notes, timeline);
+  const { viewQ, fitWidth } = usePianoRollView({
+    scrollRef,
+    collapsed,
+    notes,
+    timeline,
+    quarterPx,
+    fitQuarterPx: PIANO_ROLL_QUARTER_PX,
+  });
   const gridWidth = viewQ * quarterPx;
   const gridHeight = PITCHES.length * PIANO_ROLL_ROW_PX;
   const style = {
@@ -227,6 +225,7 @@ export function PianoRoll({
     "--piano-roll-quarter": `${quarterPx}px`,
     "--piano-roll-ruler": `${PIANO_ROLL_RULER_PX}px`,
     "--piano-roll-velocity": `${velocityLane.height}px`,
+    "--piano-roll-fit-width": `${fitWidth}px`,
   } as CSSProperties;
 
   // Opens on the clip's notes, or on middle C when it has none.
