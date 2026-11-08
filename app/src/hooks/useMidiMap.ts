@@ -168,8 +168,11 @@ export function useMidiMap({
     // be known with no piano roll open, and a roll watches for a device turning
     // out to play MPE as it reads the same messages into the hub's.
     const mpeOwner = {};
-    // The keys down that this claimed, with the pads each holds.
+    // The keys down that this heard, with the pads each holds.
     const heldKeys = new Map<string, readonly string[]>();
+    // The keys down whose press this claimed. Only their releases are claimed,
+    // since a release kept from whoever heard the press leaves its note on.
+    const claimedKeys = new Set<string>();
     // When each channel's bend was last taken for a wheel, by input and channel.
     const wheelBends = new Map<string, number>();
     // Each device's 14-bit controls, and the reading of the message in hand:
@@ -361,15 +364,21 @@ export function useMidiMap({
             knobsOf(reading).length > 0
           );
         }
+        const id = heldKeyId(input, key);
         if (!key.down) {
           mpe.released(key.channel, key.pitch);
-          return heldKeys.has(heldKeyId(input, key));
+          return claimedKeys.delete(id);
         }
         mpe.pressed(key.channel, key.pitch);
-        return (
+        const claimed =
           latestRef.current.active ||
-          targetsOf(mapKeyOf(mpeOwner, input, key)).length > 0
-        );
+          targetsOf(mapKeyOf(mpeOwner, input, key)).length > 0;
+        if (claimed) {
+          claimedKeys.add(id);
+        } else {
+          claimedKeys.delete(id);
+        }
+        return claimed;
       },
       message(input, message) {
         const key = midiKeyEvent(message, input.mapping);
@@ -443,6 +452,11 @@ export function useMidiMap({
         for (const id of [...heldKeys.keys()]) {
           if (id.startsWith(`${input.id}:`)) {
             releaseKey(id);
+          }
+        }
+        for (const id of [...claimedKeys]) {
+          if (id.startsWith(`${input.id}:`)) {
+            claimedKeys.delete(id);
           }
         }
         mpeInputFor(mpeOwner, input.id).releaseAll();

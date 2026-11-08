@@ -119,6 +119,67 @@ async function mapOrderPower(note = C4, channel = 1) {
   await expect.element(orderPower()).not.toHaveAttribute("data-key-map");
 }
 
+// Opens the Bassline MIDI clip's piano roll, with C4 mapped to Bloom's power.
+async function openBassline() {
+  const base = withTestPatternTrack(INITIAL_PROJECT_STATE);
+  const effects = addDefaultSynth(
+    [...base.effects, createEffect(GLOBAL_EFFECT_TRACK_ID, "Bloom", "bloom")],
+    "bass",
+    "bass-synth",
+  );
+  let state: EditorState | undefined;
+  await renderEditor({
+    project: {
+      ...base,
+      effects,
+      midiMappings: [
+        {
+          note: C4,
+          channel: 1,
+          target: { kind: "power", effectId: "bloom" },
+        },
+      ],
+      sourceTracks: [
+        ...base.sourceTracks,
+        { id: "bass", name: "Bass", colorIndex: 2, recordingPaths: [] },
+      ],
+      sourceSpans: [
+        ...base.sourceSpans,
+        {
+          id: "bassline",
+          sourceTrackId: "bass",
+          label: "Bassline",
+          mediaPath: "",
+          startQ: 0,
+          durationSeconds: 60,
+          trimStartSeconds: 0,
+          notes: [],
+          tint: "#1c2340",
+          accent: "#7ca1ff",
+        },
+      ],
+    },
+    onState: (next) => {
+      state = next;
+    },
+  });
+  const current = () => state as EditorState;
+  const notes = () =>
+    current().project.sourceSpans.find((span) => span.id === "bassline")?.notes;
+  const clip = document.querySelector<HTMLElement>(
+    '[data-source-span-id="bassline"]',
+  );
+  if (!clip) {
+    throw new Error("missing the MIDI clip");
+  }
+  await userEvent.click(clip);
+  await expect
+    .element(page.getByRole("region", { name: "Bassline notes" }))
+    .toBeVisible();
+  await vi.waitFor(() => expect(keysPort.onmidimessage).not.toBeNull());
+  return { current, notes };
+}
+
 beforeAll(() => {
   Object.defineProperty(navigator, "requestMIDIAccess", {
     configurable: true,
@@ -354,63 +415,7 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
   });
 
   test("in Use mode unmapped keys draw notes and mapped keys don't", async () => {
-    const base = withTestPatternTrack(INITIAL_PROJECT_STATE);
-    const effects = addDefaultSynth(
-      [...base.effects, createEffect(GLOBAL_EFFECT_TRACK_ID, "Bloom", "bloom")],
-      "bass",
-      "bass-synth",
-    );
-    let state: EditorState | undefined;
-    await renderEditor({
-      project: {
-        ...base,
-        effects,
-        midiMappings: [
-          {
-            note: C4,
-            channel: 1,
-            target: { kind: "power", effectId: "bloom" },
-          },
-        ],
-        sourceTracks: [
-          ...base.sourceTracks,
-          { id: "bass", name: "Bass", colorIndex: 2, recordingPaths: [] },
-        ],
-        sourceSpans: [
-          ...base.sourceSpans,
-          {
-            id: "bassline",
-            sourceTrackId: "bass",
-            label: "Bassline",
-            mediaPath: "",
-            startQ: 0,
-            durationSeconds: 60,
-            trimStartSeconds: 0,
-            notes: [],
-            tint: "#1c2340",
-            accent: "#7ca1ff",
-          },
-        ],
-      },
-      onState: (next) => {
-        state = next;
-      },
-    });
-    const current = () => state as EditorState;
-    const notes = () =>
-      current().project.sourceSpans.find((span) => span.id === "bassline")
-        ?.notes;
-    const clip = document.querySelector<HTMLElement>(
-      '[data-source-span-id="bassline"]',
-    );
-    if (!clip) {
-      throw new Error("missing the MIDI clip");
-    }
-    await userEvent.click(clip);
-    await expect
-      .element(page.getByRole("region", { name: "Bassline notes" }))
-      .toBeVisible();
-    await vi.waitFor(() => expect(keysPort.onmidimessage).not.toBeNull());
+    const { current, notes } = await openBassline();
     await userEvent.click(page.getByRole("button", { name: "Play timeline" }));
 
     noteOn(keysPort, C4);
@@ -432,6 +437,22 @@ describe("MIDI Map", { timeout: EDITOR_TEST_TIMEOUT }, () => {
       .not.toBeNull();
     noteOff(keysPort, D4);
     await expect.poll(() => notes()?.map((note) => note.pitch)).toEqual([D4]);
+  });
+
+  test("an unmapped key's release reaches the piano roll while keys are mapped", async () => {
+    await openBassline();
+    const playedRows = () =>
+      document.querySelectorAll("[data-piano-roll-played-row]").length;
+    // An MPE controller plays each note on a channel of its own (#1650).
+    noteOn(keysPort, D4, 2);
+    noteOn(keysPort, D4 + 2, 3);
+    await expect.poll(playedRows).toBe(2);
+    noteOff(keysPort, D4, 2);
+    noteOff(keysPort, D4 + 2, 3);
+    await expect.poll(playedRows).toBe(0);
+    tap(keysPort, D4);
+    await settle();
+    expect(playedRows()).toBe(0);
   });
 
   test("Key Map and MIDI Map take turns with the buttons", async () => {
