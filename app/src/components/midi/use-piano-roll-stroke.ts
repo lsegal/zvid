@@ -36,6 +36,8 @@ type PianoRollStrokeOptions = {
   spanId: string;
   // Where the clip's Length ends: a stroke paints inside it only.
   lengthQ: number;
+  // The roll's grid: a painted note is one of its cells.
+  cellsPerQ: number;
   gridPoint: (
     point: ClientPoint,
   ) => { pitch: number; startQ: number } | undefined;
@@ -56,6 +58,7 @@ type PianoRollStrokeOptions = {
 export function usePianoRollStroke({
   spanId,
   lengthQ,
+  cellsPerQ,
   gridPoint,
   onAudition,
   onPaint,
@@ -84,7 +87,7 @@ export function usePianoRollStroke({
       return eraseNote(current, point.pitch, point.startQ);
     }
     return point.startQ < lengthQ
-      ? paintNote(current, point.pitch, point.startQ, base)
+      ? paintNote(current, point.pitch, point.startQ, base, cellsPerQ)
       : current;
   }
 
@@ -110,7 +113,13 @@ export function usePianoRollStroke({
     };
     const point = gridPoint(event);
     if (point) {
-      stroke.notes = paintNote(base, point.pitch, point.startQ, base);
+      stroke.notes = paintNote(
+        base,
+        point.pitch,
+        point.startQ,
+        base,
+        cellsPerQ,
+      );
       stroke.pitch = point.pitch;
       onAudition(point.pitch);
       onPaint(paintedKeys(stroke));

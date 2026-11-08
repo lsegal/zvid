@@ -4,10 +4,8 @@
 // `trimStartQ` quarters in.
 import { type MidiNote, withNoteStartMoved } from "./midi-clip.ts";
 
-// Edits snap to sixteenth notes.
-export const PIANO_ROLL_SNAP_Q = 0.25;
-// What a click adds: one grid cell at a firm velocity.
-export const NEW_NOTE_LENGTH_Q = PIANO_ROLL_SNAP_Q;
+// Edits snap to the roll's grid, given as its cells per quarter note (see
+// piano-roll-grid.ts), and a click adds one cell at a firm velocity.
 export const NEW_NOTE_VELOCITY = 100;
 // The roll's lowest and highest keys: C1 to C8.
 export const PIANO_ROLL_LOW_PITCH = 24;
@@ -40,9 +38,15 @@ export function isBlackKey(pitch: number) {
   return NOTE_NAMES[((pitch % 12) + 12) % 12].endsWith("#");
 }
 
-/** `valueQ` snapped down to the roll's grid. */
-export function snapQ(valueQ: number) {
-  return Math.floor(valueQ / PIANO_ROLL_SNAP_Q + 1e-9) * PIANO_ROLL_SNAP_Q;
+/** `valueQ` snapped down to a grid of `cellsPerQ` cells a quarter. */
+export function snapQ(valueQ: number, cellsPerQ: number) {
+  return Math.floor(valueQ * cellsPerQ + 1e-9) / cellsPerQ;
+}
+
+// `valueQ` snapped to the nearest line of a grid of `cellsPerQ` cells a
+// quarter.
+function roundQ(valueQ: number, cellsPerQ: number) {
+  return Math.round(valueQ * cellsPerQ) / cellsPerQ;
 }
 
 function clampPitch(pitch: number) {
@@ -67,25 +71,30 @@ function overlapsSpan(note: MidiNote, startQ: number, endQ: number) {
   );
 }
 
-/** `notes` with a new note of `pitch` at `startQ`, kept in start order. */
+/**
+ * `notes` with a new note of `pitch` one cell long in the cell of a grid of
+ * `cellsPerQ` cells a quarter at `startQ`, kept in start order.
+ */
 export function addNote(
   notes: readonly MidiNote[],
   pitch: number,
   startQ: number,
+  cellsPerQ: number,
 ): MidiNote[] {
   return sortNotes([
     ...notes,
     {
       pitch: clampPitch(pitch),
-      start: Math.max(0, snapQ(startQ)),
-      length: NEW_NOTE_LENGTH_Q,
+      start: Math.max(0, snapQ(startQ, cellsPerQ)),
+      length: 1 / cellsPerQ,
       velocity: NEW_NOTE_VELOCITY,
     },
   ]);
 }
 
 /**
- * `notes` with a stroke's new note in the grid cell at `pitch` and `startQ`,
+ * `notes` with a stroke's new note in the cell of a grid of `cellsPerQ`
+ * cells a quarter at `pitch` and `startQ`,
  * replacing any notes of that pitch from `base`, the clip before the stroke,
  * that reach into the cell. `notes` itself when the cell is off the grid or
  * the stroke already painted it.
@@ -95,12 +104,12 @@ export function paintNote(
   pitch: number,
   startQ: number,
   base: readonly MidiNote[],
+  cellsPerQ: number,
 ): readonly MidiNote[] {
-  const start = snapQ(startQ);
+  const start = snapQ(startQ, cellsPerQ);
   const under = notes.filter(
     (note) =>
-      note.pitch === pitch &&
-      overlapsSpan(note, start, start + PIANO_ROLL_SNAP_Q),
+      note.pitch === pitch && overlapsSpan(note, start, start + 1 / cellsPerQ),
   );
   return under.some((note) => !base.includes(note)) ||
     start < 0 ||
@@ -111,14 +120,16 @@ export function paintNote(
         notes.filter((note) => !under.includes(note)),
         pitch,
         start,
+        cellsPerQ,
       );
 }
 
 /**
  * `notes` with the note at `index` moved by `deltaQ` quarters and
  * `deltaPitch` semitones from `from`, its place before the move: snapped to
- * the grid, kept at or after the content start and inside the roll's keys.
- * The note keeps its index while it moves; `sortNotes` reorders the result.
+ * a grid of `cellsPerQ` cells a quarter, kept at or after the content start
+ * and inside the roll's keys. The note keeps its index while it moves;
+ * `sortNotes` reorders the result.
  */
 export function moveNote(
   notes: readonly MidiNote[],
@@ -126,16 +137,13 @@ export function moveNote(
   from: MidiNote,
   deltaQ: number,
   deltaPitch: number,
+  cellsPerQ: number,
 ): MidiNote[] {
   return notes.map((note, noteIndex) =>
     noteIndex === index
       ? {
           ...note,
-          start: Math.max(
-            0,
-            Math.round((from.start + deltaQ) / PIANO_ROLL_SNAP_Q) *
-              PIANO_ROLL_SNAP_Q,
-          ),
+          start: Math.max(0, roundQ(from.start + deltaQ, cellsPerQ)),
           pitch: clampPitch(from.pitch + deltaPitch),
         }
       : note,
@@ -148,9 +156,9 @@ export type NoteEdge = "start" | "end";
 /**
  * `notes` with the note at `index` resized by dragging its `edge` `deltaQ`
  * quarters from `from`, its place before the drag. The dragged edge snaps to
- * the grid and the other stays put, so dragging the end changes the length
+ * a grid of `cellsPerQ` cells a quarter and the other stays put, so dragging the end changes the length
  * and dragging the start moves the note and changes its length the other
- * way. The note never gets shorter than one grid step, nor starts before the
+ * way. The note never gets shorter than one cell, nor starts before the
  * content start.
  */
 export function resizeNote(
@@ -159,24 +167,22 @@ export function resizeNote(
   from: MidiNote,
   edge: NoteEdge,
   deltaQ: number,
+  cellsPerQ: number,
 ): MidiNote[] {
   const endQ = from.start + from.length;
-  const snapped = (valueQ: number) =>
-    Math.round(valueQ / PIANO_ROLL_SNAP_Q) * PIANO_ROLL_SNAP_Q;
+  const cellQ = 1 / cellsPerQ;
+  const snapped = (valueQ: number) => roundQ(valueQ, cellsPerQ);
   return notes.map((note, noteIndex) => {
     if (noteIndex !== index) {
       return note;
     }
     if (edge === "end") {
-      const end = Math.max(
-        from.start + PIANO_ROLL_SNAP_Q,
-        snapped(endQ + deltaQ),
-      );
+      const end = Math.max(from.start + cellQ, snapped(endQ + deltaQ));
       return { ...note, start: from.start, length: end - from.start };
     }
     const start = Math.max(
       0,
-      Math.min(endQ - PIANO_ROLL_SNAP_Q, snapped(from.start + deltaQ)),
+      Math.min(endQ - cellQ, snapped(from.start + deltaQ)),
     );
     return withNoteStartMoved({ ...note, ...from }, start - from.start);
   });
