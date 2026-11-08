@@ -18,13 +18,17 @@ import {
   type MidiClipTimeline,
 } from "../../midi-clip-timeline.ts";
 import { midiHistoryLabels } from "../../midi-editing.ts";
+import {
+  pianoRollCellsPerQ,
+  pianoRollGridLabel,
+} from "../../piano-roll-grid.ts";
 import { PianoRoll } from "./PianoRoll";
 
 // The piano roll's drag gestures: middle-dragging the grid pans both ways, with
 // the main timeline's threshold and momentum (#1597), right-dragging it deletes
 // every note crossed and a right-click with no drag the note under the pointer
 // (#1611). Dragging the ruler pans left and right, and right-dragging it up or
-// down also zooms (#1611).
+// down also zooms (#1611), which Adaptive's grid follows (#1654).
 
 // A note far along, so the roll is much wider than its scroller.
 const NOTES: MidiNote[] = [
@@ -447,14 +451,71 @@ test("the zoomed roll draws and edits notes at their zoomed place", async () => 
   await nextFrames();
   const box = note.getBoundingClientRect();
   await settledDrag(
-    { x: box.right + 32 * scale * 2.5, y: box.top + 5 },
-    { x: box.right + 32 * scale * 2.5, y: box.top + 5 },
+    { x: box.right + 32 * scale * 2.4, y: box.top + 5 },
+    { x: box.right + 32 * scale * 2.4, y: box.top + 5 },
     "left",
   );
   expect(edits[0]?.label).toBe(midiHistoryLabels.addNote);
-  // Half a quarter or so past the note's own end, three quarters on.
+  // In the cell of the zoom's Adaptive grid 2.4 quarters past the note's own
+  // end, and one cell long (#1654).
+  const cellsPerQ = pianoRollCellsPerQ("adaptive", 32 * scale);
   const added = edits[0]?.notes.find(
     (added) => added.pitch === 60 && added.start > 12,
   );
-  expect(added?.start).toBeCloseTo(15.5, 0);
+  expect(added?.start).toBeCloseTo(Math.floor(15.4 * cellsPerQ) / cellsPerQ, 6);
+  expect(added?.length).toBeCloseTo(1 / cellsPerQ, 6);
+});
+
+test("the grid size menu sets the grid drawn and the painted note's length (#1654)", async () => {
+  const { edits, scroller, ruler, grid } = await renderRoll();
+  const roll = grid.closest<HTMLElement>(".piano-roll");
+  const cellPx = () =>
+    Number.parseFloat(roll?.style.getPropertyValue("--piano-roll-cell") ?? "");
+  const menu = page.getByRole("combobox", { name: "Grid size" });
+  // Adaptive at the opening zoom: quarter-note cells, 32px wide.
+  await expect.element(menu).toHaveTextContent("Adaptive (1/4)");
+  expect(cellPx()).toBe(32);
+
+  // Zoomed in, Adaptive steps finer, its cells never narrower than 32px.
+  const from = freeRulerPoint(scroller, ruler);
+  const { scale } = await rightDragRuler(grid, from, {
+    x: from.x,
+    y: from.y - 300,
+  });
+  const quarterPx = 32 * scale;
+  expect(pianoRollCellsPerQ("adaptive", quarterPx)).toBeGreaterThan(1);
+  expect(cellPx()).toBeCloseTo(
+    quarterPx / pianoRollCellsPerQ("adaptive", quarterPx),
+    1,
+  );
+  expect(cellPx()).toBeGreaterThanOrEqual(32);
+  expect(cellPx()).toBeLessThan(64);
+
+  // A sixteenth grid draws sixteenths, and a click paints a sixteenth.
+  await userEvent.click(menu);
+  await userEvent.click(
+    page.getByRole("option", { name: "1/16", exact: true }),
+  );
+  await expect.element(menu).toHaveTextContent("1/16");
+  expect(cellPx()).toBeCloseTo(quarterPx / 4, 1);
+  const point = emptyGridPoint(scroller);
+  await settledDrag(point, point, "left");
+  expect(edits.at(-1)?.label).toBe(midiHistoryLabels.addNote);
+  const added = edits
+    .at(-1)
+    ?.notes.find(
+      (note) =>
+        !NOTES.some(
+          (other) => other.pitch === note.pitch && other.start === note.start,
+        ),
+    );
+  expect(added?.length).toBe(0.25);
+
+  // Back to Adaptive, the zoom's grid again.
+  await userEvent.click(menu);
+  await userEvent.click(page.getByRole("option", { name: /^Adaptive/ }));
+  await expect
+    .element(menu)
+    .toHaveTextContent(pianoRollGridLabel("adaptive", quarterPx));
+  expect(cellPx()).toBeGreaterThanOrEqual(32);
 });
